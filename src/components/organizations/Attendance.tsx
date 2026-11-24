@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { exportRegisterAction, readAttendanceAction, saveAttendanceAction, saveAttendanceSettingsAction } from "@/app/actions/attendance";
+import { checkInAction, exportRegisterAction, readAttendanceAction, saveAttendanceAction, saveAttendanceSettingsAction, sendAbsenceNoteAction, startCheckInAction } from "@/app/actions/attendance";
+import { readSectionsAction } from "@/app/actions/sections";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -29,6 +30,11 @@ const short = (start: string) => new Intl.DateTimeFormat("en", { month: "short",
 export function AttendanceView({ orgId }: { orgId: string }) {
   const q = useAttendance(orgId);
   const [taking, setTaking] = useState<string | null>(null);
+  const [code, setCode] = useState<{ code: string; until: string } | null>(null);
+  const [section, setSection] = useState("");
+  const sections = useQuery({ queryKey: ["class-sections", orgId], queryFn: () => readSectionsAction(orgId), staleTime: 30_000 });
+  const sectionOptions = (sections.data?.success && sections.data.role !== "student" ? sections.data.sections : null) ?? [];
+  const inSection = section ? new Set(sectionOptions.find((x) => x.id === section)?.students.map((st) => st.id) ?? []) : null;
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading attendance…</p>;
   const data = q.data;
   if (!data?.success) return <ErrorNotice what="Attendance" onRetry={() => void q.refetch()} />;
@@ -47,9 +53,23 @@ export function AttendanceView({ orgId }: { orgId: string }) {
         <h2 className="nb-section-title">Attendance{data.settings.minimum ? <span className="nb-meta font-mono"> · minimum {data.settings.minimum}%</span> : null}</h2>
         {staff ? <span className="flex gap-2">
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={!data.sessions.length} onClick={() => void exportCsv()}>Export register</button>
+          {data.settings.checkInCode && data.today && data.canWrite ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void startCheckInAction(orgId).then((r) => {
+            if (!r.success) return void toast.error(r.error);
+            setCode({ code: r.code, until: r.expiresAt });
+          })}>Check-in code</button> : null}
           {takeKey && data.canWrite ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => setTaking(takeKey)}>Take attendance</button> : null}
         </span> : null}
       </div>
+      {code ? <p className="text-[13px]" data-testid="check-in-code" role="status">Check-in code <span className="font-mono text-[18px] font-semibold tracking-widest">{code.code}</span>
+        <span className="text-muted-foreground"> · students tap I’m here and type it · until {new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(code.until))}</span></p> : null}
+      {staff && sectionOptions.length ? (
+        <label className="flex items-center gap-2 text-[13px]">Section
+          <select className="nb-select w-[200px]" value={section} onChange={(e) => setSection(e.target.value)}>
+            <option value="">All students</option>
+            {sectionOptions.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+        </label>
+      ) : null}
       {data.sessions.length === 0 ? <p className="text-[13px] text-muted-foreground">No sessions held yet. Sessions come from Class details and the term dates.</p> : (
         <div className="overflow-x-auto rounded-md border border-border bg-card">
           <table className="w-full min-w-[560px] text-[13px]">
@@ -60,7 +80,7 @@ export function AttendanceView({ orgId }: { orgId: string }) {
                 <th scope="col" className="px-3 py-2 text-right font-medium">Attendance</th></tr>
             </thead>
             <tbody>
-              {data.students.map((st) => (
+              {data.students.filter((st) => !inSection || inSection.has(st.id)).map((st) => (
                 <tr key={st.id} className="border-b border-border" data-testid="attendance-row">
                   <th scope="row" className="sticky left-0 bg-card px-3 py-2 text-left font-medium">{st.name}</th>
                   {cols.map((s) => { const v = st.records[s.key] as AttendanceStatus | undefined; return (
@@ -135,6 +155,7 @@ export function YourAttendanceLine({ orgId }: { orgId: string }) {
         {data.settings.minimum ? <span className="text-muted-foreground"> · minimum {data.settings.minimum}%</span> : null}
         {me.canMiss != null ? <span className="text-muted-foreground"> · {me.canMiss === 0 ? "don’t miss another class" : `you can miss ${me.canMiss} more ${me.canMiss === 1 ? "class" : "classes"}`}</span> : null}</p>
       {me.below ? <p className="mt-1 text-[13px] text-[var(--status-danger)]">Below the minimum.</p> : null}
+      <StudentActions orgId={orgId} today={data.today?.key ?? null} sessions={data.sessions.map((x) => x.key)} notes={data.settings.absenceNotes} />
     </OrgCard>
   );
 }
@@ -162,10 +183,43 @@ export function AttendanceSettingsCard({ orgId }: { orgId: string }) {
           <label className="flex items-center gap-2"><input type="checkbox" className="nb-checkbox" checked={s.lateCountsPresent} onChange={(e) => setDraft({ ...s, lateCountsPresent: e.target.checked })} />Late counts as present</label>
           <label className="flex items-center gap-2">Late after <Input type="number" min={0} max={120} aria-label="Late after, minutes" value={s.lateAfterMinutes} onChange={(e) => setDraft({ ...s, lateAfterMinutes: Number(e.target.value) || 0 })} className="w-[80px]" /> minutes</label>
           <label className="flex items-center gap-2"><input type="checkbox" className="nb-checkbox" checked={s.absenceNotes} onChange={(e) => setDraft({ ...s, absenceNotes: e.target.checked })} />Students can send an absence note</label>
-          <label className="flex items-center gap-2">Minimum <Input type="number" min={1} max={100} aria-label="Minimum attendance, percent" value={s.minimum ?? ""} placeholder="None" onChange={(e) => setDraft({ ...s, minimum: e.target.value ? Number(e.target.value) : null })} className="w-[80px]" />%</label>
+          <label className="flex items-center gap-2"><input type="checkbox" className="nb-checkbox" checked={s.checkInCode} onChange={(e) => setDraft({ ...s, checkInCode: e.target.checked })} />Check-in code (students type a 4-digit code, valid 10 minutes)</label>
+          <label className="flex items-center gap-2">Minimum <Input type="number" min={1} max={100} aria-label="Minimum attendance, percent" value={s.minimum ?? ""} placeholder="None" disabled={s.minimumLocked} onChange={(e) => setDraft({ ...s, minimum: e.target.value ? Number(e.target.value) : null })} className="w-[80px]" />%
+            {s.minimumLocked ? <span className="text-muted-foreground" data-testid="minimum-set-by-school">· Set by your school</span> : null}</label>
           <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save attendance settings</button>
         </div>
       </SettingsCard>
     </section>
+  );
+}
+
+/** I'm here (with the code) and Send an absence note (text only, call 4). */
+function StudentActions({ orgId, today, sessions, notes }: { orgId: string; today: string | null; sessions: string[]; notes: boolean }) {
+  const client = useQueryClient();
+  const [code, setCode] = useState("");
+  const [note, setNote] = useState("");
+  const [noteFor, setNoteFor] = useState(today ?? sessions.at(-1) ?? "");
+  const [open, setOpen] = useState<"code" | "note" | null>(null);
+  const refresh = () => client.invalidateQueries({ queryKey: key(orgId) });
+  return (
+    <div className="mt-2 space-y-2 text-[13px]">
+      <p className="flex flex-wrap gap-3">
+        {today ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setOpen(open === "code" ? null : "code")}>I’m here</button> : null}
+        {notes && (today || sessions.length) ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setOpen(open === "note" ? null : "note")}>Send an absence note</button> : null}
+      </p>
+      {open === "code" ? (
+        <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); void checkInAction(orgId, code).then((r) => { if (!r.success) return void toast.error(r.error); toast(r.status === "late" ? "Checked in, late" : "Checked in"); setOpen(null); void refresh(); }); }}>
+          <Input aria-label="Check-in code" inputMode="numeric" maxLength={4} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="w-[100px] font-mono tracking-widest" />
+          <button type="submit" className={FORM_PRIMARY_CLASS} disabled={code.length !== 4}>Check in</button>
+        </form>
+      ) : null}
+      {open === "note" ? (
+        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void sendAbsenceNoteAction(orgId, noteFor, note).then((r) => { if (!r.success) return void toast.error(r.error); toast("Sent to your teacher"); setOpen(null); setNote(""); void refresh(); }); }}>
+          <Input aria-label="Absence note" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="Why you'll miss it, in a few words" />
+          <p className="text-[12px] text-muted-foreground">Text only. Don’t attach medical papers; your teacher decides on Excused.</p>
+          <button type="submit" className={FORM_PRIMARY_CLASS} disabled={!note.trim() || !noteFor}>Send</button>
+        </form>
+      ) : null}
+    </div>
   );
 }

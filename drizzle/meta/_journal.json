@@ -883,6 +883,13 @@
       "when": 1795529699824,
       "tag": "0126_attendance_records",
       "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1795531127751,
+      "tag": "0127_attendance_absence_notes",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, saveDepartmentsAction, setClassDepartmentAction, unlinkClassAction, type Department, type InstitutionClass } from "@/app/actions/institutions";
+import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, saveDepartmentsAction, saveSchoolAttendanceMinimumAction, setClassDepartmentAction, unlinkClassAction, type Department, type InstitutionClass } from "@/app/actions/institutions";
 import { readOrgMembersAction } from "@/app/actions/org-members";
 import { Input } from "@/components/ui/input";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
@@ -85,6 +85,7 @@ export function OrgSchoolCard({ orgId, isSchool }: { orgId: string; isSchool: bo
           )}
         </SettingsCard>
         <DepartmentsCard schoolId={orgId} departments={school.departments} onSaved={refresh} />
+        <SchoolMinimum schoolId={orgId} value={school.attendanceMinimum} onSaved={refresh} />
       </section>
     );
   }
@@ -167,6 +168,26 @@ function DepartmentsCard({ schoolId, departments, onSaved }: { schoolId: string;
           <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setRows((cur) => [...cur, { id: "", name: "", heads: [] }])}>Add department</button>
           <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={() => void save()}>Save departments</button>
         </div>
+      </div>
+    </SettingsCard>
+  );
+}
+
+/** B1.4b (report 30.7): the school's attendance minimum, locked in every class ("Set by"). Empty means each class decides. */
+function SchoolMinimum({ schoolId, value, onSaved }: { schoolId: string; value: number | null; onSaved: () => Promise<void> }) {
+  const [draft, setDraft] = useState(value == null ? "" : String(value));
+  useEffect(() => setDraft(value == null ? "" : String(value)), [value]);
+  const save = async () => {
+    const r = await saveSchoolAttendanceMinimumAction(schoolId, draft ? Number(draft) : null);
+    if (!r.success) return void toast.error(r.error);
+    toast.success(draft ? `Minimum ${draft}% set for every class` : "Each class sets its own minimum");
+    await onSaved();
+  };
+  return (
+    <SettingsCard title="Attendance" headingLevel={2} description="A minimum every class in the school follows. You see each class’s average and how many are below it, never names.">
+      <div className="flex flex-wrap items-center gap-3 text-[13px]" data-testid="school-attendance-minimum">
+        <label className="flex items-center gap-2">Minimum <Input type="number" min={1} max={100} aria-label="School attendance minimum, percent" value={draft} placeholder="None" onChange={(e) => setDraft(e.target.value)} className="w-[80px]" />%</label>
+        <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save minimum</button>
       </div>
     </SettingsCard>
   );

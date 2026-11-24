@@ -4,18 +4,23 @@ import { csvCell } from "@/lib/csv";
  * Report 30.7 W6 (plan B1.4): attendance rules, pure. A record is per session (W1's session key) and student.
  */
 export type AttendanceStatus = "present" | "late" | "absent" | "excused";
-export type AttendanceSettings = { on: boolean; lateCountsPresent: boolean; lateAfterMinutes: number; absenceNotes: boolean; minimum: number | null };
+/** `minimumSetBy`: B1.4b, the school pushed its minimum down (locked "Set by"). */
+export type AttendanceSettings = { on: boolean; lateCountsPresent: boolean; lateAfterMinutes: number; absenceNotes: boolean; checkInCode: boolean; minimum: number | null; minimumLocked: boolean };
 
 export function readAttendanceSettings(orgSettings: unknown): AttendanceSettings {
   const raw = ((orgSettings as { attendance?: Record<string, unknown> } | null)?.attendance ?? {}) as Record<string, unknown>;
-  const min = raw.minimum;
+  // B1.4b: a school's minimum (pushed into the class as attendanceMinimum) wins over the class's own.
+  const pushed = (orgSettings as { attendanceMinimum?: unknown } | null)?.attendanceMinimum;
+  const min = typeof pushed === "number" ? pushed : raw.minimum;
   return {
     // Call 1: on by default where a minimum is set; otherwise the teacher turns it on.
     on: raw.on === true || (raw.on === undefined && typeof min === "number"),
     lateCountsPresent: raw.lateCountsPresent !== false,
     lateAfterMinutes: typeof raw.lateAfterMinutes === "number" && raw.lateAfterMinutes >= 0 && raw.lateAfterMinutes <= 120 ? raw.lateAfterMinutes : 10,
     absenceNotes: raw.absenceNotes !== false,
+    checkInCode: raw.checkInCode === true,
     minimum: typeof min === "number" && min > 0 && min <= 100 ? min : null,
+    minimumLocked: typeof pushed === "number",
   };
 }
 

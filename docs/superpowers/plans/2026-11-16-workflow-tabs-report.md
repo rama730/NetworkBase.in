@@ -7642,6 +7642,7 @@ STUDENT · class Overview rail
 - The minimum is a class setting until B1.4b pushes the school's down (locked "Set by"). Only students (members) are on the register. Records count from the student's join day; cancelled sessions never count. **[call]**
 - After 7 days only the Teacher changes a record; every change is kept in the record's history and logged. **[call]**
 - Attendance and section membership are in the account export. **[call]**
+- **B1.4b as built:** a check-in code is four digits for today's session, valid 10 minutes, kept on the server; a student gets 5 tries in 10 minutes; checking in never overwrites a mark staff made. An absence note is a record with a note and no status yet (0127) until the teacher decides. Crossing below the minimum tells the student once (Important) and the teacher (Summary). A school's minimum (Settings → Attendance on the school) is pushed into its classes and locked; leaving the school unlocks it. The school sees each class's average and how many are below, never names. Records of a cancelled session are kept and never count; restoring the session brings them back (no "Keep or clear" prompt). **[call]**
 
 ### 30.8 W7 · Marks and rubric (agreed 2026-11-17)
 **References:**

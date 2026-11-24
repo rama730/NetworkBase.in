@@ -108,7 +108,7 @@ export async function unlinkClassAction(classId: string): Promise<{ success: tru
   const fromInstitution = c.institutionId ? admin(await roleIn(c.institutionId, userId, "write")) : false;
   if (!fromClass && !fromInstitution) return DENIED;
   if (!c.institutionId && !pending) return { success: true };
-  await db.update(workspaces).set({ institutionId: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest' - 'department'` }).where(eq(workspaces.id, classId));
+  await db.update(workspaces).set({ institutionId: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest' - 'department' - 'attendanceMinimum'` }).where(eq(workspaces.id, classId));
   return { success: true };
 }
 
@@ -138,6 +138,9 @@ export type InstitutionClass = {
   counted: boolean; members: number; openAssignments: number; toReview: number; lastActivity: string | null;
   /** B1.2b Behind plan: lessons whose class has passed but aren't marked taught. */
   behindPlan: number;
+  /** B1.4b (report 30.7 call): the class's average attendance and how many are below its minimum — never names. */
+  attendanceAvg: number | null;
+  belowMinimum: number;
 };
 export type Department = { id: string; name: string; heads: string[] };
 const departmentsOf = (o: { orgSettings: unknown }): Department[] => {
@@ -174,7 +177,22 @@ export async function readInstitutionClassesAction(institutionId: string) {
     const known = new Set(departments.map((d) => d.id));
     const { classPlanStates } = await import("@/lib/organizations/term-plan-server");
     const plans = await classPlanStates(rows.map((r) => r.id));
-    return { success: true as const, isAdmin, headOf: [...heads], requests,
+    const { readAttendanceSettings } = await import("@/lib/organizations/attendance");
+    const att = rows.length ? Array.from(await db.execute<{ workspace_id: string; user_id: string; present: number; late: number; absent: number; settings: unknown }>(sql`
+      SELECT a.workspace_id, a.user_id, count(*) FILTER (WHERE a.status = 'present')::int AS present, count(*) FILTER (WHERE a.status = 'late')::int AS late,
+        count(*) FILTER (WHERE a.status = 'absent')::int AS absent, w.org_settings AS settings
+      FROM attendance_records a JOIN workspaces w ON w.id = a.workspace_id
+      WHERE a.workspace_id IN (SELECT id FROM workspaces WHERE institution_id = ${institutionId}::uuid AND deleted_at IS NULL) AND a.status IS NOT NULL
+      GROUP BY a.workspace_id, a.user_id, w.org_settings`)) : [];
+    const attendanceOf = (classId: string) => {
+      const people = att.filter((a) => a.workspace_id === classId);
+      if (!people.length) return { avg: null as number | null, below: 0 };
+      const st = readAttendanceSettings(people[0]!.settings);
+      const pcts = people.map((p) => { const total = p.present + p.late + p.absent; return total ? ((p.present + (st.lateCountsPresent ? p.late : 0)) / total) * 100 : null; }).filter((x): x is number => x != null);
+      return { avg: pcts.length ? Math.round(pcts.reduce((n, x) => n + x, 0) / pcts.length) : null, below: st.minimum == null ? 0 : pcts.filter((x) => x < st.minimum!).length };
+    };
+    const minimum = (inst.orgSettings as { attendanceMinimum?: unknown } | null)?.attendanceMinimum;
+    return { success: true as const, isAdmin, headOf: [...heads], requests, attendanceMinimum: typeof minimum === "number" ? minimum : null,
       // Heads' names are the admins' business; everyone else sees department names.
       departments: departments.map((d) => ({ id: d.id, name: d.name, heads: isAdmin ? d.heads : [] })),
       classes: rows.map((r): InstitutionClass => {
@@ -182,7 +200,8 @@ export async function readInstitutionClassesAction(institutionId: string) {
         const counted = isAdmin || Boolean(department && heads.has(department));
         return { id: r.id, title: r.title, slug: r.slug, teacher: r.teacher, department, termStart: r.term_start, termEnd: r.term_end, counted,
           members: counted ? r.members : 0, openAssignments: counted ? r.open_assignments : 0, toReview: counted ? r.to_review : 0, lastActivity: counted ? r.last_activity : null,
-          behindPlan: counted ? plans.get(r.id)?.unmarked.length ?? 0 : 0 };
+          behindPlan: counted ? plans.get(r.id)?.unmarked.length ?? 0 : 0,
+          attendanceAvg: counted ? attendanceOf(r.id).avg : null, belowMinimum: counted ? attendanceOf(r.id).below : 0 };
       }) };
   } catch (error) {
     logger.warn("institutions.classes_failed", { institutionId, error: error instanceof Error ? error.message : String(error) });
@@ -231,4 +250,15 @@ export async function readSchoolAboutAction(schoolId: string) {
     SELECT id, title, slug, org_settings->>'department' AS department FROM workspaces
     WHERE institution_id = ${schoolId}::uuid AND deleted_at IS NULL AND visibility = 'public' AND status <> 'archived' ORDER BY title LIMIT 200`));
   return { success: true as const, departments: departmentsOf(school).map((d) => ({ id: d.id, name: d.name })), classes };
+}
+
+/** B1.4b (report 30.7): the school's attendance minimum, pushed into every class and locked there ("Set by"). Admins. */
+export async function saveSchoolAttendanceMinimumAction(schoolId: string, minimum: number | null): Promise<{ success: true } | Failure> {
+  const userId = await me();
+  const school = await org(schoolId);
+  if (!userId || !school || school.orgLevel !== "institution" || !admin(await roleIn(schoolId, userId, "write"))) return DENIED;
+  if (minimum !== null && !(Number.isInteger(minimum) && minimum >= 1 && minimum <= 100)) return { success: false, error: "A minimum is between 1 and 100%." };
+  await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ attendanceMinimum: minimum })}::jsonb` }).where(eq(workspaces.id, schoolId));
+  await pushSchoolSettings(schoolId);
+  return { success: true };
 }

@@ -129,7 +129,8 @@
     "drizzle/0123_lesson_staff_notes.sql",
     "drizzle/0124_class_sections.sql",
     "drizzle/0125_section_audience.sql",
-    "drizzle/0126_attendance_records.sql"
+    "drizzle/0126_attendance_records.sql",
+    "drizzle/0127_attendance_absence_notes.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

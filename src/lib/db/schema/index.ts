@@ -1235,7 +1235,8 @@ export const attendanceRecords = pgTable("attendance_records", {
   projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   sessionKey: text("session_key").notNull(),
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
-  status: text("status", { enum: ["present", "late", "absent", "excused"] }).notNull(),
+  /** Null while only a student's absence note is in (0127). */
+  status: text("status", { enum: ["present", "late", "absent", "excused"] }),
   note: text("note"),
   markedBy: uuid("marked_by").references(() => profiles.id, { onDelete: "set null" }),
   markedAt: timestamp("marked_at", { withTimezone: true }).defaultNow().notNull(),

@@ -18,7 +18,8 @@ test("excused counts as neither; late counts as present by default; not taken is
 test("you can miss N more classes, never below zero; settings default on only with a minimum", () => {
   assert.equal(canMissMore({ present: 8, total: 10, remaining: 10, minimum: 75 }), 3);
   assert.equal(canMissMore({ present: 2, total: 10, remaining: 2, minimum: 75 }), 0);
-  assert.deepEqual(readAttendanceSettings({}), { on: false, lateCountsPresent: true, lateAfterMinutes: 10, absenceNotes: true, minimum: null });
+  assert.deepEqual(readAttendanceSettings({}), { on: false, lateCountsPresent: true, lateAfterMinutes: 10, absenceNotes: true, checkInCode: false, minimum: null, minimumLocked: false });
+  assert.deepEqual([readAttendanceSettings({ attendanceMinimum: 80, attendance: { minimum: 60 } }).minimum, readAttendanceSettings({ attendanceMinimum: 80 }).minimumLocked], [80, true], "B1.4b: the school's minimum wins");
   assert.equal(readAttendanceSettings({ attendance: { minimum: 75 } }).on, true);
   assert.equal(readAttendanceSettings({ attendance: { minimum: 75, on: false } }).on, false);
 });
