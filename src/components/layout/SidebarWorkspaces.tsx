@@ -108,8 +108,8 @@ function Row({ row, href, current, prefix, pinned, onPin, muted, tree }: { row: 
 }
 
 /** §2: an organization and its workspaces as one group. */
-function OrgGroup({ org, currentId, forceOpen, filterText, pinned, onPin, active }: {
-    org: SidebarOrg; currentId: string | null; forceOpen: boolean; filterText: string; pinned: Set<string>; onPin: (id: string, pinned: boolean) => void; active: (href: string) => boolean
+function OrgGroup({ org, nested = false, currentId, forceOpen, filterText, pinned, onPin, active }: {
+    org: SidebarOrg; nested?: boolean; currentId: string | null; forceOpen: boolean; filterText: string; pinned: Set<string>; onPin: (id: string, pinned: boolean) => void; active: (href: string) => boolean
 }) {
     const key = `nb:sidebar-org:${org.id}`;
     const [open, setOpen] = useState(true);
@@ -126,7 +126,7 @@ function OrgGroup({ org, currentId, forceOpen, filterText, pinned, onPin, active
     const inkIndex = shown.findIndex((c) => c.id === currentId);
     const needsLabel = org.needsYou ? `${org.needsYou} ${org.needsYou === 1 ? "thing needs" : "things need"} you` : "";
     return (
-        <li data-org-group="">
+        <li data-org-group="" data-nested={nested ? "" : undefined} className={nested ? "pl-3" : undefined}>
             <div className="group relative">
                 {/* The name starts where every other workspace's does (the user, 5 Nov); the arrow sits at the right end. */}
                 <div className="nb-nav-link relative pr-1" aria-current={here ? "page" : undefined} data-org-row data-ws-row style={{ gap: 6 }}>
@@ -220,7 +220,11 @@ export function SidebarWorkspaces({ data, autoFocusFilter = false }: { data: Dat
 
     const pinnedOrgs = data.orgs.filter((o) => pinned.has(o.id));
     const pinnedRows = [...data.personal, ...data.outside, ...data.orgs.flatMap((o) => o.children)].filter((r) => pinned.has(r.id));
-    const orgs = data.orgs.filter((o) => !pinned.has(o.id) && orgMatches(o));
+    const unordered = data.orgs.filter((o) => !pinned.has(o.id) && orgMatches(o));
+    // Report 29.2: a class follows its school, one step in, when both are in the list.
+    const inList = new Set(unordered.map((o) => o.id));
+    const nested = (o: SidebarOrg) => Boolean(o.schoolId && inList.has(o.schoolId));
+    const orgs = unordered.filter((o) => !nested(o)).flatMap((o) => [o, ...unordered.filter((c) => c.schoolId === o.id)]);
     const shownOrgs = showAllOrgs || text ? orgs : orgs.slice(0, MAX_ORGS);
     const personal = data.personal.filter((p) => !pinned.has(p.id) && rowMatches(p));
     const shownPersonal = showAllPersonal || text ? personal : [...personal.slice(0, MAX_PERSONAL), ...personal.slice(MAX_PERSONAL).filter((p) => p.id === currentId)];
@@ -230,7 +234,7 @@ export function SidebarWorkspaces({ data, autoFocusFilter = false }: { data: Dat
     const nothingMatches = Boolean(text) && !pinnedOrgs.some(orgMatches) && !pinnedRows.some(rowMatches) && orgs.length + personal.length + outside.length + requested.length === 0;
     const childFor = (id: string) => data.orgs.find((o) => o.children.some((c) => c.id === id));
 
-    const group = (o: SidebarOrg) => <OrgGroup key={o.id} org={o} currentId={currentId} forceOpen={o.children.some((c) => c.id === currentId)} filterText={text} pinned={pinned} onPin={onPin} active={active} />;
+    const group = (o: SidebarOrg) => <OrgGroup key={o.id} org={o} nested={nested(o)} currentId={currentId} forceOpen={o.children.some((c) => c.id === currentId)} filterText={text} pinned={pinned} onPin={onPin} active={active} />;
     const plain = (r: SidebarRow & { orgTitle?: string }) => <Row key={r.id} row={r} href={projectHref(r)} current={r.id === currentId} prefix={r.orgTitle ?? childFor(r.id)?.title} pinned={pinned.has(r.id)} onPin={onPin} />;
     const label = (children: ReactNode) => <li className="nb-sidebar-sub" aria-hidden="true">{children}</li>;
 

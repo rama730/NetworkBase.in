@@ -7,6 +7,7 @@ import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone, OrgOwnershipPanel } from "@/components/organizations/OrgDangerZone";
 import { OrgOnDiscover, OrgVerifiedBadge, OrgWebAddress } from "@/components/organizations/OrgDiscoverySections";
 import { useRefreshSidebar } from "@/hooks/useRefreshSidebar";
+import { OrgSchoolCard } from "@/components/organizations/OrgSchoolCard";
 import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { OrgStorageSection } from "@/components/organizations/OrgStorageSection";
 import { OrgModerationSection } from "@/components/organizations/OrgModerationSection";
@@ -1554,6 +1555,7 @@ function ProjectSettingsContent({
                 {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} handle={project?.slug ?? null} />}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-projects") && typeProfile(organization.type).schools ? <OrgSchoolCard orgId={projectId} isSchool={organization.isSchool} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") ? <OrgWorkflowsCard orgId={projectId} orgName={project?.title ?? "the organization"} /> : null}
                 {organization && sections.some((s) => s.id === "org-work") && <OrgWorkSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "collaborators") && (

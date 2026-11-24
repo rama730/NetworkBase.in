@@ -29,11 +29,13 @@ export type OrgTypeProfile = {
   planLabel: "Plan your term" | "Plan your sprints";
   /** Verified badge (2026-11-05 findings §5): the ways listed first — a class asks its school or parent first. */
   verifyFirst: "institution" | "proof";
+  /** Report 29.2: classes can be part of a school, and an empty one can become a school. */
+  schools: boolean;
 };
 
 const WORK: Omit<OrgTypeProfile, "roleNames" | "joinMode" | "visibility" | "starterFolders"> = {
   finishedWork: "Final files", termDates: false, sprintPrefix: "Phase ", mainSprintWord: "Phase", innerSprintWord: "Sprint", membersPost: true, generalNotify: "all",
-  reviewRequired: false, lateRule: "always", storyPoints: "shown", showCompensation: true, planLabel: "Plan your sprints", verifyFirst: "proof",
+  reviewRequired: false, lateRule: "always", storyPoints: "shown", showCompensation: true, planLabel: "Plan your sprints", verifyFirst: "proof", schools: false,
 };
 const ADMINS: OrgTypeProfile["starterFolders"] = ["Shared", "Docs", "Templates", "Admins"];
 
@@ -42,7 +44,7 @@ export const ORG_TYPE_PROFILES: Record<OrgType, OrgTypeProfile> = {
     roleNames: { owner: "Teacher", admin: "TA", member: "Student", viewer: "Viewer" },
     finishedWork: "Submissions", termDates: true, sprintPrefix: "Unit ", mainSprintWord: "Unit", innerSprintWord: "Week", joinMode: "instant", visibility: "private", membersPost: false,
     generalNotify: "mentions", reviewRequired: true, lateRule: "until", storyPoints: "hidden",
-    starterFolders: ["Course materials", "Docs", "Templates", "Staff"], showCompensation: false, planLabel: "Plan your term", verifyFirst: "institution",
+    starterFolders: ["Course materials", "Docs", "Templates", "Staff"], showCompensation: false, planLabel: "Plan your term", verifyFirst: "institution", schools: true,
   },
   company: { ...WORK, roleNames: { owner: "Owner", admin: "Manager", member: "Member", viewer: "Viewer" }, joinMode: "approval", visibility: "private", starterFolders: ["Shared", "Docs", "Templates", "Managers"] },
   research: { ...WORK, roleNames: { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" }, joinMode: "approval", visibility: "private", starterFolders: ADMINS },

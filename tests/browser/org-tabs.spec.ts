@@ -63,6 +63,7 @@ test.beforeAll(async () => {
         '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none;`,
         '@/app/actions/workspace/doc': `export const listWorkspaceDocsAction=async()=>({success:true,docs:[]});`,
         '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
+            export const readReviewLanesAction=async()=>({success:true,returned:[],approved:[]});
             export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:'Asia/Kolkata',rows:[
             {masterId:'a1',title:'Lab 3 — Consensus protocols and failure detectors',dueDate:new Date(Date.now()+864e5).toISOString(),status:'open',submissionType:'link',reviewRequired:true,teams:true,counts,mine:null},
             {masterId:'a2',title:'Reading quiz',dueDate:null,status:'draft',submissionType:'none',reviewRequired:false,teams:false,counts,mine:null}]});

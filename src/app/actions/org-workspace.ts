@@ -43,6 +43,8 @@ export type SidebarRow = { id: string; title: string; slug: string | null; unsee
 export type SidebarOrg = {
     id: string; title: string; slug: string | null; isAdmin: boolean; canCreate: boolean; coverImage?: string | null;
     needsYou: number; unseenAnnouncement: boolean;
+    /** Report 29.2: a class that is part of a school nests under it when you're in both. */
+    schoolId: string | null;
     /** Every workspace of the org you're in, by your own visits; the list shows 5 plus the one you're on (G2). */
     children: SidebarRow[];
 };
@@ -67,8 +69,8 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
     if (!userId) return null;
     // G4: ordered by your own visits (0065), never by other people's edits. G5: a workspace (not an org; orgs keep their
     // announcement rule) has unseen updates when someone else posted after you last opened it.
-    const mine = await ROWS<{ id: string; title: string; slug: string | null; kind: string; status: string | null; parent_id: string | null; role: string; opened: string | null; last_seen: string | null; settings: unknown; org_title: string | null; in_org: boolean; unseen: boolean; cover: string | null }>(sql`
-        SELECT p.id, p.title, p.slug, p.kind, p.status, p.parent_id, nullif(btrim(p.cover_image), '') AS cover,
+    const mine = await ROWS<{ id: string; title: string; slug: string | null; kind: string; status: string | null; parent_id: string | null; role: string; opened: string | null; last_seen: string | null; settings: unknown; school_id: string | null; org_title: string | null; in_org: boolean; unseen: boolean; cover: string | null }>(sql`
+        SELECT p.id, p.title, p.slug, p.kind, p.status, p.parent_id, p.institution_id AS school_id, nullif(btrim(p.cover_image), '') AS cover,
           CASE WHEN p.owner_id = ${userId}::uuid THEN 'owner' ELSE pm.role END AS role,
           coalesce(pm.last_opened_at, pm.joined_at, p.created_at)::text AS opened, pm.last_seen_updates_at::text AS last_seen, p.org_settings AS settings,
           (p.kind <> 'organization' AND EXISTS (SELECT 1 FROM workspace_updates u WHERE u.workspace_id = p.id AND u.deleted_at IS NULL
@@ -100,7 +102,7 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         ]);
         const rules = readOrgRules(org.settings);
         return {
-            id: org.id, title: org.title, slug: org.slug, isAdmin, coverImage: org.cover,
+            id: org.id, title: org.title, slug: org.slug, isAdmin, coverImage: org.cover, schoolId: org.school_id,
             canCreate: !access.writeBlocked && org.role !== 'viewer' && (isAdmin || rules.childCreation === 'members'),
             needsYou: needs.length,
             unseenAnnouncement: Boolean(latest?.at && (!org.last_seen || latest.at > org.last_seen)),

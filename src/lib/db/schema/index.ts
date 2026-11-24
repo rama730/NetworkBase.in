@@ -803,6 +803,10 @@ export const workspaces = pgTable(
     kind: text("kind", { enum: ["workspace", "organization"] }).default("workspace").notNull(),
     parentId: uuid("parent_id").references((): AnyPgColumn => workspaces.id, { onDelete: "set null" }),
     orgType: text("org_type", { enum: ["education", "company", "community", "research", "club", "other"] }),
+    /** Report 29.2 (B0.1): an Education organization that holds classes. */
+    orgLevel: text("org_level", { enum: ["institution"] }),
+    /** Report 29.2 (B0.1): the institution a class belongs to (not parent_id: no inherited read of student work). */
+    institutionId: uuid("institution_id"),
     orgSettings: jsonb("org_settings").$type<Record<string, unknown>>().default({}).notNull(),
     /** What AI agents may do here without asking (0074, report §26.6). */
     agentPolicy: text("agent_policy").$type<"ask_important" | "ask_all" | "trust_drafts_docs">().default("ask_important").notNull(),

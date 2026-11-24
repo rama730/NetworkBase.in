@@ -30,9 +30,15 @@ const month = (iso: string | null) => (iso ? MONTH.format(new Date(`${iso}T00:00
 /** Under the header's buttons: `Part of Northgate · Bengaluru · Education · Term Aug 2026 – Dec 2026`. Nothing to say, no line. */
 export function OrgHeaderDetails({ organization }: { organization: OrgDetail }) {
     const term = typeProfile(organization.type).termDates && (organization.termStart || organization.termEnd) ? `Term ${month(organization.termStart) ?? '…'} – ${month(organization.termEnd) ?? '…'}` : null
-    const parts = [organization.partOf ? `Part of ${organization.partOf}` : null, organization.location, organization.typeLabel, term].filter(Boolean)
-    if (parts.length === 0) return null
-    return <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground xl:max-w-[420px] max-md:max-w-none max-md:text-left" data-testid="org-header-details">{parts.join(' · ')}</p>
+    const school = organization.school
+    const parts = [!school && organization.partOf ? `Part of ${organization.partOf}` : null, organization.location, organization.typeLabel, term].filter(Boolean)
+    if (parts.length === 0 && !school) return null
+    return (
+        <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground xl:max-w-[420px] max-md:max-w-none max-md:text-left" data-testid="org-header-details">
+            {school ? <>Part of <Link href={`/org/${encodeURIComponent(school.slug ?? school.id)}`} className="text-foreground underline-offset-2 hover:underline" data-testid="org-part-of-school">{school.title}</Link>{parts.length ? ' · ' : ''}</> : null}
+            {parts.join(' · ')}
+        </p>
+    )
 }
 
 /** The archived line (report §18.6): the one notice for a lifecycle state. */

@@ -93,6 +93,9 @@ export type OrgDetail = {
     | null;
   /** "Part of", linked to an organization on NetworkBase (G8). */
   partOfOrg: { id: string; title: string; slug: string | null; verified: boolean } | null;
+  /** Report 29.2 (B0.1): this is a school, or the school this class is part of (a link, beside "Part of"). */
+  isSchool: boolean;
+  school: { title: string; slug: string | null; id: string } | null;
   /** Owners and admins: way 3's code. */
   proofCode: string | null;
   /** Owners and admins only. */
@@ -135,6 +138,8 @@ export async function readOrgDetail(
       discoverHiddenAt: workspaces.discoverHiddenAt,
       verificationMethod: workspaces.verificationMethod,
       verifiedAgainst: workspaces.verifiedAgainst,
+      orgLevel: workspaces.orgLevel,
+      institutionId: workspaces.institutionId,
     }).from(workspaces).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization"))).limit(1),
     // ponytail: counts every live child project for people in the org; P11's Projects tab filters by what they may see.
     // Audit N57: a visitor's count is the public ones only, so private and org-only workspaces aren't revealed.
@@ -153,13 +158,16 @@ export async function readOrgDetail(
   const settings = (org.orgSettings ?? {}) as OrgSettingsRecord;
   const partOfOrgId = (settings as { partOfOrgId?: unknown }).partOfOrgId;
   const asked = (settings as { verificationRequest?: { method: string; at: string; parentTitle?: string } }).verificationRequest ?? null;
-  const [[parent], [code]] = await Promise.all([
+  const [[parent], [code], [school]] = await Promise.all([
     typeof partOfOrgId === "string" && /^[0-9a-f-]{36}$/i.test(partOfOrgId)
       ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, verifiedAt: workspaces.verifiedAt }).from(workspaces)
         .where(and(eq(workspaces.id, partOfOrgId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt))).limit(1)
       : Promise.resolve([]),
     viewer.isAdmin && !org.verifiedAt
       ? db.select({ email: orgVerificationCodes.email, expiresAt: orgVerificationCodes.expiresAt, sends: orgVerificationCodes.sends }).from(orgVerificationCodes).where(eq(orgVerificationCodes.orgId, orgId)).limit(1)
+      : Promise.resolve([]),
+    org.institutionId
+      ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.id, org.institutionId), isNull(workspaces.deletedAt))).limit(1)
       : Promise.resolve([]),
   ]);
   const verificationPending: OrgDetail["verificationPending"] = !viewer.isAdmin || org.verifiedAt ? null
@@ -212,6 +220,8 @@ export async function readOrgDetail(
     verifiedLabel: org.verifiedAt ? verifiedLabel(org.verificationMethod, org.verifiedAgainst) : null,
     verificationPending,
     partOfOrg: parent ? { id: parent.id, title: parent.title, slug: parent.slug, verified: Boolean(parent.verifiedAt) } : null,
+    isSchool: org.orgLevel === "institution",
+    school: school ?? null,
     proofCode: viewer.isAdmin ? proofCode(orgId) : null,
     joinCode: viewer.isAdmin ? org.joinCode : null,
     joinCodeEnabled: org.joinCodeEnabled,
