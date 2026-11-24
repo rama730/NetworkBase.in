@@ -1078,9 +1078,9 @@
       "text": "B1.8 W5 Thesis workspace (30.6) — Build: Thesis template; chapter settings + word counts (excluding code/comments/references); Literature record list + BibTeX i",
       "kind": "unit",
       "milestone": "B1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/thesis.test.ts; tests/unit/literature.test.ts; tests/db/thesis.test.ts; tests/db/literature.test.ts; tests/db/thesis-coordinator.test.ts; tests/browser/thesis.spec.ts; tests/browser/literature.spec.ts; tests/browser/thesis-coordinator.spec.ts",
+      "evidence": "B1.8a–c (0134 literature_sources) live 2026-11-25; live fixes 65727cc1f (Supervisor picker) and e680cf876 (rail titles). Live in Chrome on wt-test-b18-thesis under wt-test-b0-class: Thesis card with research question, 6 chapters counted from their linked files (31 / 36K words), Literature source added and BibTeX exported, Supervisor set from the class staff; the class Workspaces tab Theses table showed student, title, supervisor, words and \"None yet\" for supervision. Coordinator never reads thesis text and per-document read checks are server tests. Student-side checks: DB tests only (one test account)."
     },
     {
       "key": "B2.1",
