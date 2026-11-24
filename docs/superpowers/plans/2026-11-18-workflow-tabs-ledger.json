@@ -928,9 +928,9 @@
       "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/file-comment-rules.test.ts; tests/db/file-comments.test.ts; tests/browser/asset-comments.spec.ts",
+      "evidence": "Live 2026-11-24 (81642e91b + c830c30dc + db17ed00a, 0119 in prod): wt-logo.png → Open with comments → Pin a comment → Pin 1 with \"WT check: move the orange band up\" in Chrome. Live-check fix 80b8f853b (no \"No preview\" flash while loading) ships next."
     },
     {
       "key": "A7.3",
@@ -938,9 +938,9 @@
       "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/asset-rules.test.ts; tests/db/asset-library.test.ts; tests/browser/assets-view.spec.ts",
+      "evidence": "Live 2026-11-24 (36c2b3e3f): Colors → Add color WT Ember #D14E24 in Chrome; Brand guide – WT Studio (nb doc new) shows it in its colors block. New-version notice proven by tests/db/asset-library.test.ts only: the test workspace has one member, and the saver is never told."
     },
     {
       "key": "A7.4",
@@ -7668,9 +7668,9 @@
       "text": "A new filecomments table gives every file comments, with an optional spot or moment anchor. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/file-comments.test.ts",
+      "evidence": "Live 2026-11-24 (81642e91b + c830c30dc + db17ed00a, 0119 in prod): wt-logo.png → Open with comments → Pin a comment → Pin 1 with \"WT check: move the orange band up\" in Chrome. Live-check fix 80b8f853b (no \"No preview\" flash while loading) ships next."
     },
     {
       "key": "38.16.call3",
@@ -7678,9 +7678,9 @@
       "text": "Comments stay on the version they were made on. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/file-comments.test.ts; tests/unit/file-comment-rules.test.ts",
+      "evidence": "Live 2026-11-24 (81642e91b + c830c30dc + db17ed00a, 0119 in prod): wt-logo.png → Open with comments → Pin a comment → Pin 1 with \"WT check: move the orange band up\" in Chrome. Live-check fix 80b8f853b (no \"No preview\" flash while loading) ships next."
     },
     {
       "key": "38.16.call4",
@@ -7688,9 +7688,9 @@
       "text": "New versions notify the people assigned to items that use the asset. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/asset-library.test.ts",
+      "evidence": "Live 2026-11-24 (36c2b3e3f): Colors → Add color WT Ember #D14E24 in Chrome; Brand guide – WT Studio (nb doc new) shows it in its colors block. New-version notice proven by tests/db/asset-library.test.ts only: the test workspace has one member, and the saver is never told."
     },
     {
       "key": "38.16.call5",
@@ -7698,9 +7698,9 @@
       "text": "Outside links are stored as typed URLs and never fetched. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/asset-library.test.ts; tests/unit/asset-rules.test.ts",
+      "evidence": "Live 2026-11-24 (36c2b3e3f): Colors → Add color WT Ember #D14E24 in Chrome; Brand guide – WT Studio (nb doc new) shows it in its colors block. New-version notice proven by tests/db/asset-library.test.ts only: the test workspace has one member, and the saver is never told."
     },
     {
       "key": "38.16.call6",
@@ -8508,9 +8508,9 @@
       "text": "A7.2 Comments on files (2026-11-24): migration 0119filecomments (server only, like the other workflow tables). In Assets, the details panel's Open with comments",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/file-comments.test.ts",
+      "evidence": "Live 2026-11-24 (81642e91b + c830c30dc + db17ed00a, 0119 in prod): wt-logo.png → Open with comments → Pin a comment → Pin 1 with \"WT check: move the orange band up\" in Chrome. Live-check fix 80b8f853b (no \"No preview\" flash while loading) ships next."
     },
     {
       "key": "A6.36",
@@ -8528,9 +8528,9 @@
       "text": "A7.3 Colors, outside links, new-version notices (2026-11-24): Assets opens with Colors (swatch, name, hex in mono, Copy; Add color with a name, a hex and a colo",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/asset-library.test.ts",
+      "evidence": "Live 2026-11-24 (36c2b3e3f): Colors → Add color WT Ember #D14E24 in Chrome; Brand guide – WT Studio (nb doc new) shows it in its colors block. New-version notice proven by tests/db/asset-library.test.ts only: the test workspace has one member, and the saver is never told."
     }
   ]
 }
