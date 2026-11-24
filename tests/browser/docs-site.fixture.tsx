@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Toaster } from '@/components/ui/sonner';
 import { DocsPrevNext, DocsSettingsPanel, DocsSiteMenu, DocsSiteToggle, OnThisPage } from "@/components/workspaces/doc/DocsSite";
+import { NewSnippetDialog, SnippetsView } from "@/components/workspaces/doc/DocSnippets";
 import type { WorkspaceDocListItem } from '@/lib/workspaces/doc';
 
 // Report 38.15 W3/W4 (plan A6.34): the Docs site's three columns and Settings → Documents.
@@ -20,6 +21,8 @@ const headings = [{ id: 'install', level: 2, text: 'Install' }, { id: 'sign-in',
 
 function Site() {
   const [active, setActive] = useState('guides');
+  if (params.get('view') === 'snippets') return <SnippetsView projectId={P} canEdit={canEdit} onOpen={(slug) => { w.__opened = slug; }} />;
+  if (params.get('view') === 'new-snippet') return <NewSnippetDialog projectId={P} open onOpenChange={() => undefined} />;
   return params.get('view') === 'settings' ? <DocsSettingsPanel workspaceId={P} /> : (
     <div style={{ display: "grid", gap: 32, gridTemplateColumns: "220px minmax(0,1fr) 200px" }}>
       <aside><DocsSiteMenu projectId={P} docs={docs} activeSlug={active} canEdit={canEdit} onOpen={setActive} /></aside>

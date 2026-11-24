@@ -121,13 +121,15 @@ export function DocsSiteToggle({ projectId, docSlug, on }: { projectId: string; 
   );
 }
 
-/** W3: the Pages · Docs site switch above Documents, when the site is on. */
-export function DocsViewSwitch({ view, onChange }: { view: "pages" | "site"; onChange: (v: "pages" | "site") => void }) {
+/** W3/W5: Pages · Docs site · Snippets above Documents, when more than one view is switched on. */
+export type DocsView = "pages" | "site" | "snippets";
+export function DocsViewSwitch({ views, view, onChange }: { views: DocsView[]; view: DocsView; onChange: (v: DocsView) => void }) {
+  if (views.length < 2) return null;
   return (
     <div role="group" aria-label="Documents view" className="mb-3 inline-flex rounded-[6px] border border-border p-0.5 text-[12px]" data-testid="docs-view-switch">
-      {(["pages", "site"] as const).map((v) => (
+      {views.map((v) => (
         <button key={v} type="button" aria-pressed={view === v} onClick={() => onChange(v)} className={cn("rounded-[4px] px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
-          {v === "pages" ? "Pages" : "Docs site"}
+          {v === "pages" ? "Pages" : v === "site" ? "Docs site" : "Snippets"}
         </button>
       ))}
     </div>
@@ -161,6 +163,10 @@ export function DocsSettingsPanel({ workspaceId }: { workspaceId: string }) {
       <label className="flex min-h-8 items-start gap-2 text-[13px]">
         <input type="checkbox" className="mt-1" checked={settings.siteEnabled} disabled={!settings.canManage || busy} onChange={(e) => void flip({ siteEnabled: e.target.checked })} />
         <span><span className="font-medium">Docs site</span><span className="block text-[12px] text-muted-foreground">Documents gains a Docs site view: menu, page and On this page. When Documents is public, visitors see only the documents switched on for it.</span></span>
+      </label>
+      <label className="flex min-h-8 items-start gap-2 text-[13px]">
+        <input type="checkbox" className="mt-1" checked={settings.snippetsEnabled} disabled={!settings.canManage || busy} onChange={(e) => void flip({ snippetsEnabled: e.target.checked })} />
+        <span><span className="font-medium">Snippets</span><span className="block text-[12px] text-muted-foreground">Documents gains a Snippets view: code your team reuses, with its language and Copy.</span></span>
       </label>
     </div>
   );

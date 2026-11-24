@@ -2925,3 +2925,61 @@ export async function setDocsSiteAction(projectId: string, input: unknown) {
         return { success: false as const, error: "Couldn’t change the docs site." };
     }
 }
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Report 21.4 and 38.15 W5 (A6.35): Snippets. A snippet is a small document (kind "snippet"); its code is the first
+ * fenced block of the file, so Files' editor changes it. Snippets follow document permissions like any document.
+ * ---------------------------------------------------------------------------------------------------------------- */
+const snippetSchema = z.object({
+    docSlug: z.string().trim().min(1).max(120).transform((s) => normalizeWorkspaceDocSlug(s)),
+    language: z.string().trim().min(1).max(30),
+    tags: z.array(z.string().max(40)).max(20).default([]),
+    purpose: z.string().trim().max(300).optional(),
+});
+
+/** New snippet, step 2: the client made the file (createDocFile); this files it as a snippet. */
+export async function createSnippetAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = snippetSchema.parse(input);
+        const { SNIPPET_LANGUAGES, cleanTags } = await import("@/lib/workflows/snippets");
+        if (!(SNIPPET_LANGUAGES as readonly string[]).includes(data.language)) return { success: false as const, error: "Pick a language from the list." };
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents add snippets." };
+        if (!docsSettingsOf(context.project).snippetsEnabled) return { success: false as const, error: "Switch Snippets on in Settings → Workflows → Documents first." };
+        if (context.settings.section || context.settings.kind) return { success: false as const, error: "That document is already filed." };
+        await writeLaunchSettings(context.readme.id, { kind: "snippet", language: data.language, tags: cleanTags(data.tags), ...(data.purpose ? { purpose: data.purpose } : {}) });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the snippet." };
+        logger.error("snippet.create_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t save the snippet." };
+    }
+}
+
+/** The Snippets view and `nb snippets list`: snippets the caller may read, by name. */
+export async function readSnippetsAction(projectId: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const base = await loadDocProjectBase(projectId, actor);
+        const visible = new Set(visibleDocs(base, actor).map((d) => d.slug));
+        const snippets = base.docs.filter((d) => visible.has(d.slug)).flatMap((d) => {
+            const s = normalizeWorkspaceDocSettings(d.settings);
+            return s.kind === "snippet" ? [{ slug: d.slug, name: d.filename.replace(/\.md$/i, ""), language: s.language ?? "Other", tags: s.tags ?? [], purpose: s.purpose ?? null }] : [];
+        }).sort((a, b) => a.name.localeCompare(b.name));
+        return { success: true as const, enabled: docsSettingsOf(base.project).snippetsEnabled, snippets };
+    } catch {
+        return { success: false as const, error: "Couldn’t load the snippets." };
+    }
+}
+
+/** Copy and `nb snippets get`: one snippet's code, read through the document's own permission. */
+export async function readSnippetCodeAction(projectId: string, docSlug: string) {
+    const doc = await readWorkspaceDocAction(projectId, docSlug);
+    if (!doc.success) return doc;
+    if (normalizeWorkspaceDocSettings(doc.data.settings).kind !== "snippet") return { success: false as const, error: "That document isn’t a snippet.", code: "NOT_FOUND" as const };
+    const { snippetCode } = await import("@/lib/workflows/snippets");
+    const code = snippetCode(doc.data.version?.content ?? "");
+    return code == null ? { success: false as const, error: "This snippet has no code block yet.", code: "NOT_FOUND" as const } : { success: true as const, code };
+}

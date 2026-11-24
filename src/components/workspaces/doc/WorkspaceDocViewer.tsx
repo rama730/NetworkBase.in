@@ -30,7 +30,8 @@ import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
 import { useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import type { Workspace } from "@/types/discover";
 import { OffsiteHeader } from "@/components/workspaces/doc/DocOffsite";
-import { DocsPrevNext, DocsSiteMenu, DocsSiteToggle, DocsViewSwitch, OnThisPage, useDocsSettings } from "@/components/workspaces/doc/DocsSite";
+import { DocsPrevNext, DocsSiteMenu, DocsSiteToggle, DocsViewSwitch, OnThisPage, useDocsSettings, type DocsView } from "@/components/workspaces/doc/DocsSite";
+import { SnippetsView } from "@/components/workspaces/doc/DocSnippets";
 
 const WorkspaceDocRenderer = dynamic(
     () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.WorkspaceDocRenderer),
@@ -193,8 +194,10 @@ export function WorkspaceDocViewer({
     // Report 38.15 W3/W4 (A6.34): the Docs site view, once it's switched on; visitors and readers start on it.
     const docsSettings = useDocsSettings(project.id).data;
     const siteEnabled = docsSettings?.success === true && docsSettings.siteEnabled;
-    const [pickedView, setPickedView] = useState<"pages" | "site" | null>(null);
-    const docsView = siteEnabled ? (pickedView ?? (payload.canEdit ? "pages" : "site")) : "pages";
+    const snippetsEnabled = docsSettings?.success === true && docsSettings.snippetsEnabled;
+    const docsViews: DocsView[] = ["pages", ...(siteEnabled ? ["site" as const] : []), ...(snippetsEnabled ? ["snippets" as const] : [])];
+    const [pickedView, setPickedView] = useState<DocsView | null>(null);
+    const docsView: DocsView = pickedView && docsViews.includes(pickedView) ? pickedView : siteEnabled && !payload.canEdit ? "site" : "pages";
     const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
     const version = payload.version;
@@ -374,14 +377,15 @@ export function WorkspaceDocViewer({
 
     return (
         <div className="relative mx-auto w-full max-w-[1240px] px-0 py-0">
-            {docsView === "site" ? null : <WorkspaceDocMobileBar
+            {docsView !== "pages" ? null : <WorkspaceDocMobileBar
                 projectId={project.id}
                 activeSlug={normalizedDocSlug}
                 canEdit={payload.canEdit}
                 rail={rail}
             />}
-            {siteEnabled && payload.canEdit ? <DocsViewSwitch view={docsView} onChange={setPickedView} /> : null}
-            {docsView === "site" ? (
+            <DocsViewSwitch views={docsViews} view={docsView} onChange={setPickedView} />
+            {docsView === "snippets" ? <SnippetsView projectId={project.id} canEdit={payload.canEdit} onOpen={(slug) => { setPickedView("pages"); rail.navigate(slug); }} />
+            : docsView === "site" ? (
                 <div className="grid gap-8 xl:grid-cols-[220px_minmax(0,1fr)_200px]">
                     <details className="xl:hidden" data-testid="docs-site-drawer"><summary className="cursor-pointer text-[13px] font-medium">Docs menu</summary>
                         <div className="mt-2"><DocsSiteMenu docs={rail.docs} activeSlug={normalizedDocSlug} canEdit={payload.canEdit} onOpen={(slug) => rail.navigate(slug)} projectId={project.id} /></div>

@@ -76,6 +76,10 @@ export type WorkspaceDocSettings = {
     /** Report 38.15 W3 (A6.34): shown on the Docs site, and its place in the menu. */
     docsSite?: boolean;
     docsOrder?: number;
+    /** Report 21.4, 38.15 W5 (A6.35): a snippet's language, tags and what it's for (kind "snippet"). */
+    language?: string;
+    tags?: string[];
+    purpose?: string;
 };
 
 export type Motion = {
@@ -217,6 +221,9 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(typeof source.closedAt === "string" && Number.isFinite(Date.parse(source.closedAt)) ? { closedAt: source.closedAt } : {}),
         ...(typeof source.docsSite === "boolean" ? { docsSite: source.docsSite } : {}),
         ...(Number.isFinite(source.docsOrder) ? { docsOrder: source.docsOrder } : {}),
+        ...(typeof source.language === "string" && /^[\w#+ -]{1,30}$/.test(source.language) ? { language: source.language } : {}),
+        ...(Array.isArray(source.tags) && source.tags.every((t) => typeof t === "string" && /^[a-z0-9-]{1,30}$/.test(t)) ? { tags: (source.tags as string[]).slice(0, 8) } : {}),
+        ...(typeof source.purpose === "string" && source.purpose.trim() && source.purpose.length <= 300 ? { purpose: source.purpose.trim() } : {}),
         ...(typeof source.offsiteTitle === "string" && source.offsiteTitle.trim() && source.offsiteTitle.length <= 120 ? { offsiteTitle: source.offsiteTitle.trim() } : {}),
         ...(typeof source.dateFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.dateFrom) ? { dateFrom: source.dateFrom } : {}),
         ...(typeof source.dateTo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.dateTo) ? { dateTo: source.dateTo } : {}),

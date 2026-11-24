@@ -729,6 +729,16 @@ const patterns = [
   [/^\/api\/v1\/workspaces\/([^/]+)\/goals$/, "GET", (_req, /** @type {any} */ state) => ({ data: state.goals ?? { period: "2027-Q1", label: null, objectives: [] } })],
   // Ideas (report 38.13 W9): whatever the test put on state.ideas; an add is kept on state.ideaAdds.
   [/^\/api\/v1\/workspaces\/([^/]+)\/offsites$/, "GET", (_req, /** @type {any} */ state) => ({ data: { offsites: state.offsites ?? [] } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "POST", (/** @type {any} */ req) => req.body?.template
+    ? (req.body.template === "tech-spec" ? { status: 201, data: { slug: "tech-spec-sign-in", path: `Docs/Tech spec – ${req.body.title}.md` } } : fail(404, "NOT_FOUND", `No template "${req.body.template}"`))
+    : { status: 201, data: { slug: "x" } }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/snippets$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const name = req.query.get("name");
+    const all = state.snippets ?? [];
+    if (!name) return { data: { snippets: all } };
+    const hit = all.find((/** @type {any} */ s) => s.name.toLowerCase() === name.toLowerCase());
+    return hit ? { data: { snippet: hit } } : fail(404, "NOT_FOUND", `No snippet named "${name}"`);
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/ideas$/, "GET", (_req, /** @type {any} */ state) => ({ data: state.ideas ?? { doc: null, ideas: [], dropped: 0 } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/ideas$/, "POST", (req, /** @type {any} */ state) => { (state.ideaAdds ??= []).push(req.body); return { data: { number: 77 } }; }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/goals$/, "POST", (req, /** @type {any} */ state) => { (state.checkins ??= []).push(req.body); return { data: { checkedIn: true } }; }],

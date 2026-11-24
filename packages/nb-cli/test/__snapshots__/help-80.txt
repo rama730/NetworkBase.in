@@ -45,6 +45,16 @@ More
     task open, task pull, subtask list, subtask add, subtask check,
     subtask uncheck, subtask edit, subtask delete, subtask move, comment add,
     comment edit, comment delete, comment list, comment resolve
+  Docs and workspaces
+    snippets list, snippets get, doc list, doc view, doc rows, doc rows add,
+    doc add, doc new, doc templates, doc remove, doc edit, doc set,
+    workspace list, workspace view, workspace create, workspace settings,
+    workspace archive, export, workspace open, activity, sprint list,
+    sprint view, sprint create, sprint add, sprint close, update post,
+    member invite, member role, member remove, workspace me, workspace complete,
+    workspace reopen, workspace leave, update list, update view, update like,
+    update comment, message list, message read, message send, member list,
+    search
   Classes
     assignment list, class progress, class announcements, assignment view,
     assignment pull, assignment hand-in, assignment unsubmit,
@@ -54,15 +64,6 @@ More
     ask, ask wait, ask list, ask answer, agent setup, agent status,
     agent access, agent activity, agent pause, agent resume, agent policy,
     agent remove, mcp
-  Docs and workspaces
-    doc list, doc view, doc rows, doc rows add, doc add, doc remove, doc edit,
-    doc set, workspace list, workspace view, workspace create,
-    workspace settings, workspace archive, export, workspace open, activity,
-    sprint list, sprint view, sprint create, sprint add, sprint close,
-    update post, member invite, member role, member remove, workspace me,
-    workspace complete, workspace reopen, workspace leave, update list,
-    update view, update like, update comment, message list, message read,
-    message send, member list, search
 
 nb help <command> explains one. Every command takes --json, --quiet, --plain and
 --help.

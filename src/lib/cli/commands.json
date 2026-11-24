@@ -2454,6 +2454,28 @@
       ]
     },
     {
+      "name": "snippets list",
+      "summary": "The workspace's code snippets",
+      "usage": "nb snippets list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "snippets get",
+      "summary": "Print a snippet's code",
+      "usage": "nb snippets get <name>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task done",
       "summary": "Finish a task (sends it for review when required)",
       "usage": "nb task done [task] [-m summary] [--check name=pass]",
@@ -3532,6 +3554,33 @@
       "name": "doc add",
       "summary": "Make a file a workspace doc (the file stays)",
       "usage": "nb doc add <file>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc new",
+      "summary": "A new doc from a NetworkBase template",
+      "usage": "nb doc new --template <id> [\"title\"]",
+      "flags": {
+        "template": {
+          "type": "string",
+          "describe": "Template id (nb doc templates)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc templates",
+      "summary": "NetworkBase document templates",
+      "usage": "nb doc templates",
       "flags": {},
       "examples": [],
       "exitCodes": [

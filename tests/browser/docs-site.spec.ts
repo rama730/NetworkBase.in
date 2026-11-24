@@ -13,6 +13,11 @@ async function open(page: Page, opts: { edit?: boolean; view?: string; width?: n
       setDocsSiteAction: async (_p: string, input: unknown) => { calls.push(['site', input]); return { success: true }; },
       readDocsSettingsAction: async () => ({ success: true, siteEnabled: false, snippetsEnabled: false, canManage: true }),
       setDocsSettingsAction: async (_p: string, input: unknown) => { calls.push(['settings', input]); return { success: true }; },
+      readSnippetsAction: async () => ({ success: true, enabled: true, snippets: [
+        { slug: 'retry', name: 'Retry with backoff', language: 'TypeScript', tags: ['network', 'util'], purpose: 'Retries a call with growing waits' },
+        { slug: 'upsert', name: 'Postgres upsert', language: 'SQL', tags: ['db'], purpose: null },
+      ] }),
+      readSnippetCodeAction: async (_p: string, slug: string) => { calls.push(['code', slug]); return { success: true, code: 'await retry(fn);' }; },
     };
   });
   const q = new URLSearchParams({ ...(opts.edit ? { edit: '1' } : {}), ...(opts.view ? { view: opts.view } : {}) }).toString();
@@ -62,6 +67,35 @@ test('Settings → Documents: Docs site switch, off by default', async ({ page }
   const site = box.getByRole('checkbox', { name: /Docs site/ });
   await expect(site).not.toBeChecked();
   await site.check();
-  expect(await calls(page)).toEqual([['settings', { siteEnabled: true }]]);
+  await box.getByRole('checkbox', { name: /Snippets/ }).check();
+  expect(await calls(page)).toEqual([['settings', { siteEnabled: true }], ['settings', { snippetsEnabled: true }]]);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('W5 Snippets: list with language and tags, search, Language filter, Copy puts the code on the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await open(page, { view: 'snippets', edit: true });
+  const v = page.getByTestId('snippets-view');
+  await expect(v.getByRole('listitem')).toHaveCount(2);
+  await expect(v.getByRole('listitem').first()).toContainText(/Retry with backoff.*Retries a call.*TypeScript.*network · util.*Copy/);
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(page.getByLabel('Search snippets')).toBeFocused();
+  await page.keyboard.type('db');
+  await expect(v.getByRole('listitem')).toHaveCount(1);
+  await page.getByLabel('Search snippets').fill('');
+  await page.getByLabel('Language').selectOption('TypeScript');
+  await expect(v.getByRole('listitem')).toHaveCount(1);
+  await v.getByRole('button', { name: 'Copy Retry with backoff' }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('await retry(fn);');
+  await expect(v.getByRole('button', { name: 'New snippet' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/docs-site/snippets.png' });
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('W5 New snippet: name, language, code, what it’s for, tags, source link; phone has no violations', async ({ page }) => {
+  await open(page, { view: 'new-snippet', width: 375 });
+  const d = page.getByTestId('new-snippet-dialog');
+  for (const label of ['Name', 'Language', 'Code', 'What it’s for', 'Tags', 'Source link']) await expect(d.getByLabel(label)).toBeVisible();
+  await expect(d.getByRole('button', { name: 'Save snippet' })).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
 });

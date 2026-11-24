@@ -92,6 +92,28 @@ export async function docAdd(ctx) {
   ctx.out.result("nb.doc.add/1", res, () => `${ctx.out.c.success(ctx.out.sym.done)} ${safe(file)} is a workspace doc · nb doc list`);
 }
 
+/** `nb doc new --template <id> [title]` (38.15 W6, A6.35): a document from a NetworkBase template. @param {Context} ctx */
+export async function docNew(ctx) {
+  const template = ctx.flags.template ? String(ctx.flags.template) : "";
+  if (!template) throw usage('nb doc new --template <id> ["title"]', "nb doc templates lists the templates");
+  const title = ctx.positionals.join(" ").trim();
+  const res = /** @type {any} */ (await ctx.api.post(`${ws(ctx)}/docs`, { template, title }));
+  ctx.out.result("nb.doc.new/1", res, (r) => r.waiting
+    ? `${safe(r.path)} waits for your person to apply its change set · then nb doc add ${safe(r.path)}`
+    : `${ctx.out.c.success(ctx.out.sym.done)} ${safe(r.path)} is a workspace doc · nb doc view ${safe(r.slug ?? "")}`);
+}
+
+/** `nb doc templates` (38.15 W6): the NetworkBase templates and their ids. @param {Context} ctx */
+export async function docTemplates(ctx) {
+  const d = /** @type {any} */ (await ctx.api.get(`${ws(ctx)}/docs`, { query: { templates: "1" } }));
+  ctx.out.result("nb.doc.templates/1", { templates: d.templates }, (r) => ctx.out.table([
+    { title: "Id", value: (t) => safe(t.id) },
+    { title: "Template", value: (t) => safe(t.name) },
+    { title: "Group", value: (t) => safe(t.group), optional: true },
+    { title: "For", value: (t) => safe(t.line), flex: true, optional: true },
+  ], r.templates));
+}
+
 /** `nb doc remove <slug>` (F3): unlinks it; the file stays. @param {Context} ctx */
 export async function docRemove(ctx) {
   const slug = ctx.positionals[0];

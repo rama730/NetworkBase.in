@@ -189,6 +189,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/workspaces/${ID}/ideas`), read: "task:read", write: "task:write", agent: "path" },
   // Off-sites, read-only (report 38.14 W7, nb offsites list).
   { pattern: route(`/api/v1/workspaces/${ID}/offsites`), read: "task:read", agent: "path" },
+  // Snippets, read-only (report 21.4, 38.15 W6, nb snippets list/get): documents, so they read like docs.
+  { pattern: route(`/api/v1/workspaces/${ID}/snippets`), read: "workspace:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
   // One workspace, its activity and sprints, and updates (report A2.5, A8.7, D25).
