@@ -80,7 +80,9 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
   // progress (lesson_progress), so the lesson itself only goes from Draft to Ready (or Archived).
   class_lesson: {
     id: "class_lesson", label: "Lesson", icon: "BookOpen", joinStage: null, doneStage: "archived",
-    stages: [s("draft", "Draft", "todo", false), s("ready", "Ready", "todo", false), s("archived", "Archived", "done", false, true)],
+    // B1.2 (report 30.3): a class's term-plan lesson goes Planned (draft) → Ready → Taught, or Cancelled.
+    stages: [s("draft", "Draft", "todo", false), s("ready", "Ready", "todo", false), s("archived", "Archived", "done", false, true),
+      s("taught", "Taught", "done", false, true), s("cancelled", "Cancelled", "done", false, true)],
   },
 };
 

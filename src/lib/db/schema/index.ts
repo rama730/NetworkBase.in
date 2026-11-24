@@ -1199,6 +1199,15 @@ export const fileComments = pgTable("file_comments", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+/** Plan B1.2 (0123): a lesson's teacher notes, for Teachers and TAs only (never in tasks.type_fields). */
+export const lessonStaffNotes = pgTable("lesson_staff_notes", {
+  taskId: uuid("task_id").primaryKey().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  notes: text("notes").notNull(),
+  updatedBy: uuid("updated_by").references(() => profiles.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
 // ============================================================================

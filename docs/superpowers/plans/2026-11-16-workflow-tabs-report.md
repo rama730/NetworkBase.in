@@ -6945,6 +6945,13 @@ Lesson row (a week expanded):  Tue Feb 11 · 10:30 · Balancing BSTs · Ready ·
 8. The Mark taught reminder is Summary level, at most once a day.
 
 
+**B1.2 build calls (2026-11-24):**
+- **Split:** B1.2a builds lessons, the Term plan view (default in a class's Sprints, with a Sprint view switch), Settings → Term plan and teacher notes; **B1.2b** builds moving a lesson between weeks with Shift the rest, the Calendar view, the Mark taught reminder, Behind plan, duplicating lessons and units, and the Syllabus's Term plan block. **[call]**
+- A lesson is a `class_lesson` item (the type the Learning path made), never on the board. Its stages gain **Taught** and **Cancelled**; "Draft" reads **Planned** in the Term plan. Every Education class has lessons without adding a workflow. **[call]**
+- **Teacher notes** live in their own server-only table (`lesson_staff_notes`, 0123), never in `tasks.type_fields`, which task reads return to anyone who can see the task. **[call]**
+- A week's lessons take its sessions in order (by the session's own day, so a moved class stays in its week). Cancelled lessons take no session. **[call]**
+- Students see a lesson's Before, In and After class; In class is the TA's to edit, Before and After the teacher's. Students see only published assignments in Assessments. **[call]**
+
 ### 30.4 W3 · Student's week (agreed 2026-11-17)
 **References:**
 

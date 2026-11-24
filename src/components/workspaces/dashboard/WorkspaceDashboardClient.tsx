@@ -58,6 +58,7 @@ import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } from '@/components/organizations/OrgOverviewParts';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
 import { SchoolClassesTab } from '@/components/organizations/SchoolParts';
+import { ClassSprints } from '@/components/organizations/TermPlan';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { VerifiedMark } from '@/components/organizations/org-ui';
@@ -1327,7 +1328,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     <TabErrorBoundary tabName="Sprints">
                         <div className="space-y-6">
                             <Suspense fallback={<SkeletonSprints />}>
-                                <SprintsWithPath projectId={project.id}><SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} /></SprintsWithPath>
+                                {organization && !organization.isSchool && typeProfile(organization.type).schools
+                                    ? <ClassSprints orgId={project.id}><SprintsWithPath projectId={project.id}><SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} /></SprintsWithPath></ClassSprints>
+                                    : <SprintsWithPath projectId={project.id}><SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} /></SprintsWithPath>}
                             </Suspense>
                         </div>
                     </TabErrorBoundary>

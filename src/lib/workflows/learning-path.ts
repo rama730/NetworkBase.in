@@ -25,6 +25,9 @@ export const lessonFieldsSchema = z.object({
   after: z.string().max(20_000).optional(),
   minutes: z.number().int().min(1).max(600).optional(),
   links: z.array(z.string().url().max(2000)).max(20).optional(),
+  /** B1.2 (report 30.3): a term-plan lesson's outcome codes and its place in its week. */
+  outcomes: z.array(z.string().trim().min(1).max(12)).max(20).optional(),
+  order: z.number().int().min(0).max(1000).optional(),
 }).strict();
 
 type Step = { id: string; lessons: Array<{ id: string }> };

@@ -1145,13 +1145,21 @@ const orList = (words: string[]) => (words.length > 1 ? `${words.slice(0, -1).jo
  * Report 38.4 part 6, in order: the type's workflow is added and not hidden (F1); the stage is one people may start at;
  * the fields are the type's. A hidden type says so, so the module can offer Create as task (W8).
  */
+async function isEducationClass(projectId: string) {
+  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType, orgLevel: workspaces.orgLevel }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  const { typeProfile } = await import("@/lib/organizations/type-profile");
+  return row?.kind === "organization" && !row.orgLevel && typeProfile(row.orgType as Parameters<typeof typeProfile>[0]).schools;
+}
+
 async function checkNewItemType(projectId: string, userId: string, type: string, stage: string | null, fields: Record<string, unknown>) {
   const t = WORKFLOW_TYPES[type];
   if (!t) return { error: `There’s no “${type}” type. Use one of: ${Object.keys(WORKFLOW_TYPES).join(", ")}` } as const;
   const entry = WORKFLOW_CATALOG.find((w) => w.types.includes(type));
   const name = entry?.name ?? t.label;
   const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
-  if (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id)) {
+  // B1.2 (report 30.3): every Education class has the Term plan, so its lessons need no workflow.
+  const classLesson = type === "class_lesson" && await isEducationClass(projectId);
+  if (!classLesson && (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id))) {
     const [hidden] = entry ? await db.select({ id: workspaceWorkflows.id }).from(workspaceWorkflows)
       .where(and(eq(workspaceWorkflows.workspaceId, projectId), eq(workspaceWorkflows.workflow, entry.id), isNotNull(workspaceWorkflows.hiddenAt))).limit(1) : [];
     return hidden ? { error: `${name} was removed from this workspace`, code: "type_removed" } as const : { error: `${name} isn’t in this workspace` } as const;
