@@ -10,6 +10,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { lessonFieldsSchema, readPathSettings, sprintDatesValid, stepProgress, upNext, isLocked, type PathSettings } from "@/lib/workflows/learning-path";
 import { dropOff, paceState, pathPercent, stuckDays } from "@/lib/workflows/path-pace";
+import { countedModules, learnerSteps, moduleAssignments, openModuleFor } from "@/lib/workflows/path-server";
 import { typeProfile } from "@/lib/organizations/type-profile";
 
 /**
@@ -58,16 +59,28 @@ async function readSteps(projectId: string) {
 export async function readPathAction(projectId: string) {
   try {
     const { userId, insider, settings, canManage, isClass, access, seesProgress } = await pathAccess(projectId, { allowPublic: true });
-    const steps = await readSteps(projectId);
-    const done = new Set(insider && userId ? (await db.select({ taskId: lessonProgress.taskId }).from(lessonProgress)
-      .where(and(eq(lessonProgress.userId, userId), inArray(lessonProgress.taskId, steps.flatMap((s) => s.lessons.map((l) => l.id)).concat("00000000-0000-0000-0000-000000000000"))))).map((r) => r.taskId) : []);
+    const read = await readSteps(projectId);
+    // B2.2b (calls 4, 6): a class's modules hold assignments too; staff see drafts, learners published ones and their copy.
+    const assignments = isClass ? await moduleAssignments(projectId, read.map((s) => s.id), !canManage) : [];
+    const me1 = isClass && insider && userId ? (await learnerSteps(read.flatMap((s) => s.lessons.map((l) => l.id)), assignments.map((a) => a.id), [userId])).get(userId)! : null;
+    const done = me1 ? me1.done : new Set(insider && userId ? (await db.select({ taskId: lessonProgress.taskId }).from(lessonProgress)
+      .where(and(eq(lessonProgress.userId, userId), inArray(lessonProgress.taskId, read.flatMap((s) => s.lessons.map((l) => l.id)).concat("00000000-0000-0000-0000-000000000000"))))).map((r) => r.taskId) : []);
+    const withAssignments = read.map((s) => ({ ...s, assignments: assignments.filter((a) => a.sprintId === s.id).map((a) => ({ id: a.id, title: a.title, dueAfterDays: a.dueAfterDays, published: a.published,
+      copy: me1?.copies.get(a.id) ?? null })) }));
+    const counted = countedModules(withAssignments.map((s) => ({ ...s, assignments: s.assignments.map((a) => ({ ...a })) })), me1?.excused ?? new Set());
+    const steps = withAssignments;
+    // The Teacher's Place an assignment list: the class's assignments not yet in a module.
+    const unplaced = isClass && canManage ? await db.select({ id: tasks.id, title: tasks.title }).from(tasks)
+      .where(and(eq(tasks.projectId, projectId), eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), isNull(tasks.deletedAt),
+        sql`(${tasks.sprintId} IS NULL OR ${tasks.sprintId} NOT IN (SELECT id FROM workspace_sprints WHERE workspace_id = ${projectId}::uuid AND path_position IS NOT NULL))`))
+      .orderBy(asc(tasks.createdAt)).limit(100) : [];
     // B2.2a: a learner's header — "58%, 14 of 24 steps", started, and pace when Suggested pace is on.
     const [me] = isClass && insider && userId && access.memberRole === "member" ? await db.select({ joinedAt: workspaceMembers.joinedAt }).from(workspaceMembers)
       .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId))).limit(1) : [];
-    const mine = me ? { ...pathPercent(steps, done), started: me.joinedAt.toISOString(), pace: paceState(steps, done, me.joinedAt, settings.paceWeeks) } : null;
-    return { success: true as const, settings, canManage, seesProgress, insider, isClass, mine,
-      steps: steps.map((s, i) => ({ ...s, progress: insider ? stepProgress(s, done) : null, locked: insider ? isLocked(steps, i, done, settings.lockInOrder) : false })),
-      done: [...done], upNext: insider ? upNext(steps, done) : null };
+    const mine = me ? { ...pathPercent(counted, done), started: me.joinedAt.toISOString(), pace: paceState(counted, done, me.joinedAt, settings.paceWeeks) } : null;
+    return { success: true as const, settings, canManage, seesProgress, insider, isClass, mine, unplaced,
+      steps: steps.map((s, i) => ({ ...s, progress: insider ? stepProgress(counted[i]!, done) : null, locked: insider ? isLocked(counted, i, done, settings.lockInOrder) : false })),
+      done: [...done], upNext: insider ? upNext(counted, done) : null };
   } catch (error) {
     return fail(error, "Couldn’t load the learning path.");
   }
@@ -143,7 +156,7 @@ export async function addLessonAction(projectId: string, input: z.input<typeof l
 export async function markLessonAction(projectId: string, input: { taskId: string; done: boolean }) {
   try {
     if (!uuid.safeParse(input.taskId).success) throw new Error("Not found");
-    const { userId, insider, settings, isAgent, access } = await pathAccess(projectId);
+    const { userId, insider, settings, isAgent, access, isClass } = await pathAccess(projectId);
     if (isAgent) throw new Error("Agents can’t mark lessons done; the person does.");
     if (!insider || !userId || access.writeBlocked) throw new Error("Only people in this workspace tick lessons.");
     const steps = await readSteps(projectId);
@@ -153,6 +166,7 @@ export async function markLessonAction(projectId: string, input: { taskId: strin
       const mine = new Set((await db.select({ taskId: lessonProgress.taskId }).from(lessonProgress).where(eq(lessonProgress.userId, userId))).map((r) => r.taskId));
       if (isLocked(steps, index, mine, settings.lockInOrder)) throw new Error(`Finish ${steps[index - 1]?.name ?? "the step before"} first.`);
       await db.insert(lessonProgress).values({ taskId: input.taskId, userId }).onConflictDoNothing();
+      if (isClass && access.memberRole === "member") await db.transaction((tx) => openModuleFor(tx, projectId, steps[index]!.id, userId));
     } else {
       await db.delete(lessonProgress).where(and(eq(lessonProgress.taskId, input.taskId), eq(lessonProgress.userId, userId)));
     }
@@ -177,20 +191,71 @@ export async function readProgressAction(projectId: string) {
       ORDER BY 2`));
     const lessonIds = steps.flatMap((s) => s.lessons.map((l) => l.id));
     const marks = lessonIds.length ? await db.select({ taskId: lessonProgress.taskId, userId: lessonProgress.userId, doneAt: lessonProgress.doneAt }).from(lessonProgress).where(inArray(lessonProgress.taskId, lessonIds)) : [];
+    // B2.2b: in a class, published assignments in a module count as steps too (Excused left out).
+    const assignments = isClass ? await moduleAssignments(projectId, steps.map((s) => s.id), true) : [];
+    const perLearner = isClass ? await learnerSteps(lessonIds, assignments.map((a) => a.id), people.map((p) => p.id)) : null;
+    const modulesWith = steps.map((s) => ({ ...s, assignments: assignments.filter((a) => a.sprintId === s.id) }));
     const sets: Array<Set<string>> = [];
     const rows = people.map((p) => {
       const mine = marks.filter((m) => m.userId === p.id);
-      const done = new Set(mine.map((m) => m.taskId));
+      const own = perLearner?.get(p.id);
+      const done = own ? own.done : new Set(mine.map((m) => m.taskId));
       sets.push(done);
-      const last = mine.reduce<Date | null>((a, m) => (!a || m.doneAt > a ? m.doneAt : a), null);
+      const last = own ? own.lastDone : mine.reduce<Date | null>((a, m) => (!a || m.doneAt > a ? m.doneAt : a), null);
       const started = p.started ? new Date(p.started) : null;
-      const pct = pathPercent(steps, done);
-      return { id: p.id, name: p.name, cells: steps.map((s) => stepProgress(s, done)), lastActivity: last?.toISOString() ?? null, started: started?.toISOString() ?? null,
-        percent: pct.percent, pace: paceState(steps, done, started, settings.paceWeeks), stuck: isClass ? stuckDays(last, started, pct.total > 0 && pct.done === pct.total, settings.stuckDays) : null };
+      const mods = own ? countedModules(modulesWith, own.excused) : steps;
+      const pct = pathPercent(mods, done);
+      return { id: p.id, name: p.name, cells: mods.map((s) => stepProgress(s, done)), lastActivity: last?.toISOString() ?? null, started: started?.toISOString() ?? null,
+        percent: pct.percent, pace: paceState(mods, done, started, settings.paceWeeks), stuck: isClass ? stuckDays(last, started, pct.total > 0 && pct.done === pct.total, settings.stuckDays) : null };
     });
-    return { success: true as const, isClass, steps: steps.map((s) => ({ id: s.id, name: s.name, total: s.lessons.length })), people: rows, dropOff: isClass ? dropOff(steps, sets) : null };
+    return { success: true as const, isClass, steps: modulesWith.map((s) => ({ id: s.id, name: s.name, total: s.lessons.length + s.assignments.length })), people: rows,
+      dropOff: isClass ? dropOff(countedModules(modulesWith, new Set()), sets) : null };
   } catch (error) {
     return fail(error, "Couldn’t load progress.");
+  }
+}
+
+const placeInput = z.object({ assignmentId: uuid, stepId: uuid, dueAfterDays: z.number().int().min(1).max(365).nullable() });
+
+/** B2.2b (call 4): the Teacher puts one of the class's assignments in a module, due N days after a learner opens it. */
+export async function placeAssignmentAction(projectId: string, input: z.input<typeof placeInput>) {
+  try {
+    const data = placeInput.parse(input);
+    const { canManage, isClass } = await pathAccess(projectId);
+    if (!canManage || !isClass) throw new Error("Only the teacher builds the path.");
+    const [step] = await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
+      .where(and(eq(workspaceSprints.id, data.stepId), eq(workspaceSprints.projectId, projectId), isNotNull(workspaceSprints.pathPosition))).limit(1);
+    if (!step) throw new Error("Pick a module of this path.");
+    const placed = await db.update(tasks).set({ sprintId: data.stepId, updatedAt: new Date(),
+      assignmentSettings: sql`jsonb_set(${tasks.assignmentSettings}, '{dueAfterDays}', ${JSON.stringify(data.dueAfterDays)}::jsonb)` })
+      .where(and(eq(tasks.id, data.assignmentId), eq(tasks.projectId, projectId), eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), isNull(tasks.deletedAt)))
+      .returning({ id: tasks.id });
+    if (!placed.length) throw new Error("Pick one of this class’s assignments.");
+    return { success: true as const };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { success: false as const, error: "Due is 1 to 365 days, or none." };
+    return fail(error, "Couldn’t place the assignment.");
+  }
+}
+
+/** B2.2b (call 4): a learner opens a module (Start); its assignments get their copy, due counted from now. */
+export async function openModuleAction(projectId: string, stepId: string) {
+  try {
+    if (!uuid.safeParse(stepId).success) throw new Error("Not found");
+    const { userId, isClass, access, isAgent, settings } = await pathAccess(projectId);
+    if (isAgent) throw new Error("Agents can’t open modules; the person does.");
+    if (!isClass || !userId || access.memberRole !== "member" || access.writeBlocked) throw new Error("Only learners in this class open modules.");
+    // Review: copies on opening belong to a self-paced class only; a scheduled class's copies come when published.
+    if (settings.pacing !== "self") throw new Error("This class isn’t self-paced.");
+    const path = await readPathAction(projectId);
+    if (!path.success) throw new Error(path.error);
+    const step = path.steps.find((s) => s.id === stepId);
+    if (!step) throw new Error("That isn’t a module of this path.");
+    if (step.locked) throw new Error("Finish the module before it first.");
+    const made = await db.transaction((tx) => openModuleFor(tx, projectId, stepId, userId));
+    return { success: true as const, made };
+  } catch (error) {
+    return fail(error, "Couldn’t open the module.");
   }
 }
 

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Lock, Route } from "lucide-react";
 import { useState } from "react";
 
-import { addLessonAction, createStepAction, markLessonAction, moveStepAction, readPathAction, readProgressAction, setPathSettingsAction } from "@/app/actions/learning-path";
+import { addLessonAction, createStepAction, markLessonAction, moveStepAction, openModuleAction, placeAssignmentAction, readPathAction, readProgressAction, setPathSettingsAction } from "@/app/actions/learning-path";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName } from "@/components/workspaces/v2/tasks/form-parts";
@@ -45,7 +45,7 @@ export function PathView({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   if (query.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading the path…</p>;
   if (!query.data?.success) return <div className="nb-empty-state py-10" role="alert"><p className="nb-card-title">{query.data?.success === false ? query.data.error : "Couldn’t load the path"}</p></div>;
-  const { steps, canManage, insider, settings, upNext, done, isClass, mine } = query.data;
+  const { steps, canManage, insider, settings, upNext, done, isClass, mine, unplaced } = query.data;
   // B2.2a (report 31.3): in a class a step is a Module.
   const word = isClass ? "Module" : "Step";
   const doneSet = new Set(done);
@@ -124,8 +124,28 @@ export function PathView({ projectId }: { projectId: string }) {
                   </li>
                 );
               })}
-              {!step.lessons.length ? <li className="px-3 py-2 text-[12px] text-muted-foreground">No lessons yet.</li> : null}
+              {step.assignments.map((a) => {
+                // B2.2b (report 31.3 call 4): a learner's copy is made when they Start the module, due from then.
+                const c = a.copy;
+                const state = !c ? (mine ? "Not started" : a.published ? "Published" : "Draft") : c.excused ? "Excused" : c.status === "done" ? "Done" : "Open";
+                return (
+                  <li key={a.id} className="flex min-h-11 items-center gap-2 px-3 py-1.5 text-[13px]" data-testid="path-assignment">
+                    <span className="nb-meta font-mono">Assignment</span>
+                    <span className={cn("min-w-0 flex-1", state === "Done" && "text-muted-foreground line-through")}>{a.title}</span>
+                    {upNext?.lessonId === a.id ? <span className="rounded-[3px] border border-foreground px-1 text-[11px] font-medium">Up next</span> : null}
+                    <StatusBadge state={state === "Done" ? "done" : state === "Excused" ? "archived" : state === "Open" ? "active" : "new"}>{state}</StatusBadge>
+                    <span className="font-mono text-[11px] text-muted-foreground">{c?.due ? `due ${c.due.slice(0, 10)}` : a.dueAfterDays ? `due ${a.dueAfterDays} days after you start` : "no due date"}</span>
+                  </li>
+                );
+              })}
+              {!step.lessons.length && !step.assignments.length ? <li className="px-3 py-2 text-[12px] text-muted-foreground">No lessons yet.</li> : null}
             </ul>
+            {mine && !step.locked && step.assignments.some((a) => a.published && !a.copy) ? (
+              <div className="border-t border-border px-3 py-1.5">
+                <button type="button" className={cn(FORM_PRIMARY_CLASS, "h-8")} disabled={busy != null} onClick={() => void run(`open-${step.id}`, () => openModuleAction(projectId, step.id), "Started. Your assignments are on My work.")}>Start {step.name}</button>
+              </div>
+            ) : null}
+            {isClass && canManage && unplaced.length ? <PlaceAssignment stepId={step.id} options={unplaced} onPlace={(id, days) => run("place", () => placeAssignmentAction(projectId, { assignmentId: id, stepId: step.id, dueAfterDays: days }), "Assignment placed")} /> : null}
             {canManage ? (newLesson?.stepId === step.id ? (
               <form className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2" onSubmit={(e) => { e.preventDefault(); void run("lesson", () => addLessonAction(projectId, { stepId: step.id, title: newLesson.title, ...(Number(newLesson.minutes) > 0 ? { fields: { minutes: Math.round(Number(newLesson.minutes)) } } : {}) }), "Lesson added").then((ok) => { if (ok) setNewLesson(null); }); }}>
                 <input aria-label="Lesson title" autoFocus required maxLength={200} value={newLesson.title} onChange={(e) => setNewLesson({ ...newLesson, title: e.target.value })} placeholder="Lesson title" className={cn(inputClassName(false), "h-8 min-w-[200px] flex-1")} />
@@ -145,6 +165,24 @@ export function PathView({ projectId }: { projectId: string }) {
         </form>
       ) : <button type="button" className={cn(FORM_SECONDARY_CLASS)} onClick={() => setNewStep("")}>+ {word}</button>) : null}
     </section>
+  );
+}
+
+/** B2.2b: the Teacher puts an assignment in a module, due N days after a learner starts it. */
+function PlaceAssignment({ stepId, options, onPlace }: { stepId: string; options: Array<{ id: string; title: string }>; onPlace: (id: string, days: number | null) => Promise<boolean> }) {
+  const [id, setId] = useState("");
+  const [days, setDays] = useState("7");
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-1.5 text-[12px]">
+      <select className="nb-select" data-size="sm" aria-label={`Assignment to put in this module`} value={id} onChange={(e) => setId(e.target.value)} data-step={stepId}>
+        <option value="">+ Assignment…</option>
+        {options.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+      </select>
+      {id ? <>
+        <label className="flex items-center gap-1">Due <input aria-label="Due days after starting" type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} placeholder="none" className={cn(inputClassName(false), "h-8 w-16 font-mono")} /> days after they start</label>
+        <button type="button" className={cn(FORM_PRIMARY_CLASS, "h-8")} onClick={() => void onPlace(id, days ? Number(days) : null).then((ok) => { if (ok) setId(""); })}>Put in module</button>
+      </> : null}
+    </div>
   );
 }
 

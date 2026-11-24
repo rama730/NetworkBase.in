@@ -392,11 +392,14 @@ export async function createCopies(executor: Executor, masterId: string, recipie
 /** Late joiners get copies of open assignments that aren't past due; teams mode excepted (report §16.9, §16.11). */
 export async function createCopiesForNewMember(executor: Executor, orgId: string, userId: string) {
   const masters = await executor
-    .select({ id: tasks.id, settings: tasks.assignmentSettings, dueDate: tasks.dueDate, creatorId: tasks.creatorId })
+    .select({ id: tasks.id, settings: tasks.assignmentSettings, dueDate: tasks.dueDate, creatorId: tasks.creatorId, sprintId: tasks.sprintId })
     .from(tasks)
     .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), isNull(tasks.deletedAt)));
   const now = Date.now();
+  const { isPathModuleAssignment } = await import("@/lib/workflows/path-server");
   for (const master of masters) {
+    // B2.2b: a self-paced module's assignments wait for the learner to open it.
+    if (await isPathModuleAssignment(executor, orgId, master.sprintId)) continue;
     const s = master.settings;
     if (!s?.publishedAt || s.closedAt || (master.dueDate && master.dueDate.getTime() < now)) continue;
     if (!(s.target.mode === "everyone" || (s.target.mode === "role" && s.target.role === "member"))) continue;

@@ -52,6 +52,15 @@ async function assignmentCounts(orgId: string, userIds: string[]) {
 }
 
 async function learnersWithRule(orgId: string, people: Array<{ id: string; name: string }>) {
+  // B2.2b (report 31.3): a self-paced class completes by its path — every step done — without attendance.
+  const { pathCounts, selfPaced } = await import("@/lib/workflows/path-server");
+  if (await selfPaced(db, orgId)) {
+    const counts = await pathCounts(orgId, people.map((p) => p.id));
+    return people.map((p) => {
+      const n = counts.get(p.id) ?? { required: 0, approved: 0 };
+      return { ...p, ...n, attendance: null, minimum: null, ...completionRule({ ...n, attendance: null, minimum: null }) };
+    });
+  }
   const [counts, att] = await Promise.all([assignmentCounts(orgId, people.map((p) => p.id)), readAttendanceAction(orgId)]);
   const minimum = att.success && att.settings.on ? att.settings.minimum : null;
   const percent = new Map(att.success ? att.students.map((s) => [s.id, s.percent]) : []);

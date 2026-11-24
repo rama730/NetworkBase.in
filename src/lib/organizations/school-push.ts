@@ -33,6 +33,10 @@ export async function pushSchoolSettings(schoolId: string, classId?: string): Pr
   const starting = JSON.stringify(kindStartingValues(readSchoolKind(school?.settings)));
   const rows = Array.from(await db.execute<{ id: string }>(sql`
     UPDATE workspaces c SET
+      workflow_settings = CASE WHEN ${readSchoolKind(school?.settings) === "coaching"} AND coalesce(c.workflow_settings->'path'->>'pacing', '') = ''
+        AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = c.id AND m.role = 'member')
+        THEN coalesce(c.workflow_settings, '{}'::jsonb) || jsonb_build_object('path', coalesce(c.workflow_settings->'path', '{}'::jsonb) || '{"pacing": "self"}'::jsonb)
+        ELSE c.workflow_settings END,
       org_settings = ${starting}::jsonb || coalesce(c.org_settings, '{}'::jsonb) || coalesce((SELECT jsonb_object_agg(k, v) FROM jsonb_each(coalesce(s.org_settings, '{}'::jsonb)) AS e(k, v)
         WHERE k IN ('assignmentAiPolicy', 'assignmentLateRule', 'assignmentReview', 'visibilityCap', 'attendanceMinimum', 'examWeeks')), '{}'::jsonb),
       -- Both dates or neither, so a class's own term can never end before it starts.

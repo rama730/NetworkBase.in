@@ -4,8 +4,9 @@ import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
 // Plan B2.2a (report 31.3 C2): a self-paced class — the learner's header, Modules, Suggested pace, and staff Progress.
-async function open(page: Page, view: string, manage = false) {
+async function open(page: Page, view: string, manage = false, open2 = false) {
   await page.setViewportSize({ width: 1000, height: 900 });
+  if (open2) await page.addInitScript(() => { (window as any).__open2 = true; });
   await page.addInitScript((m) => {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
@@ -13,12 +14,15 @@ async function open(page: Page, view: string, manage = false) {
       readPathAction: async () => ({ success: true, canManage: m, seesProgress: m, insider: true, isClass: true,
         settings: { pacing: 'self', lockInOrder: true, public: false, paceWeeks: 2, stuckDays: 14 }, done: ['a'],
         mine: m ? null : { done: 1, total: 3, percent: 33, started: '2027-01-11T09:00:00Z', pace: 'behind' },
-        upNext: { stepId: 's1', lessonId: 'b' },
+        upNext: { stepId: 's1', lessonId: 'b' }, unplaced: m ? [{ id: 'h9', title: 'Capstone brief' }] : [],
         steps: [
-          { id: 's1', name: 'Module 1 · Basics', position: 1, startDate: null, endDate: null, progress: { done: 1, total: 2 }, locked: false, lessons: [{ id: 'a', number: 410, title: 'Variables', minutes: 20 }, { id: 'b', number: 411, title: 'Loops', minutes: null }] },
-          { id: 's2', name: 'Module 2 · Projects', position: 2, startDate: null, endDate: null, progress: { done: 0, total: 1 }, locked: true, lessons: [{ id: 'c', number: 412, title: 'Build a CLI', minutes: 45 }] },
+          { id: 's1', name: 'Module 1 · Basics', position: 1, startDate: null, endDate: null, progress: { done: 1, total: 2 }, locked: false, assignments: [], lessons: [{ id: 'a', number: 410, title: 'Variables', minutes: 20 }, { id: 'b', number: 411, title: 'Loops', minutes: null }] },
+          { id: 's2', name: 'Module 2 · Projects', position: 2, startDate: null, endDate: null, progress: { done: 0, total: 1 }, locked: !(window as any).__open2,
+            assignments: [{ id: 'h1', title: 'Exercise 5', dueAfterDays: 7, published: true, copy: null }], lessons: [{ id: 'c', number: 412, title: 'Build a CLI', minutes: 45 }] },
         ] }),
       setPathSettingsAction: async (_p: string, input: unknown) => { calls.push(['settings', input]); return { success: true }; },
+      openModuleAction: async (_p: string, step: string) => { calls.push(['open', step]); return { success: true, made: 1 }; },
+      placeAssignmentAction: async (_p: string, input: unknown) => { calls.push(['place', input]); return { success: true }; },
       createStepAction: async (_p: string, input: unknown) => { calls.push(['step', input]); return { success: true, id: 's3' }; },
       readProgressAction: async () => ({ success: true, isClass: true, steps: [{ id: 's1', name: 'M1', total: 2 }, { id: 's2', name: 'M2', total: 1 }],
         dropOff: { reached: [4, 1], worst: 1, dropPercent: 75 },
@@ -58,5 +62,19 @@ test('Progress: learners with Started, %, pace and Stuck, and the drop-off line'
   await expect(table.getByRole('columnheader', { name: 'Learner' })).toBeVisible();
   await expect(table.getByRole('row', { name: /K\. Shah/ })).toContainText(/Jan 11\s*1\/2\s*0\/1\s*33%\s*Behind\s*Stuck 18 days/);
   await expect(page.getByTestId('path-dropoff')).toContainText(/Reached\s*M1 4\s*· M2 1\s*−75%/);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B2.2b: a module\'s assignment says when it\'s due; Start opens the module; the Teacher puts an assignment in a module', async ({ page }) => {
+  await open(page, 'path', false, true);
+  const row = page.getByTestId('path-assignment');
+  await expect(row).toContainText(/Exercise 5\s*Not started\s*due 7 days after you start/);
+  await page.getByRole('button', { name: 'Start Module 2 · Projects' }).click();
+  await expect.poll(() => calls(page)).toEqual([['open', 's2']]);
+  await open(page, 'path', true);
+  await page.getByLabel('Assignment to put in this module').first().selectOption('h9');
+  await page.getByLabel('Due days after starting').fill('10');
+  await page.getByRole('button', { name: 'Put in module' }).click();
+  await expect.poll(() => calls(page)).toEqual([['place', { assignmentId: 'h9', stepId: 's1', dueAfterDays: 10 }]]);
   expect(await axeViolations(page)).toEqual([]);
 });

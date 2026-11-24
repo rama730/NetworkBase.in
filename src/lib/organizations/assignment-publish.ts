@@ -18,13 +18,15 @@ import { assertSomeoneReviews, createCopies, resolveRecipients } from "@/lib/org
  */
 export async function publishMaster(masterId: string, actorId: string, options: { dropMissing?: boolean; reviewOff?: boolean } = {}) {
   const copies = await db.transaction(async (tx) => {
-    const [master] = await tx.select({ projectId: tasks.projectId, settings: tasks.assignmentSettings }).from(tasks)
+    const [master] = await tx.select({ projectId: tasks.projectId, settings: tasks.assignmentSettings, sprintId: tasks.sprintId }).from(tasks)
       .where(and(eq(tasks.id, masterId), isNull(tasks.deletedAt))).for("update").limit(1);
     if (!master?.settings) throw new Error("Assignment not found");
     if (master.settings.publishedAt) return null;
     const reviewRequired = options.reviewOff ? false : master.settings.reviewRequired;
     await assertSomeoneReviews(tx, master.projectId, { target: master.settings.target, reviewRequired });
-    const recipients = await resolveRecipients(tx, master.projectId, master.settings.target, options);
+    // B2.2b (report 31.3 call 4): in a self-paced path, copies are made when each learner opens the module.
+    const { isPathModuleAssignment } = await import("@/lib/workflows/path-server");
+    const recipients = (await isPathModuleAssignment(tx, master.projectId, master.sprintId)) ? [] : await resolveRecipients(tx, master.projectId, master.settings.target, options);
     const settings = { ...master.settings, reviewRequired, publishedAt: new Date().toISOString(), publishAt: null, publishOnSprintStart: false, note: null };
     await tx.update(tasks).set({ assignmentSettings: settings, updatedAt: new Date() }).where(eq(tasks.id, masterId));
     await createCopies(tx, masterId, recipients, actorId);

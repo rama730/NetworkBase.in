@@ -13,8 +13,8 @@ async function open(page: Page, view: string, opts: { manage?: boolean; width?: 
       readPathAction: async () => ({ success: true, canManage: manage, insider: true, settings: { pacing: 'self', lockInOrder: true, public: false }, done: ['a'],
         upNext: { stepId: 's1', lessonId: 'b' },
         steps: [
-          { id: 's1', name: 'Basics', position: 1, startDate: null, endDate: null, progress: { done: 1, total: 2 }, locked: false, lessons: [{ id: 'a', number: 410, title: 'Variables', minutes: 20 }, { id: 'b', number: 411, title: 'Loops', minutes: null }] },
-          { id: 's2', name: 'Projects', position: 2, startDate: null, endDate: null, progress: { done: 0, total: 1 }, locked: true, lessons: [{ id: 'c', number: 412, title: 'Build a CLI', minutes: 45 }] },
+          { id: 's1', name: 'Basics', position: 1, startDate: null, endDate: null, progress: { done: 1, total: 2 }, locked: false, assignments: [], lessons: [{ id: 'a', number: 410, title: 'Variables', minutes: 20 }, { id: 'b', number: 411, title: 'Loops', minutes: null }] },
+          { id: 's2', name: 'Projects', position: 2, startDate: null, endDate: null, progress: { done: 0, total: 1 }, locked: true, assignments: [], lessons: [{ id: 'c', number: 412, title: 'Build a CLI', minutes: 45 }] },
         ] }),
       markLessonAction: async (_p: string, input: unknown) => { calls.push(['mark', input]); return { success: true }; },
       createStepAction: async (_p: string, input: unknown) => { calls.push(['step', input]); return { success: true, id: 's3' }; },

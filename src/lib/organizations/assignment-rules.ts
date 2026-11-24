@@ -46,6 +46,8 @@ export type AssignmentSettings = {
   peerReview?: boolean;
   /** An exam (report 30.5 W4, B1.6a): format, window, room, what it covers, hold results. */
   exam?: import('@/lib/organizations/exams').ExamSettings;
+  /** B2.2b (report 31.3 call 4): in a self-paced path, due this many days after the learner opens its module. */
+  dueAfterDays?: number | null;
 };
 
 /**

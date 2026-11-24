@@ -69,6 +69,8 @@ test("Coaching or bootcamp: new classes start with its words and approval; a cla
   await inst.joinInstitutionAction(own, school);
   const f = await settingsOf(fresh);
   assert.deepEqual([f.roleNames, f.mainSprintWord, f.joinMode], [{ owner: "Instructor", admin: "Mentor", member: "Learner" }, "Module", "approval"]);
+  const [wf] = await sql`SELECT workflow_settings->'path'->>'pacing' AS pacing FROM workspaces WHERE id = ${fresh}`;
+  assert.equal(wf!.pacing, "self", "B2.2b: a coaching class starts Self-paced");
   const o = await settingsOf(own);
   assert.deepEqual([o.roleNames, o.mainSprintWord, o.joinMode], [{ member: "Trainee" }, "Module", "instant"], "the class's own values win");
 });
