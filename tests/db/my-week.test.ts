@@ -111,3 +111,15 @@ test("B1.7b: a session shows its lesson (students only once it's Ready) with Bef
   assert.ok(t.items.some((i) => i.kind === "teaching" && i.title === "Trees is still Planned"));
   assert.deepEqual(t.items.filter((i) => i.kind === "review").map((i) => i.title), ["1 hand-in to review"]);
 });
+
+test("security review: a finished membership or a class being deleted adds nothing to your week", async () => {
+  const [teacher, a] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const klass = await sql.begin((tx) => createProject(tx, teacher!, { visibility: "private" }));
+  created.push(klass);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, time_zone = 'UTC', term_start = ${day(-10)}, term_end = ${day(30)},
+    org_settings = ${sql.json({ classDetails: { courseCode: "GONE 1", meets: [0, 1, 2, 3, 4, 5, 6].map((d) => ({ day: d, start: "12:00", end: "13:00" })) } } as never)}, deletion_scheduled_at = now() WHERE id = ${klass}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${klass}, ${teacher!}, 'owner'), (${klass}, ${a!}, 'member')`;
+  viewerId = a!;
+  const w = await week.readMyWeekAction("UTC");
+  assert.ok(w.success && !w.inClass && !w.items.some((i) => i.title.startsWith("GONE 1")));
+});

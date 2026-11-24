@@ -3,6 +3,7 @@
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { copyState, canStillSubmit, lateAfterMs, type AssignmentSettings } from "@/lib/organizations/assignment-rules";
@@ -44,12 +45,20 @@ export async function readMyWeekAction(timeZone: string) {
 
     // Classes you belong to (Education organizations, not a school itself).
     const classes = Array.from(await db.execute<ClassRow>(sql`
-      SELECT w.id, w.title, w.slug, w.time_zone, w.term_start::text, w.term_end::text, w.org_settings, w.org_type,
-        (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role = 'admin')) AS staff
+      SELECT w.id, w.title, w.slug, w.time_zone, w.term_start::text, w.term_end::text, w.org_settings, w.org_type, false AS staff
       FROM workspaces w
       WHERE w.kind = 'organization' AND w.deleted_at IS NULL AND w.org_level IS DISTINCT FROM 'institution'
         AND (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid))`))
       .filter((c) => typeProfile(c.org_type).schools);
+    // Security review: the same read and staff rule as the Term plan (a finished membership or a class being deleted
+    // reads nothing; staff are the Teacher and admins).
+    let readable = 0;
+    for (const c of classes) {
+      const access = await getWorkspaceAccessById(c.id, userId);
+      if (!(access.isOwner || access.isMember) || !access.canRead) { c.org_settings = null; continue; }
+      c.staff = access.isOwner || access.memberRole === "admin";
+      readable += 1;
+    }
     for (const c of classes) {
       const details = readClassDetails(c.org_settings);
       if (!details) continue;
@@ -125,7 +134,7 @@ export async function readMyWeekAction(timeZone: string) {
     }
 
     const pins = Array.from(await db.execute<{ task_id: string }>(sql`SELECT task_id FROM day_pins WHERE user_id = ${userId}::uuid AND day = ${today}::date ORDER BY created_at LIMIT ${PIN_LIMIT}`)).map((p) => p.task_id);
-    return { success: true as const, timeZone: tz, today, inClass: classes.length > 0, items, missing, exams, pins };
+    return { success: true as const, timeZone: tz, today, inClass: readable > 0, items, missing, exams, pins };
   } catch (error) {
     logger.warn("my_week.read_failed", { error: error instanceof Error ? error.message : String(error) });
     return { success: false as const, error: "Couldn’t load your week." };
