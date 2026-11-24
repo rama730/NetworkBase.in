@@ -29,8 +29,7 @@ import {
 } from "@/lib/files/revision-policy";
 import {
   normalizeAndValidateMimeType,
-  validateUploadedBlobMagicBytes,
-} from "@/lib/upload/security";
+  validateUploadedBlobMagicBytes, uploadRefusal } from "@/lib/upload/security";
 import {
   fromPublicRole,
   replaceTaskFileRoleTag,
@@ -880,6 +879,9 @@ async function pushFiles(request: Request, created: string[], createdBy: { id: s
     if (error instanceof VersionRaceError) {
       return jsonError(error.message, 409, "VERSION_CONFLICT", { conflicts: [{ path: error.path, nodeId: error.nodeId, baseVersion: error.baseVersion }] });
     }
+    // A refused file type is the person's to fix, not a server failure (a 4xx also lets the CLI stop retrying).
+    const refusal = uploadRefusal(error);
+    if (refusal) return jsonError(refusal, 400, "BAD_REQUEST");
     return routeErrorResponse(error, {
       requestId: getRequestId(request),
       scope: "api/v1/extension/fast-push",

@@ -78,6 +78,18 @@ export const ATTACHMENT_UPLOAD_MAX_FILE_BYTES = positiveIntegerOr(
   DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES,
 );
 
+/**
+ * A file refused for its type or contents, as words for the person (live check 2026-11-24: `nb push` of an SVG got a 500,
+ * then retried into "already being processed"). Null for any other error.
+ */
+export function uploadRefusal(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "Blocked MIME type") return "This kind of file can’t be uploaded (blocked for safety, for example SVG with scripts). Export it as PNG or PDF.";
+  if (message === "Unsupported MIME type" || message === "Invalid MIME type") return "This kind of file can’t be uploaded.";
+  if (message === "File contents do not match the declared MIME type") return "The file’s contents don’t match its type. Check the file and try again.";
+  return null;
+}
+
 export function normalizeAndValidateMimeType(rawMimeType: unknown): string {
   const normalized = typeof rawMimeType === "string" ? rawMimeType.trim().toLowerCase() : "";
   if (!normalized) return "application/octet-stream";
