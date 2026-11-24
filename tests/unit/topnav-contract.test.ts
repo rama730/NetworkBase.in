@@ -220,7 +220,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label=\{chatUnread \? "Open mobile menu, unread messages" : "Open mobile menu"\}/);
   assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);
   assert.doesNotMatch(topNav, /createProject=1/);
-  assert.match(topNav, /href="\/workspaces\/new"/);
+  assert.match(source("src/components/layout/header/CreateWorkspaceCell.tsx"), /href="\/workspaces\/new"/);
   assert.match(topNav, /className="nb-topbar-right"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);

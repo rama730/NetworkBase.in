@@ -8,7 +8,9 @@ function source(relativePath: string) {
 }
 
 test('every New workspace entry opens the full-page create route instead of a modal', () => {
-    const header = source('src/components/layout/header/TopNav.tsx');
+    // The top bar's cell lives in its own component (create wizard v6.8); TopNav renders it.
+    const header = source('src/components/layout/header/CreateWorkspaceCell.tsx');
+    assert.match(source('src/components/layout/header/TopNav.tsx'), /<CreateWorkspaceCell active=\{isCreateProjectRoute\}/);
     const mobileMenu = source('src/components/layout/header/MobileMenu.tsx');
     const discover = source('src/components/discover/DiscoverClient.tsx');
 

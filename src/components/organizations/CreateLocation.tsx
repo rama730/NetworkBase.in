@@ -80,8 +80,8 @@ export function WherePicker() {
         )
     }
     const places: Array<{ id: string; location: CreateLocation | null; line: string }> = [
-        { id: '', location: null, line: 'Yours. You decide who joins and who can see it.' },
-        ...locations.map((location) => ({ id: location.id, location, line: location.block ?? `Inside ${location.title}. Members can find it; it caps visibility.` })),
+        { id: '', location: null, line: 'Yours. You decide who joins. Starts public; change it in Settings.' },
+        ...locations.map((location) => ({ id: location.id, location, line: location.block ?? `Inside ${location.title}. Starts members only, the most open it allows.` })),
     ]
     return (
         <div className="nb-where-box" ref={boxRef}>

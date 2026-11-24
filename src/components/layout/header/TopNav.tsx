@@ -1,9 +1,10 @@
 "use client";
 
+import { CreateWorkspaceCell } from "@/components/layout/header/CreateWorkspaceCell";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { Laptop, LogOut, Menu, Moon, Plus, Search, ShieldCheck, Smile, Sun, UserRound } from "lucide-react";
+import { Laptop, LogOut, Menu, Moon, Search, ShieldCheck, Smile, Sun, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import { BackLogoSwap, BackSlot } from "./BackButton";
 import { arrivedByTraverse, subscribeEntry } from "@/lib/navigation/in-app-history";
@@ -217,17 +218,9 @@ export default function TopNav() {
                         <span className="hidden md:contents"><ConnectionStatusIndicator /></span>
                     )}
                     {authUiState === "signed-in" && (
-                        // Project creation is its own page (spec §18), not a modal. On that page the cell reads as "you are here";
-                        // on a workspace or organization page the page has its own main action, so this one is outlined (§7.1).
-                        <Link
-                            href="/workspaces/new"
-                            aria-current={isCreateProjectRoute ? 'page' : undefined}
-                            data-quiet={isProjectDetailRoute || isCreateProjectRoute || undefined}
-                            className="nb-cell nb-cell-cta nb-ui-label hidden md:flex"
-                        >
-                            <Plus className="size-4" aria-hidden="true" />
-                            New workspace
-                        </Link>
+                        // Project creation is its own page (spec §18), not a modal. On that page the cell stays pressed and
+                        // counts the steps (v6.8); on a workspace or organization page it is outlined (§7.1).
+                        <CreateWorkspaceCell active={isCreateProjectRoute} quiet={isProjectDetailRoute} />
                     )}
                     {authUiState === "signed-in" && (
                         <button

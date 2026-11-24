@@ -34,7 +34,7 @@ async function open(page: Page, upload = false) {
         await writeFile(path.join(dir, 'README.md'), '# Garden Map\n\nEvery plot, crop and volunteer day in town, on one map. Gardeners mark what grows where.\n');
         await writeFile(path.join(dir, 'package.json'), JSON.stringify({ name: 'garden-map', description: 'Every plot, crop and volunteer day in town, on one map. Gardeners mark what grows where.', dependencies: { react: '19', typescript: '5' } }));
         await page.locator('input[type="file"][webkitdirectory]').setInputFiles(dir);
-        await expect(page.locator('[data-start-summary]')).toContainText('files', { timeout: 10_000 });
+        await expect(page.locator('[data-start-status]')).toContainText('files', { timeout: 10_000 });
     }
     await next(page);
     await expect(heading(page, 'Name it, then explain it.')).toBeVisible();

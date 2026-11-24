@@ -8,7 +8,8 @@ import { FormProvider, useFormContext, useWatch } from 'react-hook-form';
 import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-import { TOTAL_PHASES, WIZARD_PHASES } from '@/constants/workspace-wizard';
+import { ORG_PHASE_LABELS, TOTAL_PHASES, WIZARD_PHASES } from '@/constants/workspace-wizard';
+import { onCreateStepFocusRequest, setCreateSignal } from '@/lib/workspaces/create-progress-signal';
 import { toast } from '@/lib/feedback';
 
 // Hook
@@ -132,6 +133,16 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, onOpen, onCr
     const sourceMetadata = rawSourceMetadata as Record<string, unknown> | undefined;
     const [organization, orgType, orgTypeLabel] = useWatch({ control: methods.control, name: ['organization', 'organization.org_type', 'organization.type_label'] });
     const isOrganization = Boolean(organization);
+    // The top bar's New workspace follows the step (v6.8); pressing it again brings this step back into view.
+    useEffect(() => {
+        const label = isOrganization ? ORG_PHASE_LABELS[phase] : WIZARD_PHASES[phase - 1]?.label;
+        setCreateSignal({ step: phase, label: label ?? '', state: finished ? 'done' : createProgress ? 'creating' : 'editing' });
+    }, [phase, createProgress, finished, isOrganization]);
+    useEffect(() => () => setCreateSignal(null), []);
+    useEffect(() => onCreateStepFocusRequest(() => {
+        scrollBodyRef.current?.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        headingRef.current?.focus({ preventScroll: true });
+    }), []);
     // Report §27.1 #3: the 5-organization limit shows on the first step, not after the whole wizard.
     const [ownLimit, setOwnLimit] = useState<string | null>(null);
     useEffect(() => {

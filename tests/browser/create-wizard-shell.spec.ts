@@ -83,3 +83,28 @@ test('a draft never stores the Back to Review state', async ({ page }) => {
     expect(stored).toContain('Garden Map');
     expect(stored).not.toContain('fromReview');
 });
+
+// v6.8: the top bar's New workspace, while you're making one, stays pressed, shows the step and answers a press.
+test('New workspace stays pressed and counts the steps', async ({ page }) => {
+    await open(page, '/workspaces/new?topbar=1');
+    const cell = page.getByRole('link', { name: /^New workspace/ });
+    await expect(cell).toHaveAttribute('aria-current', 'page');
+    await expect(cell).toHaveAttribute('data-pressed', 'true');
+    await expect(cell).toContainText('1/5');
+    await expect(cell.locator('[data-on]')).toHaveCount(1);
+    await next(page);
+    await expect(cell).toContainText('2/5');
+    await expect(cell.locator('[data-on]')).toHaveCount(2);
+});
+
+test('pressing New workspace again goes back to the step, never starting over', async ({ page }) => {
+    await open(page, '/workspaces/new?topbar=1');
+    await next(page);
+    await fillInfo(page);
+    await page.locator('[data-wizard-scroll]').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    await page.getByRole('link', { name: /^New workspace/ }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'You’re making one. Back to Info.' })).toBeVisible();
+    await expect.poll(() => page.locator('[data-wizard-scroll]').evaluate((el) => el.scrollTop)).toBe(0);
+    await expect(page.locator('#create-project-title')).toHaveValue('Garden Map');
+    expect(await page.evaluate(() => (window as any).__pushed)).toEqual([]);
+});

@@ -37,9 +37,9 @@ test("phase 1 is the workspace tab row with one panel per way in, and a flat acc
   assert.match(phase, /<UnderlineTabs variant="workspace" tabs=\{tabs\} value=\{tab\} onChange=\{chooseTab\} label="Ways to start"/);
   assert.match(phase, /trailing=\{organization \? null : <WherePicker \/>\}/);
   for (const label of ["Start from scratch", "Import from GitHub", "Upload files", "Create organization"]) assert.match(phase, new RegExp(`label: '${label}'`));
-  // One panel grammar for every way in: eyebrow, heading, one line, body; the same summary on the right.
-  assert.match(panel, /data-start-summary/);
-  assert.match(panel, /<p className="nb-start-k">Next<\/p>/);
+  // One panel grammar for every way in: eyebrow, heading, one line, what's picked, body (v6.8: no summary column).
+  assert.doesNotMatch(panel, /data-start-summary/);
+  assert.match(panel, /data-start-status/);
   assert.doesNotMatch(phase, /Phase1SourceMethodGroup|name="create-project-source"/);
   assert.match(phase, /role="treeitem"/);
   assert.match(phase, /aria-level=/);
@@ -48,7 +48,8 @@ test("phase 1 is the workspace tab row with one panel per way in, and a flat acc
   assert.doesNotMatch(phase, /create-project-back-to-source-grid/);
   assert.match(phase, /Comes with/);
   assert.match(phase, /Set up the workspace in the next steps/);
-  assert.match(phase, /No repository or folder attached\./);
+  // v6.8: scratch has nothing to pick, so no status line; its panel says what it comes with.
+  assert.match(phase, /Comes with/);
   assert.match(phase, /<GithubImportDetails/);
   assert.match(phase, /githubAnalysisResult\?\.description/);
   assert.match(phase, /border-b-2 border-primary/);

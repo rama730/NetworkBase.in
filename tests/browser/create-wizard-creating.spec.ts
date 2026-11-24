@@ -56,7 +56,7 @@ async function open(page: Page, source: 'scratch' | 'github' | 'upload', onSetti
         await mkdir(dir);
         await writeFile(path.join(dir, 'notes.md'), '# Notes\n');
         await page.locator('input[type="file"][webkitdirectory]').setInputFiles(dir);
-        await expect(page.locator('[data-start-summary]')).toContainText('files', { timeout: 10_000 });
+        await expect(page.locator('[data-start-status]')).toContainText('files', { timeout: 10_000 });
     }
     await next(page);
     if (source === 'github') await page.locator('#create-project-title').fill('');

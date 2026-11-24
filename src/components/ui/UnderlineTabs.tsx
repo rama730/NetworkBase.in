@@ -29,7 +29,9 @@ export function UnderlineTabs<K extends string>({ tabs, value, onChange, onInten
 }) {
     const workspace = variant === 'workspace';
     return (
-        <div className={cn(trailing ? 'flex w-full flex-wrap items-center justify-between gap-x-4 border-b border-border' : 'contents')}>
+        // The tabs stand on the row's bottom edge so the clay marker covers the hairline (one line, as on the workspace
+        // page); whatever trails them centres itself (v6.8).
+        <div className={cn(trailing ? 'flex w-full flex-wrap items-end justify-between gap-x-4 border-b border-border' : 'contents')}>
         <div role="tablist" aria-label={label} className={cn(workspace ? 'relative -mb-px flex min-w-0 items-center overflow-x-auto app-scroll app-scroll-x' : 'flex min-h-11 w-full items-end gap-5', !trailing && 'border-b border-border', className)}>
             {tabs.map((t) => {
                 const active = t.key === value;
@@ -70,7 +72,7 @@ export function UnderlineTabs<K extends string>({ tabs, value, onChange, onInten
             })}
             <TabMarker overlap />
         </div>
-        {trailing}
+        {trailing ? <div className="self-center">{trailing}</div> : null}
         </div>
     );
 }

@@ -30,10 +30,9 @@ import { Input } from '@/components/ui/input';
 import { PhaseHead } from '../PhaseHead';
 import type { WorkspaceSourceType, StartingPoint } from '@/components/workspaces/create-wizard/phase1/source-types';
 import type { SourceFill } from '@/components/workspaces/create-wizard/useCreateWorkspaceWizard';
-import { StartPanel, type StartSummary } from '@/components/workspaces/create-wizard/phase1/StartPanel';
+import { StartPanel, type StartStatus } from '@/components/workspaces/create-wizard/phase1/StartPanel';
 import { UnderlineTabs } from '@/components/ui/UnderlineTabs';
 import { listImportedRepoUrlsAction, type ImportedRepo } from '@/app/actions/workspace/imported-repos';
-import { ORG_PHASE_LABELS, WIZARD_PHASES } from '@/constants/workspace-wizard';
 import { orgTypeLabel } from '@/lib/organizations/config';
 import type { OrgType } from '@/lib/organizations/config';
 import { OrgTypePicker } from '@/components/organizations/OrgWizardFields';
@@ -1649,22 +1648,11 @@ export default function Phase1SourceSelection({
     ];
     const normalizedRepo = normalizeGitHubRepoUrl(repoUrl || '').replace('https://github.com/', '');
     const githubReady = preflightState.status === 'ok' && Boolean(normalizedRepo);
-    const next = WIZARD_PHASES.slice(1).map((step) => (organization ? ORG_PHASE_LABELS[step.id] : step.label));
-    const where = location.org;
-    const summary: StartSummary = {
-        sourceLabel: organization ? 'Organization' : 'Workspace source',
-        ...(organization
-            ? { source: 'New organization', sourceLine: organization.org_type ? (organization.org_type === 'other' ? organization.type_label?.trim() || 'Other' : orgTypeLabel(organization.org_type) ?? 'Organization') : 'No kind picked.', status: organization.org_type && (organization.org_type !== 'other' || organization.type_label?.trim()) ? { tone: 'ok' as const, label: 'Ready' } : { tone: '' as const, label: 'Pick one' } }
-            : tab === 'github'
-                ? { source: 'GitHub repository', sourceLine: githubReady ? `${normalizedRepo}${branch ? ` · ${branch}` : ''}` : 'None picked yet.', status: githubReady ? { tone: 'ok' as const, label: 'Ready' } : { tone: '' as const, label: 'Pick one' } }
-                : tab === 'upload'
-                    ? { source: 'Folder on this device', sourceLine: uploadManifest ? `${uploadManifest.folderName}/ · ${uploadManifest.totalFiles} files` : 'No folder chosen.', status: !uploadManifest ? { tone: '' as const, label: 'Choose one' } : uploadManifest.isValid ? { tone: 'ok' as const, label: 'Ready' } : { tone: 'warn' as const, label: `${uploadManifest.blockedCount} blocked` } }
-                    : { source: 'Start from scratch', sourceLine: 'No repository or folder attached.', status: { tone: 'ok' as const, label: 'Ready' } }),
-        second: organization
-            ? { label: 'Web address', value: 'Set in Details', line: 'The link people use to find and join it.' }
-            : { label: 'Lives in', value: where?.title ?? 'Personal', line: where ? 'Starts members only, the most open it allows.' : 'Starts public. Change it in Settings.' },
-        next,
-    };
+    // What's picked, under the heading (v6.8). Scratch and organization have nothing to pick here.
+    const status: StartStatus | null = organization ? null
+        : tab === 'github' ? (githubReady ? { text: `${normalizedRepo}${branch ? ` · ${branch}` : ''}`, tone: 'ok', label: 'Ready' } : null)
+        : tab === 'upload' ? (uploadManifest ? { text: `${uploadManifest.folderName}/ · ${uploadManifest.totalFiles} files`, tone: uploadManifest.isValid ? 'ok' : 'warn', label: uploadManifest.isValid ? 'Ready' : `${uploadManifest.blockedCount} blocked` } : null)
+        : null;
     const panel = organization
         ? { eyebrow: 'Create organization', title: 'What kind of organization?', line: 'It sets the role names and defaults. Everything can change later in Settings.', body: <OrgTypePicker /> }
         : tab === 'github'
@@ -1683,7 +1671,7 @@ export default function Phase1SourceSelection({
             </div>
             {fromLast ? <p className="nb-meta nb-start-last">opened on your last choice</p> : null}
             <WhereNotice />
-            <StartPanel panelKey={tab} eyebrow={panel.eyebrow} title={panel.title} line={panel.line} summary={summary}>
+            <StartPanel panelKey={tab} eyebrow={panel.eyebrow} title={panel.title} line={panel.line} status={status}>
                 <div id={`create-project-source-panel-${activeSourceView}`}>{panel.body}</div>
             </StartPanel>
             <ConfirmDialog open={Boolean(switchAsk)} onOpenChange={(open) => { if (!open) setSwitchAsk(null); }} title="Switch to a workspace?"

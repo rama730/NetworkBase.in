@@ -72,8 +72,9 @@ test("create-project page refinements: Esc asks like Cancel, clickable finished 
   assert.match(header, /onClick=\{\(\) => onStepSelect\(step\.id\)\}/);
   assert.match(wizard, /onStepSelect=\{goToPhase\}/);
 
-  // 3. New workspace reads as the current page on /workspaces/new.
-  assert.match(topNav, /aria-current=\{isCreateProjectRoute \? 'page' : undefined\}/);
+  // 3. New workspace reads as the current page on /workspaces/new, pressed, with the step (v6.8).
+  assert.match(topNav, /<CreateWorkspaceCell active=\{isCreateProjectRoute\} quiet=\{isProjectDetailRoute\} \/>/);
+  assert.match(await readFile('src/components/layout/header/CreateWorkspaceCell.tsx', 'utf8'), /aria-current="page"/);
   assert.match(mobileMenu, /aria-current=\{pathname === "\/workspaces\/new" \? "page" : undefined\}/);
 
   // 4. Autosave is primary (v6): no Save draft or Save now button; the status line says it saves, then when it did.

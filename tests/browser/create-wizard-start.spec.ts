@@ -32,8 +32,18 @@ test('the four ways in are one tab row and each opens its own panel', async ({ p
     await expect(heading(page, 'Choose a folder on this device')).toBeVisible();
     await tab(page, /Create organization/).click();
     await expect(heading(page, 'What kind of organization?')).toBeVisible();
-    // The summary on the right keeps the same parts for every way in.
-    await expect(page.locator('[data-start-summary]')).toContainText('Next');
+    // v6.8: no summary column; the panel has the width.
+    await expect(page.locator('[data-start-summary]')).toHaveCount(0);
+});
+
+test("the chosen tab's clay line sits on the row's hairline, as on the workspace page", async ({ page }) => {
+    await open(page, '?org=1');
+    const gap = await page.locator('[role="tablist"][aria-label="Ways to start"]').evaluate((list) => {
+        const marker = list.querySelector('.nb-tab-marker')!.getBoundingClientRect();
+        const row = list.parentElement!.getBoundingClientRect();
+        return row.bottom - marker.bottom;
+    });
+    expect(Math.abs(gap)).toBeLessThanOrEqual(0.5);
 });
 
 test('Lives in is a drop-down at the end of the tab row', async ({ page }) => {
@@ -41,7 +51,6 @@ test('Lives in is a drop-down at the end of the tab row', async ({ page }) => {
     await page.getByRole('button', { name: /^Lives in/ }).click();
     await page.getByRole('option', { name: /Riverside Robotics Club/ }).click();
     await expect(page.getByRole('button', { name: /^Lives in/ })).toContainText('Riverside Robotics Club');
-    await expect(page.locator('[data-start-summary]')).toContainText('Riverside Robotics Club');
     await tab(page, /Create organization/).count().then((n) => expect(n).toBe(0));
 });
 

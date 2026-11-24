@@ -18,7 +18,7 @@ test("primary actions derive hover and pressed states from the active light or d
   assert.match(css, /--primary-hover: var\(--theme-action-hover-dark\)/);
   assert.match(css, /--primary-active: var\(--theme-action-active-dark\)/);
   // The top bar's New workspace is a cell (shell redesign): its hover lives in globals.css.
-  assert.match(topNav, /className="nb-cell nb-cell-cta/);
+  assert.match(source("src/components/layout/header/CreateWorkspaceCell.tsx"), /className="nb-cell nb-cell-cta/);
   assert.match(css, /:is\(a\)\.nb-cell-cta:hover \{ background:var\(--primary-hover\); \}/);
   assert.match(css, /:is\(a\)\.nb-cell-cta:active \{ background:var\(--primary-active\); \}/);
   assert.doesNotMatch(topNav, /hover:bg-\[var\(--nb-brand-hover\)\]/);
