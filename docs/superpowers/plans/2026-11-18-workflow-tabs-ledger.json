@@ -998,9 +998,9 @@
       "text": "B0.2 Department label + Head of department; institution tabs (29.5)",
       "kind": "unit",
       "milestone": "B0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/institutions.test.ts; tests/unit/school-rules.test.ts; tests/browser/school-card.spec.ts",
+      "evidence": "35d2076e5..f57ff6ab5 live 2026-11-24 (no migration). Live in Chrome on wt-test-b0-school/class: department WT Science with a head saved, class put in it; Classes tab grouped by department; Overview \"Classes needing attention\" flags the quiet class; About lists Departments; school Late work → Not accepted reached the class and shows locked \"Set by wt-test-b0-school\". Live-check fixes 2aea4d315 (Set by names only what the school set; tab title Classes) ship with B1.1. Security review: copied class rejoins by the join rule (d19bc3158). Start next term = Duplicate; bulk archive not built (call); template library waits for B1.2/B1.5 (call)."
     },
     {
       "key": "B1.1",
