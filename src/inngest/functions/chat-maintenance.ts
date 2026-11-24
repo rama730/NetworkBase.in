@@ -77,6 +77,8 @@ export const chatDue = inngest.createFunction(
       await step.run("goals-closing", async () => (await import("@/lib/workflows/goals-notify")).notifyGoalsClosingSoon());
       // B1.2b (report 30.3 layer 15): "Mark 2 lessons taught" to each class's teacher, Summary, once a day.
       await step.run("lessons-to-mark", async () => (await import("@/lib/organizations/term-plan-server")).notifyLessonsToMarkTaught());
+      // B1.8c (report 30.6 layer 15): "No supervision in 30 days", Normal, once per gap, to the student and supervisor.
+      await step.run("thesis-no-supervision", async () => (await import("@/lib/workflows/thesis-server")).notifyNoSupervision());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

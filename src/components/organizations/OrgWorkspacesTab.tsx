@@ -1,5 +1,6 @@
 'use client'
 import { TabMarker } from "@/components/ui/TabMarker";
+import { ThesisCoordinator } from '@/components/organizations/ThesisCoordinator'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -122,7 +123,8 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
     if (!data) {
         return <div className="mx-auto w-full max-w-[1200px]"><ErrorNotice what="Workspaces" onRetry={() => void query.refetch()} /></div>
     }
-    return <WorkspacesView orgId={orgId} orgSlug={orgSlug ?? null} data={data} reload={reload} />
+    // B1.8c (report 30.6): class staff see the Theses table above the workspaces when any use Thesis.
+    return <>{data.isAdmin ? <div className="mx-auto w-full max-w-[1200px]"><ThesisCoordinator orgId={orgId} /></div> : null}<WorkspacesView orgId={orgId} orgSlug={orgSlug ?? null} data={data} reload={reload} /></>
 }
 
 /** §5 Loading: the header at once with dashes, three skeletons at the card's height. */
