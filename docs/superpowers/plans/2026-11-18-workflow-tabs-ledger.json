@@ -918,9 +918,9 @@
       "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/asset-rules.test.ts; tests/db/assets.test.ts; tests/browser/assets-view.spec.ts; packages/nb-cli/test/assets.test.mjs",
+      "evidence": "Live 2026-11-24 (ce3bdcc59 + 4fcceb53c): Assets added to wt-test-a2-3; wt-logo.png (pushed with nb push) shows in Files → Assets with its picture; details saved (Logo, tags brand/wt, Final) in Chrome; nb assets list/tag against prod. Found and fixed on the way: nb push of an SVG gave a 500 (6a89a3f60, ships next)."
     },
     {
       "key": "A7.2",
@@ -7658,9 +7658,9 @@
       "text": "Assets are files; details live in the file's metadata. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/asset-rules.test.ts; tests/db/assets.test.ts; tests/browser/assets-view.spec.ts; packages/nb-cli/test/assets.test.mjs",
+      "evidence": "Live 2026-11-24 (ce3bdcc59 + 4fcceb53c): Assets added to wt-test-a2-3; wt-logo.png (pushed with nb push) shows in Files → Assets with its picture; details saved (Logo, tags brand/wt, Final) in Chrome; nb assets list/tag against prod. Found and fixed on the way: nb push of an SVG gave a 500 (6a89a3f60, ships next)."
     },
     {
       "key": "38.16.call2",
@@ -7708,9 +7708,9 @@
       "text": "Production status is a field shown as a grouping, not a board. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/asset-rules.test.ts; tests/db/assets.test.ts; tests/browser/assets-view.spec.ts; packages/nb-cli/test/assets.test.mjs",
+      "evidence": "Live 2026-11-24 (ce3bdcc59 + 4fcceb53c): Assets added to wt-test-a2-3; wt-logo.png (pushed with nb push) shows in Files → Assets with its picture; details saved (Logo, tags brand/wt, Final) in Chrome; nb assets list/tag against prod. Found and fixed on the way: nb push of an SVG gave a 500 (6a89a3f60, ships next)."
     },
     {
       "key": "38.17.W1",
@@ -8498,9 +8498,9 @@
       "text": "A7.1 Assets view (2026-11-24): Assets sits in Files' list of views when the Assets workflow is added. It lists the workspace's images, video, audio and fonts, a",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/asset-rules.test.ts; tests/db/assets.test.ts; tests/browser/assets-view.spec.ts; packages/nb-cli/test/assets.test.mjs",
+      "evidence": "Live 2026-11-24 (ce3bdcc59 + 4fcceb53c): Assets added to wt-test-a2-3; wt-logo.png (pushed with nb push) shows in Files → Assets with its picture; details saved (Logo, tags brand/wt, Final) in Chrome; nb assets list/tag against prod. Found and fixed on the way: nb push of an SVG gave a 500 (6a89a3f60, ships next)."
     },
     {
       "key": "38.16.call8",
@@ -8521,6 +8521,16 @@
       "status": "live",
       "test": "tests/unit/template-extras.test.ts; tests/db/template-extras.test.ts; tests/browser/template-extras.spec.ts",
       "evidence": "Live 2026-11-24 (111001f48): in wt-test-a2-3, Test plan – WT Checkout (made with nb doc new) shows Pass 1 · Fail 1 · Blocked 1 · 33% and Report a bug made NB-66 (New, steps + expected); Tech spec – WT Sign-in Request review → NB-67 → done → Approved · 1 of 1; Business model canvas – WT Tutoring as a 3 × 3 grid; Investor update – WT Nov 2026 shows Q4 key results. Checked in Chrome."
+    },
+    {
+      "key": "38.16.call9",
+      "section": "38.16",
+      "text": "A7.3 Colors, outside links, new-version notices (2026-11-24): Assets opens with Colors (swatch, name, hex in mono, Copy; Add color with a name, a hex and a colo",
+      "kind": "call",
+      "milestone": "A7",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

@@ -203,6 +203,7 @@ Format per unit: **Goal** · **Build** (data · server · UI) · **Journeys (loc
 | A6.33 | Character profile | 24.4 | gallery section |
 
 **A6.34 Docs site view** — Build: `setDocsSiteAction`, `searchDocsAction` (⌘K). Journeys: D6 W3, W4 (public shows only switched-on docs). **A6.35 Snippets** — Journeys: D6 W5, W6 (`nb docs new --template`, `nb snippets`, `networkbase_doc_create` template, `networkbase_snippet_get`).
+**A6.36 Template extras** (added 2026-11-24, report 38.15 call 7) — Build: the interactive parts of templates: Business model canvas grid, Test plan pass rate + Report a bug, goals numbers in Investor update / Grant proposal / Impact report / PRD, PRD Create roadmap items + Make tasks, Assumptions check row actions, Request review, Class notes members-only. Journeys: each template's tools on a document made from it.
 (Count note: A6 = 1 mechanism + 32 templates + 2 views = 35; Part A totals 98.)
 
 ### A7. Files, Updates, Sprints (7 units) — 38.16–38.18
