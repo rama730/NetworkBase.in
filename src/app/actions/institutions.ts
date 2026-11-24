@@ -141,6 +141,9 @@ export type InstitutionClass = {
   /** B1.4b (report 30.7 call): the class's average attendance and how many are below its minimum — never names. */
   attendanceAvg: number | null;
   belowMinimum: number;
+  /** B1.5b (report 30.8 layer 10): hand-ins on marked assignments that have a mark, and those waiting for one — never marks. */
+  marked?: number;
+  notMarked?: number;
 };
 export type Department = { id: string; name: string; heads: string[] };
 const departmentsOf = (o: { orgSettings: unknown }): Department[] => {
@@ -164,12 +167,16 @@ export async function readInstitutionClassesAction(institutionId: string) {
     const departments = departmentsOf(inst);
     const heads = new Set(departments.filter((d) => d.heads.includes(userId)).map((d) => d.id));
     const rows = Array.from(await db.execute<{ id: string; title: string; slug: string | null; teacher: string | null; department: string | null; term_start: string | null; term_end: string | null;
-      members: number; open_assignments: number; to_review: number; last_activity: string | null }>(sql`
+      members: number; open_assignments: number; to_review: number; last_activity: string | null; marked: number; not_marked: number }>(sql`
       SELECT c.id, c.title, c.slug, coalesce(p.full_name, p.username) AS teacher, c.org_settings->>'department' AS department, c.term_start::text, c.term_end::text,
         (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = c.id) AS members,
         (SELECT count(*)::int FROM tasks t WHERE t.workspace_id = c.id AND t.kind = 'assignment' AND t.assignment_id IS NULL AND t.deleted_at IS NULL AND t.assignment_settings->>'closedAt' IS NULL) AS open_assignments,
         (SELECT count(*)::int FROM tasks t JOIN tasks m ON m.id = t.assignment_id WHERE m.workspace_id = c.id AND t.deleted_at IS NULL AND t.review_status = 'pending') AS to_review,
-        (SELECT max(t.updated_at)::text FROM tasks t WHERE t.workspace_id = c.id) AS last_activity
+        (SELECT max(t.updated_at)::text FROM tasks t WHERE t.workspace_id = c.id) AS last_activity,
+        (SELECT count(*)::int FROM assignment_marks a JOIN tasks t ON t.id = a.copy_id WHERE a.workspace_id = c.id AND t.deleted_at IS NULL) AS marked,
+        (SELECT count(*)::int FROM tasks t JOIN tasks m ON m.id = t.assignment_id
+          WHERE m.workspace_id = c.id AND t.deleted_at IS NULL AND m.deleted_at IS NULL AND t.excused_at IS NULL AND m.assignment_settings->'marking'->>'mode' IN ('outof', 'rubric')
+            AND (t.review_status = 'pending' OR t.status = 'done') AND NOT EXISTS (SELECT 1 FROM assignment_marks a WHERE a.copy_id = t.id)) AS not_marked
       FROM workspaces c LEFT JOIN profiles p ON p.id = c.owner_id
       WHERE c.institution_id = ${institutionId}::uuid AND c.deleted_at IS NULL ORDER BY c.title`));
     const requests = isAdmin ? Array.from(await db.execute<{ id: string; title: string }>(sql`
@@ -201,7 +208,8 @@ export async function readInstitutionClassesAction(institutionId: string) {
         return { id: r.id, title: r.title, slug: r.slug, teacher: r.teacher, department, termStart: r.term_start, termEnd: r.term_end, counted,
           members: counted ? r.members : 0, openAssignments: counted ? r.open_assignments : 0, toReview: counted ? r.to_review : 0, lastActivity: counted ? r.last_activity : null,
           behindPlan: counted ? plans.get(r.id)?.unmarked.length ?? 0 : 0,
-          attendanceAvg: counted ? attendanceOf(r.id).avg : null, belowMinimum: counted ? attendanceOf(r.id).below : 0 };
+          attendanceAvg: counted ? attendanceOf(r.id).avg : null, belowMinimum: counted ? attendanceOf(r.id).below : 0,
+          marked: counted ? r.marked : 0, notMarked: counted ? r.not_marked : 0 };
       }) };
   } catch (error) {
     logger.warn("institutions.classes_failed", { institutionId, error: error instanceof Error ? error.message : String(error) });

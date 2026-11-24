@@ -42,6 +42,8 @@ export type AssignmentSettings = {
   aiNote?: string | null;
   /** Marking (report 30.8 W7): Not marked, Out of N, or a rubric frozen onto the assignment when it's saved. */
   marking?: import('@/lib/organizations/marks').Marking;
+  /** Peer review (report 30.8 call, B1.5c): with a rubric and text or link hand-ins. */
+  peerReview?: boolean;
 };
 
 /**

@@ -122,6 +122,20 @@ test("Out of: 0..N only; excused work has no mark; each change is kept", async (
   const drawer = await members.readMemberWorkAction(t.klass, t.a);
   assert.ok(drawer.success);
   assert.deepEqual(drawer.work.map((w) => w.mark), [{ total: 40, outOf: 50, visible: false }], "the drawer lists the mark, no total");
+  // B1.5b: the school sees marked and not-marked counts, never a mark.
+  const principal = await sql.begin((tx) => createUser(tx));
+  const school = await sql.begin((tx) => createProject(tx, principal, { visibility: "private" }));
+  created.push(school);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', org_level = 'institution', join_code = ${generateJoinCode()} WHERE id = ${school}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${school}, ${principal}, 'owner')`;
+  await sql`UPDATE workspaces SET institution_id = ${school} WHERE id = ${t.klass}`;
+  const inst = await loadAppModule(() => import("../../src/app/actions/institutions"));
+  viewerId = principal;
+  const classes = await inst.readInstitutionClassesAction(school);
+  assert.ok(classes.success);
+  assert.deepEqual([classes.classes[0]!.marked, classes.classes[0]!.notMarked], [1, 0]);
+  assert.equal(JSON.stringify(classes).includes('"total"'), false, "no marks reach the school");
+  viewerId = t.teacher;
   viewerId = t.ta;
   const taCsv = await assignments.readAssignmentExportAction(master);
   assert.ok(taCsv.success && !taCsv.rows[0]!.includes("Mark"), "a TA's export leaves marks out");

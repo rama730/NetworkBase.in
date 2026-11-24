@@ -17,4 +17,5 @@ test("a moving class needs nothing; 10+ to review or 14 quiet days need attentio
   assert.deepEqual(attentionReasons({ ...base, counted: false, toReview: 0, lastActivity: null }, now), []);
   assert.equal(classCounts(base), "30 members · 2 open assignments · 3 to review · active Nov 20");
   assert.equal(classCounts({ ...base, members: 1, openAssignments: 1, lastActivity: null }), "1 member · 1 open assignment · 3 to review", "found live: 1 members");
+  assert.equal(classCounts({ ...base, marked: 12, notMarked: 3 }), "30 members · 2 open assignments · 3 to review · 12 marked, 3 not marked · active Nov 20", "B1.5b: counts, never marks");
 });

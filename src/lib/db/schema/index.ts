@@ -1262,6 +1262,19 @@ export const assignmentMarks = pgTable("assignment_marks", {
   adjustments: jsonb("adjustments").$type<Record<string, { total: number; reason: string; by: string; at: string }>>().notNull().default({}),
 }, (t) => [index("assignment_marks_master_idx").on(t.masterId)]);
 
+/** B1.5c (0130, report 30.8 call): peer reviews — 2 other hand-ins per student, names hidden both ways. Server only. */
+export const peerReviews = pgTable("peer_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  masterId: uuid("master_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  copyId: uuid("copy_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  reviewerId: uuid("reviewer_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  levels: jsonb("levels").$type<Record<string, number>>().notNull().default({}),
+  comment: text("comment"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }),
+}, (t) => [unique("peer_reviews_one_each").on(t.copyId, t.reviewerId), index("peer_reviews_master_reviewer_idx").on(t.masterId, t.reviewerId)]);
+
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
 // ============================================================================

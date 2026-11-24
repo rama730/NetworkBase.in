@@ -106,6 +106,8 @@ const createSchema = z.object({
     aiNote: z.string().trim().max(300, 'Keep the note to 300 characters.').nullable().optional(),
     /** Marking (report 30.8 W7): a rubric is copied onto the assignment here, so later edits never change it. */
     marking: z.union([z.object({ mode: z.literal('none') }), z.object({ mode: z.literal('outof'), outOf: z.number().positive().max(100_000) }), z.object({ mode: z.literal('rubric'), rubricId: z.string().uuid() })]).optional(),
+    /** Peer review (B1.5c): only with a rubric and text or link hand-ins (files stay private). */
+    peerReview: z.boolean().optional(),
 });
 
 /** Reviewers are the organization's admins (owner included), each once; an error when anyone else is named. */
@@ -141,6 +143,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     const lateBlock = lateRuleBlock(data, new Date(data.dueDate));
     const marking = data.marking && data.marking.mode !== 'none' ? await freezeMarking(data.projectId, data.marking) : null;
     if (marking && 'error' in marking) return { success: false, error: marking.error };
+    if (data.peerReview && (marking?.mode !== 'rubric' || (data.submissionType !== 'text' && data.submissionType !== 'link'))) return { success: false, error: 'Peer review needs a rubric and a text or link hand-in.' };
     if (lateBlock) return { success: false, error: lateBlock };
     const scheduled = data.publish ? { fields: {} } : scheduleFields(data.schedule, data.sprintId ?? null);
     if ('error' in scheduled) return { success: false, error: scheduled.error! };
@@ -179,6 +182,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 ...(data.aiPolicy ? { aiPolicy: data.aiPolicy } : {}),
                 ...(data.aiNote ? { aiNote: data.aiNote } : {}),
                 ...(marking ? { marking } : {}),
+                ...(data.peerReview ? { peerReview: true } : {}),
                 ...scheduled.fields,
             };
             const masterId = await createMasterTask(tx, {

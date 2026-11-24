@@ -260,6 +260,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     // B1.5a Marking (report 30.8): Not marked, Out of N, or one of the class's rubrics (copied onto the assignment).
     const [marking, setMarking] = useState('none')
     const [outOf, setOutOf] = useState('10')
+    const [peerReview, setPeerReview] = useState(false)
+    const peerOk = marking !== 'none' && marking !== 'outof' && (submissionType === 'text' || submissionType === 'link')
     const [sectionIds, setSectionIds] = useState<string[]>([])
     // Errors sit under their field, like the Task tab; a server error sits at the top of the form.
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -366,6 +368,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
             ...(reviewRequired && !reviewOff && reviewers.length ? { reviewers } : {}),
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
+            ...(peerReview && peerOk ? { peerReview: true } : {}),
             ...(marking === 'outof' ? { marking: { mode: 'outof' as const, outOf: Number(outOf) } } : marking !== 'none' ? { marking: { mode: 'rubric' as const, rubricId: marking } } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
@@ -685,6 +688,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             </div>
                         </Field>
                     ) : null}
+                    {options.rubrics && peerOk ? <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={peerReview} onChange={(e) => setPeerReview(e.target.checked)} />Peer review (each student reviews 2 classmates’ hand-ins with the rubric; names hidden both ways)</label> : null}
                 </div>
 
                 <div className="space-y-3.5">
