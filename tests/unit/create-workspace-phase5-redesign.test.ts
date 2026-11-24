@@ -45,3 +45,15 @@ test('entering review cannot create a project until the review is ready and the 
     assert.match(footer, /disabled=\{busy \|\| !isReviewReady\}/);
     assert.match(modal, /<Phase5Review goToPhase=\{goToPhase\} onReady=\{handleReviewReady\} projectImage=\{projectImage\} \/>/);
 });
+
+test('after Create (v6): the Finish view, Open replaces the route, and the Overview keeps Get started for the owner', () => {
+    const wizard = source('src/components/workspaces/create-wizard/CreateWorkspaceWizard.tsx');
+    const route = source('src/components/workspaces/create-wizard/CreateWorkspaceRouteClient.tsx');
+    const dashboard = source('src/components/workspaces/tabs/DashboardTab.tsx');
+
+    assert.match(wizard, /<FinishView finished=\{finished\}/);
+    // Back from the new workspace never reopens the wizard; nothing navigates before Open.
+    assert.match(route, /router\.replace\(`\/workspaces\/\$\{encodeURIComponent\(finished\.slug \?\? finished\.projectId\)\}`\)/);
+    assert.doesNotMatch(route, /router\.replace\(`\/workspaces\/\$\{projectId\}`\)/);
+    assert.match(dashboard, /isCreator && project\.kind !== "organization" \? <div className="nbs"><GetStarted overview/);
+});

@@ -25,6 +25,7 @@ import { ORG_CREATION_COPY, orgTypeDefaults } from '@/lib/organizations/creation
 import { parseInviteEmails } from '@/lib/organizations/member-rules';
 import { useAuth } from '@/hooks/useAuth';
 import type { Workspace } from '@/types/discover';
+import { buildPreviewWorkspace } from '../preview-workspace';
 
 interface Phase5ReviewProps {
     goToPhase: (phase: 1 | 2 | 3 | 4) => void;
@@ -177,59 +178,11 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
         };
     }, [projectImage]);
 
-    const previewProject: Workspace = useMemo(() => {
-        return {
-            id: 'preview-project',
-            key: 'PRV',
-            title: formData.title || `Untitled ${noun}`,
-            description: formData.description || '',
-            shortDescription: formData.short_description || '',
-            slug: 'preview',
-            status: 'draft',
-            syncStatus: 'ready',
-            visibility: formData.visibility === 'private' ? 'private' : 'public',
-            category: formData.project_type === 'other' ? formData.custom_project_type || 'Other' : formData.project_type || 'General',
-            coverImageUrl: previewCoverUrl || undefined,
-            avatarUrl: previewCoverUrl || undefined,
-            skills: [...(formData.tags || []), ...(formData.technologies_used || [])],
-            externalLinks: formData.external_links || {},
-            githubRepoUrl: formData.import_source?.repoUrl || undefined,
-            owner: user ? {
-                id: user.id,
-                fullName: user.user_metadata?.full_name || user.email || 'You',
-                displayName: user.user_metadata?.full_name || 'You',
-                username: user.user_metadata?.user_name || 'you',
-                avatarUrl: user.user_metadata?.avatar_url || null,
-            } : {
-                id: 'you',
-                fullName: 'You',
-                displayName: 'You',
-                username: 'you',
-                avatarUrl: null,
-            },
-            openRoles: (formData.roles || []).map((r, i) => ({
-                id: `role-${i}`,
-                projectId: 'preview-project',
-                role: r.role,
-                count: r.count,
-                filled: 0,
-                skills: r.skills || [],
-                description: r.description,
-            })),
-            collaboratorsCount: 1,
-            followersCount: 0,
-            // An organization previews as its Discover card (report §34.7).
-            ...(formData.organization ? {
-                kind: 'organization', orgType: formData.organization.org_type ?? null, orgPartOf: formData.organization.part_of || null,
-                orgTypeLabel: orgTypeLabel(formData.organization.org_type, { typeLabel: formData.organization.type_label }),
-                category: formData.custom_project_type || null, skills: formData.tags || [], childProjectCount: 0,
-            } : {}),
-            // The card shows the org above the title on Discover (report §14.3 Phase 5); its own tab leaves it out.
-            cardOrg: childOrg && where === 'discover' ? { id: childOrg.id, title: childOrg.title, slug: childOrg.slug } : undefined,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        } as unknown as Workspace;
-    }, [formData, previewCoverUrl, user, childOrg, noun, where]);
+    const previewProject: Workspace = useMemo(() => buildPreviewWorkspace(formData, {
+        noun, coverUrl: previewCoverUrl, user,
+        // The card shows the org above the title on Discover (report §14.3 Phase 5); its own tab leaves it out.
+        cardOrg: childOrg && where === 'discover' ? { id: childOrg.id, title: childOrg.title, slug: childOrg.slug } : undefined,
+    }), [formData, previewCoverUrl, user, childOrg, noun, where]);
 
     const whereOptions = [
         { id: 'discover' as const, label: 'Discover' },

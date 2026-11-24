@@ -3180,6 +3180,40 @@ li[data-state="failed"] > .nb-creating-box { border-color: var(--status-danger);
 @media (prefers-reduced-motion: reduce) { li[data-state="current"] > .nb-creating-box { animation: none; } .nb-creating-mark::before, .nb-creating-bar > span { transition: none; } }
 html[data-reduce-motion="true"] li[data-state="current"] > .nb-creating-box { animation: none; }
 html[data-reduce-motion="true"] .nb-creating-mark::before, html[data-reduce-motion="true"] .nb-creating-bar > span { transition: none; }
+
+/* ---------- Create workspace v6: Finish — what was made, Get started, the live card ---------- */
+.nb-finish { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+.nb-finish > div > .nbs-frame { margin-top: 16px; }
+.nb-finish-hero { display: grid; gap: 8px; }
+.nb-finish-hero .nb-creating-mark { animation: nb-enter-settle 600ms var(--nb-ease) backwards; }
+.nb-creating-mark > .nb-finish-tick { position: absolute; right: 5px; bottom: 5px; color: var(--status-success); }
+.nb-made { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 16px 0 0; padding: 12px 16px; list-style: none; border: 1px solid var(--nbs-line); border-radius: 8px; background: var(--card); font-size: 13px; }
+.nb-made li { display: inline-flex; align-items: center; gap: 8px; }
+.nb-made li[data-state="running"] > .nb-creating-box { border-color: var(--nbs-brand); background: color-mix(in srgb, var(--nbs-brand) 20%, transparent); animation: nb-creating-pulse 1.2s var(--nb-ease) infinite; }
+.nb-made li[data-state="failed"] > .nb-creating-box { border-color: var(--status-danger); color: var(--status-danger); }
+.nb-made li[data-state="done"] > .nb-creating-box { border-color: transparent; }
+.nb-gs-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 12px var(--nbs-pad); border-top: 1px solid var(--nbs-line); }
+.nb-gs-row .t { font-size: 13.5px; font-weight: 500; }
+.nb-gs-row .d { margin-top: 2px; font-size: 12.5px; color: var(--nbs-fg2); }
+.nb-gs-row .ctl { display: flex; align-items: center; gap: 8px; }
+.nb-gs-row[data-done="true"] .t { color: var(--nbs-fg2); text-decoration: line-through; text-decoration-color: var(--nbs-line); }
+.nb-gs-box { display: grid; place-items: center; width: 16px; height: 16px; margin-top: 2px; border: 1.5px solid var(--nbs-line); border-radius: 2px; font: 700 11px var(--nbs-mono); color: var(--status-danger); }
+.nb-gs-box[data-done] { border-color: transparent; color: var(--status-success); }
+.nb-gs-invite { display: grid; gap: 6px; margin-top: 10px; max-width: 360px; }
+.nb-gs-input { height: 34px; padding: 0 10px; border: 1px solid var(--input); border-radius: 5px; background: var(--background); font-size: 13.5px; color: var(--foreground); outline: none; }
+.nb-gs-input:focus-visible { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent); }
+.nb-gs-hits { overflow: hidden; border: 1px solid var(--nbs-line); border-radius: 5px; background: var(--card); }
+.nb-gs-hits li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 13px; cursor: pointer; }
+.nb-gs-hits li + li { border-top: 1px solid var(--nbs-line); }
+.nb-gs-hits li:hover, .nb-gs-hits li:focus-visible { outline: none; background: var(--nbs-soft); }
+.nb-finish-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.nb-finish-open { animation: nb-finish-ring 1.2s var(--nb-ease) 400ms 2; }
+@keyframes nb-finish-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+.nb-finish-share { margin: 0 0 10px; padding: 10px 12px; border-radius: 5px; background: var(--nbs-soft); font-size: 13px; overflow-wrap: anywhere; }
+.nb-finish .nb-project-card { height: auto; content-visibility: visible; contain-intrinsic-size: none; }
+@media (max-width: 1100px) { .nb-finish { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .nb-finish-open, .nb-finish-hero .nb-creating-mark, .nb-made li[data-state="running"] > .nb-creating-box { animation: none; } }
+html[data-reduce-motion="true"] :is(.nb-finish-open, .nb-finish-hero .nb-creating-mark, .nb-made li[data-state="running"] > .nb-creating-box) { animation: none; }
 @media (max-width: 767px) {
   .nb-settings-step { display: block; }
   .nb-sdock { height: auto; border-right: 0; border-bottom: 1px solid var(--nbs-line); }

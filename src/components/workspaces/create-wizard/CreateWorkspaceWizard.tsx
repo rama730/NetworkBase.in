@@ -19,6 +19,8 @@ import WizardHeader from './WizardHeader';
 import { phaseProblems } from './phase-problems';
 import WizardFooter, { WIZARD_COLUMN } from './WizardFooter';
 import { CreatingView } from './CreatingView';
+import { FinishView } from './FinishView';
+import type { CreateFinished } from './useCreateWorkspaceWizard';
 import { Button } from '@/components/ui/button';
 import LeaveWorkspaceSetupDialog from './LeaveWorkspaceSetupDialog';
 import { getCreateWorkspaceReturnPath, readGithubOAuthResume, type CreateWorkspaceGithubOAuthResume } from './github-oauth-resume';
@@ -44,6 +46,10 @@ const Phase5Review = dynamic(() => import('./phases/Phase5Review'), { loading: P
 interface Props {
     onClose: () => void;
     onSuccess?: (projectId: string, organization?: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization) => void;
+    /** Finish → Open: the page goes to the workspace (replacing this route, so Back never reopens the wizard). */
+    onOpen?: (finished: CreateFinished) => void;
+    /** Finish → Create another: the page starts a fresh wizard. */
+    onCreateAnother?: () => void;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
     /** Open on the Organization starting point (report §45.8). */
     startAsOrganization?: boolean;
@@ -55,7 +61,7 @@ interface Props {
     locationNotice?: string | null;
 }
 
-export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSource = null, startAsOrganization = false, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
+export default function CreateWorkspaceWizard({ onClose, onSuccess, onOpen, onCreateAnother, initialSource = null, startAsOrganization = false, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -74,7 +80,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
     });
 
     const { handleSubmit } = methods;
-    // Create finished: hand the made workspace to the page (Task 9 shows the Finish view here instead).
+    // Create finished: the page refreshes what shows the new workspace (and shows an organization its ready screen).
     useEffect(() => {
         if (finished) onSuccess?.(finished.projectId, finished.organization);
     }, [finished, onSuccess]);
@@ -255,6 +261,19 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
     // Report §14.5: the draft remembers its org; opening the wizard for another org says so.
     const draftOrg = draftInfo?.parentOrgId ? createLocations.find((location) => location.id === draftInfo.parentOrgId) ?? null : null;
     const draftElsewhere = Boolean(initialOrgId && draftOrg && draftOrg.id !== initialOrgId);
+
+    if (finished && !finished.organization) {
+        return (
+            <div className="nbs relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
+                <div data-wizard-scroll className="relative app-scroll app-scroll-y min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                    <div className="nb-wizard-body w-full max-w-[1220px] px-4 pb-12 pt-6 md:px-6 md:pt-7">
+                        <FinishView finished={finished} values={methods.getValues()} childOrg={createLocations.find((location) => location.id === methods.getValues('parent_org_id')) ?? null} projectImage={projectImage}
+                            onOpen={() => onOpen?.(finished)} onCreateAnother={() => onCreateAnother?.()} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const content = (
             // A normal page in the app shell (spec §18): fills the main content area; header and footer bands, one scrolling body.

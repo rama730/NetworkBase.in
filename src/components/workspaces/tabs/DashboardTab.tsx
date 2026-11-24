@@ -13,6 +13,7 @@ import { MeetingsOverviewCard } from "@/components/workspaces/dashboard/Meetings
 import { GoalsOverviewCard } from "@/components/workspaces/dashboard/GoalsOverviewCard";
 import { OffsiteOverviewCard } from "@/components/workspaces/dashboard/OffsiteOverviewCard";
 import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
+import { GetStarted } from "@/components/workspaces/GetStarted";
 
 import { type ApplicationStatusResult } from "@/app/actions/applications";
 import type { WorkspaceRecentActivityItem } from "@/lib/workspaces/recent-activity";
@@ -63,6 +64,8 @@ export function DashboardTab({
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-6 lg:col-span-8">
+                {/* Create wizard v6: the new workspace's next steps stay here for its owner until done or hidden. */}
+                {isCreator && project.kind !== "organization" ? <div className="nbs"><GetStarted overview projectId={project.id} slug={project.slug ?? project.id} title={project.title} /></div> : null}
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} />
             </div>
 

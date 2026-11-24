@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import CreateWorkspaceWizard from '@/components/workspaces/create-wizard/CreateWorkspaceWizard';
+import { OrganizationCreatedScreen } from '@/components/organizations/OrganizationCreatedScreen';
 
 // The real create wizard (v6) in a real browser with the app's stylesheet. Server actions answer from window.__actions;
 // window.__calls records them; window.__router records navigation. ?org=1 gives the person one organization.
@@ -11,6 +12,7 @@ const params = new URLSearchParams(location.search);
 let route = location.pathname;
 const subs = new Set<() => void>();
 w.__pushed = [] as string[];
+w.__replaced = [] as string[];
 w.__calls = [] as Array<{ name: string; args: unknown[] }>;
 w.__router = { subscribe: (f: () => void) => { subs.add(f); return () => subs.delete(f); }, get: () => route, push: (href: string) => { w.__pushed.push(href); route = href.split('?')[0]!; subs.forEach((f) => f()); } };
 const record = (name: string, value: unknown) => (...args: unknown[]) => { w.__calls.push({ name, args }); return Promise.resolve(typeof value === 'function' ? (value as (...a: unknown[]) => unknown)(...args) : value); };
@@ -27,9 +29,15 @@ const locations = params.get('org') === 'class'
 
 function App() {
     useSyncExternalStore(w.__router.subscribe, w.__router.get);
+    // ?orgdone=1: the organization's ready screen, as the create page shows it after Create.
+    if (params.get('orgdone')) {
+        return <OrganizationCreatedScreen title="Riverside Robotics Club" joinCode="RIV-7K2" handle="riverside" invites={{ coAdmins: 1, members: 3, skipped: 0 }} joinMode="instant" onContinue={() => w.__replaced.push('/org/riverside')} />;
+    }
     return (
         <div style={{ height: '100vh' }}>
-            <CreateWorkspaceWizard onClose={() => w.__router.push('/closed')} onSuccess={(id: string) => w.__router.push(`/created/${id}`)} createLocations={locations as never} initialOrgId={params.get('locked') ? 'o1' : null} initialSource={(params.get('source') as never) ?? null} />
+            <CreateWorkspaceWizard onClose={() => w.__router.push('/closed')} onSuccess={(id: string) => w.__router.push(`/created/${id}`)}
+                onOpen={(f: { projectId: string; slug: string | null }) => w.__replaced.push(`/workspaces/${f.slug ?? f.projectId}`)}
+                createLocations={locations as never} initialOrgId={params.get('locked') ? 'o1' : null} initialSource={(params.get('source') as never) ?? null} />
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/lib/feedback'
 import { queryKeys } from '@/lib/query-keys'
 import CreateWorkspaceWizard from './CreateWorkspaceWizard'
+import type { CreateFinished } from './useCreateWorkspaceWizard'
 import { CreateWorkspaceShellSkeleton } from './CreateWorkspaceShellSkeleton'
 import { clearCreateWorkspaceReturnPath, readCreateWorkspaceReturnPath } from './create-workspace-return'
 import {
@@ -82,15 +83,21 @@ export function CreateWorkspaceRouteClient({
         void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() })
         clearCreateWorkspaceReturnPath()
         if (organization) return setCreatedOrg({ projectId, ...organization })
-        // Workspaces report §4 F2: made inside an organization, the way back to its Workspaces tab, where it shows on top.
-        const org = initialOrgId ? createLocations.find((l) => l.id === initialOrgId) : null
-        if (org) {
-            void queryClient.invalidateQueries({ queryKey: ['org-workspaces', org.id] })
-            toast.success(`Added to ${org.title}`, { duration: 8_000, action: { label: 'Back to workspaces', onClick: () => router.push(`/org/${encodeURIComponent(org.slug ?? org.id)}?tab=projects&wnew=${encodeURIComponent(projectId)}`) } })
-        }
-        // Replace so Back from the new project does not reopen the wizard.
-        router.replace(`/workspaces/${projectId}`)
-    }, [createLocations, initialOrgId, queryClient, router])
+        // Workspaces report §4 F2: made inside an organization, it shows on top of its Workspaces tab. The Finish view
+        // says so with "Back to {org}" (create wizard v6), so no toast.
+        for (const org of createLocations) void queryClient.invalidateQueries({ queryKey: ['org-workspaces', org.id] })
+    }, [createLocations, queryClient])
+
+    // Finish → Open. Replace so Back from the new workspace does not reopen the wizard.
+    const handleOpen = useCallback((finished: CreateFinished) => {
+        router.replace(`/workspaces/${encodeURIComponent(finished.slug ?? finished.projectId)}`)
+    }, [router])
+    // Finish → Create another: a fresh wizard on the same page.
+    const [wizardKey, setWizardKey] = useState(0)
+    const handleCreateAnother = useCallback(() => {
+        setCreatedOrg(null)
+        setWizardKey((key) => key + 1)
+    }, [])
 
     const handleResumeRestored = useCallback((resumeId: string) => {
         clearGithubOAuthResume(resumeId)
@@ -113,8 +120,11 @@ export function CreateWorkspaceRouteClient({
 
     return (
         <CreateWorkspaceWizard
+            key={wizardKey}
             onClose={handleClose}
             onSuccess={handleSuccess}
+            onOpen={handleOpen}
+            onCreateAnother={handleCreateAnother}
             initialSource={handoff.source}
             startAsOrganization={handoff.organization}
             onSourceChange={handleSourceChange}
