@@ -27,6 +27,7 @@ import { areSealedImportTokensEqual, getSealedImportTokenFingerprint } from '@/l
 import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhaseHead } from '../PhaseHead';
 import { Phase1SourceMethodGroup, type WorkspaceSourceType, type StartingPoint } from '@/components/workspaces/create-wizard/phase1/Phase1SourceMethodGroup';
 import type { OrgType } from '@/lib/organizations/config';
 import { OrgTypePicker } from '@/components/organizations/OrgWizardFields';
@@ -1617,6 +1618,7 @@ export default function Phase1SourceSelection({
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
+            <PhaseHead noun={organization ? 'organization' : 'workspace'} step="Start" title="What are you starting from?" />
             <WherePicker />
             <Phase1SourceMethodGroup
                 value={organization ? 'organization' : selectedSource}

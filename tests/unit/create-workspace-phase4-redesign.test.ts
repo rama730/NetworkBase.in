@@ -14,8 +14,7 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     const schema = source('src/lib/validations/workspace.ts');
     const wizard = source('src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts');
 
-    assert.match(phase, /Phase 4 · \{isOrganization \? 'setup' : 'settings'\}/);
-    assert.match(phase, /Choose how the workspace starts/);
+    assert.match(phase, /step=\{isOrganization \? 'Setup' : 'Settings'\} title="How it starts\."/);
     assert.match(phase, /Choose \$\{noun\} visibility/);
     // Roles are reviewed in step 5; step 4 is launch settings only.
     assert.doesNotMatch(phase, /Confirm the initial availability|Edit roles|Ready to review:/);

@@ -1,9 +1,10 @@
 "use client";
 
-import type { RefObject } from "react";
-import { Check, X } from "lucide-react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
+import { X } from "lucide-react";
 import { ORG_PHASE_LABELS, WIZARD_PHASES, type WizardPhaseId } from "@/constants/workspace-wizard";
-import { Button } from "@/components/ui/button";
+import { PixelTick } from "@/components/ui/PixelTick";
+import type { PhaseProblems } from "./phase-problems";
 
 type WizardHeaderProps = {
   currentPhase: number;
@@ -15,82 +16,71 @@ type WizardHeaderProps = {
   isOrganization?: boolean;
   /** Focus target on mount: the page heading. */
   headingRef?: RefObject<HTMLHeadingElement | null>;
+  /** What each step still needs; shown on steps you have left, or tried to leave (v6 "Info · 3"). */
+  problems?: PhaseProblems;
+  attempted?: Partial<Record<WizardPhaseId, boolean>>;
 };
 
-const STEP_BADGE = "flex size-6 items-center justify-center rounded-sm border font-mono text-[11px]";
-
-// Header band: 64px on desktop with the numbered stepper; one 56px row on phones with the step
-// under the title and a thin progress line, so the form keeps the height (spec §18).
-export default function WizardHeader({ currentPhase, onClose, onStepSelect, stepsDisabled = false, headingRef, isOrganization = false }: WizardHeaderProps) {
+// Create wizard v6: the step strip. One cell per step across the page, one clay marker that slides to the current step,
+// a pixel tick on finished steps and a count on steps that still need something. Phones: "Info · 2 of 5" and five squares.
+export default function WizardHeader({ currentPhase, onClose, onStepSelect, stepsDisabled = false, headingRef, isOrganization = false, problems, attempted }: WizardHeaderProps) {
   const phases = WIZARD_PHASES.map((p) => ({ id: p.id, label: isOrganization ? ORG_PHASE_LABELS[p.id] : p.label }));
   const currentLabel = phases[currentPhase - 1]?.label ?? "";
+  const listRef = useRef<HTMLOListElement>(null);
+  const markerRef = useRef<HTMLSpanElement>(null);
+  const placed = useRef(false);
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const cell = listRef.current?.querySelector<HTMLElement>(`[data-step="${currentPhase}"]`);
+      const marker = markerRef.current;
+      if (!cell || !marker) return;
+      marker.style.transition = placed.current ? "" : "none";
+      marker.style.width = `${cell.offsetWidth}px`;
+      marker.style.transform = `translateX(${cell.offsetLeft}px)`;
+      placed.current = true;
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [currentPhase, isOrganization]);
 
   return (
-    <header className="shrink-0 border-b border-border bg-card">
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 px-5 sm:px-6 max-md:h-14 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:px-4 md:h-16 md:grid-cols-[minmax(9rem,1fr)_auto_minmax(9rem,1fr)]">
-        <div className="min-w-0">
-          <h1 ref={headingRef} tabIndex={-1} className="nb-section-title whitespace-nowrap text-foreground outline-none max-md:text-[16px] max-md:leading-tight">{isOrganization ? "Create organization" : "Create workspace"}</h1>
-          <p className="nb-meta mt-0.5 truncate text-muted-foreground md:hidden">
-            Step {currentPhase} of {WIZARD_PHASES.length} · <span className="text-foreground">{currentLabel}</span>
-          </p>
-        </div>
-        <nav aria-label="Workspace creation progress" className="app-scroll app-scroll-x min-w-0 justify-self-center overflow-x-auto max-md:hidden">
-          <ol className="flex min-w-max items-center">
-            {phases.map((wizardPhase, index) => {
-              const completed = currentPhase > wizardPhase.id;
-              const current = currentPhase === wizardPhase.id;
-              // 768–1023px: numbers only, label on the current step, so the stepper never scrolls.
-              const label = <span className={current ? undefined : "max-lg:sr-only"}>{wizardPhase.label}</span>;
-              return (
-                <li key={wizardPhase.id} className="flex items-center" aria-current={current ? "step" : undefined}>
-                  {index > 0 ? <span className="mx-2 h-px w-6 bg-border lg:mx-3 lg:w-12" aria-hidden="true" /> : null}
-                  {completed && onStepSelect ? (
-                    // Finished steps are links back; later steps stay locked until Continue validates them.
-                    <button
-                      type="button"
-                      onClick={() => onStepSelect(wizardPhase.id)}
-                      disabled={stepsDisabled}
-                      aria-label={`Step ${wizardPhase.id}: ${wizardPhase.label} (completed). Return to step.`}
-                      title={`Step ${wizardPhase.id}: ${wizardPhase.label} (completed)`}
-                      className="group flex items-center gap-2 rounded-sm text-sm text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
-                    >
-                      <span className={`${STEP_BADGE} border-[var(--status-success)] text-[var(--status-success)] group-hover:border-primary group-hover:text-primary`}>
-                        <Check className="size-3.5" aria-hidden="true" />
-                      </span>
-                      {label}
-                    </button>
-                  ) : (
-                    <span className={`flex items-center gap-2 text-sm ${current ? "font-semibold text-primary" : completed ? "text-foreground" : "text-muted-foreground"}`}>
-                      <span className={`${STEP_BADGE} ${current ? "border-primary bg-primary text-primary-foreground" : completed ? "border-[var(--status-success)] text-[var(--status-success)]" : "border-border"}`}>
-                        {completed ? <Check className="size-3.5" aria-label="Completed" /> : String(wizardPhase.id).padStart(2, "0")}
-                      </span>
-                      {label}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-        <div className="justify-self-end">
-          {/* A page, not a dialog: an explicit Cancel instead of Esc-to-close. */}
-          <Button type="button" variant="ghost" onClick={onClose} aria-label="Cancel workspace setup" className="nb-touch-target max-md:size-[var(--ui-control-height)] max-md:px-0">
-            <X aria-hidden="true" />
-            <span className="max-md:hidden">Cancel</span>
-          </Button>
-        </div>
+    <header className="nb-step-strip shrink-0">
+      <h1 ref={headingRef} tabIndex={-1} className="sr-only">{isOrganization ? "Create organization" : "Create workspace"}</h1>
+      <nav aria-label={isOrganization ? "Create organization steps" : "Create workspace steps"} className="nb-step-strip-nav">
+        <ol ref={listRef} className="nb-step-cells">
+          {phases.map((step) => {
+            const current = currentPhase === step.id;
+            const left = currentPhase > step.id;
+            const fix = !current && (left || attempted?.[step.id]) ? problems?.[step.id] ?? 0 : 0;
+            const done = left && !fix;
+            const count = fix ? <span data-fix-count className="nb-step-count">{fix}<span className="sr-only"> to fix</span></span> : null;
+            const box = <span className="nb-step-box" data-state={done ? "done" : current ? "current" : fix ? "fix" : "next"} aria-hidden="true">{done ? <PixelTick draw /> : null}</span>;
+            return (
+              <li key={step.id} data-step={step.id}>
+                {left && onStepSelect ? (
+                  <button type="button" className="nb-step-cell" data-done={done || undefined} onClick={() => onStepSelect(step.id)} disabled={stepsDisabled}
+                    aria-label={`${step.label}, ${fix ? `${fix} to fix` : "done"}. Go back to it.`}>
+                    {box}{step.label}{count}
+                  </button>
+                ) : (
+                  <span className="nb-step-cell" aria-current={current ? "step" : undefined}>{box}{step.label}{count}</span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <span ref={markerRef} data-step-marker className="nb-step-marker" aria-hidden="true" />
+      </nav>
+      <div className="nb-step-phone" aria-hidden="true">
+        <b>{currentLabel} · {currentPhase} of {WIZARD_PHASES.length}</b>
+        <span className="nb-step-squares">{phases.map((p) => <i key={p.id} data-on={p.id <= currentPhase || undefined} />)}</span>
       </div>
-      <div
-        role="progressbar"
-        aria-label="Workspace creation progress"
-        aria-valuemin={1}
-        aria-valuemax={WIZARD_PHASES.length}
-        aria-valuenow={currentPhase}
-        aria-valuetext={`Step ${currentPhase} of ${WIZARD_PHASES.length}: ${currentLabel}`}
-        className="h-0.5 bg-muted md:hidden"
-      >
-        <div className="h-full bg-primary transition-[width] duration-200 ease-out" style={{ width: `${(currentPhase / WIZARD_PHASES.length) * 100}%` }} />
-      </div>
+      {/* A page, not a dialog: Cancel is explicit; Esc asks the same thing (Leave) when the page has focus. */}
+      <button type="button" onClick={onClose} aria-label={isOrganization ? "Cancel organization setup" : "Cancel workspace setup"} className="nb-step-cancel">
+        <X aria-hidden="true" /><span>Cancel</span>
+      </button>
     </header>
   );
 }

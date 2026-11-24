@@ -11,7 +11,7 @@ function source(relativePath: string) {
 test('Phase 3 uses the canonical wizard hierarchy and flat team composition', () => {
     const phase = source('src/components/workspaces/create-wizard/phases/Phase3TeamRoles.tsx');
 
-    assert.match(phase, /Phase 3 · team/);
+    assert.match(phase, /<PhaseHead noun="workspace" step="Team" title="Who’s building it\?"/);
     assert.match(phase, /Set up your team/);
     assert.match(phase, /title="Owner"/);
     assert.match(phase, /Set up your team/);

@@ -62,7 +62,9 @@ test('Start: nothing is picked, Other asks for its name, and the type sets defau
 
 test('Details: organization words, Part of and Where, no problem/solution or skills', async ({ page }) => {
     await open(page, 'step=details&type=education');
-    await expect(page.getByRole('heading', { name: 'Organization details' })).toBeVisible();
+    // Create wizard v6: every step's head is the step word in the eyebrow and one serif line.
+    await expect(page.getByRole('heading', { name: 'Name it, then explain it.' })).toBeVisible();
+    await expect(page.getByText('Details', { exact: true })).toBeVisible();
     for (const label of ['Subject', 'Name', 'Web address', 'Part of', 'Where', 'Time zone', 'About', "Who it’s for", 'What members do here', 'Welcome note', 'Topics']) {
         await expect(page.getByLabel(label, { exact: false }).first()).toBeVisible();
     }

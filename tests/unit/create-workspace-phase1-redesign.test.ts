@@ -82,7 +82,9 @@ test("wizard shell is reactive, uses the workspace-setup exit dialog, and chunks
   assert.match(wizard, /app-scroll app-scroll-y app-scroll-gutter/);
   // A page in the app shell (spec §18): fills the main area, content in the shared 1000px column.
   assert.ok(wizard.includes("relative flex h-full min-h-0 w-full flex-col"));
-  assert.ok(footer.includes("max-w-[1000px]"));
+  // v6: the body starts at the left edge; the footer spans the page with 24px gutters.
+  assert.ok(wizard.includes("max-w-[940px]"));
+  assert.ok(footer.includes("sm:px-6"));
   assert.doesNotMatch(wizard, /presentation/);
   assert.match(hook, /getUploadPresignedUrl/);
   assert.match(folderUpload, /getPresignedUrl/);

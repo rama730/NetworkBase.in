@@ -1,6 +1,8 @@
 'use client';
 
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
+import { PhaseHead } from '../PhaseHead';
+import { phaseProblems } from '../phase-problems';
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
@@ -119,6 +121,8 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const projectType = WORKSPACE_TYPE_OPTIONS.find((type) => type.id === formData.project_type);
     // Organizations (report §34.7): their own words, the type's label and gentle checks that never block.
     const org = formData.organization;
+    const problemCount = phaseProblems(formData, { uploadReady: true });
+    const reviewReady = problemCount[1] + problemCount[2] + problemCount[3] === 0;
     // One noun for this step (org design plan CR1).
     const noun = org ? 'organization' : 'workspace';
     const Noun = org ? 'Organization' : 'Workspace';
@@ -217,13 +221,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
-            <header className="max-w-2xl">
-                <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Step 5 · Review</p>
-                <h3 className="nb-section-title mt-2 text-foreground">Review before creating</h3>
-                <p className="nb-body mt-2 text-muted-foreground">
-                    {org ? 'Confirm what members will see. Use Edit to return to a step; the organization is created only when you choose Create organization in the footer.' : 'Check what members will see. Use Edit to go back to a step. Nothing is created until you select Create workspace in the footer.'}
-                </p>
-            </header>
+            <PhaseHead noun={org ? 'organization' : 'workspace'} step="Review" title={reviewReady ? 'Ready to create.' : 'Almost there.'} line="Nothing is made until you press Create. Edit takes you to that step; Back to Review brings you straight here." />
 
             {/* Mobile / Tablet Card Preview */}
             <div className="lg:hidden">

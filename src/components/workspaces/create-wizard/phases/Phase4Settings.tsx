@@ -1,6 +1,7 @@
 'use client';
 
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
+import { PhaseHead } from '../PhaseHead';
 import { allowedChildVisibilities, type VisibilityCap } from '@/lib/organizations/child-rules';
 import { OrgCalendarFields, OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
 import { ORG_CREATION_COPY } from '@/lib/organizations/creation';
@@ -300,11 +301,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
             </aside>
 
             <div className="min-w-0 w-full space-y-8 pb-6">
-                <div className="max-w-[65ch]">
-                    <p className="nb-micro text-primary">Phase 4 · {isOrganization ? 'setup' : 'settings'}</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Choose how the organization starts' : 'Choose how the workspace starts'}</h2>
-                    <p className="nb-compact mt-1.5 text-muted-foreground">{isOrganization ? 'Who can see it and how it runs. Everything here is in Settings later.' : 'Every choice has a sensible default and can be changed later in Workspace settings.'}</p>
-                </div>
+                <PhaseHead noun={isOrganization ? 'organization' : 'workspace'} step={isOrganization ? 'Setup' : 'Settings'} title="How it starts." line="Every choice starts at a sensible default and stays editable in Settings. Changed sections are marked." />
                 {isOrganization ? (
                     <>
                         <LaunchSection {...sectionProps('calendar')} title="Term and first sprints" description="Optional. The term sets the week line; planned sprints become the Journey on About." summary="Term and sprints">

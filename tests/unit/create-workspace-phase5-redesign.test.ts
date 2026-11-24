@@ -11,8 +11,7 @@ test('Phase 5 is a complete, live review including every step 4 launch setting',
     const phase = source('src/components/workspaces/create-wizard/phases/Phase5Review.tsx');
 
     assert.match(phase, /useWatch\(\{ control \}\)/);
-    assert.match(phase, /Step 5 · Review/);
-    assert.match(phase, /Review before creating/);
+    assert.match(phase, /step="Review" title=\{reviewReady \? 'Ready to create\.' : 'Almost there\.'\}/);
     assert.match(phase, /eyebrow="Step 1"/);
     assert.match(phase, /eyebrow="Step 2"/);
     assert.match(phase, /eyebrow="Step 3"/);
@@ -43,6 +42,7 @@ test('entering review cannot create a project until the review is ready and the 
     assert.match(wizard, /phase !== TOTAL_PHASES \|\| !isReviewReady \|\| phaseTransitionRef\.current \|\| submissionRef\.current/);
     assert.match(wizard, /submissionRef\.current = true/);
     assert.match(footer, /Preparing review…/);
-    assert.match(footer, /disabled=\{isSubmitting \|\| isPhaseTransitioning \|\| !isReviewReady\}/);
+    assert.match(footer, /const busy = isSubmitting \|\| isPhaseTransitioning;/);
+    assert.match(footer, /disabled=\{busy \|\| !isReviewReady\}/);
     assert.match(modal, /<Phase5Review goToPhase=\{goToPhase\} onReady=\{handleReviewReady\} projectImage=\{projectImage\} \/>/);
 });

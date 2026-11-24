@@ -43,6 +43,8 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     const { user } = useAuth();
     const userId = user?.id || null;
     const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
+    // Create wizard v6: true after leaving Review for an earlier step (never saved in the draft: it isn't a form value).
+    const [fromReview, setFromReview] = useState(false);
     const phaseRef = useRef<WizardPhaseId>(phase);
     useEffect(() => {
         phaseRef.current = phase;
@@ -520,6 +522,87 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     }, []);
 
     // --- Navigation ---
+    // One step's checks (what Continue runs). Back to Review runs them for every step on the way (create wizard v6).
+    const validatePhase = useCallback(async (p: WizardPhaseId): Promise<boolean> => {
+        let isValid = false;
+        if (p === 1) {
+            const importType = getValues('import_source.type') || 'scratch';
+            if (importType === 'github') {
+                const repoUrl = (getValues('import_source.repoUrl') || '').trim();
+                if (!repoUrl) {
+                    toast.error('Paste a GitHub repository link');
+                    return false;
+                }
+
+                const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
+                const preflightReady = metadata.githubPreflightStatus === 'ok';
+                if (!preflightReady) {
+                    toast.info('Check the repository before continuing.');
+                    return false;
+                }
+
+                const previewReady = githubPreview.status === 'ready' && githubPreview.repoUrl === repoUrl;
+                if (!previewReady) {
+                    toast.info('Continuing without full preview', { description: 'Import checks passed.' });
+                }
+            }
+            if (importType === 'upload') {
+                if (!uploadFiles || uploadFiles.length === 0) {
+                    toast.error('Select a folder first');
+                    return false;
+                }
+                const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
+                if (metadata.uploadValidationStatus !== 'ok') {
+                    toast.error(feedbackError(String(metadata.uploadValidationError || 'Resolve blocked files before continuing'), "Resolve blocked files before continuing"));
+                    return false;
+                }
+            }
+            const organization = getValues('organization');
+            if (organization && (!organization.org_type || (organization.org_type === 'other' && !organization.type_label?.trim()))) {
+                toast.warning(organization.org_type ? 'Say what you call it, for example Nonprofit' : 'Choose what kind of organization this is');
+                return false;
+            }
+
+            isValid = true;
+        } else if (p === 2) {
+            const fieldsToValidate: Array<'project_type' | 'custom_project_type' | 'title' | 'description'> = ['project_type', 'title', 'description'];
+            if (getValues('project_type') === 'other') {
+                fieldsToValidate.push('custom_project_type');
+            }
+            setPhase2ValidationAttempted(true);
+            isValid = await trigger(fieldsToValidate, { shouldFocus: true });
+            const organization = getValues('organization');
+            if (isValid && organization) {
+                const handle = await checkOrgHandleAction(organization.handle || '');
+                if (!handle.available) {
+                    toast.error(handle.message);
+                    document.getElementById('create-org-handle')?.focus();
+                    isValid = false;
+                } else {
+                    setValue('organization.handle', handle.handle ?? '', { shouldDirty: true });
+                    isValid = await trigger(['organization'], { shouldFocus: true });
+                }
+            }
+            if (isValid) setPhase2ValidationAttempted(false);
+        } else if (p === 3) {
+            setPhase3ValidationAttempted(true);
+            isValid = await trigger(['creator_role', 'roles'], { shouldFocus: true });
+            if (isValid) setPhase3ValidationAttempted(false);
+        } else if (p === 4) {
+            setPhase4ValidationAttempted(true);
+            if (phase4LinkComposerPending) {
+                toast.error('Finish the workspace link');
+                isValid = false;
+            } else {
+                isValid = (await trigger(['visibility', 'external_links'], { shouldFocus: true })) && (await trigger(['lifecycle_stages']));
+            }
+            if (isValid) setPhase4ValidationAttempted(false);
+        } else if (p === 5) {
+            isValid = true;
+        }
+        return isValid;
+    }, [trigger, getValues, setValue, githubPreview.repoUrl, githubPreview.status, phase4LinkComposerPending, uploadFiles]);
+
     const handleNext = useCallback(async () => {
         if (isSubmitting || phaseTransitionRef.current) return;
 
@@ -529,85 +612,12 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         let holdTransitionForReview = false;
 
         try {
-            if (phase === 1) {
-                const importType = getValues('import_source.type') || 'scratch';
-                if (importType === 'github') {
-                    const repoUrl = (getValues('import_source.repoUrl') || '').trim();
-                    if (!repoUrl) {
-                        toast.error('Paste a GitHub repository link');
-                        return;
-                    }
-
-                    const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
-                    const preflightReady = metadata.githubPreflightStatus === 'ok';
-                    if (!preflightReady) {
-                        toast.info('Check the repository before continuing.');
-                        return;
-                    }
-
-                    const previewReady = githubPreview.status === 'ready' && githubPreview.repoUrl === repoUrl;
-                    if (!previewReady) {
-                        toast.info('Continuing without full preview', { description: 'Import checks passed.' });
-                    }
-                }
-                if (importType === 'upload') {
-                    if (!uploadFiles || uploadFiles.length === 0) {
-                        toast.error('Select a folder first');
-                        return;
-                    }
-                    const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
-                    if (metadata.uploadValidationStatus !== 'ok') {
-                        toast.error(feedbackError(String(metadata.uploadValidationError || 'Resolve blocked files before continuing'), "Resolve blocked files before continuing"));
-                        return;
-                    }
-                }
-                const organization = getValues('organization');
-                if (organization && (!organization.org_type || (organization.org_type === 'other' && !organization.type_label?.trim()))) {
-                    toast.warning(organization.org_type ? 'Say what you call it, for example Nonprofit' : 'Choose what kind of organization this is');
-                    return;
-                }
-
-                isValid = true;
-            } else if (phase === 2) {
-                const fieldsToValidate: Array<'project_type' | 'custom_project_type' | 'title' | 'description'> = ['project_type', 'title', 'description'];
-                if (getValues('project_type') === 'other') {
-                    fieldsToValidate.push('custom_project_type');
-                }
-                setPhase2ValidationAttempted(true);
-                isValid = await trigger(fieldsToValidate, { shouldFocus: true });
-                const organization = getValues('organization');
-                if (isValid && organization) {
-                    const handle = await checkOrgHandleAction(organization.handle || '');
-                    if (!handle.available) {
-                        toast.error(handle.message);
-                        document.getElementById('create-org-handle')?.focus();
-                        isValid = false;
-                    } else {
-                        setValue('organization.handle', handle.handle ?? '', { shouldDirty: true });
-                        isValid = await trigger(['organization'], { shouldFocus: true });
-                    }
-                }
-                if (isValid) setPhase2ValidationAttempted(false);
-            } else if (phase === 3) {
-                setPhase3ValidationAttempted(true);
-                isValid = await trigger(['creator_role', 'roles'], { shouldFocus: true });
-                if (isValid) setPhase3ValidationAttempted(false);
-            } else if (phase === 4) {
-                setPhase4ValidationAttempted(true);
-                if (phase4LinkComposerPending) {
-                    toast.error('Finish the workspace link');
-                    isValid = false;
-                } else {
-                    isValid = (await trigger(['visibility', 'external_links'], { shouldFocus: true })) && (await trigger(['lifecycle_stages']));
-                }
-                if (isValid) setPhase4ValidationAttempted(false);
-            } else if (phase === 5) {
-                isValid = true;
-            }
+            isValid = await validatePhase(phase);
 
             if (isValid && phase < TOTAL_PHASES) {
                 holdTransitionForReview = phase === TOTAL_PHASES - 1;
                 if (holdTransitionForReview) setIsReviewReady(false);
+                if (phase + 1 === TOTAL_PHASES) setFromReview(false);
                 setPhase(prev => (prev + 1) as WizardPhaseId);
             }
         } finally {
@@ -623,7 +633,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                 releaseTransition();
             }
         }
-    }, [phase, trigger, getValues, setValue, githubPreview.repoUrl, githubPreview.status, isSubmitting, phase4LinkComposerPending, uploadFiles]);
+    }, [phase, isSubmitting, validatePhase]);
 
     const handleBack = useCallback(() => {
         if (isSubmitting || phaseTransitionRef.current) return;
@@ -635,8 +645,28 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     const goToPhase = useCallback((target: WizardPhaseId) => {
         if (isSubmitting || phaseTransitionRef.current) return;
         setIsReviewReady(false);
+        // Left Review to change one thing: the footer offers Back to Review instead of walking every step again.
+        if (phaseRef.current === TOTAL_PHASES && target < TOTAL_PHASES) setFromReview(true);
+        if (target === TOTAL_PHASES) setFromReview(false);
         setPhase(target);
     }, [isSubmitting]);
+
+    const returnToReview = useCallback(async () => {
+        if (isSubmitting || phaseTransitionRef.current) return;
+        phaseTransitionRef.current = true;
+        setIsPhaseTransitioning(true);
+        try {
+            for (let p = phaseRef.current; p < TOTAL_PHASES; p++) {
+                if (!(await validatePhase(p as WizardPhaseId))) { setPhase(p as WizardPhaseId); return; }
+            }
+            setIsReviewReady(false);
+            setFromReview(false);
+            setPhase(TOTAL_PHASES as WizardPhaseId);
+        } finally {
+            phaseTransitionRef.current = false;
+            setIsPhaseTransitioning(false);
+        }
+    }, [isSubmitting, validatePhase]);
 
     const handleCloseAttempt = useCallback(() => {
         if (hasUnsavedWizardChanges) setShowExitConfirm(true);
@@ -1052,6 +1082,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     onSubmitRef.current = onSubmit;
 
     return {
+        fromReview, returnToReview,
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending,
         isPhaseTransitioning, isReviewReady, setIsReviewReady,

@@ -10,6 +10,7 @@ import { useFormContext } from 'react-hook-form';
 import { CreateWorkspaceInput, type OpenRoleInput } from '@/lib/validations/workspace';
 import { WizardContextType } from '../useCreateWorkspaceWizard';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { PhaseHead } from '../PhaseHead';
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,11 +97,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
     if (watch('organization')) {
         return (
             <div className="min-w-0 w-full space-y-8 pb-6">
-                <div className="max-w-[65ch]">
-                    <p className="nb-micro text-primary">Phase 3 · people</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">Members and access</h2>
-                    <p className="nb-compact mt-1.5 text-muted-foreground">Who runs it, what the roles are called, and how people get in.</p>
-                </div>
+                <PhaseHead noun="organization" step="People" title="Who runs it, and how people get in." line="Role names are yours to choose; what each role can do stays the same." />
                 <OrgPeopleFields />
             </div>
         );
@@ -108,11 +105,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
-            <div className="max-w-[65ch]">
-                <p className="nb-micro text-primary">Phase 3 · team</p>
-                <h2 className="nb-section-title mt-1 text-foreground">Set up your team</h2>
-                <p className="nb-compact mt-1.5 text-muted-foreground">Confirm your role, then add only the open roles you plan to fill now.</p>
-            </div>
+            <PhaseHead noun="workspace" step="Team" title="Who’s building it?" line="You own it. Add openings only for help you want now; people see them as Apply on Discover." />
 
             {showValidationSummary && validationErrors.length > 0 ? (
                 <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">

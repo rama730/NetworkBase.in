@@ -1,9 +1,10 @@
 'use client';
+import type React from 'react';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CreateLocationProvider, type CreateLocation } from '@/components/organizations/CreateLocation';
 import { capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules';
-import { FormProvider, useWatch } from 'react-hook-form';
+import { FormProvider, useFormContext, useWatch } from 'react-hook-form';
 import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -15,6 +16,7 @@ import { useCreateWorkspaceWizard } from './useCreateWorkspaceWizard';
 
 // Shared Components
 import WizardHeader from './WizardHeader';
+import { phaseProblems } from './phase-problems';
 import WizardFooter, { WIZARD_COLUMN } from './WizardFooter';
 import { Button } from '@/components/ui/button';
 import LeaveWorkspaceSetupDialog from './LeaveWorkspaceSetupDialog';
@@ -54,12 +56,13 @@ interface Props {
 
 export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSource = null, startAsOrganization = false, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
     const {
-        phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
+        phase, methods, wizardContext, isSubmitting, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
         uploadFiles, setUploadFiles, uploadProgress, projectImage, setProjectImage,
         githubPreview, githubFolderEntries, loadGithubFolder, startGithubRootPreview,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
-        handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
+        handleNext, handleBack, goToPhase, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
+        fromReview, returnToReview,
         onSubmit, draftInfo, restoreDraft, deleteDraft
     } = useCreateWorkspaceWizard({
         onClose,
@@ -213,7 +216,34 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [hasUnsavedWizardChanges]);
 
-    // No Esc-to-close: this is a page, not a dialog, and a stray Esc must not drop a 5-step form. Cancel is explicit.
+    // Keys (create wizard v6): ⌘/Ctrl+Enter runs the footer's primary action. Esc on the page asks the same thing as Cancel
+    // (Leave, when there is work to lose); Esc inside a field, menu or dialog only does that thing's own job.
+    const keysRef = useRef({ phase, fromReview, isReviewReady, isSubmitting, phase1NextDisabled: false });
+    useLayoutEffect(() => { keysRef.current = { phase, fromReview, isReviewReady, isSubmitting, phase1NextDisabled }; });
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            const k = keysRef.current;
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                if (k.isSubmitting || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+                event.preventDefault();
+                if (k.phase === TOTAL_PHASES) { if (k.isReviewReady) document.querySelector<HTMLFormElement>('#create-project-form')?.requestSubmit(); return; }
+                if (k.fromReview) void returnToReview();
+                else if (!(k.phase === 1 && k.phase1NextDisabled)) void handleNext();
+                return;
+            }
+            if (event.key !== 'Escape' || event.defaultPrevented) return;
+            const target = event.target as HTMLElement | null;
+            if (target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
+            if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+            handleCloseAttempt();
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [handleCloseAttempt, handleNext, returnToReview]);
+    // The step slides 12px in the direction you're going (300 ms; off with reduced motion).
+    const lastPhaseRef = useRef(phase);
+    const stepDirection = phase >= lastPhaseRef.current ? 1 : -1;
+    useEffect(() => { lastPhaseRef.current = phase; }, [phase]);
 
     const draftPhaseLabel = draftInfo ? WIZARD_PHASES[draftInfo.phase - 1]?.label : undefined;
     // Report §14.5: the draft remembers its org; opening the wizard for another org says so.
@@ -226,7 +256,9 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                     <FormProvider {...methods}>
                     <CreateLocationProvider value={locationState}>
                         {/* Header */}
-                        <WizardHeader
+                        <WizardStepStrip
+                            uploadReady={Boolean(uploadFiles?.length) && sourceMetadata?.uploadValidationStatus === 'ok'}
+                            attempted={{ 2: phase2ValidationAttempted, 3: phase3ValidationAttempted, 4: phase4ValidationAttempted }}
                             currentPhase={phase}
                             onClose={handleCloseAttempt}
                             onStepSelect={goToPhase}
@@ -281,7 +313,8 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
 
                         {/* Content */}
                         <div ref={scrollBodyRef} data-wizard-scroll className="relative app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 scroll-pb-32 overflow-y-auto overscroll-contain">
-                        <div className={`${WIZARD_COLUMN} px-4 pb-6 pt-5 md:px-6 md:py-8`}>
+                        {/* One layout rule (v6): every step starts at the same left edge with a 24px gutter. */}
+                        <div className={`nb-wizard-body w-full ${phase === 1 || phase === 4 ? 'max-w-none' : phase === 5 ? 'max-w-[1220px]' : 'max-w-[940px]'} px-4 pb-12 pt-6 md:px-6 md:pt-7`} data-phase={phase}>
                             {uploadProgress?.isUploading && (
                                 <div className="mb-4 rounded-lg border border-border bg-secondary/45 p-4" role="status" aria-live="polite">
                                     <div className="flex items-center justify-between gap-4">
@@ -315,7 +348,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                                 }}
                                 className="space-y-8"
                             >
-                                <div key={phase}>
+                                <div key={phase} className="nb-step-enter" style={{ '--nb-step-dx': `${stepDirection * 12}px` } as React.CSSProperties}>
                                         {phase === 1 && (
                                             <Phase1SourceSelection
                                                 uploadFiles={uploadFiles}
@@ -346,9 +379,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                                 totalPhases={TOTAL_PHASES}
                                 onNext={handleNext}
                                 onBack={handleBack}
-                                onSaveDraft={() => saveDraft()}
                                 isSubmitting={isSubmitting}
-                                isSavingDraft={isSavingDraft}
                                 saveStatus={saveStatus}
                                 lastSaved={lastSaved}
                                 isPhaseTransitioning={isPhaseTransitioning}
@@ -357,6 +388,8 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                                 nextDisabled={phase1NextDisabled}
                                 nextDisabledReason={phase1NextDisabledReason}
                                 createLabel={isOrganization ? 'Create organization' : undefined}
+                                fromReview={fromReview}
+                                onReturnToReview={() => void returnToReview()}
                             />
                         </div>
                     </CreateLocationProvider>
@@ -379,4 +412,12 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
             />
         </>
     );
+}
+
+// The step strip with what each step still needs, read from the form so only the strip re-renders while typing.
+function WizardStepStrip({ uploadReady, ...props }: React.ComponentProps<typeof WizardHeader> & { uploadReady: boolean }) {
+    const { control } = useFormContext();
+    const [title, description, project_type, custom_project_type, roles, import_source, organization] = useWatch({ control, name: ['title', 'description', 'project_type', 'custom_project_type', 'roles', 'import_source', 'organization'] });
+    const problems = phaseProblems({ title, description, project_type, custom_project_type, roles, import_source, organization } as never, { uploadReady });
+    return <WizardHeader {...props} problems={problems} />;
 }

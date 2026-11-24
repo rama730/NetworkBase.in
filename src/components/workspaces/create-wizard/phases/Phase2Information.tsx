@@ -7,6 +7,7 @@ import { Plus, X } from 'lucide-react';
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhaseHead } from '../PhaseHead';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { POPULAR_WORKSPACE_TAGS, WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { childTitleTakenAction } from '@/app/actions/organizations';
@@ -123,13 +124,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
-            <div className="max-w-[65ch]">
-                <p className="nb-micro text-primary">Phase 2 · {orgCopy ? 'details' : 'information'}</p>
-                <h2 className="nb-section-title mt-1 text-foreground">{orgCopy ? 'Organization details' : 'Workspace details'}</h2>
-                <p className="nb-compact mt-1.5 text-muted-foreground">
-                    {orgCopy ? "Tell people what this organization is, who it’s for and what happens in it." : 'Describe what you’re building so people understand it and can find it later.'}
-                </p>
-            </div>
+            <PhaseHead noun={orgCopy ? 'organization' : 'workspace'} step={orgCopy ? 'Details' : 'Info'} title="Name it, then explain it." line={orgCopy ? 'What people see first on its page and in search.' : 'What people see first on cards, search and the workspace header.'} />
 
             {showValidationSummary && validationErrors.length > 0 ? (
                 <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">

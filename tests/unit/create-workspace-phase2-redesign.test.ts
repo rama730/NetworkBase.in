@@ -10,7 +10,7 @@ function source(relativePath: string) {
 test('Phase 2 uses the flat NetworkBase project-information composition', () => {
     const phase = source('src/components/workspaces/create-wizard/phases/Phase2Information.tsx');
 
-    assert.match(phase, /Workspace details/);
+    assert.match(phase, /<PhaseHead noun=\{orgCopy \? 'organization' : 'workspace'\} step=\{orgCopy \? 'Details' : 'Info'\} title="Name it, then explain it\."/);
     assert.match(phase, /Name and classify the workspace/);
     assert.match(phase, /Explain the work/);
     assert.match(phase, /Make the workspace easier to find/);

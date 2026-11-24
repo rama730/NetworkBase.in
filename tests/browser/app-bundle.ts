@@ -26,7 +26,7 @@ const MOCKS: Record<string, string> = {
   '@/components/providers/AuthProvider': `export const useAuthContext=()=>window.__auth;export const AuthProvider=({children})=>children;export default {};`,
 };
 
-const cache = new Map<string, { script: string; css: string; sans: Buffer; mono: Buffer }>();
+const cache = new Map<string, { script: string; css: string; sans: Buffer; mono: Buffer; serif: Buffer }>();
 export async function buildApp(entry: string) {
   const hit = cache.get(entry);
   if (hit) return hit;
@@ -60,9 +60,9 @@ export async function buildApp(entry: string) {
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
   const moduleCss = (await Promise.all([...modules].map((file) => readFile(file, 'utf8').catch(() => ''))))
     .map((css) => css.replace(/\.(?=[A-Za-z_])([\w-]+)/g, '.m-$1')).join('\n');
-  const [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);
-  const css = `@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}` + result.css + moduleCss;
-  const built = { script: bundle.outputFiles![0]!.text, css, sans, mono };
+  const [sans, mono, serif] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2'), readFile('src/app/fonts/InstrumentSerif.woff2')]);
+  const css = `@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}@font-face{font-family:'Instrument Serif';src:url('/serif.woff2');font-weight:400;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';--font-instrument-serif:'Instrument Serif';}` + result.css + moduleCss;
+  const built = { script: bundle.outputFiles![0]!.text, css, sans, mono, serif };
   cache.set(entry, built);
   return built;
 }
@@ -77,6 +77,7 @@ export async function openApp(page: Page, entry: string, init: { auth?: Record<s
     const p = new URL(route.request().url()).pathname;
     if (p === '/sans.ttf') return route.fulfill({ contentType: 'font/ttf', body: assets.sans });
     if (p === '/mono.ttf') return route.fulfill({ contentType: 'font/ttf', body: assets.mono });
+    if (p === '/serif.woff2') return route.fulfill({ contentType: 'font/woff2', body: assets.serif });
     if (p === '/app.js') return route.fulfill({ contentType: 'application/javascript', body: assets.script });
     if (p === '/app.css') return route.fulfill({ contentType: 'text/css', body: assets.css });
     if (p.startsWith('/api/')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: {} }) });
