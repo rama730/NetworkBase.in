@@ -3114,8 +3114,9 @@ export async function readThesisAction(projectId: string) {
         const t = await import("@/lib/workflows/thesis");
         const [ws] = await db.select({ settings: workspaces.workflowSettings, slug: workspaces.slug, parentId: workspaces.parentId }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
         const settings = t.readThesisSettings(ws?.settings);
-        const all = await db.select({ slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings, versionId: workspaceDocuments.publishedVersionId })
+        const all = await db.select({ slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings, versionId: workspaceDocuments.publishedVersionId, nodeId: workspaceDocuments.linkedNodeId })
             .from(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings}->>'section' = 'chapters'`)).limit(60);
+        const fileAccess = await getWorkspaceAccessById(projectId, actor);
         // Security review: only chapters this person may read are counted (a leaders-only chapter stays out).
         const base = await loadDocProjectBase(projectId, actor);
         const docs = all.filter((d) => { const p = docContext(base, actor, d.slug).permission; return p.canReadPublished || p.canEdit; });
@@ -3123,10 +3124,12 @@ export async function readThesisAction(projectId: string) {
         for (const d of docs) {
             // A document moved into Chapters without numbers yet counts with the defaults.
             const chapter = t.readChapter(d.settings) ?? t.readChapter({ chapter: {} })!;
-            const version = await readPublishedVersion(d.versionId);
-            const text = version?.content ?? "";
+            // Found live (B1.8a): a chapter made from Overview is a linked file, so its text is the file's, as the viewer reads it.
+            const text = d.nodeId && fileAccess.project
+                ? await readWorkspaceFileText({ ...fileAccess, project: fileAccess.project }, projectId, d.nodeId).catch(() => "")
+                : (await readPublishedVersion(d.versionId))?.content ?? "";
             const heading = text.match(/^#\s+(.+)$/m)?.[1]?.replace(/^\d+[.)]?\s*/, "").trim();
-            chapters.push({ slug: d.slug, title: heading || d.filename.replace(/\.md$/i, ""), ...chapter, words: t.countWords(text) });
+            chapters.push({ slug: d.slug, title: heading || d.filename.replace(/\.md$/i, "").replace(/^\d+-/, "").replace(/-/g, " "), ...chapter, words: t.countWords(text) });
         }
         chapters.sort((a, b) => a.number - b.number);
         const totals = t.writingTotals(chapters);
