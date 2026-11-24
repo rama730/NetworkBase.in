@@ -1068,9 +1068,9 @@
       "text": "B1.7 W3 Student's week (30.4) — Build: Week view in My work; Pin for today (≤ 3, cleared at midnight); exam strip; teaching rows. Journeys: rows clear on hand-i",
       "kind": "unit",
       "milestone": "B1",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/my-week.test.ts; tests/db/my-week.test.ts; tests/browser/my-week.spec.ts",
-      "evidence": "B1.7a 573f09a2a..8bc70d5b0 (0133 day_pins) live 2026-11-25. Live in Chrome: My work opens on Week (Week | List) for a class member; Today showed WT 301 office hours at 8:30 PM and Tomorrow the WT 301 class at 4:00 PM (the class meets 10:30 UTC), the rest of the week folded. Pins, Missing with late work, the exam strip and \"only your own\" are proven by DB and browser tests. Left for B1.7b: lesson titles on session rows, Before class reading, teaching rows for staff."
+      "evidence": "B1.7a 573f09a2a..8bc70d5b0 (0133 day_pins) live 2026-11-25. Live in Chrome: My work opens on Week (Week | List) for a class member; Today showed WT 301 office hours at 8:30 PM and Tomorrow the WT 301 class at 4:00 PM (the class meets 10:30 UTC), the rest of the week folded. Pins, Missing with late work, the exam strip and \"only your own\" are proven by DB and browser tests. Left for B1.7b: lesson titles on session rows, Before class reading, teaching rows for staff. B1.7b 3f127a6cb + 246b19a0c live 2026-11-25: My work showed Tomorrow \"WT 301 · WT Arrays\" (the session's lesson) on wt-test-b0-class. Before class rows, students seeing only Ready lessons, \"still Planned\" and \"hand-ins to review\" for staff are proven by DB tests. Security review fixed: the week uses the Term plan's access rule."
     },
     {
       "key": "B1.8",
