@@ -21,14 +21,14 @@ const ICON = { session: Clock, office: Clock, prep: BookOpen, copy: FileUp, task
 
 function Row({ item, pinned, onPin, close }: { item: WeekItem; pinned: boolean; onPin: (item: WeekItem, on: boolean) => void; close: () => void }) {
   const Icon = ICON[item.kind];
-  const timed = item.kind === "session" || item.kind === "office";
+  const timed = item.kind !== "copy" && item.kind !== "task";
   return (
     <li className="flex items-center gap-1">
       <Link href={item.href ?? "#"} onClick={close} className="nb-mw-item min-w-0 flex-1">
         <span className="nb-mw-icon"><Icon className="size-[15px]" aria-hidden="true" /></span>
         <span className="min-w-0"><b className={item.status === "Cancelled" ? "line-through" : undefined}>{item.title}</b>
           <span className="nb-mw-sub">{[item.context, item.status].filter(Boolean).join(" · ")}</span></span>
-        <span className="nb-mw-when"><time dateTime={item.at}>{timed ? TIME.format(new Date(item.at)) : `due ${TIME.format(new Date(item.at))}`}</time></span>
+        {item.kind === "review" ? <span /> : <span className="nb-mw-when"><time dateTime={item.at}>{timed ? TIME.format(new Date(item.at)) : `due ${TIME.format(new Date(item.at))}`}</time></span>}
       </Link>
       {item.taskId ? (
         <button type="button" className="nb-mw-ib shrink-0" aria-pressed={pinned} aria-label={`${pinned ? "Unpin" : "Pin for today"}: ${item.title}`} title={pinned ? "Unpin" : "Pin for today"} onClick={() => onPin(item, !pinned)}>

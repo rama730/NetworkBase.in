@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { copyState, canStillSubmit, lateAfterMs, type AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { readClassDetails, readSessionChanges, termSessions } from "@/lib/organizations/class-sessions";
+import { sessionLessons } from "@/lib/organizations/term-plan-server";
 import { readExam } from "@/lib/organizations/exams";
 import { PIN_LIMIT, type WeekItem } from "@/lib/organizations/my-week";
 import { typeProfile } from "@/lib/organizations/type-profile";
@@ -27,7 +28,7 @@ const zoneOk = (tz: unknown): tz is string => {
   try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch { return false; }
 };
 
-type ClassRow = { id: string; title: string; slug: string | null; time_zone: string | null; term_start: string | null; term_end: string | null; org_settings: unknown; org_type: string | null };
+type ClassRow = { id: string; title: string; slug: string | null; time_zone: string | null; term_start: string | null; term_end: string | null; org_settings: unknown; org_type: string | null; staff: boolean };
 type CopyRow = { id: string; master_id: string; title: string; org_id: string; org_slug: string | null; org_title: string; status: string; review_status: string; due_date: string | null;
   submitted_at: string | null; completed_at: string | null; excused_at: string | null; submit_until: string | null; settings: AssignmentSettings };
 
@@ -43,7 +44,8 @@ export async function readMyWeekAction(timeZone: string) {
 
     // Classes you belong to (Education organizations, not a school itself).
     const classes = Array.from(await db.execute<ClassRow>(sql`
-      SELECT w.id, w.title, w.slug, w.time_zone, w.term_start::text, w.term_end::text, w.org_settings, w.org_type
+      SELECT w.id, w.title, w.slug, w.time_zone, w.term_start::text, w.term_end::text, w.org_settings, w.org_type,
+        (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role = 'admin')) AS staff
       FROM workspaces w
       WHERE w.kind = 'organization' AND w.deleted_at IS NULL AND w.org_level IS DISTINCT FROM 'institution'
         AND (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid))`))
@@ -54,11 +56,25 @@ export async function readMyWeekAction(timeZone: string) {
       const base = `/org/${encodeURIComponent(c.slug ?? c.id)}`;
       const label = details.courseCode ?? c.title;
       const zone = c.time_zone ?? tz;
-      for (const s of termSessions(details, { start: c.term_start, end: c.term_end }, readSessionChanges(c.org_settings))) {
-        const at = zonedInputToIso(s.start, zone);
-        if (!at || Date.parse(at) < now.getTime() - 86_400_000 || Date.parse(at) > until.getTime()) continue;
-        items.push({ id: `session:${c.id}:${s.key}`, kind: "session", at, title: label, context: [details.room, s.status === "moved" ? "Moved" : null].filter(Boolean).join(" · ") || null,
-          href: `${base}?tab=about`, status: s.status === "cancelled" ? "Cancelled" : null });
+      const all = termSessions(details, { start: c.term_start, end: c.term_end }, readSessionChanges(c.org_settings));
+      const soon = all.filter((s) => { const at = zonedInputToIso(s.start, zone); return Boolean(at) && Date.parse(at!) >= now.getTime() - 86_400_000 && Date.parse(at!) <= until.getTime(); });
+      // B1.7b: the session's lesson title, its Before class, and for staff a lesson still Planned (report 30.4 layers 3, 10).
+      const lessons = soon.length ? await sessionLessons(c.id, c.org_settings, all, c.staff) : new Map();
+      for (const s of soon) {
+        const at = zonedInputToIso(s.start, zone)!;
+        const lesson = lessons.get(s.key);
+        items.push({ id: `session:${c.id}:${s.key}`, kind: "session", at, title: lesson ? `${label} · ${lesson.title}` : label,
+          context: [details.room, s.status === "moved" ? "Moved" : null].filter(Boolean).join(" · ") || null,
+          href: `${base}?tab=sprints`, status: s.status === "cancelled" ? "Cancelled" : null });
+        if (!lesson || s.status === "cancelled") continue;
+        if (lesson.before && !c.staff) items.push({ id: `prep:${lesson.id}`, kind: "prep", at, title: lesson.before.split("\n")[0]!.slice(0, 120), context: label, href: `${base}?tab=sprints`, status: "Before class" });
+        if (c.staff && (lesson.stage === "planned" || lesson.stage === "draft")) items.push({ id: `teaching:${lesson.id}`, kind: "teaching", at, title: `${lesson.title} is still Planned`, context: label, href: `${base}?tab=sprints`, status: "Mark it Ready" });
+      }
+      if (c.staff) {
+        const [waiting] = Array.from(await db.execute<{ n: number }>(sql`
+          SELECT count(*)::int AS n FROM tasks t JOIN tasks m ON m.id = t.assignment_id WHERE m.workspace_id = ${c.id}::uuid AND t.deleted_at IS NULL AND m.deleted_at IS NULL AND t.review_status = 'pending'`));
+        if (waiting?.n) items.push({ id: `review:${c.id}`, kind: "review", at: now.toISOString(), title: `${waiting.n} ${waiting.n === 1 ? "hand-in" : "hand-ins"} to review`, context: label,
+          href: `${base}?tab=tasks&taskScope=review`, status: null });
       }
       if (details.officeHours) {
         for (let i = 0; i < 7; i++) {

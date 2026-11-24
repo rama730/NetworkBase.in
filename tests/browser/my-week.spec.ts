@@ -13,7 +13,8 @@ test('Week: the exam strip, Pinned for today, Today and Tomorrow, the rest folde
     (window as any).__actions = {
       readMyWeekAction: async () => ({ success: true, timeZone: 'UTC', today: at(0).slice(0, 10), inClass: true, pins,
         items: [
-          { id: 's1', kind: 'session', at: at(1), title: 'CS 301', context: 'LH-2', href: '/org/cs', status: null },
+          { id: 's1', kind: 'session', at: at(1), title: 'CS 301 · Arrays', context: 'LH-2', href: '/org/cs', status: null },
+          { id: 'p1', kind: 'prep', at: at(1), title: 'Read ch. 7', context: 'CS 301', href: '/org/cs', status: 'Before class' },
           { id: 'c1', kind: 'copy', at: at(2), title: 'Lab 3', context: 'CS 301', href: '/org/cs?x', status: 'Not started', taskId: 'c1' },
           { id: 't1', kind: 'task', at: at(3), title: 'Read ch. 7', context: 'My notes', href: '/workspaces/n', status: null, taskId: 't1' },
           { id: 's2', kind: 'session', at: at(25), title: 'MA 210', context: null, href: '/org/ma', status: 'Cancelled' },
@@ -30,6 +31,8 @@ test('Week: the exam strip, Pinned for today, Today and Tomorrow, the rest folde
   await expect(page.getByTestId('exam-strip')).toContainText(/Midterm.*In 9 days/);
   await expect(page.getByRole('region', { name: 'Pinned for today' })).toContainText('Read ch. 7');
   await expect(week.getByRole('region', { name: /^Today/ })).toContainText('Lab 3');
+  await expect(week.getByRole('region', { name: /^Today/ })).toContainText('CS 301 · Arrays');
+  await expect(week.getByRole('region', { name: /^Today/ })).toContainText('Read ch. 7CS 301 · Before class');
   await expect(week.getByRole('region', { name: /^Tomorrow/ })).toContainText('MA 210');
   await expect(week).not.toContainText('Essay');
   await week.getByRole('button', { name: /more$/ }).click();

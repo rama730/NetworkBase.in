@@ -79,3 +79,35 @@ test("a student's week: every-day sessions, office hours, due work, Missing that
   const t = await week.readMyWeekAction("UTC");
   assert.ok(t.success && !t.items.some((i) => i.title === "Read ch. 7") && t.missing.length === 0, "a teacher never sees a student's tasks");
 });
+
+test("B1.7b: a session shows its lesson (students only once it's Ready) with Before class; staff see a lesson still Planned and hand-ins to review", async () => {
+  const [teacher, a] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const klass = await sql.begin((tx) => createProject(tx, teacher!, { visibility: "private" }));
+  created.push(klass);
+  const every = [0, 1, 2, 3, 4, 5, 6].map((d) => ({ day: d, start: "23:00", end: "23:30" }));
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, time_zone = 'UTC', term_start = ${day(-10)}, term_end = ${day(30)},
+    org_settings = ${sql.json({ classDetails: { courseCode: "CS 301", meets: every } } as never)} WHERE id = ${klass}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${klass}, ${teacher!}, 'owner'), (${klass}, ${a!}, 'member')`;
+  const [unit] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status, creator_id, sprint_number) VALUES (${klass}, 'Unit 1', ${day(-1)}, ${day(6)}, 'active', ${teacher!}, 1) RETURNING id`;
+  const [wk] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status, creator_id, parent_sprint_id, sprint_number) VALUES (${klass}, 'Week 1', ${day(0)}, ${day(6)}, 'active', ${teacher!}, ${unit!.id}, 2) RETURNING id`;
+  const lesson = (title: string, stage: string, order: number, before: string | null) => sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, item_type, stage, sprint_id, type_fields)
+    VALUES (${klass}, ${title}, 'todo', 'medium', ${teacher!}, 'task', 'class_lesson', ${stage}, ${wk!.id}, ${sql.json({ order, ...(before ? { before } : {}) } as never)})`;
+  await lesson("Arrays", "ready", 1, "Read ch. 7\nand the notes");
+  await lesson("Trees", "draft", 2, "Secret prep");
+  const [m] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, assignment_settings) VALUES (${klass}, 'Lab 3', 'todo', 'medium', ${teacher!}, 'assignment', ${sql.json({ version: 1, submissionType: "text", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, publishedAt: new Date().toISOString() } as never)}) RETURNING id`;
+  await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, assignment_id, assignee_id, review_status) VALUES (${klass}, 'Lab 3', 'done', 'medium', ${a!}, 'task', ${m!.id}, ${a!}, 'pending')`;
+  viewerId = a!;
+  const s = await week.readMyWeekAction("UTC");
+  assert.ok(s.success);
+  const titles = s.items.filter((i) => i.kind === "session").map((i) => i.title);
+  assert.ok(titles.includes("CS 301 · Arrays"), "the Ready lesson's title");
+  assert.equal(titles.some((t) => t.includes("Trees")), false, "a Planned lesson stays hidden from students");
+  assert.deepEqual(s.items.filter((i) => i.kind === "prep").map((i) => [i.title, i.status]), [["Read ch. 7", "Before class"]]);
+  assert.equal(JSON.stringify(s).includes("Secret prep"), false);
+  assert.equal(s.items.some((i) => i.kind === "review" || i.kind === "teaching"), false, "students get no teaching rows");
+  viewerId = teacher!;
+  const t = await week.readMyWeekAction("UTC");
+  assert.ok(t.success);
+  assert.ok(t.items.some((i) => i.kind === "teaching" && i.title === "Trees is still Planned"));
+  assert.deepEqual(t.items.filter((i) => i.kind === "review").map((i) => i.title), ["1 hand-in to review"]);
+});

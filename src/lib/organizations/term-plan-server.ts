@@ -7,7 +7,8 @@ import { tasks, workspaceSprints, workspaces } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/service";
 import { readClassDetails, readSessionChanges, termSessions } from "@/lib/organizations/class-sessions";
-import { matchSessions, sessionsInWeek, type PlanLesson } from "@/lib/organizations/term-plan";
+import { matchSessions, readTermPlanSettings, sessionsInWeek, visibleLessons, type PlanLesson } from "@/lib/organizations/term-plan";
+import type { Session } from "@/lib/organizations/class-sessions";
 import { todayInZone, zonedInputToIso } from "@/lib/organizations/zoned-time";
 
 /**
@@ -77,4 +78,33 @@ export async function notifyLessonsToMarkTaught(now = new Date()) {
     }).then(() => { sent += 1; }).catch((error) => logger.error("term_plan.mark_taught_notice_failed", { error: error instanceof Error ? error.message : String(error) }));
   }
   return { sent };
+}
+
+/**
+ * B1.7b (report 30.4 layer 3): each session's lesson, matched over the whole plan (a hidden lesson never shifts the
+ * others), then shown only when the viewer may see it — staff always, students when the class shows it (Ready or
+ * Taught by default). `before` is the lesson's Before class text.
+ */
+export async function sessionLessons(classId: string, orgSettings: unknown, sessions: Session[], staff: boolean) {
+  const out = new Map<string, { id: string; title: string; stage: string; before: string | null }>();
+  if (!sessions.length) return out;
+  const weeks = await db.select({ id: workspaceSprints.id, start: workspaceSprints.startDate, end: workspaceSprints.endDate }).from(workspaceSprints)
+    .where(and(sql`${workspaceSprints.projectId} = ${classId}::uuid`, isNotNull(workspaceSprints.parentSprintId), isNull(workspaceSprints.pathPosition)));
+  if (!weeks.length) return out;
+  const rows = await db.select({ id: tasks.id, title: tasks.title, stage: tasks.stage, weekId: tasks.sprintId, fields: tasks.typeFields, createdAt: tasks.createdAt }).from(tasks)
+    .where(and(sql`${tasks.projectId} = ${classId}::uuid`, sql`${tasks.itemType} = 'class_lesson'`, isNull(tasks.deletedAt), inArray(tasks.sprintId, weeks.map((w) => w.id))));
+  const lessons: Array<PlanLesson & { before: string | null }> = rows.map((r) => {
+    const f = (r.fields ?? {}) as Record<string, unknown>;
+    return { id: r.id, number: null, title: r.title, stage: r.stage ?? "draft", weekId: r.weekId, order: typeof f.order === "number" ? f.order : 0,
+      outcomes: [], createdAt: r.createdAt.toISOString(), before: typeof f.before === "string" && f.before.trim() ? f.before.trim() : null };
+  });
+  const seen = new Set(visibleLessons(lessons, staff, readTermPlanSettings(orgSettings).studentsSee).map((l) => l.id));
+  for (const w of weeks) {
+    const inWeek = lessons.filter((l) => l.weekId === w.id);
+    for (const slot of matchSessions(inWeek, sessionsInWeek(sessions, { start: w.start?.toISOString() ?? null, end: w.end?.toISOString() ?? null }))) {
+      const lesson = inWeek.find((l) => l.id === slot.lessonId);
+      if (slot.session && lesson && seen.has(lesson.id)) out.set(slot.session.key, { id: lesson.id, title: lesson.title, stage: lesson.stage, before: lesson.before });
+    }
+  }
+  return out;
 }
