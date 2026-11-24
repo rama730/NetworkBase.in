@@ -948,9 +948,9 @@
       "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts; tests/browser/scheduled-updates.spec.ts; packages/nb-cli/test/updates-schedule.test.mjs",
+      "evidence": "Deployed 2026-11-24 (4250bf1e9, 0120 in prod). Live in Chrome without posting: Changelog and scheduled Updates added to wt-test-a2-3; composer shows Release and Schedule…; Updates has All updates · Changelog with \"No releases yet\". Scheduling or posting a real Update waits for the user's OK (Updates are outward-facing); the hourly posting path is proven by tests/db/scheduled-updates.test.ts. revisit 2026-11-25"
     },
     {
       "key": "A7.5",
@@ -958,9 +958,9 @@
       "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/changelog-rules.test.ts; tests/browser/scheduled-updates.spec.ts; packages/nb-cli/test/updates-schedule.test.mjs",
+      "evidence": "Deployed 2026-11-24 (4250bf1e9, 0120 in prod). Live in Chrome without posting: Changelog and scheduled Updates added to wt-test-a2-3; composer shows Release and Schedule…; Updates has All updates · Changelog with \"No releases yet\". Scheduling or posting a real Update waits for the user's OK (Updates are outward-facing); the hourly posting path is proven by tests/db/scheduled-updates.test.ts. revisit 2026-11-25"
     },
     {
       "key": "A7.6",
@@ -7728,9 +7728,9 @@
       "text": "Scheduled Updates get their own small table; drafts stay one per person. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts",
+      "evidence": "Deployed 2026-11-24 (4250bf1e9, 0120 in prod). Live in Chrome without posting: Changelog and scheduled Updates added to wt-test-a2-3; composer shows Release and Schedule…; Updates has All updates · Changelog with \"No releases yet\". Scheduling or posting a real Update waits for the user's OK (Updates are outward-facing); the hourly posting path is proven by tests/db/scheduled-updates.test.ts. revisit 2026-11-25"
     },
     {
       "key": "38.17.call2",
@@ -7738,9 +7738,9 @@
       "text": "Posting rides the existing hourly job's exact-time wake events. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts",
+      "evidence": "Deployed 2026-11-24 (4250bf1e9, 0120 in prod). Live in Chrome without posting: Changelog and scheduled Updates added to wt-test-a2-3; composer shows Release and Schedule…; Updates has All updates · Changelog with \"No releases yet\". Scheduling or posting a real Update waits for the user's OK (Updates are outward-facing); the hourly posting path is proven by tests/db/scheduled-updates.test.ts. revisit 2026-11-25"
     },
     {
       "key": "38.17.call3",
@@ -7748,9 +7748,9 @@
       "text": "A scheduled Update rechecks the author's right to post at the time; if it's gone, it fails with a notice. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts",
+      "evidence": "Deployed 2026-11-24 (4250bf1e9, 0120 in prod). Live in Chrome without posting: Changelog and scheduled Updates added to wt-test-a2-3; composer shows Release and Schedule…; Updates has All updates · Changelog with \"No releases yet\". Scheduling or posting a real Update waits for the user's OK (Updates are outward-facing); the hourly posting path is proven by tests/db/scheduled-updates.test.ts. revisit 2026-11-25"
     },
     {
       "key": "38.17.call4",
@@ -7758,9 +7758,9 @@
       "text": "The Changelog reads a fixed Markdown shape in release Updates; no new column. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts",
+      "evidence": "Deployed 2026-11-24 (4250bf1e9, 0120 in prod). Live in Chrome without posting: Changelog and scheduled Updates added to wt-test-a2-3; composer shows Release and Schedule…; Updates has All updates · Changelog with \"No releases yet\". Scheduling or posting a real Update waits for the user's OK (Updates are outward-facing); the hourly posting path is proven by tests/db/scheduled-updates.test.ts. revisit 2026-11-25"
     },
     {
       "key": "38.18.call1",
@@ -8531,6 +8531,26 @@
       "status": "live",
       "test": "tests/db/asset-library.test.ts",
       "evidence": "Live 2026-11-24 (36c2b3e3f): Colors → Add color WT Ember #D14E24 in Chrome; Brand guide – WT Studio (nb doc new) shows it in its colors block. New-version notice proven by tests/db/asset-library.test.ts only: the test workspace has one member, and the saver is never told."
+    },
+    {
+      "key": "38.17.call5",
+      "section": "38.17",
+      "text": "A7.4 Scheduled Updates (2026-11-24): migration 0120scheduledupdates. Where Changelog and scheduled Updates is added, the composer has Schedule… beside Post: Pos",
+      "kind": "call",
+      "milestone": "A7",
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts",
+      "evidence": "See A7.4/A7.5. revisit 2026-11-25"
+    },
+    {
+      "key": "38.17.call6",
+      "section": "38.17",
+      "text": "A7.5 Changelog (2026-11-24): the same workflow adds All updates · Changelog above the feed. The composer's Release tick posts (or schedules) a release Update an",
+      "kind": "call",
+      "milestone": "A7",
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts",
+      "evidence": "See A7.4/A7.5. revisit 2026-11-25"
     }
   ]
 }
