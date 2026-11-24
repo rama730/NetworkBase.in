@@ -1177,6 +1177,9 @@ async function finishApply(actor: Actor, set: ChangeSet, outcome: { already?: Ap
   if (outcome.already) return { changeSet: (await findChangeSet(set.id)), ...outcome.already };
   const result = outcome.result!;
   await notifyApplied(set, userOf(actor), result.applied.length);
+  // Report 38.16 W5 (A7.3): a changed asset tells the people whose open items use it.
+  void import("@/lib/workflows/assets-notify").then(({ notifyAssetNewVersion }) => Promise.all(result.applied.filter((a) => a.op !== "add" && a.op !== "delete" && a.version)
+    .map((a) => notifyAssetNewVersion(set.workspaceId, a.nodeId, a.version!, userOf(actor))))).catch(() => undefined);
   // Agents' and the CLI's 24-hour undo token (A2.9); the app undoes with the change set itself, without a time limit.
   const undoToken = await recordUndo(actor, {
     workspaceId: set.workspaceId,

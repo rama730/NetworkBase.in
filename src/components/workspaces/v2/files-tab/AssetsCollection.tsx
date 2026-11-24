@@ -6,7 +6,9 @@ import { useState } from "react";
 
 import { readAssetsAction, readAssetUsedInAction, setAssetDetailsAction, type AssetRow } from "@/app/actions/assets";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import { AssetViewer } from "./AssetViewer";
+import { ColorsStrip, OutsideLinks } from "./AssetsLibrary";
 import { Field, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
@@ -25,8 +27,8 @@ export function AssetsCollection({ projectId }: { projectId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   if (query.isLoading) return <div aria-hidden="true" className="m-4 grid grid-cols-2 gap-3 md:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="nb-skeleton aspect-square rounded-[8px]" />)}</div>;
   if (!query.data?.success) return <div className="nb-empty-state m-4 py-12" role="alert"><p className="nb-card-title">Couldn’t load the assets</p><button type="button" className="mt-3 text-sm font-medium text-primary underline" onClick={() => void query.refetch()}>Try again</button></div>;
-  const { assets, canEdit } = query.data;
-  if (!assets.length) return <div className="p-4"><EmptyState icon={Images} title="No assets yet" description="Upload images, video or audio, or mark files as assets." /></div>;
+  const { assets, canEdit, library } = query.data;
+  if (!assets.length && !library.colors.length && !library.outsideLinks.length && !canEdit) return <div className="p-4"><EmptyState icon={Images} title="No assets yet" description="Upload images, video or audio, or mark files as assets." /></div>;
   const types = ASSET_TYPES.filter((t) => assets.some((a) => a.type === t));
   const shown = assets.filter((a) => !type || a.type === type);
   const groups = group === "status" ? groupByStatus(shown) : types.filter((t) => !type || t === type).map((t) => ({ id: t, label: ASSET_TYPE_LABEL[t], items: shown.filter((a) => a.type === t) }));
@@ -47,14 +49,17 @@ export function AssetsCollection({ projectId }: { projectId: string }) {
             <option value="type">By type</option><option value="status">By production status</option>
           </select></SelectWrap>
         </div>
+        {!type ? <ColorsStrip projectId={projectId} colors={library.colors} canEdit={canEdit} /> : null}
+        {!assets.length ? <EmptyState icon={Images} title="No assets yet" description="Upload images, video or audio, or mark files as assets." compact /> : null}
         {groups.map((g) => (
           <div key={g.id}>
             <h3 className="mb-2 text-[12px] font-medium text-muted-foreground">{g.label} <span className="font-mono">{g.items.length}</span></h3>
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4" data-testid="assets-grid">
               {g.items.map((a) => <li key={a.id}><AssetCard projectId={projectId} asset={a} active={a.id === openId} onOpen={() => setOpenId(a.id === openId ? null : a.id)} /></li>)}
             </ul>
           </div>
         ))}
+        <OutsideLinks projectId={projectId} links={library.outsideLinks} canEdit={canEdit} type={type} />
       </section>
       {open ? <AssetDetailsPanel key={open.id} projectId={projectId} asset={open} canEdit={canEdit} onClose={() => setOpenId(null)} /> : null}
     </div>
@@ -129,7 +134,7 @@ function AssetDetailsPanel({ projectId, asset, canEdit, onClose }: { projectId: 
       {canEdit ? <button type="button" className={cn(FORM_PRIMARY_CLASS, "w-full")} disabled={busy} onClick={() => void save()}>{busy ? "Saving…" : "Save details"}</button> : null}
       <div data-testid="asset-used-in">
         <p className="text-[12px] font-medium">Used in</p>
-        {usedIn.isLoading ? <p className="text-[12px] text-muted-foreground">Looking…</p>
+        {usedIn.isLoading ? <p role="status" className="nb-waiting text-[12px] text-muted-foreground"><PixelBeat />Looking…</p>
           : usedIn.data?.success && usedIn.data.usedIn.length ? <ul className="mt-1 space-y-0.5 text-[12px]">{usedIn.data.usedIn.map((u) => <li key={`${u.kind}:${u.id}`} className="truncate">{u.kind === "doc" ? "Document · " : ""}{u.label}</li>)}</ul>
           : <p className="text-[12px] text-muted-foreground">Not used in a task or document yet.</p>}
       </div>

@@ -235,7 +235,7 @@ _Drop images here from Files._
 _Add the logo files from Files._
 
 ## Colors
-${parked("Assets")}
+{% project.colors %}
 
 ## Typography
 

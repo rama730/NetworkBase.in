@@ -5,7 +5,7 @@
 export const MAX_BLOCK_ROWS = 200;
 export const FOLD_AFTER_DAYS = 7;
 
-export type LiveBlockKind = "task_rows" | "decisions" | "goals" | "ideas" | "unknown";
+export type LiveBlockKind = "task_rows" | "decisions" | "goals" | "ideas" | "colors" | "unknown";
 /** `period` is the goals block's (report 38.12, A5.1). */
 export type LiveBlock = { kind: LiveBlockKind; key: string | null; label: string | null; raw: string; period?: string | null };
 
@@ -21,7 +21,9 @@ export function parseLiveBlocks(markdown: string): LiveBlock[] {
     if (["roles", "contributors", "files", "tasks", "sprints", "projects"].includes(name)) return [];
     const kind: LiveBlockKind = name === "task_rows" ? "task_rows" : name === "decisions" ? "decisions" : name === "goals" ? "goals"
       // Report 38.13 (A5.3): the ranked block of ideas.
-      : name === "ranked" && attr(params, "type") === "idea" ? "ideas" : "unknown";
+      : name === "ranked" && attr(params, "type") === "idea" ? "ideas"
+      // Report 38.16 W7 (A7.3): the workspace's brand colors (a Brand guide shows them).
+      : name === "colors" ? "colors" : "unknown";
     const key = attr(params, "key");
     const period = kind === "goals" ? attr(params, "period") : null;
     return [{ kind, key: key && /^[a-z0-9]{4,12}$/.test(key) ? key : null, label: kind === "task_rows" ? attr(params, "label") || "Action items" : null, raw: match[0],
@@ -46,6 +48,7 @@ export const DECISIONS_BLOCK_LINE = "{% project.decisions %}";
 /** Report 38.12 W1 (A5.1): a period's goals block. */
 export const goalsBlockLine = (period: string) => `{% project.goals period="${period}" %}`;
 export const IDEAS_BLOCK_LINE = '{% project.ranked type="idea" %}';
+export const COLORS_BLOCK_LINE = "{% project.colors %}";
 
 /** B9: adding rows follows the document's edit permission; ticking follows the task's. */
 export const canAddRows = (doc: { canEdit: boolean }) => doc.canEdit;

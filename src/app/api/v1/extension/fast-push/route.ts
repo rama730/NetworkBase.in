@@ -848,6 +848,9 @@ async function pushFiles(request: Request, created: string[], createdBy: { id: s
         .catch(() => {});
     }
 
+    // Report 38.16 W5 (A7.3): a changed asset tells the people whose open items use it.
+    void import("@/lib/workflows/assets-notify").then(({ notifyAssetNewVersion }) => Promise.all(txResult.committedFiles.filter((f) => f.status === "modified")
+      .map((f) => notifyAssetNewVersion(projectId, f.nodeId, f.version, user.id)))).catch(() => undefined);
     const changedForUndo = txResult.committedFiles.filter((f) => f.status !== "unchanged");
     const undoToken = changedForUndo.length
       ? await recordUndo(auth, {

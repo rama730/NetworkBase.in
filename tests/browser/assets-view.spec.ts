@@ -11,7 +11,8 @@ async function open(page: Page, opts: { width?: number; empty?: boolean } = {}) 
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
-      readAssetsAction: async () => ({ success: true, canEdit: true, assets: empty ? [] : (window as any).__assets }),
+      readAssetsAction: async () => ({ success: true, canEdit: true, assets: empty ? [] : (window as any).__assets, library: empty ? { colors: [], outsideLinks: [] } : { colors: [{ name: 'Ink', hex: '#141A1E' }], outsideLinks: [{ id: 'abcdef12', name: 'Footage day 1', url: 'https://drive.example.com/f/1', type: 'footage', tags: ['day-1'] }] } }),
+      saveAssetLibraryAction: async (input: unknown) => { calls.push(input); return { success: true }; },
       readAssetUsedInAction: async () => ({ success: true, usedIn: [{ kind: 'task', id: 't', label: 'NB-12 Launch post' }, { kind: 'doc', id: 'brand-guide', label: 'Brand guide' }] }),
       setAssetDetailsAction: async (input: unknown) => { calls.push(input); return { success: true }; },
     };
@@ -34,7 +35,7 @@ test('W1, W6: a grid by type with type chips and versions; type filter; grouping
   await expect(view.getByTestId('asset-card')).toHaveCount(1);
   await view.getByRole('button', { name: 'All', exact: true }).click();
   await view.getByLabel('Group by').selectOption('status');
-  await expect(view.getByRole('heading', { level: 3 })).toHaveText(['Review 1', 'Final 1', 'No status 1']);
+  await expect(view.getByRole('heading', { level: 3 })).toHaveText(['Colors 1', 'Review 1', 'Final 1', 'No status 1', 'Outside links 1']);
   await page.screenshot({ path: 'test-results/assets-view/grid.png' });
   expect(await axeViolations(page)).toEqual([]);
 });
@@ -57,9 +58,35 @@ test('W2: details panel saves type, tags, rights, credit, status, notes; Used in
 
 test('W9 phone: two columns; empty state says what to do', async ({ page }) => {
   await open(page, { width: 375 });
-  const grid = page.getByTestId('assets-view').locator('ul').first();
+  const grid = page.getByTestId('assets-grid').first();
   expect(await grid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(2);
   expect(await axeViolations(page)).toEqual([]);
   await open(page, { empty: true });
   await expect(page.getByText('Upload images, video or audio, or mark files as assets.')).toBeVisible();
+});
+
+test('W7/W8: Colors with hex and Copy, Add color; outside links open in a new tab, never fetched; Add outside link', async ({ page }) => {
+  await open(page);
+  const colors = page.getByTestId('assets-colors');
+  await expect(colors).toContainText(/Ink\s*#141A1E/);
+  await colors.getByRole('button', { name: 'Add color' }).click();
+  await colors.getByLabel('Name').fill('Ember');
+  await colors.getByLabel('Hex').fill('#D14E24');
+  await colors.getByRole('button', { name: 'Add', exact: true }).click();
+  const link = page.getByTestId('outside-link').getByRole('link', { name: 'Footage day 1' });
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', /noopener/);
+  await expect(page.getByTestId('outside-link')).toContainText('drive.example.com');
+  await page.getByRole('button', { name: 'Add outside link' }).click();
+  const d = page.getByTestId('outside-link-dialog');
+  await d.getByLabel('Name').fill('Raw audio');
+  await d.getByLabel('Link').fill('https://cloud.example.com/a');
+  await d.getByLabel('Asset type').selectOption('audio');
+  await d.getByRole('button', { name: 'Add link' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls.length)).toBe(2);
+  const calls = await page.evaluate(() => (window as any).__calls);
+  expect(calls[0].colors).toEqual([{ name: 'Ink', hex: '#141A1E' }, { name: 'Ember', hex: '#D14E24' }]);
+  expect(calls[1].outsideLinks.at(-1)).toMatchObject({ name: 'Raw audio', url: 'https://cloud.example.com/a', type: 'audio', tags: [] });
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
 });

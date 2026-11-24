@@ -240,5 +240,7 @@ export async function applyFileRevision(
     };
   });
 
+  // Report 38.16 W5 (A7.3): a new version of an asset tells the people whose open items use it (never fails the save).
+  if (result.versionIncremented) void import("@/lib/workflows/assets-notify").then(({ notifyAssetNewVersion }) => notifyAssetNewVersion(input.projectId, input.nodeId, result.version.version, input.actorUserId)).catch(() => undefined);
   return result;
 }

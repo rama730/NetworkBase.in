@@ -27,3 +27,21 @@ test("A7.1: Used in counts each place once; documents mention a file by path, na
   assert.equal(mentions("Use the Logo dark.svg on black", file), true);
   assert.equal(mentions("Nothing here", file), false);
 });
+
+test("A7.3: colors, outside links (http(s) only), the stored library read safely, version notice recipients", async () => {
+  const { colorSchema, outsideLinkSchema, readAssetLibrary, newVersionRecipients } = await import("../../src/lib/workflows/assets");
+  assert.deepEqual(colorSchema.parse({ name: "Ink", hex: "141a1e" }), { name: "Ink", hex: "#141A1E" });
+  assert.equal(colorSchema.safeParse({ name: "Bad", hex: "#12345" }).success, false);
+  assert.equal(outsideLinkSchema.safeParse({ id: "abc123", name: "Raw footage", url: "javascript:alert(1)", type: "footage" }).success, false);
+  assert.equal(outsideLinkSchema.safeParse({ id: "abc123", name: "Raw footage", url: "https://drive.example.com/x", type: "footage" }).success, true);
+  const lib = readAssetLibrary({ assets: { colors: [{ name: "Ink", hex: "#141A1E" }, { name: "x" }], outsideLinks: [{ id: "abc123", name: "Raw", url: "ftp://x", type: "footage" }] } });
+  assert.deepEqual([lib.colors.length, lib.outsideLinks.length], [1, 0]);
+  assert.deepEqual(readAssetLibrary(null), { colors: [], outsideLinks: [] });
+  assert.deepEqual(newVersionRecipients([{ assigneeId: "a", done: false }, { assigneeId: "a", done: false }, { assigneeId: "b", done: true }, { assigneeId: "me", done: false }, { assigneeId: null, done: false }], "me"), ["a"]);
+});
+
+test("A7.3: the Brand guide's Colors section is a live colors block", async () => {
+  const { parseLiveBlocks } = await import("../../src/lib/workspaces/doc-live-blocks");
+  const { templateById } = await import("../../src/lib/workflows/doc-templates");
+  assert.deepEqual(parseLiveBlocks(templateById("brand-guide")!.body).map((b) => b.kind), ["colors"]);
+});

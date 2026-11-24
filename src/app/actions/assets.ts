@@ -5,10 +5,10 @@ import { z } from "zod";
 
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { taskNodeLinks, tasks, workspaceNodes } from "@/lib/db/schema";
-import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { taskNodeLinks, tasks, workspaceNodes, workspaces } from "@/lib/db/schema";
+import { accessAllows, canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
-import { assetDetailsSchema, defaultAssetType, isAssetMime, mentions, readAssetDetails, usedIn, type AssetDetails } from "@/lib/workflows/assets";
+import { assetDetailsSchema, colorsSchema, defaultAssetType, isAssetMime, mentions, outsideLinkSchema, readAssetDetails, readAssetLibrary, usedIn, type AssetDetails } from "@/lib/workflows/assets";
 
 /**
  * Report 38.16 O1 (plan A7.1): the Assets view of Files. Assets are files (call 1): reading follows the Files tab,
@@ -22,7 +22,8 @@ async function filesReader(projectId: string) {
   if (!user) throw new Error("Sign in to continue");
   const access = await getWorkspaceAccessById(projectId, user.id);
   if (!access.project || access.project.kind !== "workspace" || !canReadWorkspaceTab(access, "files")) throw new Error("Not found");
-  return { user, access };
+  // Changing files here needs "See Files" too: with it off a member only reads Files as a visitor (A7.2 review).
+  return { user, access, canChange: access.canWrite && (access.isOwner || accessAllows(access, "files.see")) };
 }
 
 export type AssetRow = { id: string; name: string; path: string; mimeType: string | null; size: number | null; version: number; updatedAt: string; details: AssetDetails | null; type: string; marked: boolean };
@@ -31,7 +32,7 @@ export type AssetRow = { id: string; name: string; path: string; mimeType: strin
 export async function readAssetsAction(projectId: string) {
   try {
     if (!uuid.safeParse(projectId).success) throw new Error("Not found");
-    const { access } = await filesReader(projectId);
+    const { canChange } = await filesReader(projectId);
     const rows = await db.select({ id: workspaceNodes.id, name: workspaceNodes.name, path: workspaceNodes.path, mimeType: workspaceNodes.mimeType, size: workspaceNodes.size,
       version: workspaceNodes.currentVersion, updatedAt: workspaceNodes.updatedAt, metadata: workspaceNodes.metadata }).from(workspaceNodes)
       .where(and(eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId),
@@ -45,7 +46,8 @@ export async function readAssetsAction(projectId: string) {
       return [{ id: r.id, name: r.name, path: r.path, mimeType: r.mimeType, size: r.size == null ? null : Number(r.size), version: r.version, updatedAt: r.updatedAt.toISOString(),
         details, type: details?.type ?? defaultAssetType(r.mimeType, r.name), marked }];
     });
-    return { success: true as const, assets, canEdit: access.canWrite };
+    const [ws] = await db.select({ settings: workspaces.workflowSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    return { success: true as const, assets, canEdit: canChange, library: readAssetLibrary(ws?.settings) };
   } catch (error) {
     logger.warn("assets.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
     return fail(error, "Couldn’t load the assets.");
@@ -58,8 +60,8 @@ const detailsInput = z.object({ projectId: uuid, nodeId: uuid, details: assetDet
 export async function setAssetDetailsAction(input: z.infer<typeof detailsInput>) {
   try {
     const data = detailsInput.parse(input);
-    const { access } = await filesReader(data.projectId);
-    if (!access.canWrite) throw new Error("Only people who can change files edit asset details.");
+    const { canChange } = await filesReader(data.projectId);
+    if (!canChange) throw new Error("Only people who can change files edit asset details.");
     const value = data.details ? JSON.stringify(Object.fromEntries(Object.entries(data.details).filter(([, v]) => v !== undefined && v !== ""))) : null;
     const [row] = await db.update(workspaceNodes)
       .set({ metadata: value == null ? sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) - 'asset'` : sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || jsonb_build_object('asset', ${value}::jsonb)` })
@@ -112,4 +114,21 @@ export async function tagAssetByPathAction(projectId: string, path: string, tag:
   if (!node || !access.project) return { success: false as const, error: `No file ${full} here` };
   const details = readAssetDetails(node.metadata) ?? {};
   return setAssetDetailsAction({ projectId, nodeId: node.id, details: { ...details, tags: [...new Set([...(details.tags ?? []), tag.trim().toLowerCase()])] } });
+}
+
+const libraryInput = z.object({ projectId: uuid, colors: colorsSchema.optional(), outsideLinks: z.array(outsideLinkSchema).max(200).optional() });
+
+/** W7/W8 (A7.3): save the brand colors or the outside links (people who can change files). Links are stored, never fetched. */
+export async function saveAssetLibraryAction(input: z.input<typeof libraryInput>) {
+  try {
+    const data = libraryInput.parse(input);
+    const { canChange } = await filesReader(data.projectId);
+    if (!canChange) throw new Error("Only people who can change files edit Colors and outside links.");
+    const patch = JSON.stringify({ ...(data.colors ? { colors: data.colors } : {}), ...(data.outsideLinks ? { outsideLinks: data.outsideLinks } : {}) });
+    await db.execute(sql`UPDATE workspaces SET workflow_settings = coalesce(workflow_settings, '{}'::jsonb) || jsonb_build_object('assets', coalesce(workflow_settings->'assets', '{}'::jsonb) || ${patch}::jsonb) WHERE id = ${data.projectId}::uuid`);
+    return { success: true as const };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the colors and links." };
+    return fail(error, "Couldn’t save.");
+  }
 }

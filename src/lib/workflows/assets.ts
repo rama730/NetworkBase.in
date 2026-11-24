@@ -65,3 +65,31 @@ export function mentions(text: string, file: { id: string; name: string; path: s
   const enc = (s: string) => [s, encodeURI(s)];
   return [file.id, ...enc(file.path), ...enc(file.name)].some((needle) => needle.length > 2 && text.includes(needle));
 }
+
+/** Report 38.16 W7 (A7.3): brand colors, kept in workflow_settings.assets.colors. */
+export const colorSchema = z.object({ name: z.string().trim().min(1).max(40), hex: z.string().trim().regex(/^#?[0-9a-f]{6}$/i).transform((h) => `#${h.replace("#", "").toUpperCase()}`) });
+export const colorsSchema = z.array(colorSchema).max(40);
+export type BrandColor = z.infer<typeof colorSchema>;
+
+/** W8 (call 5): an outside link is a typed URL to storage elsewhere; it's stored, shown and opened by people, never fetched. */
+export const outsideLinkSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]{6,40}$/),
+  name: z.string().trim().min(1).max(120),
+  url: z.string().trim().max(2000).refine((u) => { try { const p = new URL(u); return p.protocol === "https:" || p.protocol === "http:"; } catch { return false; } }, "Links start with https:// or http://"),
+  type: z.enum(ASSET_TYPES),
+  tags: z.array(z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{0,29}$/)).max(12).default([]),
+});
+export type OutsideLink = z.infer<typeof outsideLinkSchema>;
+
+/** Read the stored library safely: bad entries are dropped, never shown. */
+export function readAssetLibrary(settings: unknown) {
+  const raw = ((settings ?? {}) as { assets?: { colors?: unknown; outsideLinks?: unknown } }).assets ?? {};
+  const colors = Array.isArray(raw.colors) ? raw.colors.flatMap((c) => { const p = colorSchema.safeParse(c); return p.success ? [p.data] : []; }) : [];
+  const outsideLinks = Array.isArray(raw.outsideLinks) ? raw.outsideLinks.flatMap((l) => { const p = outsideLinkSchema.safeParse(l); return p.success ? [p.data] : []; }) : [];
+  return { colors, outsideLinks };
+}
+
+/** W5 (call 4): who hears about a new version: assignees of open items that use the file, never the person who saved it. */
+export function newVersionRecipients(items: Array<{ assigneeId: string | null; done: boolean }>, actorId: string) {
+  return [...new Set(items.filter((i) => !i.done && i.assigneeId && i.assigneeId !== actorId).map((i) => i.assigneeId!))];
+}
