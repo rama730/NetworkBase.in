@@ -1038,9 +1038,9 @@
       "text": "B1.4 W6 Attendance (30.7) — Build: attendance table (session × student → Present/Late/Absent/Excused, note, by, at); Take attendance sheet (Mark all present); o",
       "kind": "unit",
       "milestone": "B1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/attendance.test.ts; tests/db/attendance.test.ts; tests/browser/attendance.spec.ts",
+      "evidence": "B1.4a d8da3ca6d (0126) and B1.4b 16fc3ac7c + ede62bd2f + e85106e72 (0127) live 2026-11-24. Live in Chrome on wt-test-b0-class: Settings → Attendance on with Check-in code ticked and saved; Members → Attendance shows the grid with a Section filter, Take attendance and Export register, and \"No students yet\" with no students; the school wt-test-b0-school saved Minimum 80% (\"Minimum 80% set for every class\") and the class shows Minimum % disabled, \"Set by your school\". Check-in codes (only on a class day), absence notes, below-minimum notices, the 7-day rule and the school counts without names are proven by DB tests — one test account, so no students live. Security review fixes: CSV cells quoted, a student's absence note in its own column."
     },
     {
       "key": "B1.5",

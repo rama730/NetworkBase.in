@@ -7799,6 +7799,11 @@ STUDENT · copy page (after Approve, or after Release when held)
       - agents are refused when writing marks (server test)
       - the institution receives no marks
 
+**B1.5 build calls (2026-11-24):**
+- **Split:** B1.5a builds the marks table (0128), Marking on the assignment (Not marked · Out of N · a class rubric, frozen onto the assignment when it's saved, drafts included), the Marking panel in One at a time and in the hand-in for staff (a radio group per criterion, keys 1–4, the live total announced, the comment bank as chips, saved as you click), Approve shows the mark, Return hides it again, the "<title> was marked" notice (Important, without the mark), the student's mark in their hand-in, Settings → Marking (rubrics: new, edit, archive; the comment bank) and visible marks in the account export. **B1.5b** builds the Marks column and Export marks, the member drawer's Marks list, Lanes chips, team Adjust for one person, peer review, comment-bank seeding from recent reasons, "Being marked by", the institution's marked counts and "Show marks when approved". **[call]**
+- New rubrics get four levels (Excellent 10 · Good 7 · Fair 4 · Missing 0); level wording and points per criterion come with the rubric editor's next pass. Marking is picked when the assignment is made; changing it afterwards waits for B1.5b. **[call]**
+- Only the Teacher edits rubrics; the Teacher and TAs edit the comment bank; AI agents can't set marks, edit rubrics or the comment bank. **[call]**
+
 **Organization steps:**
 - **Level:** Institution: shared rubrics and counts. Class: rubrics, marking, export. Student: their own marks.
 - **Term moment:** before term (rubrics) → every week (marking) → exams (W4) → end of term (export) → next term (rubrics copied).
