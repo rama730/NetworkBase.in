@@ -32,6 +32,17 @@ async function schoolAdmin(schoolId: string) {
   return a.canWrite && (a.isOwner || a.memberRole === "admin") ? { userId } : null;
 }
 
+/**
+ * Security review: a school sees only counts of a class, so making a program from it, or a cohort from that program,
+ * also needs owner or admin access to the class itself — never the school role alone.
+ */
+async function classStaff(classId: string, userId: string, schoolId: string) {
+  const [c] = await db.select({ institutionId: workspaces.institutionId, kind: workspaces.kind }).from(workspaces).where(and(eq(workspaces.id, classId), isNull(workspaces.deletedAt))).limit(1);
+  if (c?.kind !== "organization" || c.institutionId !== schoolId) return false;
+  const a = await getWorkspaceAccessById(classId, userId);
+  return a.canRead && (a.isOwner || a.memberRole === "admin");
+}
+
 /** Save as program: from one of the school's classes; its length comes from the class's term. */
 export async function saveAsProgramAction(classId: string, name: string): Promise<{ success: true; id: string } | Failure> {
   if (!isLooseUuid(classId)) return DENIED;
@@ -40,6 +51,7 @@ export async function saveAsProgramAction(classId: string, name: string): Promis
   if (!c?.institutionId) return { success: false, error: "Only a class in a school can become a program." };
   const who = await schoolAdmin(c.institutionId);
   if (!who) return DENIED;
+  if (!(await classStaff(classId, who.userId, c.institutionId))) return { success: false, error: "Only the class's teacher or admins can save it as a program." };
   const title = String(name ?? "").trim().slice(0, 120) || c.title;
   const [row] = await db.insert(programs).values({ institutionId: c.institutionId, name: title, weeks: weeksBetween(c.termStart, c.termEnd), sourceClassId: classId,
     seats: c.seats ? Number(c.seats) || null : null, createdBy: who.userId }).returning({ id: programs.id });
@@ -88,6 +100,7 @@ export async function startCohortAction(programId: string, input: z.input<typeof
   if (!who) return DENIED;
   if (p.status === "retired") return { success: false, error: "This program is retired. Restore it to start cohorts." };
   if (!p.sourceClassId) return { success: false, error: "Its source cohort is gone. Update it from a cohort first." };
+  if (!(await classStaff(p.sourceClassId, who.userId, p.institutionId))) return { success: false, error: "Only the source cohort's teacher or admins can start a cohort from it." };
   const parsed = startInput.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Check the cohort." };
   const handle = validateOrgHandle(parsed.data.handle);
@@ -118,6 +131,8 @@ export async function updateProgramAction(programId: string, patch: { name?: str
     const [c] = await db.select({ institutionId: workspaces.institutionId, termStart: workspaces.termStart, termEnd: workspaces.termEnd }).from(workspaces)
       .where(and(eq(workspaces.id, patch.sourceClassId), isNull(workspaces.deletedAt))).limit(1);
     if (c?.institutionId !== p.institutionId) return { success: false, error: "Pick a cohort of this school." };
+    const me = await getViewerAuthContext();
+    if (!me.userId || !(await classStaff(patch.sourceClassId, me.userId, p.institutionId))) return { success: false, error: "Only that cohort's teacher or admins can make it the program's source." };
     set.sourceClassId = patch.sourceClassId;
     set.weeks = weeksBetween(c.termStart, c.termEnd);
   }

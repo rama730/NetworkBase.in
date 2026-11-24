@@ -219,6 +219,10 @@ export function shiftBy(date: Date | null, deltaMs: number) {
 export async function duplicateOrg(sourceId: string, actorId: string, options: DuplicateOptions) {
   const [source] = await db.select().from(workspaces).where(and(eq(workspaces.id, sourceId), eq(workspaces.kind, "organization"))).limit(1);
   if (!source) throw new Error("Organization not found");
+  // Security review (B2.1a): re-checked when the queued copy runs — only the source's owner or admins copy its content.
+  const { getWorkspaceAccessById } = await import("@/lib/data/workspace-access");
+  const access = await getWorkspaceAccessById(sourceId, actorId);
+  if (!access.canRead || !(access.isOwner || access.memberRole === "admin")) throw new Error("Only the organization's owner or admins can duplicate it");
   // Dates move from the old term start, or else from the first sprint (decision 52, report §27.4).
   const [firstSprint] = source.termStart ? [] : await db.select({ start: sql<Date | null>`min(${workspaceSprints.startDate})` }).from(workspaceSprints).where(eq(workspaceSprints.projectId, sourceId));
   const anchor = source.termStart ? Date.parse(`${source.termStart}T00:00:00Z`) : firstSprint?.start ? new Date(firstSprint.start).getTime() : null;

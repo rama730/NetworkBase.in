@@ -48,6 +48,10 @@ test("a school admin saves a cohort as a program, a cohort starts from it with i
   viewerId = teacher!;
   assert.equal((await prog.saveAsProgramAction(klass, "Full-stack Web")).success, false, "a teacher asks a school admin");
   viewerId = principal!;
+  assert.match((await prog.saveAsProgramAction(klass, "Full-stack Web") as { error?: string }).error ?? "", /teacher or admins/, "security review: the school role alone never copies a class");
+  const life0 = await loadAppModule(() => import("../../src/lib/organizations/lifecycle"));
+  await assert.rejects(life0.duplicateOrg(klass, principal!, { title: "Copy", handle: `copy-${Date.now().toString(36)}`, termStart: null, copy: { about: true, docs: true, files: true, sprints: true, assignments: true, channels: true, admins: true } }), /owner or admins/);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${klass}, ${principal!}, 'admin')`;
   const saved = await prog.saveAsProgramAction(klass, "Full-stack Web");
   assert.ok(saved.success);
   const list = await prog.readProgramsAction(school);
