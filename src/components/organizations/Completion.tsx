@@ -118,7 +118,7 @@ function MoveLater({ orgId, learner }: { orgId: string; learner: { id: string; n
   };
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="move-later">
-      {later.isPending ? <span className="text-muted-foreground">Loading cohorts…</span> : list.length === 0 ? <span className="text-muted-foreground">No later cohort of this program that you teach.</span> : (
+      {later.isPending ? <span role="status" className="nb-waiting text-muted-foreground"><PixelBeat />Loading cohorts…</span> : list.length === 0 ? <span className="text-muted-foreground">No later cohort of this program that you teach.</span> : (
         <select className="nb-select" data-size="sm" aria-label={`Later cohort for ${learner.name}`} value={to} onChange={(e) => setTo(e.target.value)}>
           <option value="">Pick a cohort</option>
           {list.map((c) => <option key={c.id} value={c.id} disabled={c.seatsLeft <= 0}>{c.title}{c.start ? ` · starts ${DAY.format(new Date(`${c.start}T00:00:00Z`))}` : ""}{c.seatsLeft <= 0 ? " · full" : ""}</option>)}
