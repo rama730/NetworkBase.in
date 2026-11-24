@@ -76,6 +76,12 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
     stages: [s("idea", "Idea", "todo", false), s("validating", "Validating", "in_progress", false), s("building", "Building", "in_progress", false),
       s("launched", "Launched", "done", false, true), s("dropped", "Dropped", "done", false, true)],
   },
+  // Report 38.18 O3 (A7.6): a learning path's lesson sits in a step and never on the board; people tick their own
+  // progress (lesson_progress), so the lesson itself only goes from Draft to Ready (or Archived).
+  class_lesson: {
+    id: "class_lesson", label: "Lesson", icon: "BookOpen", joinStage: null, doneStage: "archived",
+    stages: [s("draft", "Draft", "todo", false), s("ready", "Ready", "todo", false), s("archived", "Archived", "done", false, true)],
+  },
 };
 
 export function workflowType(id: string): WorkflowType {

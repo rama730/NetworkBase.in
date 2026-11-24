@@ -41,7 +41,7 @@ export const WORKFLOW_CATALOG: CatalogEntry[] = [
   { id: "offsite", name: "Team off-site", group: "documents", icon: "Tent", types: [], built: true, line: "Adds an Off-site section: plan a team trip in one document." },
   { id: "assets", name: "Assets", group: "files", icon: "Images", types: [], built: true, line: "Adds an Assets view to Files with details, Used in and pinned comments." },
   { id: "changelog", name: "Changelog and scheduled Updates", group: "updates", icon: "Megaphone", types: [], built: true, line: "Adds a Changelog view and lets Updates post at a set time." },
-  { id: "learning_path", name: "Learning path", group: "sprints", icon: "Route", types: ["class_lesson"], built: false, line: "Adds a Path view to Sprints. Steps can be undated; everyone ticks their own lessons." },
+  { id: "learning_path", name: "Learning path", group: "sprints", icon: "Route", types: ["class_lesson"], built: true, line: "Adds a Path view to Sprints. Steps can be undated; everyone ticks their own lessons." },
 ];
 
 /** Parked in report 28.2 and plan section 8: listed so people see what's coming, never addable. */

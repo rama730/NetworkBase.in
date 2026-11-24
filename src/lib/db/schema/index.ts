@@ -1152,6 +1152,13 @@ export const keyResultCheckIns = pgTable("key_result_check_ins", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Each person's done lessons on a learning path (0121, report 38.18 call 1). Server only. */
+export const lessonProgress = pgTable("lesson_progress", {
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  doneAt: timestamp("done_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.taskId, t.userId] })]);
+
 /** Updates that post themselves at a set time, as their author (0120, report 38.17 O2, A7.4). Server only. */
 export const workspaceScheduledUpdates = pgTable("workspace_scheduled_updates", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -2385,8 +2392,9 @@ export const workspaceSprints = pgTable(
     name: text("name").notNull(),
     goal: text("goal"),
     description: text("description"),
-    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
-    endDate: timestamp("end_date", { withTimezone: true }).notNull(),
+    // Optional for a learning path's steps (0121, report 38.18 call 2): both or neither.
+    startDate: timestamp("start_date", { withTimezone: true }),
+    endDate: timestamp("end_date", { withTimezone: true }),
     status: statusSprintEnum("status").default("planning").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -2396,6 +2404,8 @@ export const workspaceSprints = pgTable(
     parentSprintId: uuid("parent_sprint_id").references((): AnyPgColumn => workspaceSprints.id, { onDelete: "set null" }),
     // 0063 (board/review report §6): set by a trigger — a sprint inside a main sprint of this same workspace.
     nested: boolean("nested").default(false).notNull(),
+    /** A learning path step's place (0121, report 38.18 O3); null for ordinary sprints. */
+    pathPosition: integer("path_position"),
     autoStart: boolean("auto_start").default(true).notNull(),
     showInChildren: boolean("show_in_children").default(true).notNull(),
     // Org sprints: tell members when it starts (0258, report §15.2).

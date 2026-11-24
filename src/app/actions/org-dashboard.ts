@@ -1,5 +1,6 @@
 'use server';
 
+import { hasDates } from "@/lib/workspaces/sprint-dates";
 import { runningSprint, sprintPath } from '@/lib/workspaces/sprint-plan';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
@@ -179,7 +180,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             v.userId ? sql`NOT EXISTS (SELECT 1 FROM workspace_update_hidden h WHERE h.update_id = ${workspaceUpdates.id} AND h.user_id = ${v.userId}::uuid)` : undefined,
         )).orderBy(desc(workspaceUpdates.createdAt)).limit(1),
         db.select({ id: workspaceSprints.id, name: workspaceSprints.name, goal: workspaceSprints.goal, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId })
-            .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), ne(workspaceSprints.status, 'completed'))).orderBy(asc(workspaceSprints.startDate)),
+            .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), ne(workspaceSprints.status, 'completed'))).orderBy(asc(workspaceSprints.startDate)).then((rows) => rows.filter(hasDates)),
         db.select({ id: tasks.id, title: tasks.title, dueDate: tasks.dueDate, sprintId: tasks.sprintId }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), v.isAdmin ? undefined : published)),
         readNeedsYou(v, now),
@@ -399,7 +400,7 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
                 : eq(workspaces.visibility, 'public'),
         )).orderBy(desc(workspaces.updatedAt)).limit(3),
         v.isInside || tabs.sprints
-            ? db.select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, completedAt: workspaceSprints.completedAt }).from(workspaceSprints).where(eq(workspaceSprints.projectId, orgId))
+            ? db.select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, completedAt: workspaceSprints.completedAt }).from(workspaceSprints).where(eq(workspaceSprints.projectId, orgId)).then((rows) => rows.filter(hasDates))
             : Promise.resolve(null),
         db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, role: workspaceMembers.role, title: workspaceMembers.title, show: workspaceMembers.showOnProfile })
             .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
@@ -568,7 +569,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
     const seesGithub = childGrant(childRole, 'github_status') === 'yes';
     const [[org], [sprint], due, [ownSprint]] = await Promise.all([
         db.select({ title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, child.parentId)).limit(1),
-        db.select({ name: workspaceSprints.name, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, child.parentId), eq(workspaceSprints.status, 'active'))).limit(1),
+        db.select({ name: workspaceSprints.name, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, child.parentId), eq(workspaceSprints.status, 'active'), isNotNull(workspaceSprints.endDate))).limit(1),
         db.select({ ...copyColumns, title: tasks.title }).from(tasks).where(and(eq(tasks.projectId, childProjectId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))),
         // The project's own running sprint and the org sprint holding it: "Inside CO2 (CSE-3A) · ends Fri" (report §27.5).
         db.execute<{ name: string; end_date: string; parent: string | null }>(sql`
@@ -583,7 +584,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
     const needsYou: NeedsYouRow[] = open.map((c) => ({ kind: 'group', label: `${c.title} for the workspace${stateOf(c, now).state === 'missing' ? ' · missing' : ''}`, href: `${projectHref}?tab=tasks` }));
     if (userId && child.ownerId === userId) needsYou.push(...(await leadSprintRows(child.parentId, userId)).filter((r) => r.href.startsWith(projectHref)));
     return {
-        orgTitle: org.title, orgSlug: org.slug, sprint: sprint ? { name: sprint.name, endDate: sprint.endDate.toISOString() } : null, dueCount: open.length,
+        orgTitle: org.title, orgSlug: org.slug, sprint: sprint?.endDate ? { name: sprint.name, endDate: sprint.endDate.toISOString() } : null, dueCount: open.length,
         needsYou: needsYou.slice(0, 5),
         ownSprint: ownSprint ? { name: ownSprint.name, endDate: ownSprint.end_date, parent: ownSprint.parent } : null,
         // Report §24.3: the team and organization admins see where it syncs; the lead has the full GitHub view.

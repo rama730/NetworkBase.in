@@ -2,6 +2,7 @@
 
 import { TodaysMeetings } from "@/components/my-work/TodaysMeetings";
 import { GoalCheckIns } from "@/components/my-work/GoalCheckIns";
+import { UpNextLessons } from "@/components/my-work/UpNextLessons";
 import { OffsiteInvites } from "@/components/my-work/OffsiteInvites";
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -740,6 +741,7 @@ export default function MyWorkTasksTab({ isActive = true, day = null, onDay, pin
             {chipRow}
             <TodaysMeetings />
             <GoalCheckIns />
+            <UpNextLessons />
             <OffsiteInvites />
             {nextCard}
             {nothingMatches ? (

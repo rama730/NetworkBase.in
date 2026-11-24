@@ -34,7 +34,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       id, title: ws?.title ?? null, slug: ws?.slug ?? null, description: ws?.description ?? null, kind: ws?.kind ?? "workspace",
       role: access.isOwner ? "owner" : access.memberRole ?? (access.isInheritedAdmin ? "admin" : "viewer"), canWrite: access.canWrite,
       openTasks: open?.n ?? 0, files: files?.n ?? 0,
-      currentSprint: sprints[0] ? { id: sprints[0].id, name: sprints[0].name, endDate: sprints[0].endDate.toISOString() } : null,
+      currentSprint: sprints[0] ? { id: sprints[0].id, name: sprints[0].name, endDate: sprints[0].endDate?.toISOString() ?? null } : null,
       words: sprintWords(org?.orgType ?? ws?.orgType, org?.orgSettings ?? ws?.orgSettings),
       organization: org ? { title: org.title } : null,
       agents: { policy: ws?.agentPolicy ?? "ask_important", paused: Boolean(ws?.agentsPausedAt) },

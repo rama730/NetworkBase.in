@@ -1,4 +1,5 @@
 import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, readSprintOrgContext, saveSprintSharing, unlinkSprints } from "@/lib/organizations/sprints";
+import { hasDates } from "@/lib/workspaces/sprint-dates";
 import { notifyOrg, remindedRecently } from "@/lib/organizations/notify";
 import { buildSprintSeries, nextSeriesNumber } from "@/lib/organizations/sprint-rules";
 import { readOrgWork } from "@/lib/organizations/settings";
@@ -1617,12 +1618,14 @@ export async function updateSprintAction(data: UpdateSprintInput) {
     if (existingSprint.status !== "planning" && existingSprint.status !== "active") {
       throw new Error("Completed, canceled, and archived Sprints are read-only");
     }
-    if (existingSprint.status === "active" && startDate.toISOString().slice(0, 10) !== existingSprint.startDate.toISOString().slice(0, 10)) {
+    // An undated learning-path step (A7.6) gets dates here; nothing shifts from it.
+    const existingStart = existingSprint.startDate ?? startDate;
+    if (existingSprint.status === "active" && startDate.toISOString().slice(0, 10) !== existingStart.toISOString().slice(0, 10)) {
       throw new Error("A running sprint keeps its start date.");
     }
 
     const changedAt = new Date();
-    const shiftMs = startDate.getTime() - existingSprint.startDate.getTime();
+    const shiftMs = startDate.getTime() - existingStart.getTime();
     let movedLater: string[] = [];
     const updatedSprintId = await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${validated.projectId} FOR UPDATE`);
@@ -1633,7 +1636,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       if (validated.moveLaterSprints && shiftMs !== 0 && existingSprint.status === "planning") {
         const moved = await tx.execute<{ id: string }>(sql`
           UPDATE ${workspaceSprints} SET ${shift}
-          WHERE workspace_id = ${validated.projectId} AND status = 'planning' AND id <> ${validated.sprintId} AND start_date > ${existingSprint.startDate.toISOString()}::timestamptz
+          WHERE workspace_id = ${validated.projectId} AND status = 'planning' AND id <> ${validated.sprintId} AND start_date > ${existingStart.toISOString()}::timestamptz
             AND parent_sprint_id IS NOT DISTINCT FROM ${existingSprint.parentSprintId}::uuid
           RETURNING id`);
         movedLater = moved.map((row) => row.id);
@@ -1675,7 +1678,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       if (validated.sharedWith) await saveSprintSharing(tx, { orgId: validated.projectId, sprintId: validated.sprintId, sharedWith: validated.sharedWith, workspaceIds: validated.sharedWorkspaceIds ?? [] });
       for (const id of movedLater) {
         const [later] = await tx.select({ startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId }).from(workspaceSprints).where(eq(workspaceSprints.id, id)).limit(1);
-        if (later) await assertOrgSprintRules(tx, { projectId: validated.projectId, ...later, excludeSprintId: id });
+        if (later && hasDates(later)) await assertOrgSprintRules(tx, { projectId: validated.projectId, ...later, excludeSprintId: id });
       }
 
       await tx.insert(workspaceSprintEvents).values({

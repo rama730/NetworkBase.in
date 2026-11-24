@@ -739,6 +739,13 @@ const patterns = [
     state.docs.push({ slug: "tech-spec-sign-in", filename: req.body.path.split("/").pop(), nodePath: req.body.path });
     return { status: 201, data: { success: true, slug: "tech-spec-sign-in" } };
   }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/path$/, "GET", (_req, /** @type {any} */ state) => ({ data: state.path ?? { steps: [], done: [], upNext: null } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/path$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const lesson = (state.path?.steps ?? []).flatMap((/** @type {any} */ s) => s.lessons).find((/** @type {any} */ l) => l.number === req.body.number);
+    if (!lesson) return fail(404, "NOT_FOUND", `NB-${req.body.number} isn’t a lesson here`);
+    state.path.done = req.body.done ? [...state.path.done, lesson.id] : state.path.done.filter((/** @type {string} */ x) => x !== lesson.id);
+    return { data: { number: req.body.number, done: req.body.done } };
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/assets$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => ({ data: { assets: (state.assets ?? []).filter((/** @type {any} */ a) => !req.query.get("type") || a.type === req.query.get("type")) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/assets$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     const a = (state.assets ?? []).find((/** @type {any} */ x) => x.path === req.body.path);

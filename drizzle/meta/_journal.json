@@ -841,6 +841,13 @@
       "when": 1795512573021,
       "tag": "0120_scheduled_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1795514435846,
+      "tag": "0121_learning_path",
+      "breakpoints": true
     }
   ]
 }

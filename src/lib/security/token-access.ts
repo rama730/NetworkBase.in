@@ -193,6 +193,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/workspaces/${ID}/snippets`), read: "workspace:read", agent: "path" },
   // Assets (report 38.16 W10, nb assets list/tag): files, so they read and write like files.
   { pattern: route(`/api/v1/workspaces/${ID}/assets`), read: "file:read", write: "file:write", agent: "path" },
+  // Learning path (report 38.18 W9, nb path): progress is a person's own; agents read only (the route refuses their ticks).
+  { pattern: route(`/api/v1/workspaces/${ID}/path`), read: "task:read", write: "task:write", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
   // One workspace, its activity and sprints, and updates (report A2.5, A8.7, D25).

@@ -49,6 +49,7 @@ import {
 } from '@/stores/ui-store';
 
 import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, WorkspaceSettingsTab } from '@/components/workspaces/dashboard/WorkspaceTabsRegistry';
+import { SprintsWithPath } from '@/components/workspaces/tabs/sprint/LearningPath';
 import { SkeletonSprints } from '@/components/workspaces/skeletons/SkeletonSprints';
 import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
@@ -1323,7 +1324,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     <TabErrorBoundary tabName="Sprints">
                         <div className="space-y-6">
                             <Suspense fallback={<SkeletonSprints />}>
-                                <SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} />
+                                <SprintsWithPath projectId={project.id}><SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} /></SprintsWithPath>
                             </Suspense>
                         </div>
                     </TabErrorBoundary>

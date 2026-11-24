@@ -303,6 +303,8 @@ export const COMMANDS = [
     flags: { impact: { type: "string", describe: "1–5" }, ease: { type: "string", describe: "1–5" }, confidence: { type: "string", describe: "1–5" }, pitch: { type: "string", describe: "One line" } },
     examples: ["nb ideas add \"Template shop\" --impact 4 --ease 3 --confidence 2"] },
   { group: "Tasks", name: "offsites list", summary: "Off-sites coming up with who's going", usage: "nb offsites list", module: "offsites", fn: "list" },
+  { group: "Tasks", name: "path", summary: "The learning path: steps, lessons and your ticks", usage: "nb path", module: "path", fn: "show" },
+  { group: "Tasks", name: "path done", summary: "Tick a lesson done for yourself (--undo to untick)", usage: "nb path done NB-410 [--undo]", module: "path", fn: "done", flags: { undo: { type: "boolean", describe: "Not done after all" } } },
   { group: "Files", name: "assets list", summary: "Images, video, audio and fonts, with type, status and tags", usage: "nb assets list [--type logo]", module: "assets", fn: "list", flags: { type: { type: "string", describe: "logo, photo, illustration, video, footage, audio, font, template or other" } } },
   { group: "Files", name: "assets tag", summary: "Tag a file in Assets (any file becomes an asset)", usage: "nb assets tag <file> <tag>", module: "assets", fn: "tag" },
   { group: "Docs and workspaces", name: "snippets list", summary: "The workspace's code snippets", usage: "nb snippets list", module: "snippets", fn: "list" },

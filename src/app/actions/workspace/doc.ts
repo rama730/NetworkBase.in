@@ -483,7 +483,8 @@ function optionFromSprint(
     row: Pick<typeof workspaceSprints.$inferSelect, "id" | "name" | "goal" | "description" | "status" | "startDate" | "endDate">,
     project: { id: string; slug: string | null }
 ): WorkspaceDocReferenceOption {
-    const dateRange = formatSprintDateRange(row.startDate, row.endDate);
+    // A learning path's step may have no dates (A7.6).
+    const dateRange = row.startDate && row.endDate ? formatSprintDateRange(row.startDate, row.endDate) : "No dates";
     return {
         id: row.id,
         kind: "sprints",

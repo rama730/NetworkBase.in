@@ -123,7 +123,8 @@
     "drizzle/0117_approved_minutes_lock.sql",
     "drizzle/0118_approved_minutes_lock_more.sql",
     "drizzle/0119_file_comments.sql",
-    "drizzle/0120_scheduled_updates.sql"
+    "drizzle/0120_scheduled_updates.sql",
+    "drizzle/0121_learning_path.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

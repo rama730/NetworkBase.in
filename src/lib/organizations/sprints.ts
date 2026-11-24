@@ -1,5 +1,6 @@
 import "server-only";
 
+import { hasDates } from "@/lib/workspaces/sprint-dates";
 import { sprintWords, type SprintWords } from "@/lib/organizations/sprint-words";
 import { runningSprint, sprintPath } from "@/lib/workspaces/sprint-plan";
 import { and, eq, inArray, isNull, ne, notInArray, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
@@ -50,14 +51,14 @@ export async function assertOrgSprintRules(executor: Executor, input: {
         inArray(workspaceSprints.status, [...LIVE]),
         parentId ? eq(workspaceSprints.parentSprintId, parentId) : isNull(workspaceSprints.parentSprintId),
         ...(input.excludeSprintId ? [ne(workspaceSprints.id, input.excludeSprintId)] : []),
-      ));
+      )).then((rows) => rows.filter(hasDates));
     if (input.parentSprintId) {
       const [parent] = await executor
         .select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId })
         .from(workspaceSprints)
         .where(and(eq(workspaceSprints.id, input.parentSprintId), eq(workspaceSprints.projectId, input.projectId)))
         .limit(1);
-      if (!parent) throw new Error("Pick one of this organization’s main sprints.");
+      if (!parent || !hasDates(parent)) throw new Error("Pick one of this organization’s main sprints.");
       if (parent.parentSprintId) throw new Error(`${parent.name} is already inside another sprint; pick its main sprint instead.`);
       if (input.excludeSprintId) {
         const [inside] = await executor.select({ id: workspaceSprints.id }).from(workspaceSprints)
@@ -76,7 +77,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
     // An edited main sprint keeps the sprints inside it (callers move them first when asked to).
     if (input.excludeSprintId) {
       const inside = await executor.select({ name: workspaceSprints.name, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints)
-        .where(and(eq(workspaceSprints.parentSprintId, input.excludeSprintId), eq(workspaceSprints.projectId, input.projectId), inArray(workspaceSprints.status, [...LIVE])));
+        .where(and(eq(workspaceSprints.parentSprintId, input.excludeSprintId), eq(workspaceSprints.projectId, input.projectId), inArray(workspaceSprints.status, [...LIVE]))).then((rows) => rows.filter(hasDates));
       const out = inside.find((child) => !fitsInside(child, range));
       if (out) throw new Error(`${out.name} would sit outside these dates. Tick “Move the sprints inside too”, or change ${out.name} first.`);
     }
@@ -88,7 +89,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
     const live = await executor
       .select({ id: workspaceSprints.id, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
       .from(workspaceSprints)
-      .where(and(eq(workspaceSprints.projectId, project.parentId), inArray(workspaceSprints.status, ["planning", "active"]), sprintSharedWithSql(workspaceSprints.id, input.projectId)));
+      .where(and(eq(workspaceSprints.projectId, project.parentId), inArray(workspaceSprints.status, ["planning", "active"]), sprintSharedWithSql(workspaceSprints.id, input.projectId))).then((rows) => rows.filter(hasDates));
     const holder = live.find((sprint) => fitsInside(range, sprint));
     if (!holder) throw new Error("This workspace follows its organization’s sprints: pick dates inside one of them.");
     return holder.id;
@@ -100,7 +101,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
     // Live-fix 34: only a sprint shared with this workspace can hold its sprint.
     .where(and(eq(workspaceSprints.id, input.parentSprintId), eq(workspaceSprints.projectId, project.parentId), sprintSharedWithSql(workspaceSprints.id, input.projectId)))
     .limit(1);
-  if (!parent || (parent.status !== "planning" && parent.status !== "active")) throw new Error("Pick a planned or active sprint of your organization.");
+  if (!parent || !hasDates(parent) || (parent.status !== "planning" && parent.status !== "active")) throw new Error("Pick a planned or active sprint of your organization.");
   const outside = insideError(range, parent);
   if (outside) throw new Error(outside);
   return input.parentSprintId;
@@ -249,13 +250,13 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     .select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId })
     .from(workspaceSprints)
     .where(and(eq(workspaceSprints.projectId, project.parentId!), inArray(workspaceSprints.status, ["planning", "active"]), sprintSharedWithSql(workspaceSprints.id, projectId)))
-    .orderBy(workspaceSprints.startDate);
+    .orderBy(workspaceSprints.startDate).then((rows) => rows.filter(hasDates));
   const selected = flags.find((f) => f.id === selectedSprintId);
   const [own] = selected?.parentSprintId
-    ? await db.select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.id)).limit(1)
+    ? (await db.select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.id)).limit(1)).filter(hasDates)
     : [];
   const [parent] = selected?.parentSprintId
-    ? await db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.parentSprintId)).limit(1)
+    ? (await db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.parentSprintId)).limit(1)).filter(hasDates)
     : [];
   // The team's prompt names the class's running main sprint; the picker lists its sprints too, as "CO1 · Week 1".
   // Board/review report §6: named in full ("CO1 · Week 3–4"); a team's sprint may sit in either (D3).

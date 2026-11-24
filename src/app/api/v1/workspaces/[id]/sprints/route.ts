@@ -41,7 +41,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const [unplanned] = await db.select({ n: count() }).from(tasks).where(and(eq(tasks.projectId, id), isNull(tasks.sprintId), isNull(tasks.deletedAt), ne(tasks.status, "done")));
     return jsonSuccess({
       words: sprintWords(org?.orgType ?? ws?.orgType, org?.orgSettings ?? ws?.orgSettings),
-      sprints: rows.map((r) => ({ ...r, startDate: r.startDate.toISOString(), endDate: r.endDate.toISOString() })),
+      sprints: rows.map((r) => ({ ...r, startDate: r.startDate?.toISOString() ?? null, endDate: r.endDate?.toISOString() ?? null })),
       unplanned: unplanned?.n ?? 0,
       ...(sprintTasks ? { tasks: sprintTasks, burndown: await sprintBurndown(id, sprintParam!) } : {}),
     }, undefined, { headers: { "Cache-Control": "private, no-store" } });

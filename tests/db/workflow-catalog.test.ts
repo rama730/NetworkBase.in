@@ -19,6 +19,13 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 stubNextAfter();
 
 let actions: typeof import("../../src/app/actions/workflows");
+let catalog: typeof import("../../src/lib/workflows/catalog");
+/** Every Part A workflow is built now (A7.7); the "coming later" guard is checked by marking one unbuilt for a moment. */
+async function unbuilt<T>(id: string, fn: () => Promise<T>) {
+  const entry = catalog.WORKFLOW_CATALOG.find((w) => w.id === id)!;
+  entry.built = false;
+  try { return await fn(); } finally { entry.built = true; }
+}
 let activity: typeof import("../../src/app/actions/workspace/recent-activity");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -27,9 +34,7 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
     getViewerIdentityContext: async () => ({ user: viewerId ? { id: viewerId } : null, userId: viewerId || null, profile: null }),
   });
-  // Bugs' round (A2.1) isn't built yet; the tests stand in for it. Roadmap stays unbuilt.
-  const catalog = await loadAppModule(() => import("../../src/lib/workflows/catalog"));
-  catalog.catalogEntry("bugs")!.built = true;
+  catalog = await loadAppModule(() => import("../../src/lib/workflows/catalog"));
   actions = await loadAppModule(() => import("../../src/app/actions/workflows"));
   activity = await loadAppModule(() => import("../../src/app/actions/workspace/recent-activity"));
 });
@@ -93,7 +98,7 @@ test("owners and admins add; adding twice is a no-op; members, viewers and outsi
 test("workflows whose round isn't built, and unknown ones, are refused", async () => {
   const t = await workspace();
   viewerId = t.owner;
-  assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "learning_path" })), /coming later/);
+  assert.match(errorOf(await unbuilt("learning_path", () => actions.addWorkflowAction({ workspaceId: t.ws, workflow: "learning_path" }))), /coming later/);
   assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "pipeline" })), /Unknown workflow/);
 });
 
@@ -194,7 +199,7 @@ test("W8: an organization pushes a workflow to every workspace; members can't; R
   viewerId = t.admin;
   const pushed = await actions.pushWorkflowAction({ orgId: t.org, workflow: "bugs" });
   assert.deepEqual(pushed.success && [pushed.name, pushed.workspaces], ["Bugs", 2]);
-  assert.match(errorOf(await actions.pushWorkflowAction({ orgId: t.org, workflow: "learning_path" })), /coming later/);
+  assert.match(errorOf(await unbuilt("learning_path", () => actions.pushWorkflowAction({ orgId: t.org, workflow: "learning_path" }))), /coming later/);
   const list = await actions.readOrgWorkflowsAction(t.org);
   assert.deepEqual(list.success && [list.workspaces, list.rows], [2, [{ workflow: "bugs", pushed: true }]]);
 
@@ -223,7 +228,7 @@ test("W9: the wizard's ticked workflows are added for the new workspace's owner 
   viewerId = t.owner;
   const pushedList = await actions.orgPushedWorkflowsAction(t.org);
   assert.deepEqual(pushedList.success && [pushedList.by, pushedList.workflows], ["Northgate CS", ["bugs"]]);
-  const made = await actions.addWorkflowsOnCreateAction(t.ws, ["bugs", "project_planner", "learning_path"]);
+  const made = await unbuilt("learning_path", () => actions.addWorkflowsOnCreateAction(t.ws, ["bugs", "project_planner", "learning_path"]));
   assert.deepEqual(made.success && made.added, ["project_planner"], "Bugs is pushed already; Learning path isn't built");
   const [ws] = await sql`SELECT workflows_enabled FROM workspaces WHERE id = ${t.ws}`;
   assert.equal(ws!.workflows_enabled, true);

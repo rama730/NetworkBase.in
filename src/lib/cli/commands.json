@@ -2454,6 +2454,33 @@
       ]
     },
     {
+      "name": "path",
+      "summary": "The learning path: steps, lessons and your ticks",
+      "usage": "nb path",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "path done",
+      "summary": "Tick a lesson done for yourself (--undo to untick)",
+      "usage": "nb path done NB-410 [--undo]",
+      "flags": {
+        "undo": {
+          "type": "boolean",
+          "describe": "Not done after all"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "assets list",
       "summary": "Images, video, audio and fonts, with type, status and tags",
       "usage": "nb assets list [--type logo]",

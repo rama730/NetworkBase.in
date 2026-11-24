@@ -52,7 +52,7 @@ export async function closeSprintFromCli(projectId: string, sprintId: string) {
   const sprint = await sprintOf(projectId, sprintId);
   if (sprint.status !== "active") fail(`Only a running sprint closes; this one is ${sprint.status}`, 409, "CONFLICT");
   const [next] = await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
-    .where(and(eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.status, "planning"), isNull(workspaceSprints.archivedAt), gt(workspaceSprints.startDate, sprint.startDate)))
+    .where(and(eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.status, "planning"), isNull(workspaceSprints.archivedAt), sprint.startDate ? gt(workspaceSprints.startDate, sprint.startDate) : sql`false`))
     .orderBy(asc(workspaceSprints.startDate)).limit(1);
   const [{ open } = { open: 0 }] = await db.select({ open: sql<number>`count(*)::int` }).from(tasks)
     .where(and(eq(tasks.sprintId, sprintId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`));
@@ -67,12 +67,14 @@ export async function sprintBurndown(projectId: string, sprintId: string) {
   // Only this workspace's sprint and tasks: the id comes from the caller.
   const [sprint] = await db.select({ start: workspaceSprints.startDate, end: workspaceSprints.endDate }).from(workspaceSprints)
     .where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, projectId))).limit(1);
-  if (!sprint) return [];
+  // An undated step (A7.6) has no burndown.
+  if (!sprint?.start || !sprint.end) return [];
+  const { start, end } = sprint;
   const rows = await db.select({ status: tasks.status, completedAt: tasks.completedAt }).from(tasks)
     .where(and(eq(tasks.sprintId, sprintId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)));
-  const last = Math.min(sprint.end.getTime(), Date.now());
+  const last = Math.min(end.getTime(), Date.now());
   const days: Array<{ date: string; left: number }> = [];
-  for (let t = sprint.start.getTime(); t <= last && days.length < 120; t += DAY) {
+  for (let t = start.getTime(); t <= last && days.length < 120; t += DAY) {
     const endOfDay = t + DAY - 1;
     // A task finished before completion times were kept (no completedAt) counts as done throughout.
     days.push({ date: isoDay(new Date(t)), left: rows.filter((r) => !(r.status === "done" && (!r.completedAt || r.completedAt.getTime() <= endOfDay))).length });
