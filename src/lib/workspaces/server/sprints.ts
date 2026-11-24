@@ -375,7 +375,8 @@ async function readProjectSprintsList(projectId: string, limit: number) {
             eq(workspaceMembers.projectId, projectId),
           ),
         )
-        .where(eq(workspaceSprints.projectId, projectId))
+        // A learning path's steps (A7.6 live check) live in Path, not in the Sprints list or its pickers.
+        .where(and(eq(workspaceSprints.projectId, projectId), isNull(workspaceSprints.pathPosition)))
         .orderBy(
           sql`CASE WHEN ${workspaceSprints.status} = 'active' THEN 0 WHEN ${workspaceSprints.status} = 'planning' THEN 1 ELSE 2 END`,
           desc(workspaceSprints.createdAt),
@@ -418,7 +419,7 @@ async function readProjectSprintsList(projectId: string, limit: number) {
           eq(workspaceMembers.projectId, projectId),
         ),
       )
-      .where(eq(workspaceSprints.projectId, projectId))
+      .where(and(eq(workspaceSprints.projectId, projectId), isNull(workspaceSprints.pathPosition)))
       .orderBy(
         sql`CASE WHEN ${workspaceSprints.status} = 'active' THEN 0 WHEN ${workspaceSprints.status} = 'planning' THEN 1 ELSE 2 END`,
         desc(workspaceSprints.createdAt),
