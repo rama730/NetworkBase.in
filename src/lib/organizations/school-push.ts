@@ -1,6 +1,8 @@
-import { sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { workspaces } from "@/lib/db/schema";
 import { applyChildVisibilityCap } from "@/lib/organizations/children";
 
 /**
@@ -38,4 +40,23 @@ export async function pushSchoolSettings(schoolId: string, classId?: string): Pr
   // A lower cap lowers the classes' own workspaces too, as it does when a class sets it itself.
   for (const r of rows) await applyChildVisibilityCap(r.id);
   return rows.map((r) => r.id);
+}
+
+/**
+ * A copied class (Start next term) rejoins its school under the same rule as Join a school: the school's admins (who
+ * can write there) link it at once and its settings arrive; other members of an active school leave a request.
+ */
+export async function joinSchoolAs(classId: string, schoolId: string, actorId: string): Promise<"joined" | "requested" | null> {
+  const a = await getWorkspaceAccessById(schoolId, actorId);
+  if (!(a.isOwner || a.isMember) || !a.canWrite) return null;
+  const role = a.isOwner ? "owner" : a.memberRole;
+  if (role === "owner" || role === "admin") {
+    await db.update(workspaces).set({ institutionId: schoolId }).where(and(eq(workspaces.id, classId), isNull(workspaces.institutionId)));
+    await pushSchoolSettings(schoolId, classId);
+    return "joined";
+  }
+  if (role === "viewer") return null;
+  await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ institutionRequest: { institutionId: schoolId, by: actorId, at: new Date().toISOString() } })}::jsonb` })
+    .where(eq(workspaces.id, classId));
+  return "requested";
 }

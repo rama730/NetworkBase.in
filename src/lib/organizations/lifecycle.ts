@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
+import { joinSchoolAs } from "@/lib/organizations/school-push";
 
 import { db } from "@/lib/db";
 import {
@@ -229,8 +230,8 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
     const [created] = await tx.insert(workspaces).values({
       ownerId: actorId, title: options.title, slug: options.handle, key: `${generateWorkspaceKey(options.title)}${randomUUID().slice(0, 3).toUpperCase()}`, currentTaskNumber: 0,
       kind: "organization", orgType: source.orgType, visibility: source.visibility, status: "active",
-      // B0.2: Start next term — the copy of a class stays in its school (a school itself is copied as a school).
-      institutionId: source.institutionId, orgLevel: source.orgLevel,
+      // A school is copied as a school; a class's school link is asked for again below (B0.2 security review).
+      orgLevel: source.orgLevel,
       orgSettings: options.copy.about ? keepSettings : { version: 1, roleNames: (source.orgSettings as { roleNames?: unknown })?.roleNames },
       description: options.copy.about ? source.description : null, shortDescription: options.copy.about ? source.shortDescription : null,
       coverImage: options.copy.about ? source.coverImage : null, welcomeNote: options.copy.about ? source.welcomeNote : null,
@@ -249,7 +250,10 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
   }
 
   try {
-    return await fillDuplicate(sourceId, newId, actorId, options, deltaMs);
+    const filled = await fillDuplicate(sourceId, newId, actorId, options, deltaMs);
+    // B0.2 Start next term: the copy joins the same school the way a new class does — at once for its admins, else as a request.
+    if (source.institutionId) await joinSchoolAs(newId, source.institutionId, actorId);
+    return filled;
   } catch (error) {
     // Report §27.4: a failed duplicate leaves nothing half made, and the owner is told.
     logger.warn("org.duplicate.failed", { module: "organizations", sourceId, error: error instanceof Error ? error.message : String(error) });

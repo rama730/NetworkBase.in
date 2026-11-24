@@ -192,3 +192,19 @@ test("B0.2: the school's settings reach its classes on join and on save, locked 
   await inst.unlinkClassAction(t.klass);
   assert.equal((await orgs.updateOrgSettingsAction(t.klass, "work", { late_rule: "until" })).success, true, "out of the school, the class decides");
 });
+
+test("B0.2 security review: a copied class rejoins its school only by the join rule", async () => {
+  const t = await setup();
+  const push = await loadAppModule(() => import("../../src/lib/organizations/school-push"));
+  viewerId = t.principal;
+  await inst.makeInstitutionAction(t.school);
+  const byMember = await organization(t.teacher);
+  assert.equal(await push.joinSchoolAs(byMember, t.school, t.teacher), "requested");
+  const [r1] = await sql`SELECT institution_id, org_settings->'institutionRequest'->>'institutionId' AS asked FROM workspaces WHERE id = ${byMember}`;
+  assert.deepEqual([r1!.institution_id, r1!.asked], [null, t.school]);
+  const byAdmin = await organization(t.principal);
+  assert.equal(await push.joinSchoolAs(byAdmin, t.school, t.principal), "joined");
+  const byOutsider = await organization(t.student);
+  assert.equal(await push.joinSchoolAs(byOutsider, t.school, t.student), null);
+  assert.equal((await sql`SELECT institution_id FROM workspaces WHERE id = ${byOutsider}`)[0]!.institution_id, null);
+});
