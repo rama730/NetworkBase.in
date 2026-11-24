@@ -22,8 +22,7 @@ import {
   Building2,
   FileDiff,
   History,
-  GitBranch, GitPullRequest,
-} from "lucide-react";
+  GitBranch, GitPullRequest, Images } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
 import { useFilesTabRole } from "./FilesTabRoleContext";
@@ -51,6 +50,7 @@ export type FilesViewId =
   | "history"
   | "branches"
   | "merge-requests"
+  | "assets"
   | "trash";
 export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
@@ -66,6 +66,8 @@ export const fileCollectionViews = [
   { id: "history", label: "History", Icon: History },
   { id: "branches", label: "Branches", Icon: GitBranch },
   { id: "merge-requests", label: "Merge requests", Icon: GitPullRequest },
+  // Report 38.16 O1 (A7.1): shown where the Assets workflow is added.
+  { id: "assets", label: "Assets", Icon: Images },
   { id: "trash", label: "Trash", Icon: Trash2 },
 ] as const;
 

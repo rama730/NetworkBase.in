@@ -2454,6 +2454,33 @@
       ]
     },
     {
+      "name": "assets list",
+      "summary": "Images, video, audio and fonts, with type, status and tags",
+      "usage": "nb assets list [--type logo]",
+      "flags": {
+        "type": {
+          "type": "string",
+          "describe": "logo, photo, illustration, video, footage, audio, font, template or other"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "assets tag",
+      "summary": "Tag a file in Assets (any file becomes an asset)",
+      "usage": "nb assets tag <file> <tag>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "snippets list",
       "summary": "The workspace's code snippets",
       "usage": "nb snippets list",

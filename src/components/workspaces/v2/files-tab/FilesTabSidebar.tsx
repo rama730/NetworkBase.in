@@ -2,6 +2,7 @@
 
 "use client";
 
+import { useAddedWorkflows } from "@/components/workspaces/workflows/added-workflows";
 import dynamic from "next/dynamic";
 import { toast, feedbackError } from "@/lib/feedback";
 
@@ -107,6 +108,7 @@ export function FilesTabSidebar({
     (s) => s.byProjectId[projectId]?.ui?.sidebarCollapsed ?? false,
   );
   const toggleSidebar = useFilesStore((s) => s.toggleSidebar);
+  const addedWorkflows = useAddedWorkflows();
 
   const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById || EMPTY_OBJECT,
@@ -598,6 +600,7 @@ export function FilesTabSidebar({
               .filter(
                 (item) =>
                   item.id !== "deliverables" &&
+                  (item.id !== "assets" || addedWorkflows.includes("assets")) &&
                   (canEdit || item.id !== "trash") &&
                   (item.id !== "changes" || (canEdit && filesView.changeSets.enabled)) &&
                   (item.id !== "history" || filesView.historyEnabled) &&

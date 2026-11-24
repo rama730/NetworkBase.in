@@ -43,7 +43,7 @@ test('W1 + W2: an owner adds Bugs, the tab appears after a divider, Undo takes i
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('searchbox', { name: 'Search workflows' })).toBeFocused();
   const groups = await dialog.locator('section[aria-label]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-  expect(groups).toEqual(['Blends into Tasks', 'Own tab · same tasks', 'Blends into Documents', 'Later · parked']); // A4 wave: Meetings and decisions is built
+  expect(groups).toEqual(['Blends into Tasks', 'Own tab · same tasks', 'Blends into Documents', 'Blends into Files', 'Later · parked']); // A7.1: Assets is built
   await expect(dialog.getByTestId('workflow-row-bugs')).toContainText('Adds a Bugs tab. Bugs join Tasks at Fixing.');
   await expect(dialog.getByTestId('workflow-row-parked').first()).toContainText('Coming later');
   await page.screenshot({ path: 'test-results/workflow-tabs/dialog-light-1440.png' });

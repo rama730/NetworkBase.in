@@ -117,7 +117,7 @@ test("the catalog: unique ids, known groups, own tabs only in Own tab, nothing b
     assert.ok(w.line.endsWith("."), w.id);
   }
   // Built as their rounds ship: Bugs with T3 (A2.3), Requests with T4 (A2.6), Project planner with T1 (A1.6).
-  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id).sort(), ["bugs", "content", "goals", "ideas", "launches", "meetings", "offsite", "project_planner", "requests", "roadmap"]);
+  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id).sort(), ["assets", "bugs", "content", "goals", "ideas", "launches", "meetings", "offsite", "project_planner", "requests", "roadmap"]);
 });
 
 test("wizard suggestions: section 6 in order, built ones only, the first ticked (decision 5)", async () => {
@@ -127,7 +127,8 @@ test("wizard suggestions: section 6 in order, built ones only, the first ticked 
   // A4 wave: Meetings and decisions is built.
   // A5.2: Quarterly goals is built.
   assert.deepEqual(suggestedWorkflows("startup"), [{ workflow: "project_planner", ticked: true }, { workflow: "goals", ticked: false }, { workflow: "roadmap", ticked: false }, { workflow: "meetings", ticked: false }]);
-  assert.deepEqual(suggestedWorkflows("game"), [{ workflow: "project_planner", ticked: true }, { workflow: "roadmap", ticked: false }, { workflow: "bugs", ticked: false }]);
+  // A7.1: Assets is built.
+  assert.deepEqual(suggestedWorkflows("game"), [{ workflow: "project_planner", ticked: true }, { workflow: "roadmap", ticked: false }, { workflow: "bugs", ticked: false }, { workflow: "assets", ticked: false }]);
   assert.deepEqual(suggestedWorkflows("learning"), [], "Course planner is parked");
   assert.deepEqual(suggestedWorkflows("unknown"), []);
 });

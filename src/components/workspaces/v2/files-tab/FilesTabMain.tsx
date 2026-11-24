@@ -21,6 +21,7 @@ import { useFilesViews } from "./FilesViews";
 import { TaskFilesCollection } from "./TaskFilesCollection";
 import { SavedFilesCollection } from "./SavedFilesCollection";
 import { TrashFilesCollection } from "./TrashFilesCollection";
+import { AssetsCollection } from "./AssetsCollection";
 import { ChangesCollection } from "./ChangesCollection";
 import { HistoryCollection } from "./HistoryCollection";
 import { BranchesCollection } from "./BranchesCollection";
@@ -151,6 +152,8 @@ export function FilesTabMain({
               key={`${projectId}:${filesView.view}:${filesView.taskId ?? "all"}`}
               projectId={projectId}
             />
+          ) : filesView.view === "assets" ? (
+            <AssetsCollection projectId={projectId} />
           ) : filesView.view === "trash" ? (
             <TrashFilesCollection projectId={projectId} />
           ) : filesView.view === "changes" ? (

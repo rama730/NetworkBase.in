@@ -436,6 +436,8 @@ const collectionInfo = {
     "A branch asking to come into main: reviewers comment, suggest edits and approve, then it merges as one save with one undo.",
   history:
     "Every change to the files, newest first: who changed what and when. Open a save to see its diffs, the files as they were, or revert it.",
+  assets:
+    "Images, video, audio and fonts in this workspace, and files marked as assets: their type, tags, usage rights, production status and where they’re used.",
   trash:
     "Restore an item and the contents deleted with it. Earlier deletions stay in Trash. Permanent deletion cannot be undone and does not delete anything from GitHub.",
 };

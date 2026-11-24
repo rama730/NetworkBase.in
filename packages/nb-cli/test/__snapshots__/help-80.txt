@@ -32,7 +32,8 @@ More
     merge-request close, merge-request reopen, merge-request ready, watch,
     file list, file trash, file restore, file mkdir, file copy, file lock, edit,
     commit, file recent, file star, file history, file use, file move,
-    file rename, file delete, file attach, file detach, file view
+    file rename, file delete, file attach, file detach, file view, assets list,
+    assets tag
   Tasks
     task count, task view, task stop, task move, workflows, bugs list,
     bugs report, bugs move, bugs close, bugs from, requests list, requests new,

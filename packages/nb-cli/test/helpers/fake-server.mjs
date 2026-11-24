@@ -735,6 +735,13 @@ const patterns = [
     state.docs.push({ slug: "tech-spec-sign-in", filename: req.body.path.split("/").pop(), nodePath: req.body.path });
     return { status: 201, data: { success: true, slug: "tech-spec-sign-in" } };
   }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/assets$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => ({ data: { assets: (state.assets ?? []).filter((/** @type {any} */ a) => !req.query.get("type") || a.type === req.query.get("type")) } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/assets$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const a = (state.assets ?? []).find((/** @type {any} */ x) => x.path === req.body.path);
+    if (!a) return fail(404, "NOT_FOUND", `No file ${req.body.path} here`);
+    a.tags = [...new Set([...a.tags, req.body.tag])];
+    return { data: { path: a.path, tag: req.body.tag } };
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/snippets$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
     const name = req.query.get("name");
     const all = state.snippets ?? [];
