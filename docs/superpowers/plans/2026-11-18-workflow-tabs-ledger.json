@@ -1008,9 +1008,9 @@
       "text": "B1.1 W1 Class home (30.2) — Goal: class details, syllabus card, This term, Next class. Build: class details in orgsettings (no table); sessions = meets × term −",
       "kind": "unit",
       "milestone": "B1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/class-sessions.test.ts; tests/db/class-home.test.ts; tests/browser/class-home.spec.ts",
+      "evidence": "7b0ecb9ae + 28f900d24 live 2026-11-24 (no migration). Live in Chrome on wt-test-b0-class: term Nov 2–Feb 26 set, Class details saved (WT 301, Thu 10:30–12:00, WT Room 1, office hours Wed); Overview \"Next class Thu 26 Nov, 10:30 AM (4:00 PM your time) · WT Room 1\"; Cancel this class → \"Cancelled\" + Restore → back on; About Class details list; Add a syllabus → Syllabus draft opens in Documents. Tell the class not pressed live (posts an announcement; DB-tested). Live-check fix: wizard time zone fell back to Africa/Abidjan (shared timeZoneOptions). Security review: syllabus follows the document read rule; units need public Sprints."
     },
     {
       "key": "B1.2",
