@@ -12,7 +12,7 @@ async function open(page: Page, view: string) {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
-      readMarkingAction: async () => ({ success: true, marking: { mode: 'rubric', rubric: s.rubric }, mark: null, excused: false, commentBank: ['Show your working'] }),
+      readMarkingAction: async () => ({ success: true, marking: { mode: 'rubric', rubric: s.rubric }, mark: null, excused: false, commentBank: ['Show your working'], progress: { marked: 24, total: 60 } }),
       saveMarkAction: async (_c: string, d: { levels: Record<string, number> }) => {
         calls.push(['mark', d]);
         return Object.keys(d.levels).length < 2 ? { success: false, error: 'Pick a level for Report.' } : { success: true, total: 17, outOf: 20 };
@@ -36,7 +36,7 @@ test('the panel: a radio group per criterion, keys pick levels, the live total, 
   await page.getByRole('radiogroup', { name: 'Report' }).getByRole('radio', { name: /Fair/ }).focus();
   await page.keyboard.press('2');
   await expect(page.getByTestId('marking-total')).toContainText('Total 17 / 20 · 85% · saved');
-  await expect(page.getByTestId('marking-panel')).toContainText('Hidden until you approve');
+  await expect(page.getByTestId('marking-panel')).toContainText('Hidden until you approve · Marked 24 of 60');
   await page.getByRole('button', { name: 'Show your working' }).click();
   expect((await calls(page)).at(-1)).toEqual(['mark', { levels: { c1: 0, c2: 1 }, comment: 'Show your working' }]);
   expect(await axeViolations(page)).toEqual([]);

@@ -101,7 +101,7 @@ test("a rubric is saved and frozen; staff mark as a hidden draft; the student se
 
 test("Out of: 0..N only; excused work has no mark; each change is kept", async () => {
   const t = await setup();
-  const { copies } = await assignment(t.klass, t.teacher, { mode: "outof", outOf: 50 }, [t.a, t.b]);
+  const { master, copies } = await assignment(t.klass, t.teacher, { mode: "outof", outOf: 50 }, [t.a, t.b]);
   viewerId = t.teacher;
   assert.match(errorOf(await marks.saveMarkAction(copies[0]!, { total: 51 })), /from 0 to 50/);
   await marks.saveMarkAction(copies[0]!, { total: 38 });
@@ -110,4 +110,19 @@ test("Out of: 0..N only; excused work has no mark; each change is kept", async (
   assert.deepEqual([row!.total, row!.changes], [40, 1]);
   await sql`UPDATE tasks SET excused_at = now() WHERE id = ${copies[1]!}`;
   assert.match(errorOf(await marks.saveMarkAction(copies[1]!, { total: 10 })), /Excused/);
+  // B1.5b: the Marks column and Export marks (the Teacher's; drafts export as Draft).
+  const roster = await assignments.readAssignmentRosterAction(master);
+  assert.ok(roster.success);
+  assert.deepEqual(roster.rows.map((r) => r.mark).sort((x, y) => (x ? 1 : 0) - (y ? 1 : 0)), [null, { total: 40, outOf: 50, visible: false }]);
+  const csv = await assignments.readAssignmentExportAction(master);
+  assert.ok(csv.success);
+  assert.deepEqual(csv.rows[0]!.slice(-2), ["Mark", "Out of"]);
+  assert.ok(csv.rows.some((r) => r.at(-2) === "Draft" && r.at(-1) === "50"));
+  const members = await loadAppModule(() => import("../../src/app/actions/org-members"));
+  const drawer = await members.readMemberWorkAction(t.klass, t.a);
+  assert.ok(drawer.success);
+  assert.deepEqual(drawer.work.map((w) => w.mark), [{ total: 40, outOf: 50, visible: false }], "the drawer lists the mark, no total");
+  viewerId = t.ta;
+  const taCsv = await assignments.readAssignmentExportAction(master);
+  assert.ok(taCsv.success && !taCsv.rows[0]!.includes("Mark"), "a TA's export leaves marks out");
 });

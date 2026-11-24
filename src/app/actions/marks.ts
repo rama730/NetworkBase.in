@@ -70,7 +70,10 @@ export async function readMarkingAction(copyId: string) {
     const copy = userId && !isAgent ? await loadCopy(copyId) : null;
     if (!copy || !userId || !(await canMark(copy, userId))) return DENIED;
     const bank = (copy.org_settings as { commentBank?: unknown } | null)?.commentBank;
-    return { success: true as const, marking: readMarking(copy.settings), mark: await readMark(copyId), excused: copy.excused,
+    const [progress] = Array.from(await db.execute<{ marked: number; total: number }>(sql`
+      SELECT (SELECT count(*)::int FROM assignment_marks WHERE master_id = ${copy.master_id}::uuid) AS marked,
+        (SELECT count(*)::int FROM tasks WHERE assignment_id = ${copy.master_id}::uuid AND deleted_at IS NULL AND excused_at IS NULL) AS total`));
+    return { success: true as const, marking: readMarking(copy.settings), mark: await readMark(copyId), excused: copy.excused, progress: progress ?? { marked: 0, total: 0 },
       commentBank: Array.isArray(bank) ? (bank as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 40) : [] };
   } catch (error) {
     logger.warn("marks.read_failed", { copyId, error: error instanceof Error ? error.message : String(error) });

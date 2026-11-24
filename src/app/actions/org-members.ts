@@ -796,7 +796,7 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
     return { success: true, added: adding.length, skipped: userIds.length - adding.length };
 }
 
-export type MemberWorkRow = { copyId: string; title: string; dueDate: string | null; state: string; late: boolean };
+export type MemberWorkRow = { copyId: string; title: string; dueDate: string | null; state: string; late: boolean; /** B1.5b: "21 / 30" (no total across assignments). */ mark?: { total: number; outOf: number; visible: boolean } };
 
 /** The member drawer's Work list: their assignment copies with status (report §20.3). */
 export type MemberActivityRow = { at: string; what: string; task: string; project: string };
@@ -862,9 +862,12 @@ export async function readMemberWorkAction(orgId: string, userId: string): Promi
             sql`EXISTS (SELECT 1 FROM ${taskTeamMembers} tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId})`,
         ))).orderBy(asc(tasks.dueDate)).limit(100);
     const now = new Date();
+    // B1.5b (report 30.8 layer 4): the drawer's marks, one per assignment, never a total or an average.
+    const { marksForStaff } = await import('@/lib/organizations/marks-server');
+    const marks = await marksForStaff(orgId, viewer, rows.map((r) => r.id));
     return {
         success: true,
-        work: rows.map((r) => ({ copyId: r.id, title: r.title, dueDate: r.dueDate?.toISOString() ?? null, ...copyState({ status: r.status, reviewStatus: r.reviewStatus, dueDate: r.dueDate, submittedAt: r.reviewSubmittedAt, completedAt: r.completedAt, excusedAt: r.excusedAt }, now) })),
+        work: rows.map((r) => ({ copyId: r.id, title: r.title, dueDate: r.dueDate?.toISOString() ?? null, ...(marks.has(r.id) ? { mark: marks.get(r.id)! } : {}), ...copyState({ status: r.status, reviewStatus: r.reviewStatus, dueDate: r.dueDate, submittedAt: r.reviewSubmittedAt, completedAt: r.completedAt, excusedAt: r.excusedAt }, now) })),
     };
 }
 

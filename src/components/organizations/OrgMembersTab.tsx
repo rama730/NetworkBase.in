@@ -473,7 +473,7 @@ function MemberDrawer({ orgId, row, isSelf, data, label, pending, run, onRole, o
                     {work.map((w) => (
                         <li key={w.copyId} className="flex min-h-9 items-center justify-between gap-2 py-1.5">
                             <span className="truncate">{w.title}</span>
-                            <span className="flex shrink-0 items-center gap-1.5"><StatusBadge state={w.state}>{ASSIGNMENT_STATE_LABELS[w.state as keyof typeof ASSIGNMENT_STATE_LABELS] ?? w.state}</StatusBadge>{w.late ? <StatusBadge state="late">Late</StatusBadge> : null}</span>
+                            <span className="flex shrink-0 items-center gap-1.5">{w.mark ? <span className="font-mono text-[12px]" data-testid="drawer-mark">{w.mark.total} / {w.mark.outOf}{w.mark.visible ? '' : ' · draft'}</span> : null}<StatusBadge state={w.state}>{ASSIGNMENT_STATE_LABELS[w.state as keyof typeof ASSIGNMENT_STATE_LABELS] ?? w.state}</StatusBadge>{w.late ? <StatusBadge state="late">Late</StatusBadge> : null}</span>
                         </li>
                     ))}
                 </ul>

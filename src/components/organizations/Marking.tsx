@@ -67,7 +67,7 @@ export function MarkingPanel({ copyId }: { copyId: string }) {
         ))}</p>
       ) : null}
       <p className="font-mono text-[12px]" aria-live="polite" data-testid="marking-total">Total {live} / {outOf} · {outOf ? Math.round((live / outOf) * 100) : 0}%{saved ? " · saved" : ""}
-        <span className="ml-2 font-sans text-muted-foreground">{data.mark?.visible ? "Visible to the student" : "Hidden until you approve"}</span></p>
+        <span className="ml-2 font-sans text-muted-foreground">{data.mark?.visible ? "Visible to the student" : "Hidden until you approve"} · Marked {data.progress.marked} of {data.progress.total}</span></p>
     </section>
   );
 }

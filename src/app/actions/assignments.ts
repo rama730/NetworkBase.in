@@ -1,8 +1,8 @@
 'use server';
 
 import { reviewsCopySql } from '@/lib/organizations/sections-server';
-import { freezeMarking } from '@/lib/organizations/marks-server';
-import { readRubrics, rubricOutOf } from '@/lib/organizations/marks';
+import { freezeMarking, marksForStaff } from '@/lib/organizations/marks-server';
+import { readMarking, readRubrics, rubricOutOf } from '@/lib/organizations/marks';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
@@ -547,11 +547,16 @@ export async function readAssignmentExportAction(masterId: string): Promise<{ su
     const ctx = await adminOfMaster(masterId, 'export_progress');
     if (!ctx) return DENIED;
     const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : '');
+    // B1.5b Export marks (report 30.8 layer 6): the Teacher's export has Mark and Out of, no totals column; drafts
+    // export as Draft. A TA's export leaves marks out (call: TAs don't export the whole class).
+    const withMarks = ctx.viewer.role === 'owner' && roster.rows.some((r) => r.mark !== undefined);
+    if (withMarks) logger.info('assignments.marks_exported', { masterId, by: ctx.viewer.userId });
     return {
         success: true,
-        rows: [['Person', 'Status', 'Due', 'Handed in', 'Late', 'Version', 'AI used'], ...roster.rows.map((r) => {
+        rows: [['Person', 'Status', 'Due', 'Handed in', 'Late', 'Version', 'AI used', ...(withMarks ? ['Mark', 'Out of'] : [])], ...roster.rows.map((r) => {
             const sub = r.submission as { at?: string; version?: number } | null;
-            return [r.people?.length ? `${r.label} (${r.people.map((p) => p.name).join(', ')})` : r.label, ASSIGNMENT_STATE_LABELS[r.state], day(r.dueDate), day(sub?.at), r.late ? 'Late' : '', sub?.version ? String(sub.version) : '', r.aiUsed === 'most' ? 'Most files' : r.aiUsed === 'some' ? 'Some files' : 'None'];
+            return [r.people?.length ? `${r.label} (${r.people.map((p) => p.name).join(', ')})` : r.label, ASSIGNMENT_STATE_LABELS[r.state], day(r.dueDate), day(sub?.at), r.late ? 'Late' : '', sub?.version ? String(sub.version) : '', r.aiUsed === 'most' ? 'Most files' : r.aiUsed === 'some' ? 'Some files' : 'None',
+                ...(withMarks ? (r.mark ? [r.mark.visible ? String(r.mark.total) : 'Draft', String(r.mark.outOf)] : ['', '']) : [])];
         })],
     };
 }
@@ -1067,6 +1072,8 @@ export type RosterRow = {
     userId: string | null; avatarUrl: string | null; updatedAt: string;
     /** Report A8.3: how much of the hand-in an AI agent made. */
     aiUsed?: AiUsed;
+    /** B1.5b Marks column (report 30.8): only on marked assignments; null until marked; a TA sees their section's. */
+    mark?: { total: number; outOf: number; visible: boolean } | null;
 };
 
 /** The roster for one assignment (report §16.5): admins see names; guests see counts without names. */
@@ -1112,6 +1119,8 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         SELECT split_part(dedupe_key, ':', 5) AS id, max(created_at)::text AS at FROM user_notifications
         WHERE user_id IN ${remindable} AND dedupe_key LIKE ${`project:${master.projectId}:assignments.reminded:remind:%`} GROUP BY 1`)).map((r) => [r.id, new Date(r.at).toISOString()]));
     const aiUse = await aiUseByCopy(copies.map((c) => c.id));
+    // B1.5b (report 30.8 layer 10): marks for the staff who review them; a TA limited to their section sees those only.
+    const marks = readMarking(master.settings).mode === 'none' ? null : await marksForStaff(master.projectId, viewer, copies.map((c) => c.id));
     const rows = copies.map((c, i) => {
         const members = people.filter((p) => p.copyId === c.id).map((p) => p.name || p.username || 'Member');
         // A group copy whose project left the org stays on the roster as "Detached" (report §14.7).
@@ -1123,7 +1132,8 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
             approved: c.status === 'done' && c.completionSource === 'review',
             userId: c.assigneeId, avatarUrl: c.assigneeId ? avatars.get(c.assigneeId) ?? null : null, updatedAt: c.updatedAt.toISOString(),
             submittedAt: (c.submission as { at?: string } | null)?.at ?? null, version: (c.submission as { version?: number } | null)?.version ?? null, remindedAt: reminded.get(c.id) ?? null,
-            ...(c.teamName ? { people: team, submittedBy: by ? names.get(by) ?? null : null } : {}) };
+            ...(c.teamName ? { people: team, submittedBy: by ? names.get(by) ?? null : null } : {}),
+            ...(marks ? { mark: marks.get(c.id) ?? null } : {}) };
     });
     // Give to (decision 88): members with no copy, late joiners included.
     const holders = new Set([...copies.map((c) => c.assigneeId), ...people.map((p) => p.userId)]);

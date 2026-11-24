@@ -32,6 +32,13 @@ type Tile = 'all' | 'done' | 'submitted' | 'notIn' | 'excused'
 const TILE_SECTIONS: Record<Tile, string[] | null> = { all: null, done: ['approved', 'done'], submitted: ['submitted'], notIn: ['returned', 'in_progress', 'not_started', 'missing'], excused: ['excused'] }
 type Ask = { kind: 'return' | 'change' | 'extend' | 'excuse' | 'remove'; row: RosterRow } | { kind: 'give' | 'bulk-return' | 'bulk-extend' } | null
 
+/** B1.5b Marks column (report 30.8 layer 6): the number, "—", Returned or Excused; a draft says so. */
+function markCell(r: RosterRow) {
+    if (r.state === 'excused') return 'Excused'
+    if (r.state === 'returned') return 'Returned'
+    return r.mark ? `${r.mark.total} / ${r.mark.outOf}${r.mark.visible ? '' : ' · draft'}` : '—'
+}
+
 /** What a row says under the name: when it came in, which version, late; or the reminder, reason or last change. */
 function detail(r: RosterRow) {
     // CLI report A8.3: "AI used" when an agent made some or most of the files.
@@ -159,6 +166,7 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
                                         {/* Finding 6.2: a team row shows its people, and who leads it. */}
                                         {r.people?.length ? <span className="block truncate text-[12px] text-muted-foreground">{r.people.map((p) => `${p.name}${p.lead ? ' (team lead)' : ''}`).join(' · ')}</span> : null}
                                     </span>
+                                    {r.mark !== undefined ? <span className="w-[92px] shrink-0 text-right font-mono text-[12px]" data-testid="roster-mark" aria-label={`Mark: ${markCell(r)}`}>{markCell(r)}</span> : null}
                                     <span className="flex shrink-0 flex-wrap justify-end gap-1 max-sm:w-full">{actions(r)}</span>
                                 </div>
                                 {r.people?.length && r.state !== 'submitted' && r.state !== 'done' ? (
