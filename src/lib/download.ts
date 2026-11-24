@@ -1,3 +1,4 @@
+import { csvCell } from '@/lib/csv';
 import { toast } from '@/lib/feedback';
 
 /** Copy for a download the server refused. The catalog in feedback/copy.ts adds the next step. */
@@ -105,10 +106,7 @@ export function saveBlob(blob: Blob, filename: string) {
 }
 
 /** One CSV cell. A leading = + - @ would run as a formula in a spreadsheet, so it is kept as text. */
-export function csvCell(value: unknown) {
-    const text = String(value ?? '');
-    return `"${(/^[=+\-@\t\r]/.test(text) ? `'${text}` : text).replace(/"/g, '""')}"`;
-}
+export { csvCell };
 
 /** The byte order mark tells Excel the file is UTF-8, so names and notes in any language read correctly. */
 export function toCsvBlob(rows: unknown[][]) {

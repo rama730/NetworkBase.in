@@ -1,3 +1,5 @@
+import { csvCell } from "@/lib/csv";
+
 /**
  * Report 30.7 W6 (plan B1.4): attendance rules, pure. A record is per session (W1's session key) and student.
  */
@@ -51,8 +53,8 @@ export const editableByStaff = (sessionKey: string, now = new Date()) => now.get
 /** The register: one row per student, one column per session, the letters P / L / A / E (blank when not taken). */
 export function registerCsv(sessions: string[], students: Array<{ name: string; records: Map<string, AttendanceStatus>; percent: number | null }>) {
   const letter: Record<AttendanceStatus, string> = { present: "P", late: "L", absent: "A", excused: "E" };
-  const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  // Security review (B1.4a): the shared cell quotes everything and defuses formulas (=, +, -, @) in names.
   const rows = [["Student", ...sessions.map((s) => s.replace("T", " ")), "Attendance %"]];
   for (const st of students) rows.push([st.name, ...sessions.map((s) => { const r = st.records.get(s); return r ? letter[r] : ""; }), st.percent == null ? "" : String(st.percent)]);
-  return rows.map((r) => r.map(cell).join(",")).join("\n");
+  return rows.map((r) => r.map(csvCell).join(",")).join("\n");
 }

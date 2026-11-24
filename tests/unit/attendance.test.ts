@@ -27,5 +27,6 @@ test("staff edit within 7 days of a session; the register is a CSV with letters"
   assert.equal(editableByStaff("2027-01-12T10:30", new Date("2027-01-18T10:00:00Z")), true);
   assert.equal(editableByStaff("2027-01-12T10:30", new Date("2027-01-21T10:00:00Z")), false);
   const csv = registerCsv(held.slice(0, 2), [{ name: "Rao, A.", records: recs([[held[0]!, "present"]]), percent: 100 }]);
-  assert.equal(csv, 'Student,2027-01-12 10:30,2027-01-14 10:30,Attendance %\n"Rao, A.",P,,100');
+  assert.equal(csv, '"Student","2027-01-12 10:30","2027-01-14 10:30","Attendance %"\n"Rao, A.","P","","100"');
+  assert.match(registerCsv([], [{ name: "=HYPERLINK(1)", records: new Map(), percent: null }]), /"'=HYPERLINK\(1\)"/, "a formula in a name is defused");
 });
