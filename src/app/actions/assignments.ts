@@ -1,6 +1,9 @@
 'use server';
 
 import { reviewsCopySql } from '@/lib/organizations/sections-server';
+import { freezeMarking } from '@/lib/organizations/marks-server';
+import { readRubrics, rubricOutOf } from '@/lib/organizations/marks';
+import { typeProfile } from '@/lib/organizations/type-profile';
 import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
@@ -101,6 +104,8 @@ const createSchema = z.object({
     /** AI agents (CLI report A8.2): unset follows the organization's default. */
     aiPolicy: z.enum(['allowed', 'labelled', 'not_allowed']).optional(),
     aiNote: z.string().trim().max(300, 'Keep the note to 300 characters.').nullable().optional(),
+    /** Marking (report 30.8 W7): a rubric is copied onto the assignment here, so later edits never change it. */
+    marking: z.union([z.object({ mode: z.literal('none') }), z.object({ mode: z.literal('outof'), outOf: z.number().positive().max(100_000) }), z.object({ mode: z.literal('rubric'), rubricId: z.string().uuid() })]).optional(),
 });
 
 /** Reviewers are the organization's admins (owner included), each once; an error when anyone else is named. */
@@ -134,6 +139,8 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     const viewer = await orgRole(data.projectId);
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments')) return DENIED;
     const lateBlock = lateRuleBlock(data, new Date(data.dueDate));
+    const marking = data.marking && data.marking.mode !== 'none' ? await freezeMarking(data.projectId, data.marking) : null;
+    if (marking && 'error' in marking) return { success: false, error: marking.error };
     if (lateBlock) return { success: false, error: lateBlock };
     const scheduled = data.publish ? { fields: {} } : scheduleFields(data.schedule, data.sprintId ?? null);
     if ('error' in scheduled) return { success: false, error: scheduled.error! };
@@ -171,6 +178,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 ...(reviewers ? { reviewers } : {}),
                 ...(data.aiPolicy ? { aiPolicy: data.aiPolicy } : {}),
                 ...(data.aiNote ? { aiNote: data.aiNote } : {}),
+                ...(marking ? { marking } : {}),
                 ...scheduled.fields,
             };
             const masterId = await createMasterTask(tx, {
@@ -810,6 +818,7 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
     const now = new Date();
     const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
     if (!copy) return false;
+    let marked = false;
     const reviewed = await db.transaction(async (tx) => {
         // Approve only what was handed in: files and steps can't have changed since (problems 21, 29). Submissions
         // from before Submit saved this have no value to compare and are taken as they are.
@@ -827,6 +836,10 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
             ? sql`(${tasks.reviewStatus} = 'pending' OR (${tasks.status} = 'done' AND ${tasks.completionSource} = 'review' AND ${change}))`
             : eq(tasks.reviewStatus, 'pending'))).returning({ id: tasks.id });
         if (updated.length === 0) return false;
+        // B1.5a (report 30.8 call 5): Approve shows the draft mark; Return keeps it as a hidden draft.
+        marked = decision === 'approve'
+            ? Array.from(await tx.execute(sql`UPDATE assignment_marks SET visible_at = now() WHERE copy_id = ${copyId}::uuid AND visible_at IS NULL RETURNING copy_id`)).length > 0
+            : (await tx.execute(sql`UPDATE assignment_marks SET visible_at = NULL WHERE copy_id = ${copyId}::uuid`), false);
         await tx.insert(taskActivityEvents).values({
             taskId: copyId, projectId: copy.projectId, sprintId: copy.sprintId, actorId: reviewerId,
             eventType: decision === 'approve' ? 'review_approved' : 'changes_requested',
@@ -834,7 +847,7 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
         });
         return true;
     });
-    if (reviewed) await notifyAssignmentReviewed(copyId, reviewerId, decision, reason ?? null);
+    if (reviewed) await notifyAssignmentReviewed(copyId, reviewerId, decision, reason ?? null, marked);
     return reviewed;
 }
 
@@ -1146,7 +1159,9 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
     const sections = Array.from(await db.execute<{ id: string; name: string; students: number }>(sql`
         SELECT s.id, s.name, (SELECT count(*)::int FROM class_section_members m WHERE m.section_id = s.id AND m.role = 'student') AS students
         FROM class_sections s WHERE s.workspace_id = ${orgId}::uuid ORDER BY s.position, s.created_at`));
-    return { success: true as const, children, sprints, teamAssignments, sections, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime, aiPolicy: work.aiPolicy }, admins: [...admins] };
+    // B1.5a: Marking in Education classes — the class's rubrics (archived ones stay out of the picker).
+    const rubrics = typeProfile(org?.type).schools ? readRubrics(org?.settings).filter((r) => !r.archived).map((r) => ({ id: r.id, name: r.name, outOf: rubricOutOf(r) })) : null;
+    return { success: true as const, children, sprints, teamAssignments, sections, rubrics, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime, aiPolicy: work.aiPolicy }, admins: [...admins] };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };

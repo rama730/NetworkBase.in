@@ -256,7 +256,10 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [announcement, setAnnouncement] = useState<string | null>(null)
     const [stepDraft, setStepDraft] = useState('')
     const [roster, setRoster] = useState<OrgRosterPerson[]>([])
-    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string; endDate?: string | null }>; teamAssignments?: Array<{ id: string; title: string }>; sections?: Array<{ id: string; name: string; students: number }> }>({ children: [], sprints: [] })
+    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string; endDate?: string | null }>; teamAssignments?: Array<{ id: string; title: string }>; sections?: Array<{ id: string; name: string; students: number }>; rubrics?: Array<{ id: string; name: string; outOf: number }> | null }>({ children: [], sprints: [] })
+    // B1.5a Marking (report 30.8): Not marked, Out of N, or one of the class's rubrics (copied onto the assignment).
+    const [marking, setMarking] = useState('none')
+    const [outOf, setOutOf] = useState('10')
     const [sectionIds, setSectionIds] = useState<string[]>([])
     // Errors sit under their field, like the Task tab; a server error sits at the top of the form.
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -278,7 +281,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         void listOrgRosterAction(orgId, '').then(setRoster)
         void readAssignmentComposerOptionsAction(orgId).then((r) => {
             if (!r.success) return
-            setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments, sections: r.sections })
+            setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments, sections: r.sections, rubrics: r.rubrics })
             setAdmins(r.admins ?? [])
             // A new assignment starts from the org's Work defaults (report §21.2 #5).
             setReviewRequired(r.defaults.reviewRequired)
@@ -363,6 +366,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
             ...(reviewRequired && !reviewOff && reviewers.length ? { reviewers } : {}),
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
+            ...(marking === 'outof' ? { marking: { mode: 'outof' as const, outOf: Number(outOf) } } : marking !== 'none' ? { marking: { mode: 'rubric' as const, rubricId: marking } } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
             ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
@@ -668,6 +672,19 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                         </SelectWrap>
                     </Field>
                     <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
+                    {options.rubrics ? (
+                        <Field label="Marking" htmlFor="assignment-marking">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <SelectWrap>
+                                    <select id="assignment-marking" value={marking} onChange={(e) => setMarking(e.target.value)} className={cn('nb-select', selectClassName())}>
+                                        <option value="none">Not marked</option><option value="outof">Out of</option>
+                                        {options.rubrics.map((r) => <option key={r.id} value={r.id}>Rubric · {r.name} ({r.outOf})</option>)}
+                                    </select>
+                                </SelectWrap>
+                                {marking === 'outof' ? <input type="number" min={1} max={100000} aria-label="Out of" value={outOf} onChange={(e) => setOutOf(e.target.value)} className={cn(inputClassName(false), 'w-[100px]')} /> : null}
+                            </div>
+                        </Field>
+                    ) : null}
                 </div>
 
                 <div className="space-y-3.5">

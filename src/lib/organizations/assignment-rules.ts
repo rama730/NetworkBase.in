@@ -40,6 +40,8 @@ export type AssignmentSettings = {
   aiPolicy?: AiPolicy;
   /** A line to students about AI use ("You may use AI for research, not for writing"). */
   aiNote?: string | null;
+  /** Marking (report 30.8 W7): Not marked, Out of N, or a rubric frozen onto the assignment when it's saved. */
+  marking?: import('@/lib/organizations/marks').Marking;
 };
 
 /**

@@ -1245,6 +1245,21 @@ export const attendanceRecords = pgTable("attendance_records", {
   history: jsonb("history").$type<Array<{ status: string; by: string | null; at: string }>>().notNull().default([]),
 }, (t) => [primaryKey({ columns: [t.projectId, t.sessionKey, t.userId] })]);
 
+/** B1.5a (0128, report 30.8 W7): one mark per assignment copy; a hidden draft until Approve (visible_at). Server only. */
+export const assignmentMarks = pgTable("assignment_marks", {
+  copyId: uuid("copy_id").primaryKey().references(() => tasks.id, { onDelete: "cascade" }),
+  masterId: uuid("master_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  total: numeric("total", { precision: 8, scale: 2 }).notNull(),
+  outOf: numeric("out_of", { precision: 8, scale: 2 }).notNull(),
+  levels: jsonb("levels").$type<Record<string, number>>().notNull().default({}),
+  comment: text("comment"),
+  markerId: uuid("marker_id").references(() => profiles.id, { onDelete: "set null" }),
+  markedAt: timestamp("marked_at", { withTimezone: true }).defaultNow().notNull(),
+  visibleAt: timestamp("visible_at", { withTimezone: true }),
+  history: jsonb("history").$type<Array<{ total: string; by: string | null; at: string }>>().notNull().default([]),
+}, (t) => [index("assignment_marks_master_idx").on(t.masterId)]);
+
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
 // ============================================================================

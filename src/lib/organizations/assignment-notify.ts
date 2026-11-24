@@ -116,14 +116,15 @@ export async function notifyAssignmentSubmitted(copyId: string, actorId: string)
 }
 
 /** Returned (tray, push, E8) or approved (tray), to the member or the whole team. */
-export async function notifyAssignmentReviewed(copyId: string, actorId: string, decision: "approve" | "return", reason?: string | null) {
+/** B1.5a (report 30.8 call 15): an approval that shows a mark says "<title> was marked", never the mark itself. */
+export async function notifyAssignmentReviewed(copyId: string, actorId: string, decision: "approve" | "return", reason?: string | null, marked = false) {
   const ctx = await copyContext(copyId);
   if (!ctx) return;
   const to = await copyPeople(copyId);
   const returned = decision === "return";
   await notifyOrg({
     orgId: ctx.org.id, eventKey: "assignments.reviewed", actorId, to,
-    title: returned ? `${ctx.copy.title} was returned${reason ? `: ${reason}` : ""}` : `${ctx.copy.title} approved`,
+    title: returned ? `${ctx.copy.title} was returned${reason ? `: ${reason}` : ""}` : (marked ? `${ctx.copy.title} was marked` : `${ctx.copy.title} approved`),
     href: ctx.href, sourceEventId: `${copyId}:${decision}:v${ctx.copy.version ?? 1}`, refs: { taskId: copyId },
     email: returned ? { kind: "org_returned", data: { reason: reason ?? null, assignment: { title: ctx.copy.title, copyId, version: ctx.copy.version } } } : null,
   });

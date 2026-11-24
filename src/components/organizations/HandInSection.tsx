@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { FileViewer, fileSize } from '@/components/organizations/FileViewer'
 import { CopyReview } from '@/components/organizations/ReviewQueueParts'
+import { MarkingPanel, MyMarkCard } from '@/components/organizations/Marking'
 import { handInBlocked, handInBox, handInButton, handInChip, webLink } from '@/lib/organizations/assignment-rules'
 import { cn } from '@/lib/utils'
 
@@ -186,6 +187,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                 {box.next ? <p className="text-[13px] text-muted-foreground">{box.next}</p> : null}
                 {box.message && msgButton && h.holder ? <div className="pt-1.5">{msgButton}</div> : null}
             </div>
+            {h.holder ? <MyMarkCard copyId={copyId} /> : <MarkingPanel copyId={copyId} />}
             {!h.holder && h.state === 'submitted' ? <CopyReview copyId={copyId} orgId={h.orgId} masterId={h.masterId} onReviewed={(d) => { void refresh(); onReviewed?.(d) }} /> : null}
 
             {h.materials.length ? (

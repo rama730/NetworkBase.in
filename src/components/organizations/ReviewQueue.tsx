@@ -11,6 +11,7 @@ import { approveTaskReviewAction, requestTaskChangesAction } from '@/app/actions
 import { createTaskCommentAction } from '@/app/actions/task-comment'
 import { markTaskAsReadAction } from '@/app/actions/workspace'
 import { deferDecision, LinkCard, ReviewDecision, ReviewDiscussion, ReviewWork, useReloadOnNotice } from '@/components/organizations/ReviewQueueParts'
+import { MarkingPanel } from '@/components/organizations/Marking'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -390,6 +391,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         </div>
                         {/* Their note, what was asked last time, and the steps: one quiet strip under the header. */}
                         <NoteStrip row={current} />
+                        {current.kind === 'copy' ? <MarkingPanel key={`mark-${current.copyId}`} copyId={current.copyId} /> : null}
                         {current.link ? <LinkCard link={current.link} /> : null}
                         {/* Review UX 3.11: text keeps its line breaks and spacing. */}
                         {current.text ? <p className="whitespace-pre-wrap rounded-md bg-muted px-3 py-2">{current.text}</p> : null}
