@@ -157,6 +157,10 @@ export default function CreateTaskModal({
   const [stage, setStage] = React.useState<string | null>(typed ? defaultStageFor(kind, openedFrom) : null);
   const typeLabel = kind === "task" ? "Task" : kind === "assignment" ? "Assignment" : workflowType(kind).label;
   const [carry, setCarry] = React.useState({ title: initialTitle, description: "", sprintId: "", dueDate: "" });
+  const [visited, setVisited] = React.useState<Set<string>>(() => new Set());
+  React.useEffect(() => { setVisited((v) => (v.has(kind) ? v : new Set(v).add(kind))); }, [kind]);
+  const typeSection = (type: string, node: React.ReactNode) => (kind === type || visited.has(type)
+    ? <fieldset key={type} hidden={kind !== type} disabled={kind !== type} className="m-0 min-w-0 border-0 p-0">{node}</fieldset> : null);
   const [titleText, setTitleText] = React.useState(initialTitle);
   const formRef = React.useRef<HTMLFormElement>(null);
   const switchKind = (next: string) => {
@@ -424,13 +428,15 @@ export default function CreateTaskModal({
                 </Field>}
               </div>
               {/* Report 38.6 W2 (A2.1): a bug's own section. */}
-              {kind === "bug" ? <BugDetailsFields initialSteps={initialSteps} /> : null}
+              {/* Report 38.4 call 5: a type's own fields are kept while switching tabs (a visited section stays mounted,
+                  hidden and disabled so it isn't validated or sent) and only the chosen type's are used on create. */}
+              {typeSection("bug", <BugDetailsFields initialSteps={initialSteps} />)}
               {/* Report 38.7 S6 (A2.4): a request's type and its questions. */}
-              {kind === "request" ? <RequestDetailsFields projectId={projectId} /> : null}
+              {typeSection("request", <RequestDetailsFields projectId={projectId} />)}
               {/* Report 38.8 W4 (A2.7): a content piece's channels, type and publish time. */}
-              {kind === "content" ? <ContentDetailsFields projectId={projectId} initialChannels={initialChannels} publishDay={dueDate.trim() || null} /> : null}
+              {typeSection("content", <ContentDetailsFields projectId={projectId} initialChannels={initialChannels} publishDay={dueDate.trim() || null} />)}
               {/* Report 38.9 W2 (A2.10): a roadmap item's outcome, column and type. */}
-              {kind === "roadmap_item" ? <RoadmapDetailsFields /> : null}
+              {typeSection("roadmap_item", <RoadmapDetailsFields />)}
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">

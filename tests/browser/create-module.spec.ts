@@ -85,3 +85,16 @@ test('A2.3 W10: Report as bug from chat opens on Bug only, with the message as t
   await expect(dialog(page).getByLabel('What happened?')).toHaveValue('Export crashes on Safari\nOpen a file, click Export');
   await expect(dialog(page).getByLabel('Starts at')).toHaveValue('new');
 });
+
+test('call 5 (2026-11-24 sweep): a type’s own fields are kept while switching tabs and only the chosen type’s are sent', async ({ page }) => {
+  await open(page, 'type=bug');
+  await dialog(page).getByLabel('What happened?').fill('Clicked Sign in, nothing happened');
+  await dialog(page).getByRole('tab', { name: 'Task' }).click();
+  await expect(dialog(page).getByLabel('What happened?')).toBeHidden();
+  await dialog(page).getByRole('tab', { name: 'Bug' }).click();
+  await expect(dialog(page).getByLabel('What happened?')).toHaveValue('Clicked Sign in, nothing happened');
+  await dialog(page).getByRole('tab', { name: 'Task' }).click();
+  await dialog(page).getByLabel(/title/i).first().fill('Plain task');
+  await dialog(page).getByLabel(/title/i).first().press('Control+Enter');
+  await expect.poll(() => created(page)).toEqual([expect.not.objectContaining({ typeFields: expect.anything() })]);
+});
