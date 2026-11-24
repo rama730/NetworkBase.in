@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -196,7 +196,16 @@ export function WorkspaceDocViewer({
     const siteEnabled = docsSettings?.success === true && docsSettings.siteEnabled;
     const snippetsEnabled = docsSettings?.success === true && docsSettings.snippetsEnabled;
     const docsViews: DocsView[] = ["pages", ...(siteEnabled ? ["site" as const] : []), ...(snippetsEnabled ? ["snippets" as const] : [])];
-    const [pickedView, setPickedView] = useState<DocsView | null>(null);
+    // The view stays in the address (docsView=…), so opening another document keeps it (A6.34 live check).
+    const searchParams = useSearchParams();
+    const viewerRouter = useRouter();
+    const viewerPath = usePathname();
+    const pickedView = searchParams?.get("docsView") as DocsView | null;
+    const setPickedView = (v: DocsView) => {
+        const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
+        params.set("docsView", v);
+        viewerRouter.replace(`${viewerPath}?${params.toString()}`, { scroll: false });
+    };
     const docsView: DocsView = pickedView && docsViews.includes(pickedView) ? pickedView : siteEnabled && !payload.canEdit ? "site" : "pages";
     const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
@@ -384,7 +393,11 @@ export function WorkspaceDocViewer({
                 rail={rail}
             />}
             <DocsViewSwitch views={docsViews} view={docsView} onChange={setPickedView} />
-            {docsView === "snippets" ? <SnippetsView projectId={project.id} canEdit={payload.canEdit} onOpen={(slug) => { setPickedView("pages"); rail.navigate(slug); }} />
+            {docsView === "snippets" ? <SnippetsView projectId={project.id} canEdit={payload.canEdit} onOpen={(slug) => {
+                const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
+                params.set("tab", "docs"); params.set("doc", slug); params.set("docsView", "pages"); params.delete("from");
+                viewerRouter.push(`${viewerPath}?${params.toString()}`, { scroll: false });
+            }} />
             : docsView === "site" ? (
                 <div className="grid gap-8 xl:grid-cols-[220px_minmax(0,1fr)_200px]">
                     <details className="xl:hidden" data-testid="docs-site-drawer"><summary className="cursor-pointer text-[13px] font-medium">Docs menu</summary>

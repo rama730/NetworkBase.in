@@ -77,7 +77,7 @@ export function OnThisPage({ headings }: { headings: WorkspaceDocHeading[] }) {
   return (
     <nav aria-label="On this page" className="space-y-1 text-[12px]" data-testid="docs-on-this-page">
       <p className="font-medium text-muted-foreground">On this page</p>
-      <ul>{shown.map((h) => <li key={h.id} className={h.level === 3 ? "pl-3" : ""}><a href={`#${h.id}`} className="block truncate py-0.5 text-muted-foreground hover:text-foreground">{h.text}</a></li>)}</ul>
+      <ul>{shown.map((h) => <li key={h.id} className={h.level === 3 ? "pl-3" : ""}><a href={`#${h.id}`} onClick={(e) => { const el = document.getElementById(h.id); if (!el) return; e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="block truncate py-0.5 text-muted-foreground hover:text-foreground">{h.text}</a></li>)}</ul>
     </nav>
   );
 }
