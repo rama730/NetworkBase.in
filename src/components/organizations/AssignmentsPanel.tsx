@@ -374,7 +374,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: at(dueLocal), sprintId: sprintId || null, publish,
             submissionType, reviewRequired: reviewOff ? false : reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntil ? at(lateUntil) : null,
-            target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
+            target: target(), steps, shareToGeneral, lateAfterMinutes: isExam ? 0 : lateAfter, materials: materials.map((m) => m.id),
             ...(reviewRequired && !reviewOff && reviewers.length ? { reviewers } : {}),
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
             ...(peerReview && peerOk ? { peerReview: true } : {}),
@@ -475,7 +475,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                     {options.rubrics ? (
                         <Field label="Kind" htmlFor="assignment-kind">
                             <SelectWrap>
-                                <select id="assignment-kind" value={isExam ? 'exam' : 'assignment'} onChange={(e) => { const exam = e.target.value === 'exam'; setIsExam(exam); if (exam && marking === 'none') setMarking('outof') }} className={cn('nb-select', selectClassName())}>
+                                <select id="assignment-kind" value={isExam ? 'exam' : 'assignment'} onChange={(e) => { const exam = e.target.value === 'exam'; setIsExam(exam); if (exam && marking === 'none') setMarking('outof'); if (exam && examFormat === 'in_person') setSubmissionType('none') }} className={cn('nb-select', selectClassName())}>
                                     <option value="assignment">Assignment</option><option value="exam">Exam</option>
                                 </select>
                             </SelectWrap>
