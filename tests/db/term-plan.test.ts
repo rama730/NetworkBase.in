@@ -158,3 +158,36 @@ test("B1.2b: Behind plan and the Mark taught reminder count lessons whose class 
   const notes = await sql`SELECT title FROM user_notifications WHERE user_id = ${t.teacher} AND title LIKE 'Mark %taught'`;
   assert.deepEqual(notes.map((n) => n.title), ["Mark 1 lesson taught"], "once a day");
 });
+
+test("B3.2a: one plan, several classes — Taught per class (two at once keep both), class notes for staff only, lesson types, Behind the map", async () => {
+  const t = await setup();
+  viewerId = t.teacher;
+  assert.equal((await plan.saveTermPlanSettingsAction(t.klass, { outcomes: [], studentsSee: "always", topicsLabel: "Topics", groups: ["6A", "6B"] })).success, true);
+  assert.equal((await plan.saveTermPlanSettingsAction(t.klass, { outcomes: [], studentsSee: "always", topicsLabel: "Topics" })).success, true, "left out keeps the classes");
+  const a = await plan.addTermLessonAction(t.klass, { weekId: t.week, title: "Arrays", lessonType: "activity" });
+  const b = await plan.addTermLessonAction(t.klass, { weekId: t.week, title: "Arrays test", lessonType: "assessment" });
+  assert.ok(a.success && b.success);
+  await plan.setLessonStageAction(t.klass, a.id, "ready");
+  // Two staff tick different classes at the same moment: both ticks stay, and the lesson is Taught.
+  viewerId = t.ta;
+  const [x, y] = await Promise.all([plan.markClassTaughtAction(t.klass, a.id, "6A", true), plan.markClassTaughtAction(t.klass, a.id, "6B", true)]);
+  assert.ok(x.success && y.success);
+  const [row] = await sql`SELECT stage, type_fields->'taught' AS taught FROM tasks WHERE id = ${a.id}`;
+  assert.deepEqual([row!.stage, Object.keys(row!.taught).sort()], ["taught", ["6A", "6B"]]);
+  assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6C", true)).success, false, "only the course's classes");
+  assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6B", false)).success, true);
+  assert.equal((await sql`SELECT stage FROM tasks WHERE id = ${a.id}`)[0]!.stage, "ready", "a tick taken back returns it to Ready");
+  assert.equal((await plan.saveClassNoteAction(t.klass, a.id, "6B", "Run the lab in two parts")).success, true);
+  const staff = await plan.readTermPlanAction(t.klass);
+  assert.ok(staff.success);
+  const lessons = lessonsOf(staff);
+  assert.deepEqual(lessons.map((l) => [l.title, l.lessonType]), [["Arrays", "activity"], ["Arrays test", "assessment"]]);
+  assert.equal(lessons[0]!.classNotes?.["6B"], "Run the lab in two parts");
+  assert.deepEqual(staff.groups, ["6A", "6B"]);
+  assert.deepEqual(staff.behind.map((g) => [g.group, g.due, g.behind]), [["6A", 0, 0], ["6B", 0, 0]], "the term hasn't started: nothing is due, nobody is behind");
+  viewerId = t.student;
+  const pupil = await plan.readTermPlanAction(t.klass);
+  assert.ok(pupil.success);
+  assert.deepEqual([pupil.groups, pupil.behind, lessonsOf(pupil)[0]!.ticks, lessonsOf(pupil)[0]!.classNotes], [[], [], {}, undefined], "ticks, class notes and pacing stay with staff");
+  assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6A", false)).success, false, "students can't tick");
+});

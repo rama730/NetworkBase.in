@@ -754,4 +754,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Set up the school year first; holidays sit inside its terms.": {"title": "Set up the school year first; holidays sit inside its terms.", "type": "warning"},
   "Import 1–300 rows at a time.": {"title": "Import 1–300 rows at a time.", "type": "warning"},
   "Import a file under 1 MB.": {"title": "Import a file under 1 MB.", "type": "warning"},
+  "That class isn’t taught on this course.": {"title": "That class isn’t taught on this course.", "type": "warning"},
+  "Name each class.": {"title": "Name each class.", "type": "warning"},
+  "Two classes have the same name.": {"title": "Two classes have the same name.", "type": "warning"},
 };

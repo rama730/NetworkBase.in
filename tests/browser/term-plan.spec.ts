@@ -5,8 +5,8 @@ import { axeViolations } from './axe';
 
 // Report 30.3 W2 (plan B1.2a).
 const lesson = (id: string, title: string, stage: string, extra: Record<string, unknown> = {}) => ({ id, number: 1, title, stage, weekId: 'w2', order: 0, outcomes: [], createdAt: '2027-01-01T00:00:00Z',
-  session: { key: '2027-01-19T10:30', start: '2027-01-19T10:30', end: '2027-01-19T12:00', status: 'on' }, needsNewSession: false, before: null, during: null, after: null, ...extra });
-async function open(page: Page, view: string, role = 'teacher') {
+  session: { key: '2027-01-19T10:30', start: '2027-01-19T10:30', end: '2027-01-19T12:00', status: 'on' }, needsNewSession: false, before: null, during: null, after: null, lessonType: 'lesson', ticks: {}, draftSoon: false, ...extra });
+async function open(page: Page, view: string, role = 'teacher', groups: string[] = []) {
   await page.setViewportSize({ width: 1100, height: 900 });
   await page.addInitScript((r) => {
     const calls: unknown[] = [];
@@ -23,7 +23,11 @@ async function open(page: Page, view: string, role = 'teacher') {
             { id: 'w2', unitId: 'u1', name: 'Week 2', goal: null, start: '2027-01-18T00:00:00Z', end: '2027-01-24T00:00:00Z', status: 'active', sessions: 1, assessments: [],
               lessons: staff ? [{ ...(window as any).__l2 }, { ...(window as any).__l3 }] : [] },
           ] }],
+        groups: (window as any).__groups ?? [], planned: { ready: 2, total: 3, percent: 67 },
+        behind: ((window as any).__groups ?? []).map((g: string, i: number) => ({ group: g, due: 3, taught: 3 - i * 2, behind: i * 2, warn: i > 0 })),
         unplaced: [] }),
+      markClassTaughtAction: async (_o: string, id: string, g: string, on: boolean) => { calls.push(['tick', id, g, on]); return { success: true, lessonTaught: false }; },
+      saveClassNoteAction: async (_o: string, id: string, g: string, n: string) => { calls.push(['classNote', id, g, n]); return { success: true }; },
       addTermLessonAction: async (_o: string, input: unknown) => { calls.push(['add', input]); return { success: true, id: 'n' }; },
       setLessonStageAction: async (_o: string, id: string, stage: string) => { calls.push(['stage', id, stage]); return { success: true }; },
       setWeekTopicsAction: async (_o: string, id: string, t: string) => { calls.push(['topics', id, t]); return { success: true }; },
@@ -34,6 +38,7 @@ async function open(page: Page, view: string, role = 'teacher') {
       duplicateLessonAction: async (_o: string, id: string) => { calls.push(['duplicate', id]); return { success: true, id: 'd' }; },
     };
   }, role);
+  await page.addInitScript((g) => { (window as any).__groups = g; }, groups);
   await page.addInitScript((ls) => { Object.assign(window as any, ls); }, {
     __l1: lesson('l1', 'Arrays intro', 'taught', { weekId: 'w1', outcomes: ['CO1'] }),
     __l2: lesson('l2', 'Linked lists', 'draft', { notes: 'Bring the slides' }),
@@ -67,7 +72,7 @@ test('the teacher adds a lesson, makes one Ready, edits Topics and keeps teacher
   await page.getByLabel('Topics for Week 2').blur();
   await page.getByRole('button', { name: 'Linked lists', exact: true }).click();
   await expect(page.getByText('Only Teachers and TAs see this.')).toBeVisible();
-  await expect.poll(() => calls(page)).toEqual([['add', { weekId: 'w2', title: 'Queues' }], ['stage', 'l2', 'ready'], ['topics', 'w2', 'Lists']]);
+  await expect.poll(() => calls(page)).toEqual([['add', { weekId: 'w2', title: 'Queues', lessonType: 'lesson' }], ['stage', 'l2', 'ready'], ['topics', 'w2', 'Lists']]);
 });
 
 test('a TA only marks taught; a student sees Ready and Taught lessons without notes or buttons', async ({ page }) => {
@@ -112,4 +117,25 @@ test('B1.2b: the Calendar puts lessons on their session day and assessments on t
   if (await cal.getByRole('heading').textContent() !== 'January 2027') return;
   await expect(cal).toContainText('Due · Lab 1');
   await expect(cal).toContainText('10:30 AM Linked lists');
+});
+
+test('B3.2a: a course that teaches 6A and 6B ticks Taught per class, keeps class notes, adds an Assessment and shows Behind the map', async ({ page }) => {
+  await open(page, 'plan', 'teacher', ['6A', '6B']);
+  await expect(page.getByTestId('behind-the-map')).toContainText('Taught 6A 3 of 3 · 6B 1 of 3 (2 behind)');
+  await expect(page.getByTestId('behind-the-map')).toContainText('Behind the map');
+  await expect(page.getByTestId('term-plan-header')).toContainText('Planned 67%');
+  const row = page.getByTestId('term-lesson').filter({ hasText: 'Stacks' });
+  await expect(row.getByRole('button', { name: 'Mark taught Stacks' })).toHaveCount(0);
+  await row.getByLabel('Taught 6B: Stacks').click();
+  await expect.poll(() => calls(page)).toContainEqual(['tick', 'l3', '6B', true]);
+  await row.getByRole('button', { name: 'Stacks', exact: true }).click();
+  await page.getByLabel('Class note for 6A: Stacks').fill('Run the lab in two parts');
+  await page.getByLabel('Class note for 6A: Stacks').blur();
+  await expect.poll(() => calls(page)).toContainEqual(['classNote', 'l3', '6A', 'Run the lab in two parts']);
+  await page.getByRole('button', { name: '+ Lesson in Week 2' }).click();
+  await page.getByLabel('New lesson in Week 2').fill('Stacks quiz');
+  await page.getByLabel('Lesson type for Week 2').selectOption('assessment');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['add', { weekId: 'w2', title: 'Stacks quiz', lessonType: 'assessment' }]);
+  expect(await axeViolations(page)).toEqual([]);
 });

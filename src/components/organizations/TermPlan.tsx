@@ -6,7 +6,7 @@ import { EventsView } from "@/components/organizations/SchoolEvents";
 import { Fragment, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { addTermLessonAction, duplicateLessonAction, moveLessonAction, readTermPlanAction, saveLessonNotesAction, saveTermPlanSettingsAction, setLessonStageAction, setWeekTopicsAction, updateLessonAction, type TermPlanLesson, type TermPlanWeek } from "@/app/actions/term-plan";
+import { addTermLessonAction, duplicateLessonAction, markClassTaughtAction, moveLessonAction, readTermPlanAction, saveClassNoteAction, saveLessonNotesAction, saveTermPlanSettingsAction, setLessonStageAction, setWeekTopicsAction, updateLessonAction, type TermPlanLesson, type TermPlanWeek } from "@/app/actions/term-plan";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -15,6 +15,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
+import { LESSON_TYPES, type LessonType } from "@/lib/organizations/curriculum";
 import { describeLocal, timeLabel } from "@/lib/organizations/zoned-time";
 import { calendarCells, shiftMonth } from "@/lib/workflows/planner";
 import { cn } from "@/lib/utils";
@@ -92,7 +93,12 @@ export function TermPlanView({ orgId }: { orgId: string }) {
         {day(data.term.start)} – {day(data.term.end)}
         {data.week.current ? ` · Week ${data.week.current} of ${data.week.total}` : ""}
         {data.coverage.total ? ` · Outcomes covered ${data.coverage.covered} of ${data.coverage.total}` : ""}
+        {staff && data.planned.total ? ` · Planned ${data.planned.percent}%` : ""}
       </p>
+      {data.behind.length ? (
+        <p className="text-[13px]" data-testid="behind-the-map">Taught {data.behind.map((b) => `${b.group} ${b.taught} of ${b.due}${b.behind > 0 ? ` (${b.behind} behind)` : ""}`).join(" · ")}
+          {data.behind.some((b) => b.warn) ? <StatusBadge state="at_risk" className="ml-2">Behind the map</StatusBadge> : null}</p>
+      ) : null}
       <div className="overflow-x-auto rounded-md border border-border bg-card">
         <table className="w-full min-w-[720px] text-[13px]">
           <caption className="sr-only">Term plan: units, weeks, lessons and assessments</caption>
@@ -119,7 +125,9 @@ export function TermPlanView({ orgId }: { orgId: string }) {
                   <WeekRows key={w.id} week={w} staff={staff} teacher={teacher} label={label} current={data.week.weekId === w.id}
                     breaks={data.breaks.filter((b) => w.end && w.start && b.start > w.end.slice(0, 10) && !u.weeks.some((x) => x.start && x.start.slice(0, 10) > w.end!.slice(0, 10) && x.start.slice(0, 10) <= b.start))}
                     open={open} setOpen={setOpen} adding={adding?.weekId === w.id ? adding.title : null} setAdding={(title) => setAdding(title === null ? null : { weekId: w.id, title })}
-                    onAdd={(title) => void run(addTermLessonAction(orgId, { weekId: w.id, title }), "Lesson added").then(() => setAdding(null))}
+                    onAdd={(title, lessonType) => void run(addTermLessonAction(orgId, { weekId: w.id, title, lessonType }), `${LESSON_TYPES[lessonType]} added`).then(() => setAdding(null))}
+                    groups={data.groups} onTick={(id, g, on) => void run(markClassTaughtAction(orgId, id, g, on), on ? `Marked taught for ${g}` : `Taught taken back for ${g}`)}
+                    onClassNote={(id, g, note) => void run(saveClassNoteAction(orgId, id, g, note), "Class note saved")}
                     onTopics={(t) => void run(setWeekTopicsAction(orgId, w.id, t))} onStage={(id, stage) => void run(setLessonStageAction(orgId, id, stage), stage === "taught" ? "Marked taught" : undefined)}
                     onUpdate={(id, patch) => void run(updateLessonAction(orgId, id, patch), "Saved")} onNotes={(id, notes) => void run(saveLessonNotesAction(orgId, id, notes), "Notes saved")}
                     weeks={allWeeks} onMove={(id, weekId, shiftRest) => void run(moveLessonAction(orgId, { taskId: id, weekId, shiftRest }), shiftRest ? "Moved, with the lessons after it" : "Lesson moved")}
@@ -137,15 +145,18 @@ export function TermPlanView({ orgId }: { orgId: string }) {
   );
 }
 
-type Moves = { weeks: Array<{ id: string; name: string }>; onMove: (id: string, weekId: string, shiftRest: boolean) => void; onDuplicate: (id: string) => void };
+type Moves = { weeks: Array<{ id: string; name: string }>; onMove: (id: string, weekId: string, shiftRest: boolean) => void; onDuplicate: (id: string) => void;
+  /** B3.2a: the classes this course teaches, per-class Taught and class notes. */
+  groups: string[]; onTick: (id: string, group: string, taught: boolean) => void; onClassNote: (id: string, group: string, note: string) => void };
 
-function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen, adding, setAdding, onAdd, onTopics, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate }: Moves & {
+function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen, adding, setAdding, onAdd, onTopics, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate, groups, onTick, onClassNote }: Moves & {
   week: TermPlanWeek; staff: boolean; teacher: boolean; label: string; current: boolean; breaks: Array<{ name: string; start: string; end: string }>;
-  open: string | null; setOpen: (id: string | null) => void; adding: string | null; setAdding: (title: string | null) => void; onAdd: (title: string) => void;
+  open: string | null; setOpen: (id: string | null) => void; adding: string | null; setAdding: (title: string | null) => void; onAdd: (title: string, lessonType: LessonType) => void;
   onTopics: (t: string) => void; onStage: (id: string, stage: "draft" | "ready" | "taught" | "cancelled") => void;
   onUpdate: (id: string, patch: { before?: string; during?: string; after?: string }) => void; onNotes: (id: string, notes: string) => void;
 }) {
   const live = week.lessons.filter((l) => l.stage !== "cancelled");
+  const [newType, setNewType] = useState<LessonType>("lesson");
   return (
     <>
       <tr className={cn("border-b border-border align-top", current && "bg-muted")} data-testid="term-week">
@@ -168,14 +179,16 @@ function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen,
       </tr>
       {week.lessons.map((l) => (
         <LessonRow key={l.id} lesson={l} staff={staff} teacher={teacher} expanded={open === l.id} toggle={() => setOpen(open === l.id ? null : l.id)} onStage={onStage} onUpdate={onUpdate} onNotes={onNotes}
-          weeks={weeks} onMove={onMove} onDuplicate={onDuplicate} />
+          weeks={weeks} onMove={onMove} onDuplicate={onDuplicate} groups={groups} onTick={onTick} onClassNote={onClassNote} />
       ))}
       {teacher ? (
         <tr className="border-b border-border">
           <td colSpan={5} className="px-3 py-1.5 pl-10">
             {adding === null ? <button type="button" className={LINK} onClick={() => setAdding("")}>+ Lesson<span className="sr-only"> in {week.name}</span></button> : (
-              <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (adding.trim()) onAdd(adding.trim()); }}>
+              <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (adding.trim()) onAdd(adding.trim(), newType); }}>
                 <Input autoFocus aria-label={`New lesson in ${week.name}`} value={adding} maxLength={200} onChange={(e) => setAdding(e.target.value)} placeholder="Lesson title" className="h-8 max-w-sm" />
+                <select className="nb-select" data-size="sm" aria-label={`Lesson type for ${week.name}`} value={newType} onChange={(e) => setNewType(e.target.value as LessonType)}>
+                  {(Object.keys(LESSON_TYPES) as LessonType[]).map((t) => <option key={t} value={t}>{LESSON_TYPES[t]}</option>)}</select>
                 <button type="submit" className={FORM_SECONDARY_CLASS}>Add</button>
                 <button type="button" className={LINK} onClick={() => setAdding(null)}>Cancel</button>
               </form>
@@ -194,13 +207,15 @@ function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen,
   );
 }
 
-function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate }: Moves & {
+function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate, groups, onTick, onClassNote }: Moves & {
   lesson: TermPlanLesson; staff: boolean; teacher: boolean; expanded: boolean; toggle: () => void;
   onStage: (id: string, stage: "draft" | "ready" | "taught" | "cancelled") => void; onUpdate: (id: string, patch: { before?: string; during?: string; after?: string }) => void; onNotes: (id: string, notes: string) => void;
 }) {
   const when = l.session ? describeLocal(l.session.start, null, null).text : null;
   const [draft, setDraft] = useState({ before: l.before ?? "", during: l.during ?? "", after: l.after ?? "", notes: l.notes ?? "" });
   const [moveTo, setMoveTo] = useState("");
+  const [classNotes, setClassNotes] = useState<Record<string, string>>(l.classNotes ?? {});
+  const perClass = staff && groups.length > 0;
   return (
     <>
       <tr className="border-b border-border text-[13px]" data-testid="term-lesson">
@@ -209,11 +224,19 @@ function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpd
             <span className="font-mono text-[12px] text-muted-foreground">{l.needsNewSession ? <span className="text-[var(--status-warning)]">Needs a new session</span> : when ?? "No session"}</span>
             <button type="button" className="font-medium text-foreground hover:underline" aria-expanded={expanded} onClick={toggle}>{l.title}</button>
             <StatusBadge state={l.stage === "taught" ? "done" : l.stage === "ready" ? "new" : l.stage === "cancelled" ? "archived" : "draft"}>{STAGE_WORDS[l.stage] ?? l.stage}</StatusBadge>
+            {l.lessonType !== "lesson" ? <span className="nb-tag text-[11px]">{LESSON_TYPES[l.lessonType]}</span> : null}
+            {l.draftSoon ? <span className="text-[12px] text-[var(--status-warning)]">Still Draft, soon</span> : null}
             {l.outcomes.map((o) => <span key={o} className="nb-tag font-mono text-[11px]">{o}</span>)}
+            {perClass && l.stage !== "cancelled" ? (
+              <span className="flex flex-wrap items-center gap-2" role="group" aria-label={`Taught per class: ${l.title}`} data-testid="class-ticks">
+                {groups.map((g) => <label key={g} className="flex items-center gap-1 text-[12px]"><input className="nb-check" type="checkbox" checked={Boolean(l.ticks[g])}
+                  aria-label={`Taught ${g}: ${l.title}`} onChange={(e) => onTick(l.id, g, e.target.checked)} />{g}{l.ticks[g] ? <span className="font-mono text-muted-foreground"> {day(l.ticks[g]!.on)}</span> : null}</label>)}
+              </span>
+            ) : null}
             {staff ? (
               <span className="flex gap-2">
                 {teacher && l.stage === "draft" ? <button type="button" className={LINK} onClick={() => onStage(l.id, "ready")}>Ready<span className="sr-only"> {l.title}</span></button> : null}
-                {l.stage === "ready" || (teacher && l.stage === "draft") ? <button type="button" className={LINK} onClick={() => onStage(l.id, "taught")}>Mark taught<span className="sr-only"> {l.title}</span></button> : null}
+                {!perClass && (l.stage === "ready" || (teacher && l.stage === "draft")) ? <button type="button" className={LINK} onClick={() => onStage(l.id, "taught")}>Mark taught<span className="sr-only"> {l.title}</span></button> : null}
                 {teacher && (l.stage === "taught" || l.stage === "cancelled" || l.stage === "ready") ? <button type="button" className={LINK} onClick={() => onStage(l.id, "draft")}>Back to Planned<span className="sr-only"> {l.title}</span></button> : null}
                 {teacher && l.stage !== "cancelled" && l.stage !== "taught" ? <button type="button" className={LINK} onClick={() => onStage(l.id, "cancelled")}>Cancel<span className="sr-only"> {l.title}</span></button> : null}
                 {teacher ? <button type="button" className={LINK} onClick={() => onDuplicate(l.id)}>Duplicate<span className="sr-only"> {l.title}</span></button> : null}
@@ -255,6 +278,14 @@ function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpd
                 <textarea className="nb-textarea" rows={2} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} onBlur={() => { if (draft.notes !== (l.notes ?? "")) onNotes(l.id, draft.notes); }} />
               </label>
             ) : null}
+            {perClass ? (
+              <fieldset className="mt-3 space-y-1.5 text-[12px]" data-testid="class-notes"><legend className="font-medium text-foreground">Class notes</legend>
+                <span className="block text-muted-foreground">One line per class for staff, such as “run the lab in two parts”. No student names.</span>
+                {groups.map((g) => <label key={g} className="flex items-center gap-2"><span className="w-10 font-mono">{g}</span>
+                  <Input value={classNotes[g] ?? ""} maxLength={200} aria-label={`Class note for ${g}: ${l.title}`} onChange={(e) => setClassNotes({ ...classNotes, [g]: e.target.value })}
+                    onBlur={() => { if ((classNotes[g] ?? "") !== (l.classNotes?.[g] ?? "")) onClassNote(l.id, g, classNotes[g] ?? ""); }} className="h-8 max-w-md" /></label>)}
+              </fieldset>
+            ) : null}
           </td>
         </tr>
       ) : null}
@@ -292,14 +323,17 @@ export function TermPlanSettings({ orgId }: { orgId: string }) {
   const data = q.data?.success ? q.data : null;
   const [draft, setDraft] = useState<typeof data extends null ? never : NonNullable<typeof data>["settings"] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [groupsText, setGroupsText] = useState<string | null>(null);
   if (!data || data.role !== "teacher") return null;
   const s = draft ?? data.settings;
   const save = async () => {
     setBusy(true);
-    const r = await saveTermPlanSettingsAction(orgId, s).finally(() => setBusy(false));
+    const groups = groupsText === null ? undefined : groupsText.split(",").map((g) => g.trim()).filter(Boolean);
+    const r = await saveTermPlanSettingsAction(orgId, { ...s, ...(groups ? { groups } : {}) }).finally(() => setBusy(false));
     if (!r.success) return void toast.error(r.error);
     toast.success("Term plan settings saved");
     setDraft(null);
+    setGroupsText(null);
     await client.invalidateQueries({ queryKey: planKey(orgId) });
   };
   return (
@@ -318,6 +352,10 @@ export function TermPlanSettings({ orgId }: { orgId: string }) {
             ))}
             <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft({ ...s, outcomes: [...s.outcomes, { code: `CO${s.outcomes.length + 1}`, text: "" }] })}>Add an outcome</button>
           </fieldset>
+          <label className="flex flex-col gap-1.5 text-[13px]"><span className="font-medium">Classes this course teaches</span>
+            <span className="text-[12px] text-muted-foreground">Names, separated by commas, such as 6A, 6B, 6C. Each lesson is then ticked Taught per class.</span>
+            <Input aria-label="Classes this course teaches" value={groupsText ?? data.groups.join(", ")} maxLength={300} onChange={(e) => setGroupsText(e.target.value)} className="max-w-md font-mono" />
+          </label>
           <label className="flex flex-col gap-1.5 text-[13px]"><span className="font-medium">Students see lessons</span>
             <select className="nb-select w-[240px]" value={s.studentsSee} onChange={(e) => setDraft({ ...s, studentsSee: e.target.value as "ready" | "always" })}>
               <option value="ready">Once they’re Ready</option><option value="always">Always, even while planned</option>
