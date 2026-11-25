@@ -1602,6 +1602,16 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Wo
     };
 }
 
+/**
+ * Report 34.2 call 4 (B5.1c): in a community, posting, editing and commenting wait until the member agrees to the
+ * current Code of conduct (organisers excepted); reading never does. Security review: every Updates write path uses it.
+ */
+async function communityAgreeBlock(access: ProjectUpdateAccess, userId: string) {
+    if (access.org?.kind !== "org" || access.canManage || !access.project) return null;
+    const { communityPostBlock } = await import("@/lib/organizations/community-server");
+    return communityPostBlock(access.project.id, userId);
+}
+
 export async function createWorkspaceUpdateAction(projectId: string, input: {
     content: string;
     updateType?: WorkspaceUpdateType | string | null;
@@ -1628,12 +1638,8 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
 
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canCreate || !access.project) return { success: false as const, error: "You don’t have access to post updates here." };
-        // Report 34.2 call 4 (B5.1c): in a community, posting waits until the member agrees to the current Code of conduct.
-        if (access.org?.kind === "org" && !access.canManage) {
-            const { communityPostBlock } = await import("@/lib/organizations/community-server");
-            const block = await communityPostBlock(access.project.id, viewer.userId);
-            if (block) return { success: false as const, error: block };
-        }
+        const agreeBlock = await communityAgreeBlock(access, viewer.userId);
+        if (agreeBlock) return { success: false as const, error: agreeBlock };
 
         // Decision 155: in an organization the server sets the type by role: admins announce, members discuss.
         const requestedType = normalizeWorkspaceUpdateType(input.updateType);
@@ -1803,6 +1809,8 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         const interactionBlock = postInteractionBlock(access);
         if (interactionBlock) return { success: false as const, error: interactionBlock };
+        const agreeBlock = await communityAgreeBlock(access, viewer.userId);
+        if (agreeBlock) return { success: false as const, error: agreeBlock };
         // Someone no longer in the organization can't rewrite what they posted there (report §42.15 smaller bug 22).
         if (access.org?.kind === "org" && !access.isOwner && !access.isMember) return { success: false as const, error: "You’re no longer in this organization." };
         // Members keep their posts as discussions; only admins switch the type (decision 155).
@@ -2443,6 +2451,8 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         const interactionBlock = postInteractionBlock(access);
         if (interactionBlock) return { success: false as const, error: interactionBlock };
+        const agreeBlock = await communityAgreeBlock(access, viewer.userId);
+        if (agreeBlock) return { success: false as const, error: agreeBlock };
         const update = await assertReadableUpdate(projectId, updateId, access);
         if (!update || !access.project) return { success: false as const, error: "This update isn’t available." };
         const project = access.project;
