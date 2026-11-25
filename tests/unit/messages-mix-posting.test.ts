@@ -42,7 +42,8 @@ test('admins-only channel creation names the organization', () => {
 test('the migration lets thread replies through in an admins-only #general', () => {
   const file = readFileSync(process.env.NBM_GENERAL_MIGRATION ?? 'drizzle/0148_general_thread_replies.sql', 'utf8');
   assert.match(file, /CREATE OR REPLACE FUNCTION app_private\.chat_org_general_post_guard\(\)/);
-  assert.match(file, /AND NEW\.thread_root_seq IS NULL AND EXISTS/);
+  // A member's thread reply goes through, unless it carries @channel / @here (that would notify the whole org).
+  assert.match(file, /AND \(NEW\.thread_root_seq IS NULL OR NEW\.body ~ '<!\(channel\|here\)>'\) AND EXISTS/);
 });
 
 test('the named-organization error reaches people in its own words', async () => {
