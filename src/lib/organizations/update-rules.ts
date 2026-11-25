@@ -25,6 +25,12 @@ export function pinLimit(kind: string | null | undefined) {
   return kind === "organization" ? 3 : 1;
 }
 
+/** Report 33.2 call 8: a company pins an announcement to What's new for up to 7 days; no date means the 7 days. */
+export function companyPinUntil(until: Date | null, now: Date = new Date()) {
+  const cap = new Date(now.getTime() + 7 * 86_400_000);
+  return until && until.getTime() < cap.getTime() ? until : cap;
+}
+
 /** A pin past its unpin date is quietly over (report §17.4). */
 export function isPinnedNow(isPinned: boolean, pinnedUntil: Date | null, now: Date = new Date()) {
   return isPinned && (!pinnedUntil || pinnedUntil.getTime() > now.getTime());

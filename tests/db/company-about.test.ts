@@ -65,3 +65,33 @@ test("33.2: Values and Offices go to visitors only when switched on; Our teams i
   assert.ok(admin.success);
   assert.equal(admin.teams.length, 2);
 });
+
+test("33.2: What's new holds the last 7 days' announcements and published pages (not the live pin); Needs review groups late pages by owner for admins", async () => {
+  const [owner, member] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, { visibility: "private" }));
+  created.push(id);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${member!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'company', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${id}`;
+  const post = (content: string, extra: { pinned?: boolean; old?: boolean; audience?: object } = {}) => sql`INSERT INTO workspace_updates (workspace_id, author_id, content, update_type, is_pinned, audience, created_at)
+    VALUES (${id}, ${owner!}, ${content}, 'announcement', ${extra.pinned ?? false}, ${sql.json((extra.audience ?? {}) as never)}, ${extra.old ? sql`now() - interval '9 days'` : sql`now()`})`;
+  await post("## All-hands moved to Thu", { pinned: true });
+  await post("Office closed Friday");
+  await post("Old news", { old: true });
+  await post("Managers only", { audience: { roles: ["admin"] } });
+  const now = new Date().toISOString(), old = new Date(Date.now() - 10 * 86_400_000).toISOString();
+  await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES
+    (${id}, 'travel', 'Travel policy.md', ${sql.json({ org: { lifecycle: "published", publishedAt: now, owner: member!, reviewBy: "2020-01-01" } })}),
+    (${id}, 'expenses', 'Expenses.md', ${sql.json({ org: { lifecycle: "published", publishedAt: old, reviewBy: "2020-02-01" } })}),
+    (${id}, 'draft', 'Draft.md', ${sql.json({ org: { lifecycle: "draft", publishedAt: now } })})`;
+  viewerId = member!;
+  const mine = await company.readWhatsNewAction(id);
+  assert.ok(mine.success);
+  assert.deepEqual(mine.items.map((i) => i.text).sort(), ["Office closed Friday", "Travel policy"], "not the pin, the old post, a post for others, an old or draft page");
+  assert.equal((await company.readNeedsReviewAction(id)).success, false, "admins only");
+  viewerId = owner!;
+  const review = await company.readNeedsReviewAction(id);
+  assert.ok(review.success);
+  assert.equal(review.total, 2);
+  assert.deepEqual(review.owners.map((o) => o.pages.map((p) => p.title)), [["Travel policy"], ["Expenses"]]);
+  assert.equal(review.owners[1]!.owner, "No owner");
+});

@@ -13,6 +13,10 @@ async function open(page: Page, view: string) {
       readCompanyAboutAction: async () => ({ success: true, admin: true, inside: true, publicValues: false, publicOffices: false,
         values: [{ name: 'Candour', line: 'Say it kindly' }], offices: [{ name: 'HQ', city: 'Pune', zone: 'Asia/Kolkata' }],
         teams: [{ id: 't1', title: 'Sales', slug: 'sales', line: 'We sell', manager: 'Priya Shah', members: 5 }] }),
+      readWhatsNewAction: async () => ({ success: true, items: [
+        { kind: 'announcement', id: 'a1', text: 'Office closed Friday', at: '2026-11-24T09:00:00Z', slug: null },
+        { kind: 'updated', id: 'travel', text: 'Travel policy', at: '2026-11-23T09:00:00Z', slug: 'travel' }] }),
+      readNeedsReviewAction: async () => ({ success: true, total: 2, owners: [{ owner: 'Priya Shah', pages: [{ slug: 'travel', title: 'Travel policy', reviewBy: '2026-11-01' }] }, { owner: 'No owner', pages: [{ slug: 'exp', title: 'Expenses', reviewBy: '2026-10-01' }] }] }),
       saveCompanyAboutAction: async (_o: string, v: unknown) => { calls.push(['save', v]); return { success: true }; },
     };
   });
@@ -38,4 +42,17 @@ test('Settings → Company: add a value, show values to visitors, save', async (
   await s.getByRole('button', { name: 'Save company' }).click();
   await expect.poll(async () => (await page.evaluate(() => (window as any).__calls))[0]?.[1]).toEqual({
     values: [{ name: 'Candour', line: 'Say it kindly' }, { name: 'Ownership', line: '' }], offices: [{ name: 'HQ', city: 'Pune', zone: 'Asia/Kolkata' }], publicValues: true, publicOffices: false });
+});
+
+test("Overview: What's new (announcements, New/Updated pages) and Needs review by owner", async ({ page }) => {
+  await open(page, 'overview');
+  const w = page.getByTestId('whats-new');
+  await expect(w).toContainText('Office closed Friday');
+  await expect(w).toContainText('Updated');
+  await expect(w.getByRole('link', { name: 'Travel policy' })).toHaveAttribute('href', '/org/acme?tab=docs&doc=travel');
+  const r = page.getByTestId('needs-review');
+  await expect(r).toContainText('Needs review · 2 pages');
+  await expect(r).toContainText('Priya Shah: Travel policy');
+  await expect(r).toContainText('No owner: Expenses');
+  expect(await axeViolations(page)).toEqual([]);
 });

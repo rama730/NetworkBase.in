@@ -2,7 +2,7 @@
 
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { orgFeedWhere, orgLivePinSql, readAudienceWorkspaces, readLastSeenUpdates, readOrgPins, readOrgUpdateContext, readSeenCounts, readWorkspaceTitles, readSharedPins, type OrgUpdateContext } from "@/lib/organizations/org-updates";
-import { audienceAllows, followersHear, isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
+import { audienceAllows, companyPinUntil, followersHear, isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
 import { shareToOrgGeneral } from "@/lib/organizations/org-chat";
 import { readWorkspaceRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
 import { randomUUID } from "node:crypto";
@@ -1555,6 +1555,12 @@ function futureDate(value: string | null | undefined) {
     return date && !Number.isNaN(date.getTime()) && date.getTime() > Date.now() ? date : null;
 }
 
+/** The unpin date for an org's pin: as chosen, but a company's pins end within 7 days (report 33.2 call 8). */
+async function orgPinUntil(projectId: string, value: string | null | undefined) {
+    const [w] = await db.select({ orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    return w?.orgType === "company" ? companyPinUntil(futureDate(value)) : futureDate(value);
+}
+
 /** Org post rules (report §17.2–17.6): announcement and discussion types, audience, notify, pin, comments off, share up. */
 async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: WorkspaceUpdateType | null, input: {
     audience?: UpdateAudience | null;
@@ -1589,7 +1595,7 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Wo
         // ponytail: stored only; email sending lands with notifications (P14).
         notifyLevel: orgAdmin && (input.notifyLevel ?? access.org?.notifyDefault) === "email" ? "email" as const : "in_app" as const,
         pin: Boolean(orgAdmin && input.pin),
-        pinnedUntil: orgAdmin && input.pin ? futureDate(input.pinnedUntil) : null,
+        pinnedUntil: orgAdmin && input.pin ? await orgPinUntil(access.project!.id, input.pinnedUntil) : null,
         // Report §28.3, §37.3: anyone posting in an organization sets replies on their own post, Off included.
         commentsOff: Boolean(access.org && input.commentsOff),
         shareToOrg: Boolean(input.shareToOrg),
@@ -2036,7 +2042,7 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
             }
             await tx
                 .update(workspaceUpdates)
-                .set({ isPinned: pinned, pinnedUntil: pinned && isOrg ? futureDate(pinnedUntil) : null, updatedAt: now })
+                .set({ isPinned: pinned, pinnedUntil: pinned && isOrg ? await orgPinUntil(projectId, pinnedUntil) : null, updatedAt: now })
                 .where(eq(workspaceUpdates.id, updateId));
             return true;
         });

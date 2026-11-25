@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { audienceAllows, audienceChange, audienceLabel, followersHear, isPinnedNow, pinLimit, shareBlock } from "../../src/lib/organizations/update-rules";
+import { audienceAllows, audienceChange, audienceLabel, companyPinUntil, followersHear, isPinnedNow, pinLimit, shareBlock } from "../../src/lib/organizations/update-rules";
 
 // Report §17.3–17.6.
 test("audience: everyone by default; a role or child projects narrow it; admins and the author always see it", () => {
@@ -58,4 +58,11 @@ test("37.3: the card's audience label names the reach in the organization's word
   assert.equal(audienceLabel({ audience: { roles: ["member"] }, visibility: "members" }, roles, titles), "Students");
   assert.equal(audienceLabel({ audience: { projectIds: ["a", "b", "c"] }, visibility: "members" }, roles, titles), "Team Falcon +2");
   assert.equal(audienceLabel({ audience: { projectIds: ["z"] }, visibility: "members" }, roles, new Map()), "Selected workspaces");
+});
+
+test("33.2 call 8: a company pin lasts up to 7 days", () => {
+  const now = new Date("2026-11-25T10:00:00Z");
+  assert.equal(companyPinUntil(null, now).toISOString(), "2026-12-02T10:00:00.000Z", "no date: the full 7 days");
+  assert.equal(companyPinUntil(new Date("2026-11-27T00:00:00Z"), now).toISOString(), "2026-11-27T00:00:00.000Z");
+  assert.equal(companyPinUntil(new Date("2027-01-01T00:00:00Z"), now).toISOString(), "2026-12-02T10:00:00.000Z", "never past 7 days");
 });

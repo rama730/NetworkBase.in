@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { readCompanyAboutAction, saveCompanyAboutAction, type CompanyOffice, type CompanyValue } from "@/app/actions/company";
+import { readCompanyAboutAction, readNeedsReviewAction, readWhatsNewAction, saveCompanyAboutAction, type CompanyOffice, type CompanyValue } from "@/app/actions/company";
+import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { RailSection } from "@/components/ui/rail-section";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
@@ -91,5 +92,43 @@ export function CompanySettingsCard({ orgId }: { orgId: string }) {
         <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save company</button>
       </div>
     </SettingsCard>
+  );
+}
+
+/** What's new (report 33.2): the last 7 days' announcements and published handbook pages, up to 5. */
+export function WhatsNewCard({ orgId, base }: { orgId: string; base: string }) {
+  const q = useQuery({ queryKey: ["whats-new", orgId], queryFn: () => readWhatsNewAction(orgId), staleTime: 60_000 });
+  const d = q.data?.success ? q.data : null;
+  if (!d?.items.length) return null;
+  return (
+    <OrgCard title="What’s new · last 7 days" testId="whats-new">
+      <ul className="space-y-1.5 text-[13px]">
+        {d.items.map((i) => (
+          <li key={`${i.kind}:${i.id}`} className="flex flex-wrap items-center gap-2">
+            {i.kind === "announcement" ? <Link href={`${base}?tab=updates`} className="min-w-0 flex-1 truncate hover:underline">{i.text}</Link>
+              : <><StatusBadge state={i.kind}>{i.kind === "new" ? "New" : "Updated"}</StatusBadge><Link href={`${base}?tab=docs&doc=${encodeURIComponent(i.slug!)}`} className="min-w-0 flex-1 truncate hover:underline">{i.text}</Link></>}
+            <span className="font-mono text-[12px] text-muted-foreground">{i.at.slice(5, 10)}</span>
+          </li>
+        ))}
+      </ul>
+    </OrgCard>
+  );
+}
+
+/** Needs review (report 33.2, admins): handbook pages past Review by, by owner; owners are told in their weekly Summary. */
+export function NeedsReviewCard({ orgId, base }: { orgId: string; base: string }) {
+  const q = useQuery({ queryKey: ["needs-review", orgId], queryFn: () => readNeedsReviewAction(orgId), staleTime: 60_000 });
+  const d = q.data?.success ? q.data : null;
+  if (!d?.total) return null;
+  return (
+    <OrgCard title={`Needs review · ${d.total} ${d.total === 1 ? "page" : "pages"}`} testId="needs-review">
+      <p className="text-[13px] text-muted-foreground">Owners are told in their weekly Summary. Pages stay visible.</p>
+      <ul className="mt-2 space-y-1.5 text-[13px]">
+        {d.owners.map((o) => (
+          <li key={o.owner}><span className="font-medium">{o.owner}</span>: {o.pages.map((p, i) => (
+            <span key={p.slug}>{i ? ", " : ""}<Link href={`${base}?tab=docs&doc=${encodeURIComponent(p.slug)}`} className="hover:underline">{p.title}</Link></span>))}</li>
+        ))}
+      </ul>
+    </OrgCard>
   );
 }

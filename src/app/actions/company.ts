@@ -65,3 +65,51 @@ export async function saveCompanyAboutAction(orgId: string, input: unknown): Pro
   await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('company', ${JSON.stringify(parsed.data)}::jsonb), updated_at = now() WHERE id = ${orgId}::uuid`);
   return { success: true };
 }
+
+/**
+ * What's new (report 33.2 call 8, surfaces): the last 7 days' announcements and published handbook pages, up to 5, for
+ * people inside. The live pinned announcement sits just above it on the Overview, so it isn't repeated here.
+ * ponytail: announcements meant for some roles or teams show only to admins here; audience-aware listing if asked.
+ */
+export async function readWhatsNewAction(orgId: string) {
+  const ctx = await company(orgId);
+  if (!ctx?.inside) return DENIED;
+  const [posts, pages] = await Promise.all([
+    db.execute<{ id: string; content: string; at: string }>(sql`
+      SELECT id, content, created_at::text AS at FROM workspace_updates
+      WHERE workspace_id = ${orgId}::uuid AND deleted_at IS NULL AND update_type = 'announcement' AND created_at > now() - interval '7 days'
+        AND NOT (is_pinned AND (pinned_until IS NULL OR pinned_until > now()))
+        AND (${ctx.admin} OR audience IS NULL OR audience = '{}'::jsonb)
+      ORDER BY created_at DESC LIMIT 5`),
+    db.execute<{ slug: string; filename: string; at: string; versions: number }>(sql`
+      SELECT d.slug, d.filename, d.settings->'org'->>'publishedAt' AS at,
+        (SELECT count(*)::int FROM workspace_document_versions v WHERE v.doc_id = d.id) AS versions
+      FROM workspace_documents d
+      WHERE d.workspace_id = ${orgId}::uuid AND d.settings->'org'->>'lifecycle' = 'published'
+        AND (CASE WHEN d.settings->'org'->>'publishedAt' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (d.settings->'org'->>'publishedAt')::timestamptz END) > now() - interval '7 days'
+      ORDER BY 3 DESC LIMIT 5`),
+  ]);
+  const items = [
+    ...Array.from(posts).map((p) => ({ kind: "announcement" as const, id: p.id, text: p.content.replace(/[#*_>`]/g, "").trim().split("\n")[0]!.slice(0, 140), at: p.at, slug: null })),
+    ...Array.from(pages).map((p) => ({ kind: Number(p.versions) > 1 ? "updated" as const : "new" as const, id: p.slug, text: p.filename.replace(/\.(md|mdx|markdown)$/i, ""), at: p.at, slug: p.slug })),
+  ].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 5);
+  return { success: true as const, items };
+}
+
+/** Needs review (report 33.2 views): handbook pages past Review by, grouped by owner — admins only. */
+export async function readNeedsReviewAction(orgId: string) {
+  const ctx = await company(orgId);
+  if (!ctx?.admin) return DENIED;
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = Array.from(await db.execute<{ slug: string; filename: string; owner: string | null; review_by: string }>(sql`
+    SELECT d.slug, d.filename, coalesce(p.full_name, p.username) AS owner, d.settings->'org'->>'reviewBy' AS review_by
+    FROM workspace_documents d LEFT JOIN profiles p ON p.id::text = d.settings->'org'->>'owner'
+    WHERE d.workspace_id = ${orgId}::uuid AND d.settings->'org'->>'reviewBy' <= ${today}
+    ORDER BY 3 NULLS LAST, 4 LIMIT 100`));
+  const byOwner = new Map<string, Array<{ slug: string; title: string; reviewBy: string }>>();
+  for (const r of rows) {
+    const k = r.owner ?? "No owner";
+    byOwner.set(k, [...(byOwner.get(k) ?? []), { slug: r.slug, title: r.filename.replace(/\.(md|mdx|markdown)$/i, ""), reviewBy: r.review_by }]);
+  }
+  return { success: true as const, total: rows.length, owners: [...byOwner.entries()].map(([owner, pages]) => ({ owner, pages })) };
+}

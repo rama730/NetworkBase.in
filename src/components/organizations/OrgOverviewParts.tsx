@@ -1,5 +1,6 @@
 'use client'
 
+import { NeedsReviewCard, WhatsNewCard } from '@/components/organizations/CompanyParts'
 import { SchoolAttentionCard } from '@/components/organizations/SchoolParts'
 import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
@@ -305,6 +306,9 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                     </OrgCard>
                 ) : null}
                 {data.pinned ? <PinnedRow orgId={orgId} base={base} pinned={data.pinned} onChanged={() => void query.refetch()} /> : null}
+                {/* Report 33.2 (B4.1d): a company's home — What's new under the pinned post; Needs review for admins. */}
+                {orgType === 'company' ? <WhatsNewCard orgId={orgId} base={base} /> : null}
+                {orgType === 'company' ? <NeedsReviewCard orgId={orgId} base={base} /> : null}
                 {data.getStarted.length ? (
                     // Report §7.2, decision 7: three cards while the organization is empty, each opening the real form.
                     <OrgCard title="Get started" action={<Link href="/help/running-a-class" className="nb-link text-[13px]">Running a class on NetworkBase</Link>}>
