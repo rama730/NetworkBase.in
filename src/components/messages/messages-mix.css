@@ -612,3 +612,12 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-ireply { padding: 0 20px 12px 88px; animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
 @media (max-width: 639px) { .nbm-ireply { padding-left: 12px; } }
 .nbm-lgroup { margin: 0; padding: 14px 20px 6px; }
+
+/* Search and Browse (Phase 8 Task 34) */
+.nbm-find { height: 44px; border-color: var(--nbm-line); border-radius: 6px; font-size: 15px; }
+.nbm-find:focus-visible { border-color: var(--foreground); }
+.nbm-fcell { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 13px; color: var(--nbm-fg2); transition: background-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
+.nbm-fcell:hover { color: var(--foreground); border-color: var(--foreground); }
+.nbm-fcell[data-set="true"] { border-color: var(--nbm-ink); background: var(--nbm-ink); color: var(--nbm-on-ink); }
+@media (pointer: coarse) { .nbm-fcell { height: 44px; } }
+.nbm-hit { padding: 0 2px; border-radius: 2px; background: var(--nbm-mark); color: var(--foreground); font-weight: 500; }

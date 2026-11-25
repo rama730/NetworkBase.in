@@ -39,3 +39,18 @@ test('Saved: reminder tags (Set / Due warn / Sent); Drafts and scheduled: mono g
   assert.match(views, /<h2 id="scheduled-heading" className="nbm-glabel nbm-lgroup">/);
   assert.match(views, /className=\{item\.failed_reason \? "nbm-failed-label" : "nbm-lrow-meta"\}/);
 });
+
+test('Search: big find field, filter cells with an ink set state, warm-mark highlights, mono result line', () => {
+  assert.match(views, /className="nbm-find pl-9 pr-10"/);
+  assert.match(views, /data-set=\{hasFile \? "true" : undefined\}/);
+  assert.match(views, /<mark key=\{i\} className="nbm-hit">/);
+  assert.match(views, /<p className="nbm-lgroup nbm-lrow-meta">\{resultPages\.hasNextPage/);
+  assert.match(css, /\.nbm-hit\s*\{[^}]*var\(--nbm-mark\)/);
+  assert.match(css, /\.nbm-fcell\[data-set="true"\][^{]*\{[^}]*var\(--nbm-ink\)/);
+});
+
+test('Browse: Show and Sort as segmented cells; Joined is a square tag', () => {
+  assert.match(views, /role="radiogroup" aria-label="Show" className="nbm-seg"/);
+  assert.match(views, /role="radiogroup" aria-label="Sort" className="nbm-seg"/);
+  assert.match(views, /<span className="nbm-tag flex-none"><Check size=\{12\} aria-hidden="true" \/> Joined<\/span>/);
+});

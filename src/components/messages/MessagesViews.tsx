@@ -268,7 +268,6 @@ export function WorkspaceLanding({ projectId }: { projectId: string }) {
 
 type BrowseSort = "name" | "members";
 type BrowseShow = "all" | "joined" | "open" | "archived";
-const FILTER_CONTROL = "w-auto text-[13px] pointer-coarse:h-11";
 const membersLabel = (count: number) => `${count} member${count === 1 ? "" : "s"}`;
 
 /** Public channels in a project: filter, sort, join (D5). Private channels are never listed. */
@@ -321,22 +320,16 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter channels" className="max-w-md pl-9 pointer-coarse:h-11 pointer-coarse:text-[17px]" />
         </label>
-        <Select value={show} onValueChange={(value) => setShow(value as BrowseShow)}>
-          <SelectTrigger aria-label="Show" className={FILTER_CONTROL}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All channels</SelectItem>
-            <SelectItem value="joined">Joined</SelectItem>
-            <SelectItem value="open">Not joined</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sort} onValueChange={(value) => setSort(value as BrowseSort)}>
-          <SelectTrigger aria-label="Sort" className={FILTER_CONTROL}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="name">Sort: Name</SelectItem>
-            <SelectItem value="members">Sort: Most members</SelectItem>
-          </SelectContent>
-        </Select>
+        <div role="radiogroup" aria-label="Show" className="nbm-seg">
+          {([["all", "All channels"], ["joined", "Joined"], ["open", "Not joined"], ["archived", "Archived"]] as const).map(([value, label]) => (
+            <button key={value} type="button" role="radio" aria-checked={show === value} onClick={() => setShow(value)}>{label}</button>
+          ))}
+        </div>
+        <div role="radiogroup" aria-label="Sort" className="nbm-seg">
+          {([["name", "Sort: Name"], ["members", "Sort: Most members"]] as const).map(([value, label]) => (
+            <button key={value} type="button" role="radio" aria-checked={sort === value} onClick={() => setSort(value)}>{label}</button>
+          ))}
+        </div>
       </div>
       <p className="border-b border-border px-4 py-2 text-[13px] text-muted-foreground">Private channels aren’t listed. Ask a member to add you.</p>
       {channels.isLoading ? <ListSkeleton header={false} label="Loading channels" rows={4} /> : null}
@@ -353,7 +346,7 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
               <Button asChild variant="outline" size="sm" className="pointer-coarse:h-11"><Link href={conversationHref(channel.id)}>View</Link></Button>
             ) : channel.joined ? (
               <>
-                <span className="nb-tag flex-none"><Check size={14} aria-hidden="true" /> Joined</span>
+                <span className="nbm-tag flex-none"><Check size={12} aria-hidden="true" /> Joined</span>
                 <Button asChild variant="outline" size="sm" className="pointer-coarse:h-11"><Link href={conversationHref(channel.id)}>Open</Link></Button>
               </>
             ) : (
@@ -1015,7 +1008,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   const words = query.split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, "")).filter((w) => w.length > 1);
   if (!words.length) return <>{text}</>;
   const pattern = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
-  return <>{text.split(pattern).map((part, i) => (i % 2 ? <mark key={i} className="rounded-sm bg-accent px-0.5 font-medium text-foreground">{part}</mark> : part))}</>;
+  return <>{text.split(pattern).map((part, i) => (i % 2 ? <mark key={i} className="nbm-hit">{part}</mark> : part))}</>;
 }
 
 /** From: anyone you could message, searched by name (not only people in your DM list). */
@@ -1142,14 +1135,14 @@ export function SearchView() {
         <label className="relative block">
           <span className="sr-only">Search messages</span>
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus type="search" enterKeyHint="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search messages" className="h-[var(--ui-control-height-lg)] pl-9 pr-10" />
+          <Input autoFocus type="search" enterKeyHint="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search messages" className="nbm-find pl-9 pr-10" />
           {draft ? (
             <button type="button" onClick={() => { setDraft(""); set({ q: null }); }} aria-label="Clear search" className="nb-icon-button absolute right-1.5 top-1/2 size-8 -translate-y-1/2 pointer-coarse:size-11"><X size={16} /></button>
           ) : null}
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={inChannel || "everywhere"} onValueChange={(value) => set({ in: value === "everywhere" ? null : value })}>
-            <SelectTrigger aria-label="In" className={`w-auto max-w-[240px] text-[13px] pointer-coarse:h-11 ${inChannel ? "border-foreground bg-foreground text-background" : ""}`}><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="In" className="nbm-fcell w-auto max-w-[240px]" data-set={inChannel ? "true" : undefined}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="everywhere">In: everywhere</SelectItem>
               <SelectGroup>
@@ -1166,7 +1159,7 @@ export function SearchView() {
           </Select>
           <FromPicker value={from} label={fromLabel} meId={meId} onPick={(person) => set({ from: person?.id ?? null, fromName: person && person.id !== meId ? person.name : null })} />
           {/* Selected filter = ink fill (spec), the same look everywhere. */}
-          <button type="button" aria-pressed={hasFile} onClick={() => set({ has: hasFile ? null : "file" })} className={`inline-flex items-center gap-1.5 ${control} px-3 ${hasFile ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+          <button type="button" aria-pressed={hasFile} onClick={() => set({ has: hasFile ? null : "file" })} className="nbm-fcell" data-set={hasFile ? "true" : undefined}>
             <Paperclip size={14} /> Has file
           </button>
           <label className="inline-flex items-center gap-1 text-[13px] text-muted-foreground">After <input type="date" value={after} onChange={(e) => set({ after: e.target.value || null })} className={control} /></label>
@@ -1180,7 +1173,7 @@ export function SearchView() {
       {resultPages.isLoading ? <ListSkeleton header={false} label="Searching" rows={4} /> : null}
       {resultPages.isError && !results ? <ListError what="Search results" detail={chatErrorMessage(resultPages.error.message)} query={resultPages} /> : null}
       {results && !results.length ? <Empty icon={Search} title="No messages match">{filtered ? "Try fewer filters." : "Try other words."}</Empty> : null}
-      {results?.length ? <p className="nb-meta px-4 pt-3">{resultPages.hasNextPage ? `Newest ${results.length} results` : `${results.length} result${results.length === 1 ? "" : "s"}`}</p> : null}
+      {results?.length ? <p className="nbm-lgroup nbm-lrow-meta">{resultPages.hasNextPage ? `Newest ${results.length} results` : `${results.length} result${results.length === 1 ? "" : "s"}`}</p> : null}
       <ul aria-label="Search results" onKeyDown={rowKeys}>
         {(results ?? []).map((hit: SearchHit, index) => {
           const key = `${hit.channel_id}:${hit.seq}`;
