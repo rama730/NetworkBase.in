@@ -80,4 +80,30 @@ test("away by periods opens cover slots; suggestions with reasons; the manager p
   assert.ok(mine.success);
   assert.deepEqual(mine.covers.map((c) => [c.class_name, c.period, c.note]), [["6B", "P3", "Worksheet on the desk"]]);
   assert.equal(JSON.stringify(mine).includes("Doctor"), false, "reasons stay with leaders");
+
+  // B3.4d: Asha writes 6B's cover info; a lesson cancelled today needs no cover; Cover only staff (Viewers) can cover.
+  viewerId = asha!;
+  assert.equal((await cover.saveCoverInfoAction(school, "6B", { routines: "Line up outside", where: "Books in the blue tray", emergencies: "Call the office" })).success, true);
+  assert.equal((await cover.saveCoverInfoAction(school, "7A", { routines: "x", where: "", emergencies: "" })).success, false, "only a class's own teacher or a leader");
+  viewerId = mo!;
+  const withInfo = await cover.readMyCoverAction(school, day);
+  assert.ok(withInfo.success && withInfo.covers[0]!.info?.where === "Books in the blue tray");
+  const [supply, guest] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${school}, ${supply!}, 'viewer'), (${school}, ${guest!}, 'viewer')`;
+  viewerId = principal!;
+  assert.equal((await cover.saveCoverOnlyAction(school, [asha!])).success, false, "Cover only is for Viewers");
+  assert.equal((await cover.saveCoverOnlyAction(school, [supply!])).success, true);
+  await sql`UPDATE profiles SET full_name = 'Sam Supply' WHERE id = ${supply!}`;
+  const tt2 = await loadAppModule(() => import("../../src/app/actions/school-timetable"));
+  const [p1] = await sql`SELECT id FROM school_timetable_slots WHERE workspace_id = ${school} AND class_name = '6A'`;
+  await cover.reportAbsenceAction(school, { userId: asha!, day });
+  assert.equal((await tt2.setSlotChangeAction(school, p1!.id, day, { kind: "cancelled" })).success, true);
+  const board2 = await cover.readCoverBoardAction(school, day);
+  assert.ok(board2.success);
+  assert.equal(board2.slots.some((x) => x.className === "6A"), false, "a cancelled lesson needs no cover");
+  assert.equal((await cover.assignCoverAction(school, board2.slots[0]!.id, day, supply!)).success, true, "Cover only staff can be given cover");
+  viewerId = guest!;
+  assert.equal((await cover.readMyCoverAction(school, day)).success, false, "a plain Viewer reads nothing here");
+  viewerId = supply!;
+  assert.equal((await cover.readMyCoverAction(school, day)).success, true);
 });

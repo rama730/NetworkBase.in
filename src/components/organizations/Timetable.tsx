@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { importTimetableAction, readTimetableAction, saveTimetableSettingsAction } from "@/app/actions/school-timetable";
+import { importTimetableAction, readTimetableAction, saveTimetableSettingsAction, setSlotChangeAction, classTimesFromTimetableAction } from "@/app/actions/school-timetable";
+import { readCoverInfoAction, readCoverOnlyAction, saveCoverInfoAction, saveCoverOnlyAction } from "@/app/actions/school-cover";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
 import { PixelBeat } from "@/components/ui/PixelBeat";
@@ -66,6 +67,7 @@ export function TimetableSettingsCard({ schoolId }: { schoolId: string }) {
           {ab.on ? <Input type="date" value={ab.start} aria-label="Monday of a Week A" onChange={(e) => setWeekAB({ ...ab, start: e.target.value })} className="w-[160px] font-mono" /> : null}
           <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save the school day</button>
         </span>
+        <CoverOnlySettings schoolId={schoolId} />
         {q.data.settings ? (
           <div className="space-y-2">
             <p className="font-medium">The timetable <span className="font-normal text-muted-foreground">· {q.data.all.length} slots</span></p>
@@ -114,7 +116,8 @@ export function TimetableView({ schoolId }: { schoolId: string }) {
             {d.yourDay.map((p) => (
               <li key={p.key} className={cn("flex flex-wrap gap-3 px-3 py-1.5", p.kind !== "lesson" && "bg-muted text-muted-foreground")}>
                 <span className="w-[110px] font-mono">{p.start}–{p.end}</span><span className="w-[60px]">{p.key}</span>
-                <span>{p.kind !== "lesson" ? (p.kind === "break" ? "Break" : "Lunch") : p.slots.map((x) => slotLine(x)).join(" · ") || "Free"}</span>
+                <span>{p.kind !== "lesson" ? (p.kind === "break" ? "Break" : "Lunch") : p.slots.map((x) => `${slotLine(x)}${x.cancelled ? " · Cancelled today" : ""}`).join(" · ") || "Free"}</span>
+                {p.slots.map((x) => <TodayOnly key={x.id} schoolId={schoolId} slot={x} day={d.today} />)}
               </li>
             ))}
           </ul>
@@ -122,6 +125,7 @@ export function TimetableView({ schoolId }: { schoolId: string }) {
         {d.covers.length ? <p data-testid="your-covers"><span className="font-medium">Cover today:</span> {d.covers.map((c) => `${c.period} ${c.class_name}${c.room ? ` · ${c.room}` : ""}${c.note ? ` (${c.note})` : ""}`).join("; ")}</p> : null}
         {d.duties.length ? <p data-testid="your-duties"><span className="font-medium">Duty today:</span> {d.duties.map((x) => `${x.place}, ${x.slot}`).join("; ")}</p> : null}
       </div>
+      <CoverInfoEditor schoolId={schoolId} classes={[...new Set(d.mine.map((x) => x.className))]} />
       {d.leader && teachers.length ? (
         <label className="flex items-center gap-2">Timetable of
           <select className="nb-select" data-size="sm" value={teacher} onChange={(e) => setTeacher(e.target.value)}>
@@ -144,5 +148,86 @@ export function TimetableView({ schoolId }: { schoolId: string }) {
         </table>
       </div>
     </section>
+  );
+}
+
+/** B3.4d "Today only": cancel this lesson or move its room for today (the teacher or a leader). */
+function TodayOnly({ schoolId, slot, day }: { schoolId: string; slot: Slot; day: string }) {
+  const client = useQueryClient();
+  const [room, setRoom] = useState<string | null>(null);
+  const done = (r: { success: boolean; error?: string }, ok: string) => { if (!r.success) return void toast.error(r.error ?? "Couldn’t save."); toast.success(ok); setRoom(null); void client.invalidateQueries({ queryKey: key(schoolId) }); };
+  return (
+    <span className="ml-auto flex flex-wrap items-center gap-2 text-[12px]">
+      {slot.cancelled ? <button type="button" className="text-primary hover:underline" onClick={() => void setSlotChangeAction(schoolId, slot.id, day, null).then((r) => done(r, "Lesson back on"))}>Undo cancel<span className="sr-only"> {slot.className}</span></button> : (
+        <>
+          <button type="button" className="text-primary hover:underline" onClick={() => void setSlotChangeAction(schoolId, slot.id, day, { kind: "cancelled" }).then((r) => done(r, "Cancelled for today"))}>Cancel today<span className="sr-only"> {slot.className}</span></button>
+          {room === null ? <button type="button" className="text-primary hover:underline" onClick={() => setRoom("")}>Room today…<span className="sr-only"> {slot.className}</span></button> : (
+            <span className="flex items-center gap-1"><Input value={room} maxLength={40} aria-label={`Room today for ${slot.className}`} onChange={(e) => setRoom(e.target.value)} className="h-7 w-[120px]" />
+              <button type="button" className={FORM_SECONDARY_CLASS} disabled={!room.trim()} onClick={() => void setSlotChangeAction(schoolId, slot.id, day, { kind: "room", room }).then((r) => done(r, "Room changed for today"))}>Save</button></span>
+          )}
+        </>
+      )}
+    </span>
+  );
+}
+
+/** B3.4d (call 10): cover info for a class I teach — routines, where things are, emergencies; no names or medical details. */
+function CoverInfoEditor({ schoolId, classes }: { schoolId: string; classes: string[] }) {
+  const [cls, setCls] = useState("");
+  const [f, setF] = useState<{ routines: string; where: string; emergencies: string } | null>(null);
+  if (!classes.length) return null;
+  const open = async (name: string) => {
+    setCls(name);
+    const r = await readCoverInfoAction(schoolId, name);
+    setF(r.success && r.info ? r.info : { routines: "", where: "", emergencies: "" });
+  };
+  return (
+    <details className="rounded-md border border-border p-3" data-testid="cover-info-editor">
+      <summary className="cursor-pointer font-medium">Cover info for my classes</summary>
+      <p className="mt-1 text-[12px] text-muted-foreground">What someone covering needs: routines, where things are, what to do in an emergency. Never student names or medical details.</p>
+      <select className="nb-select mt-2" data-size="sm" aria-label="Class for cover info" value={cls} onChange={(e) => void open(e.target.value)}>
+        <option value="">Pick a class…</option>{classes.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+      {f && cls ? (
+        <div className="mt-2 space-y-2">
+          {(["routines", "where", "emergencies"] as const).map((k) => (
+            <label key={k} className="flex flex-col gap-1"><span className="font-medium">{k === "routines" ? "Routines" : k === "where" ? "Where things are" : "Emergencies"}</span>
+              <textarea className="nb-textarea" rows={2} maxLength={2000} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></label>
+          ))}
+          <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void saveCoverInfoAction(schoolId, cls, f).then((r) => (r.success ? toast.success(`Cover info for ${cls} saved`) : toast.error(r.error)))}>Save cover info</button>
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
+/** B3.4d (call 8): Cover only — outside supply staff who join as Viewers; they see only their covers. Leaders. */
+export function CoverOnlySettings({ schoolId }: { schoolId: string }) {
+  const client = useQueryClient();
+  const q = useQuery({ queryKey: ["cover-only", schoolId], queryFn: () => readCoverOnlyAction(schoolId), staleTime: 60_000 });
+  if (!q.data?.success || !q.data.viewers.length) return null;
+  const list = q.data.viewers;
+  const toggle = async (id: string, on: boolean) => {
+    const r = await saveCoverOnlyAction(schoolId, list.filter((v) => (v.id === id ? on : v.coverOnly)).map((v) => v.id));
+    if (!r.success) return void toast.error(r.error);
+    void client.invalidateQueries({ queryKey: ["cover-only", schoolId] });
+  };
+  return (
+    <fieldset className="space-y-1 text-[13px]" data-testid="cover-only">
+      <legend className="font-medium">Cover only (outside supply staff, invited as Viewers)</legend>
+      {list.map((v) => <label key={v.id} className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={v.coverOnly} onChange={(e) => void toggle(v.id, e.target.checked)} />{v.name}</label>)}
+    </fieldset>
+  );
+}
+
+/** B3.4d (call 4): a course takes its class times from the school's timetable (its teacher's slots for its classes). */
+export function UseTimetableButton({ classId }: { classId: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => { setBusy(true); void classTimesFromTimetableAction(classId).then((r) => {
+      setBusy(false);
+      if (!r.success) return void toast.error(r.error);
+      toast.success(`Class times set from the timetable: ${r.meets} a week`);
+    }); }}>Use the school timetable for class times</button>
   );
 }

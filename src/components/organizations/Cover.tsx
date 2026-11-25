@@ -104,7 +104,13 @@ export function MyCover({ schoolId }: { schoolId: string }) {
   return (
     <section aria-label="My cover" className="space-y-3 text-[13px]" data-testid="my-cover">
       <ReportAbsence schoolId={schoolId} onDone={() => void client.invalidateQueries({ queryKey: ["my-cover", schoolId] })} />
-      {d?.covers.length ? <ul className="space-y-1" aria-label="Lessons I cover">{d.covers.map((c, i) => <li key={i}><span className="font-mono">{c.day} {c.period}</span> · {c.class_name}{c.room ? ` · ${c.room}` : ""}{c.note ? ` · ${c.note}` : ""}</li>)}</ul>
+      {d?.covers.length ? <ul className="space-y-2" aria-label="Lessons I cover">{d.covers.map((c, i) => (
+        <li key={i}><span className="font-mono">{c.day} {c.period}</span> · {c.class_name}{c.room ? ` · ${c.room}` : ""}{c.note ? ` · ${c.note}` : ""}
+          {c.info ? <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-[12px] text-muted-foreground sm:grid-cols-[auto_1fr]" data-testid="cover-info">
+            {c.info.routines ? <><dt className="font-medium">Routines</dt><dd>{c.info.routines}</dd></> : null}
+            {c.info.where ? <><dt className="font-medium">Where things are</dt><dd>{c.info.where}</dd></> : null}
+            {c.info.emergencies ? <><dt className="font-medium">Emergencies</dt><dd>{c.info.emergencies}</dd></> : null}</dl> : null}
+        </li>))}</ul>
         : <p className="text-muted-foreground">No lessons to cover.</p>}
     </section>
   );

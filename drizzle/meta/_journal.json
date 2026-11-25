@@ -1009,6 +1009,13 @@
       "when": 1795605272596,
       "tag": "0144_school_duties",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1795606994255,
+      "tag": "0145_school_slot_changes",
+      "breakpoints": true
     }
   ]
 }

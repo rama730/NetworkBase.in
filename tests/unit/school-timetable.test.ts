@@ -32,3 +32,14 @@ test("CSV import: day names, period keys from the school day, errors per row", (
   assert.deepEqual(rows.map((r) => [r.day, r.period, r.className, r.week, r.error]), [
     [2, "P1", "6A", "A", null], [2, "P9", "6B", null, "No period called P9 in the school day"], [null, "P1", "6C", null, "Day isn’t a weekday name"], [3, "P2", "7A", null, "Week is A or B"]]);
 });
+
+test("B3.4d: today-only changes; a course's class times from its slots", async () => {
+  const { meetsFromSlots, withChanges } = await import("@/lib/organizations/school-timetable");
+  const slots = [
+    { id: "1", day: 2, period: "P1", week: null, className: "6A", courseId: null, teacherId: "t", room: "S1" },
+    { id: "2", day: 4, period: "P2", week: null, className: "6A", courseId: null, teacherId: "t", room: "S1" },
+    { id: "3", day: 2, period: "P2", week: null, className: "7B", courseId: null, teacherId: "t", room: "S2" },
+  ];
+  assert.deepEqual(withChanges(slots, [{ slotId: "1", kind: "cancelled", room: null }, { slotId: "3", kind: "room", room: "Hall" }]).map((x) => [x.id, x.cancelled ?? false, x.room]), [["1", true, "S1"], ["2", false, "S1"], ["3", false, "Hall"]]);
+  assert.deepEqual(meetsFromSlots(slots, s, ["6A"]), [{ day: 2, start: "08:50", end: "09:50" }, { day: 4, start: "10:10", end: "11:10" }]);
+});

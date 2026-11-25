@@ -1401,6 +1401,17 @@ export const schoolDutySwaps = pgTable("school_duty_swaps", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   decidedAt: timestamp("decided_at", { withTimezone: true }),
 }, (t) => [index("school_duty_swaps_workspace_idx").on(t.projectId, t.day), uniqueIndex("school_duty_swaps_one_accepted").on(t.dutyId, t.day).where(sql`state = 'accepted'`)]);
+/** B3.4d (0145, report 32.5 "Today only"): a slot cancelled or moved room on one day. Server only. */
+export const schoolSlotChanges = pgTable("school_slot_changes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  slotId: uuid("slot_id").notNull().references(() => schoolTimetableSlots.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  kind: text("kind").notNull(),
+  room: text("room"),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [unique("school_slot_changes_one_per_day").on(t.slotId, t.day), index("school_slot_changes_workspace_day_idx").on(t.projectId, t.day)]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),

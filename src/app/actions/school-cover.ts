@@ -29,7 +29,10 @@ async function school(schoolId: string, write = false) {
   const [w] = Array.from(await db.execute<{ level: string | null; settings: unknown; slug: string | null }>(sql`
     SELECT org_level AS level, org_settings AS settings, slug FROM workspaces WHERE id = ${schoolId}::uuid AND deleted_at IS NULL`));
   if (w?.level !== "institution" || !a.canRead || !(a.isOwner || a.isMember) || (write && !a.canWrite)) return null;
-  return { userId, leader: a.isOwner || a.memberRole === "admin", settings: w.settings, slug: w.slug };
+  // Security: a Viewer who isn't Cover only reads nothing here.
+  const viewer = !a.isOwner && a.memberRole === "viewer";
+  if (viewer && !coverOnlyOf(w.settings).includes(userId)) return null;
+  return { userId, leader: a.isOwner || a.memberRole === "admin", settings: w.settings, slug: w.slug, viewer };
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -62,11 +65,16 @@ export async function removeAbsenceAction(schoolId: string, absenceId: string): 
 }
 
 type Staff = { id: string; name: string; department: string | null };
+/** B3.4d (call 8): outside supply staff join as Viewers and are marked Cover only by the school's leaders. */
+const coverOnlyOf = (settings: unknown) => { const raw = (settings as { coverOnly?: unknown } | null)?.coverOnly; return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string").slice(0, 100) : []; };
 async function staffOf(schoolId: string): Promise<Staff[]> {
+  const [w] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${schoolId}::uuid`));
+  const coverOnly = coverOnlyOf(w?.settings);
   return Array.from(await db.execute<{ id: string; name: string | null; department: string | null }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username) AS name,
       (SELECT c.org_settings->>'department' FROM workspaces c WHERE c.institution_id = ${schoolId}::uuid AND c.owner_id = p.id AND c.deleted_at IS NULL AND c.org_settings ? 'department' LIMIT 1) AS department
-    FROM profiles p WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${schoolId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${schoolId}::uuid AND role <> 'viewer')`))
+    FROM profiles p WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${schoolId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${schoolId}::uuid
+      AND (role <> 'viewer' OR user_id IN (SELECT jsonb_array_elements_text(${JSON.stringify(coverOnly)}::jsonb)::uuid)))`))
     .map((r) => ({ id: r.id, name: r.name ?? "Staff", department: r.department }));
 }
 
@@ -89,7 +97,9 @@ export async function readCoverBoardAction(schoolId: string, day: string) {
       .filter((s) => !s.week || !letter || s.week === letter)
       .map((s): Slot => ({ id: s.id, day: isoDay(day), period: s.period, week: s.week, className: s.class_name, courseId: null, teacherId: s.teacher_id, room: s.room }));
     const abs: Absence[] = absences.map((a) => ({ userId: a.user_id, from: a.from_period, to: a.to_period }));
-    const open = coverSlots(daySlots, order, abs).sort((a, b) => order.indexOf(a.period) - order.indexOf(b.period));
+    // B3.4d: a lesson cancelled for the day needs no cover.
+    const cancelled = new Set(Array.from(await db.execute<{ slot_id: string }>(sql`SELECT slot_id FROM school_slot_changes WHERE workspace_id = ${schoolId}::uuid AND day = ${day}::date AND kind = 'cancelled'`)).map((r) => r.slot_id));
+    const open = coverSlots(daySlots.filter((s) => !cancelled.has(s.id)), order, abs).sort((a, b) => order.indexOf(a.period) - order.indexOf(b.period));
     const covers = Array.from(await db.execute<{ slot_id: string; cover_user_id: string; note: string | null }>(sql`
       SELECT slot_id, cover_user_id, note FROM school_covers WHERE workspace_id = ${schoolId}::uuid AND day = ${day}::date`));
     const counts = new Map(Array.from(await db.execute<{ user_id: string; n: number }>(sql`
@@ -147,5 +157,53 @@ export async function readMyCoverAction(schoolId: string, from: string) {
   const covers = Array.from(await db.execute<{ day: string; period: string; class_name: string; room: string | null; note: string | null }>(sql`
     SELECT c.day::text, s.period, s.class_name, s.room, c.note FROM school_covers c JOIN school_timetable_slots s ON s.id = c.slot_id
     WHERE c.workspace_id = ${schoolId}::uuid AND c.cover_user_id = ${ctx.userId}::uuid AND c.day >= ${from}::date ORDER BY c.day, s.period LIMIT 50`));
-  return { success: true as const, absences: absences.map((a) => ({ id: a.id, day: a.day, from: a.from_period, to: a.to_period })), covers };
+  const info = ((ctx.settings as { coverInfo?: Record<string, unknown> } | null)?.coverInfo ?? {}) as Record<string, CoverInfo>;
+  return { success: true as const, absences: absences.map((a) => ({ id: a.id, day: a.day, from: a.from_period, to: a.to_period })),
+    covers: covers.map((c) => ({ ...c, info: info[c.class_name] ?? null })) };
+}
+
+/** B3.4d (call 10): cover info per class — routines, where things are, emergencies; never student names or medical details. */
+export type CoverInfo = { routines: string; where: string; emergencies: string };
+const infoSchema = z.object({ routines: z.string().trim().max(2000), where: z.string().trim().max(2000), emergencies: z.string().trim().max(2000) }).strict();
+
+export async function readCoverInfoAction(schoolId: string, className: string) {
+  const ctx = await school(schoolId);
+  if (!ctx || typeof className !== "string" || !className.trim() || className.length > 40) return DENIED;
+  const info = ((ctx.settings as { coverInfo?: Record<string, CoverInfo> } | null)?.coverInfo ?? {})[className] ?? null;
+  return { success: true as const, info };
+}
+
+/** Write a class's cover info: the school's leaders or a teacher who teaches that class. */
+export async function saveCoverInfoAction(schoolId: string, className: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await school(schoolId, true);
+  if (!ctx || typeof className !== "string" || !className.trim() || className.length > 40) return DENIED;
+  if (!ctx.leader) {
+    const [t] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM school_timetable_slots WHERE workspace_id = ${schoolId}::uuid AND class_name = ${className} AND teacher_id = ${ctx.userId}::uuid) AS ok`));
+    if (!t?.ok) return DENIED;
+  }
+  const parsed = infoSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Keep each part of the cover info to 2,000 characters." };
+  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{coverInfo}',
+    coalesce(org_settings->'coverInfo', '{}'::jsonb) || jsonb_build_object(${className}::text, ${JSON.stringify(parsed.data)}::jsonb)) WHERE id = ${schoolId}::uuid`);
+  return { success: true };
+}
+
+/** Cover only (call 8): the school's leaders mark Viewers as outside cover staff; they see only their covers. */
+export async function saveCoverOnlyAction(schoolId: string, userIds: string[]): Promise<{ success: true } | Failure> {
+  const ctx = await school(schoolId, true);
+  if (!ctx?.leader || !Array.isArray(userIds) || userIds.length > 100 || !userIds.every(isLooseUuid)) return DENIED;
+  const viewers = new Set(Array.from(await db.execute<{ user_id: string }>(sql`SELECT user_id FROM workspace_members WHERE workspace_id = ${schoolId}::uuid AND role = 'viewer'`)).map((r) => r.user_id));
+  if (userIds.some((id) => !viewers.has(id))) return { success: false, error: "Cover only is for Viewers (outside supply staff)." };
+  await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('coverOnly', ${JSON.stringify(userIds)}::jsonb) WHERE id = ${schoolId}::uuid`);
+  return { success: true };
+}
+
+/** The school's Viewers, and which are Cover only (leaders). */
+export async function readCoverOnlyAction(schoolId: string) {
+  const ctx = await school(schoolId);
+  if (!ctx?.leader) return DENIED;
+  const on = new Set(coverOnlyOf(ctx.settings));
+  const viewers = Array.from(await db.execute<{ id: string; name: string | null }>(sql`
+    SELECT p.id, coalesce(p.full_name, p.username) AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id WHERE m.workspace_id = ${schoolId}::uuid AND m.role = 'viewer' ORDER BY 2`));
+  return { success: true as const, viewers: viewers.map((v) => ({ id: v.id, name: v.name ?? "Viewer", coverOnly: on.has(v.id) })) };
 }

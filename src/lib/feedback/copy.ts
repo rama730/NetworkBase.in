@@ -794,4 +794,10 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "That isn’t your duty.": {"title": "That isn’t your duty.", "type": "warning"},
   "Pick a day when that duty happens.": {"title": "Pick a day when that duty happens.", "type": "warning"},
   "That swap was answered or taken already.": {"title": "That swap was answered or taken already.", "type": "warning"},
+  "That lesson isn’t on that day.": {"title": "That lesson isn’t on that day.", "type": "warning"},
+  "Name the room.": {"title": "Name the room.", "type": "warning"},
+  "The school hasn’t set up its timetable yet.": {"title": "The school hasn’t set up its timetable yet.", "type": "warning"},
+  "You have no lessons for this course on the school’s timetable.": {"title": "You have no lessons for this course on the school’s timetable.", "type": "warning"},
+  "Keep each part of the cover info to 2,000 characters.": {"title": "Keep each part of the cover info to 2,000 characters.", "type": "warning"},
+  "Cover only is for Viewers (outside supply staff).": {"title": "Cover only is for Viewers (outside supply staff).", "type": "warning"},
 };

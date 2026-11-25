@@ -3,6 +3,7 @@
 import { readPathAction, setPathSettingsAction } from "@/app/actions/learning-path";
 import { PathView } from "@/components/workspaces/tabs/sprint/LearningPath";
 import { EventsView } from "@/components/organizations/SchoolEvents";
+import { UseTimetableButton } from "@/components/organizations/Timetable";
 import { Fragment, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -375,6 +376,8 @@ export function TermPlanSettings({ orgId }: { orgId: string }) {
             <span className="text-[12px] text-muted-foreground">Names, separated by commas, such as 6A, 6B, 6C. Each lesson is then ticked Taught per class.</span>
             <Input aria-label="Classes this course teaches" value={groupsText ?? data.groups.join(", ")} maxLength={300} onChange={(e) => setGroupsText(e.target.value)} className="max-w-md font-mono" />
           </label>
+          {/* B3.4d (report 32.5 call 4): class times from the school's timetable, so each lesson knows its day. */}
+          <span className="block"><UseTimetableButton classId={orgId} /></span>
           <label className="flex flex-col gap-1.5 text-[13px]"><span className="font-medium">Students see lessons</span>
             <select className="nb-select w-[240px]" value={s.studentsSee} onChange={(e) => setDraft({ ...s, studentsSee: e.target.value as "ready" | "always" })}>
               <option value="ready">Once they’re Ready</option><option value="always">Always, even while planned</option>

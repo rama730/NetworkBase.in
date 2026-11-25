@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
-import { dayView, isoDay, readTimetableSettings, timetableSettingsSchema, type ImportSlot, type Slot } from "@/lib/organizations/school-timetable";
+import { dayView, isoDay, meetsFromSlots, readTimetableSettings, timetableSettingsSchema, withChanges, type ImportSlot, type Slot } from "@/lib/organizations/school-timetable";
 import { todayInZone } from "@/lib/organizations/zoned-time";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -44,7 +44,10 @@ export async function readTimetableAction(schoolId: string, day?: string) {
   if (!ctx) return DENIED;
   const settings = readTimetableSettings(ctx.settings);
   const today = day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : todayInZone(ctx.zone);
-  const mine = await slotsOf(schoolId, ctx.userId);
+  // B3.4d: today's one-off changes (cancelled, another room) apply to Your day.
+  const changes = Array.from(await db.execute<{ slot_id: string; kind: string; room: string | null }>(sql`
+    SELECT slot_id, kind, room FROM school_slot_changes WHERE workspace_id = ${schoolId}::uuid AND day = ${today}::date`)).map((c) => ({ slotId: c.slot_id, kind: c.kind, room: c.room }));
+  const mine = withChanges(await slotsOf(schoolId, ctx.userId), changes);
   // B3.4b–c (report 32.5 Your day): today's covers given to me, and my duties (a swap I gave away is gone; one I took is mine).
   const covers = Array.from(await db.execute<{ period: string; class_name: string; room: string | null; note: string | null }>(sql`
     SELECT s.period, s.class_name, s.room, c.note FROM school_covers c JOIN school_timetable_slots s ON s.id = c.slot_id
@@ -103,4 +106,43 @@ export async function importTimetableAction(schoolId: string, rows: ImportSlot[]
       FROM jsonb_array_elements(${JSON.stringify(values)}::jsonb) v`);
   });
   return { success: true, added: values.length, unmatched: [...unmatched].slice(0, 50) };
+}
+
+/** B3.4d "Today only": cancel a lesson or move its room for one day — the school's leaders or the slot's teacher. */
+export async function setSlotChangeAction(schoolId: string, slotId: string, day: string, change: { kind: "cancelled" } | { kind: "room"; room: string } | null): Promise<{ success: true } | Failure> {
+  const ctx = await school(schoolId, false);
+  if (!ctx || !isLooseUuid(slotId) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return DENIED;
+  const [slot] = Array.from(await db.execute<{ teacher_id: string | null; day: number }>(sql`SELECT teacher_id, day FROM school_timetable_slots WHERE id = ${slotId}::uuid AND workspace_id = ${schoolId}::uuid`));
+  if (!slot || (!ctx.leader && slot.teacher_id !== ctx.userId)) return DENIED;
+  if (Number(slot.day) !== isoDay(day)) return { success: false, error: "That lesson isn’t on that day." };
+  if (!change) { await db.execute(sql`DELETE FROM school_slot_changes WHERE slot_id = ${slotId}::uuid AND day = ${day}::date`); return { success: true }; }
+  const room = change.kind === "room" ? String(change.room ?? "").trim().slice(0, 40) : null;
+  if (change.kind === "room" && !room) return { success: false, error: "Name the room." };
+  await db.execute(sql`INSERT INTO school_slot_changes (workspace_id, slot_id, day, kind, room, created_by) VALUES (${schoolId}::uuid, ${slotId}::uuid, ${day}::date, ${change.kind}, ${room}, ${ctx.userId}::uuid)
+    ON CONFLICT (slot_id, day) DO UPDATE SET kind = EXCLUDED.kind, room = EXCLUDED.room, created_by = EXCLUDED.created_by, created_at = now()`);
+  return { success: true };
+}
+
+/**
+ * B3.4d (report 32.5 call 4): a course's class times come from the timetable — its teacher's slots for the classes it
+ * teaches (all of them when it lists none). The course's teacher; its other details stay.
+ */
+export async function classTimesFromTimetableAction(classId: string): Promise<{ success: true; meets: number } | Failure> {
+  if (!isLooseUuid(classId)) return DENIED;
+  const auth: { user: { id: string } | null; tokenKind?: string | null } = await requireAuthenticatedUser().catch(() => ({ user: null }));
+  const userId = auth.user?.id;
+  if (!userId || auth.tokenKind != null) return DENIED;
+  const [c] = Array.from(await db.execute<{ owner_id: string; institution_id: string | null; settings: unknown }>(sql`
+    SELECT owner_id, institution_id, org_settings AS settings FROM workspaces WHERE id = ${classId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
+  if (!c || c.owner_id !== userId || !c.institution_id) return DENIED;
+  const [sch] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${c.institution_id}::uuid`));
+  const settings = readTimetableSettings(sch?.settings);
+  if (!settings) return { success: false, error: "The school hasn’t set up its timetable yet." };
+  const { readGroups } = await import("@/lib/organizations/curriculum");
+  const meets = meetsFromSlots(await slotsOf(c.institution_id, userId), settings, readGroups(c.settings));
+  if (!meets.length) return { success: false, error: "You have no lessons for this course on the school’s timetable." };
+  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{classDetails}',
+    coalesce(org_settings->'classDetails', ${JSON.stringify({ courseCode: null, room: null, onlineLink: null, officeHours: null, credits: null, breaks: [], show: { courseCode: true, meets: true, term: true, room: false, officeHours: false } })}::jsonb)
+      || jsonb_build_object('meets', ${JSON.stringify(meets)}::jsonb)), updated_at = now() WHERE id = ${classId}::uuid`);
+  return { success: true, meets: meets.length };
 }

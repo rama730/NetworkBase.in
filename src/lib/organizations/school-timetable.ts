@@ -35,7 +35,25 @@ export function weekLetter(day: string, s: TimetableSettings): "A" | "B" | null 
   return ((weeks % 2) + 2) % 2 === 0 ? "A" : "B";
 }
 
-export type Slot = { id: string; day: number; period: string; week: string | null; className: string; courseId: string | null; teacherId: string | null; teacher?: string | null; room: string | null };
+export type Slot = { id: string; day: number; period: string; week: string | null; className: string; courseId: string | null; teacherId: string | null; teacher?: string | null; room: string | null;
+  /** B3.4d (report 32.5 "Today only"): this day's change, when there is one. */
+  cancelled?: boolean };
+
+/** B3.4d: apply one day's changes — a cancelled lesson is marked, a room swap replaces the room. */
+export function withChanges(slots: Slot[], changes: Array<{ slotId: string; kind: string; room: string | null }>): Slot[] {
+  return slots.map((s) => { const c = changes.find((x) => x.slotId === s.id); return !c ? s : c.kind === "cancelled" ? { ...s, cancelled: true } : { ...s, room: c.room }; });
+}
+
+/** B3.4d (report 32.5 call 4): a course's class times from its teacher's slots (JS weekday, 0 = Sunday), one per day and period. */
+export function meetsFromSlots(slots: Slot[], s: TimetableSettings, classNames: string[]) {
+  const out = new Map<string, { day: number; start: string; end: string }>();
+  for (const x of slots) {
+    if (classNames.length && !classNames.includes(x.className)) continue;
+    const p = patternFor(x.day, s)?.periods.find((q) => q.key === x.period && q.kind === "lesson");
+    if (p) out.set(`${x.day}:${p.start}`, { day: x.day % 7, start: p.start, end: p.end });
+  }
+  return [...out.values()].sort((a, b) => a.day - b.day || a.start.localeCompare(b.start)).slice(0, 14);
+}
 
 /** One day: the pattern's rows in order, each lesson period with its slots (filtered to that week's letter). */
 export function dayView(day: string, slots: Slot[], s: TimetableSettings) {

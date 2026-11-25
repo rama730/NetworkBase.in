@@ -75,6 +75,23 @@ test("the school day, an imported timetable, Your day; leaders see all, staff th
   viewerId = principal!;
   const all = await tt.readTimetableAction(school);
   assert.ok(all.success && all.all.length === 3);
+  // B3.4d: a room change today; the course's class times come from the teacher's slots.
+  const [s6a] = await sql`SELECT id FROM school_timetable_slots WHERE workspace_id = ${school} AND class_name = '6A'`;
+  viewerId = other!;
+  assert.equal((await tt.setSlotChangeAction(school, s6a!.id, "2026-09-08", { kind: "room", room: "Hall" })).success, false, "the slot's teacher or a leader");
+  viewerId = teacher!;
+  assert.equal((await tt.setSlotChangeAction(school, s6a!.id, "2026-09-09", { kind: "room", room: "Hall" })).success, false, "that lesson isn't on Wednesday");
+  assert.equal((await tt.setSlotChangeAction(school, s6a!.id, "2026-09-08", { kind: "room", room: "Hall" })).success, true);
+  const changed = await tt.readTimetableAction(school, "2026-09-08");
+  assert.ok(changed.success && changed.yourDay[0]!.slots[0]!.room === "Hall");
+  const course = await sql.begin((tx) => createProject(tx, teacher!));
+  created.push(course);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', institution_id = ${school}, org_settings = ${sql.json({ termPlan: { groups: ["6A"] } })} WHERE id = ${course}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${course}, ${teacher!}, 'owner')`;
+  assert.deepEqual(await tt.classTimesFromTimetableAction(course), { success: true, meets: 1 });
+  const [cd] = await sql`SELECT org_settings->'classDetails'->'meets' AS m FROM workspaces WHERE id = ${course}`;
+  assert.deepEqual(cd!.m, [{ day: 2, start: "09:00", end: "10:00" }], "Tuesday P1, as JS weekday 2");
+  viewerId = principal!;
   // Security review: two people with one name are ambiguous — left unmatched, never guessed.
   await sql`UPDATE profiles SET full_name = 'Asha Rao' WHERE id = ${other!}`;
   const twice = await tt.importTimetableAction(school, [{ day: 2, period: "P1", week: null, className: "6A", teacher: "Asha Rao", room: "", error: null }]);
