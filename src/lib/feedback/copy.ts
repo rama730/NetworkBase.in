@@ -143,6 +143,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Add who it’s for first.": {"title": "Add who it’s for first.", "type": "warning"},
   "Messages in an application conversation are private and can’t be shared.": {"title": "Messages in an application conversation are private and can’t be shared.", "type": "warning"},
   "Only admins create channels here.": {"title": "Only admins create channels here.", "type": "warning"},
+  "Only admins create channels in {org}.": {"title": "Only admins create channels in {org}.", "type": "warning"},
   "Only admins post in #general.": {"title": "Only admins post in #general.", "type": "warning"},
   "Only channel admins can delete a note that has content.": {"title": "Only channel admins can delete a note that has content.", "type": "warning"},
   "People in an application conversation are fixed: the applicant and the workspace’s reviewers.": {"title": "People in an application conversation are fixed: the applicant and the workspace’s reviewers.", "type": "warning"},

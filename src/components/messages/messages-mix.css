@@ -475,3 +475,4 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-check { appearance: none; flex: none; width: 15px; height: 15px; margin: 0; border: 1.5px solid var(--nbm-input); border-radius: 2px; background: var(--card); transition: background-color var(--nbm-m1) var(--nbm-ease), border-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-check:checked { border-color: var(--nbm-brand); background: var(--nbm-brand) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5l4.5-5' fill='none' stroke='white' stroke-width='1.8'/%3E%3C/svg%3E") center / 11px no-repeat; }
 .nbm-dmctx { margin: 0; padding: 6px 16px 0; border-top: 1px solid var(--nbm-line); }
+.nbm-posting-hint { margin: 0; padding: 0 16px 8px; background: var(--card); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }

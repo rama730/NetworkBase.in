@@ -41,7 +41,8 @@ export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenC
     const result = await createChannel({ projectId, name: normalized, description: description.trim() || null, isPrivate });
     setSaving(false);
     if (!result.success) {
-      toast.error(chatErrorMessage(result.error));
+      // The board's words name the organization when we know it.
+      toast.error(result.error === "chat_org_channels_admins_only" && projectTitle ? `Only admins create channels in ${projectTitle}.` : chatErrorMessage(result.error));
       return;
     }
     refresh();

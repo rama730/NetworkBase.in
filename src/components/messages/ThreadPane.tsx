@@ -1,5 +1,6 @@
 "use client";
 
+import { postingFooter } from "@/lib/messaging/posting";
 import { useBugsAdded } from "@/components/messages/useBugsAdded";
 import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
@@ -389,7 +390,10 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   const archived = Boolean(details.data?.channel_archived_at);
   const canReply = isMember && !archived;
   // A note to yourself has nowhere else to send a copy.
-  const alsoSendTo = details.data && isSelfDm(details.data, meId) ? null : conversationLabel;
+  // Read-only workspaces take the reply box; in an admins-only #general replies stay open but "Also send to" would post at the top.
+  const posting = postingFooter(details.data?.posting);
+  const alsoSendTo = posting?.kind === "blocked" && posting.tag === "Admins only" ? null : details.data && isSelfDm(details.data, meId) ? null : conversationLabel;
+  const readOnly = posting?.kind === "blocked" && posting.tag !== "Admins only" ? posting : null;
   const showInConversation = () => {
     if (onShowInConversation) return onShowInConversation();
     // On a phone the thread was pushed like a page: go back to the conversation (not a second
@@ -537,7 +541,12 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           ) : null}
         </MessageHistory>
         {(showLatest || thread.data?.hasNewer) && rows.length ? <LatestBar onClick={() => { if (thread.data?.hasNewer) void loadLatest().catch(() => toast.error("Couldn’t load the latest replies", { description: "Try again." })); else { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); } }} unseen={unseen} label="Jump to latest reply" /> : null}
-        {canReply ? (
+        {canReply && readOnly ? (
+          <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">
+            <span className="nbm-tag">{readOnly.tag}</span>
+            <span><b>{readOnly.line}</b>{readOnly.reason ? ` ${readOnly.reason}` : null}</span>
+          </div></div>
+        ) : canReply ? (
           <Composer
             channelId={channelId}
             threadRootSeq={rootSeq}

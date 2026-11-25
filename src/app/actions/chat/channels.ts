@@ -1,5 +1,6 @@
 "use server";
 
+import type { ChatPosting } from "@/lib/messaging/posting";
 import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 import { sql } from "drizzle-orm";
 
@@ -200,6 +201,8 @@ export type ChannelDetails = ChatChannelSummary & {
   project_slug: string | null;
   is_member: boolean;
   can_admin: boolean;
+  /** Who can post here (org #general admins-only, read-only workspaces). */
+  posting?: ChatPosting;
 };
 
 /** Header and details for a channel the viewer belongs to, or a project's public channel they can join. */
@@ -235,9 +238,22 @@ export async function getChannel(input: { channelId: string }) {
                      WHERE other.channel_id = c.id AND other.user_id <> ${user.id}::uuid
                      ORDER BY other.joined_at LIMIT 3) preview
                JOIN profiles gp ON gp.id = preview.user_id
-             ) ELSE NULL::jsonb END AS members_preview
+             ) ELSE NULL::jsonb END AS members_preview,
+             -- Who can post: the same conditions as chat_org_general_post_guard and chat_org_read_only_guard.
+             jsonb_build_object(
+               'generalAdminsOnly', (c.is_default AND p.kind = 'organization' AND coalesce((p.org_settings->>'generalAdminsOnly')::boolean, false)),
+               'orgAdmin', (p.owner_id = ${user.id}::uuid OR EXISTS (
+                 SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = p.id AND wm.user_id = ${user.id}::uuid AND wm.role = 'admin')),
+               'readOnly', CASE
+                 WHEN p.suspended_at IS NOT NULL THEN jsonb_build_object('reason', 'suspended', 'title', p.title)
+                 WHEN o.suspended_at IS NOT NULL THEN jsonb_build_object('reason', 'suspended', 'title', o.title)
+                 WHEN p.deletion_scheduled_at IS NOT NULL THEN jsonb_build_object('reason', 'deleting', 'title', p.title)
+                 WHEN (p.kind = 'organization' AND p.status = 'archived') OR (o.id IS NOT NULL AND p.status = 'archived') THEN jsonb_build_object('reason', 'archived', 'title', p.title)
+                 ELSE NULL END
+             ) AS posting
       FROM chat_channels c
       LEFT JOIN workspaces p ON p.id = c.workspace_id
+      LEFT JOIN workspaces o ON o.id = p.parent_id AND o.kind = 'organization'
       LEFT JOIN chat_channel_members m ON m.channel_id = c.id AND m.user_id = ${user.id}::uuid
       WHERE c.id = ${input.channelId}::uuid
         AND (m.user_id IS NOT NULL OR (c.kind = 'public' AND app_private.chat_is_workspace_member(c.workspace_id, ${user.id}::uuid)))

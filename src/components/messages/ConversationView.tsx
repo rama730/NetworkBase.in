@@ -1,5 +1,6 @@
 "use client";
 
+import { postingFooter } from "@/lib/messaging/posting";
 import { SidebarSheetToggle } from "@/components/messages/MessagesSidebar";
 import { useBugsAdded } from "@/components/messages/useBugsAdded";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -616,6 +617,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const headerButton = "nbm-cell nb-touch-target";
   const detailsShortcut = keyLabel(detailsKeys());
   // DMs with only Messages skip the tab bar (40px for one tab); bookmarks and files move to ⋯.
+  // Who can post here (org #general admins-only, read-only workspaces).
+  const posting = postingFooter(channel.posting);
   const showTabBar = isMember && surface === "page" && !isApplication && (tabs.length > 1 || !isDirect);
   const starLabel = channel.starred ? `Unstar ${isChannel ? "channel" : "conversation"}` : `Star ${isChannel ? "channel" : "conversation"}`;
 
@@ -910,6 +913,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 <span>This channel is archived. You can read it, but not post.</span>
                 {channel.can_admin ? <Button type="button" variant="outline" size="sm" onClick={() => void unarchive()} className="pointer-coarse:h-11">Unarchive</Button> : null}
               </div></div>
+            ) : posting?.kind === "blocked" ? (
+              // Read-only workspace, or a member in an admins-only #general (threads stay open).
+              <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">
+                <span className="nbm-tag">{posting.tag}</span>
+                <span><b>{posting.line}</b>{posting.reason ? ` ${posting.reason}` : null}</span>
+              </div></div>
             ) : (
               <>
               {channel.kind === "dm" && channel.dm_user && !self ? <DmContextLine person={channel.dm_user} /> : null}
@@ -926,6 +935,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 onSent={onSent}
                 autoFocus
               />
+              {posting?.kind === "hint" ? <p className="nbm-meta nbm-posting-hint">{posting.hint}</p> : null}
               </>
             )}
           </div>
