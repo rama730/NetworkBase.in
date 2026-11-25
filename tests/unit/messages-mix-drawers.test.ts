@@ -50,3 +50,23 @@ test('About: settings rows, a two-cell quick strip, notifications as segmented r
   assert.match(css, /\.nbm-drow-edit\s*\{[^}]*opacity:\s*0/);
   assert.match(css, /\.nbm-drow:hover \.nbm-drow-edit, \.nbm-drow:focus-within \.nbm-drow-edit\s*\{[^}]*opacity:\s*1/);
 });
+
+test('members: list cells with square tags, ⋯ cell, Add people cell, breathing skeleton', () => {
+  const d = readFileSync('src/components/messages/DetailsPane.tsx', 'utf8');
+  assert.match(d, /<div role="listitem" className="nbm-mrow group\/member">/);
+  assert.match(d, /<span className="nbm-tag flex-none">Blocked<\/span>/);
+  assert.match(d, /<span className="nbm-tag flex-none">\{ROLE_LABEL\[member\.role\]\}<\/span>/);
+  assert.match(d, /className="nbm-mcell" onClick=\{onAdd\}/);
+  assert.doesNotMatch(d, /<Skeleton\b/);
+  assert.match(css, /\.nbm-mrow\s*\{[^}]*min-height:\s*48px/);
+});
+
+test('DM person view: serif name, mono handle and local time, red-words group', () => {
+  const d = readFileSync('src/components/messages/DetailsPane.tsx', 'utf8');
+  assert.match(d, /className="nbm-person-name"/);
+  assert.match(d, /className="nbm-person-handle"/);
+  assert.match(d, /className="nbm-person-meta"/);
+  assert.match(d, /className="nbm-dgroup"/);
+  assert.match(css, /\.nbm-person-name\s*\{[^}]*var\(--nbm-serif\)/);
+  assert.match(css, /\.nbm-dgroup > button\.is-danger\s*\{[^}]*color:\s*var\(--nbm-bad\)/);
+});

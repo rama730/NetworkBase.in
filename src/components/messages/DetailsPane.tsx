@@ -24,7 +24,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -207,7 +206,7 @@ function MemberRow({ member, channel, meId, onRemove, blocking }: { member: Chan
   const canManage = channel.can_admin && !self && member.role !== "owner" && channel.kind !== "dm" && !channel.application_id;
   return (
     // The badge's cut-out follows the row's hover colour (no card-coloured halo).
-    <div role="listitem" className="group/member flex min-h-12 items-center gap-2.5 rounded-md px-2 hover:bg-muted hover:[--presence-cut:var(--muted)]">
+    <div role="listitem" className="nbm-mrow group/member">
       <PersonHoverCard person={member} focusable={false}>
         <span className="inline-flex flex-none"><PresenceAvatar userId={member.id} identity={member} size={34} /></span>
       </PersonHoverCard>
@@ -222,11 +221,11 @@ function MemberRow({ member, channel, meId, onRemove, blocking }: { member: Chan
         <span className="block truncate text-[12px] text-muted-foreground">{presence.statusText || (presence.loaded ? presence.availabilityText : " ")}</span>
       </span>
       {/* Your own block, seen only by you (Blocking B45). */}
-      {member.blocked_by_me ? <span className="nb-tag flex-none">Blocked</span> : null}
-      {ROLE_LABEL[member.role] ? <span className="nb-tag flex-none">{ROLE_LABEL[member.role]}</span> : null}
+      {member.blocked_by_me ? <span className="nbm-tag flex-none">Blocked</span> : null}
+      {ROLE_LABEL[member.role] ? <span className="nbm-tag flex-none">{ROLE_LABEL[member.role]}</span> : null}
       {!self ? (
         <DropdownMenu>
-          <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-8 flex-none pointer-fine:opacity-0 pointer-fine:group-hover/member:opacity-100 pointer-fine:group-focus-within/member:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100" aria-label={`Options for ${personName(member)}`}>
+          <DropdownMenuTrigger className="nbm-cell nb-touch-target flex-none pointer-fine:opacity-0 pointer-fine:group-hover/member:opacity-100 pointer-fine:group-focus-within/member:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100" aria-label={`Options for ${personName(member)}`}>
             <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -256,15 +255,15 @@ function MemberRow({ member, channel, meId, onRemove, blocking }: { member: Chan
   );
 }
 
-/** Member rows loading, in the shared shimmer. */
+/** Member rows loading: square soft blocks that breathe (the mix). */
 function MemberRowsSkeleton() {
   return (
     <div role="status" className="space-y-3 p-2">
       <span className="sr-only">Loading members…</span>
       {[60, 45, 70].map((width) => (
         <div key={width} className="flex items-center gap-2.5">
-          <Skeleton kind="tile" className="size-[34px] flex-none rounded-md" />
-          <Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} />
+          <span aria-hidden="true" className="nbm-sk size-[34px] flex-none" />
+          <span aria-hidden="true" className="nbm-sk h-[9px]" style={{ width: `${width}%` }} />
         </div>
       ))}
     </div>
@@ -325,7 +324,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
   const capped = channel.member_count > 500;
   return (
     <div className="space-y-2 p-3">
-      {canAddPeople(channel) ? <Button type="button" variant="outline" onClick={onAdd} className="w-full justify-start pointer-coarse:h-11"><UserPlus size={16} /> Add people</Button> : null}
+      {canAddPeople(channel) ? <button type="button" className="nbm-mcell" onClick={onAdd}><span className="nbm-popover-glyph" aria-hidden="true"><UserPlus size={14} /></span> Add people</button> : null}
       <label className="relative block">
         <span className="sr-only">Find members</span>
         <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -380,33 +379,31 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
     <div className="app-scroll app-scroll-y min-h-0 flex-1 divide-y divide-border">
       <div className="space-y-2 p-4">
         <PresenceAvatar userId={person?.id} identity={person} size={72} />
-        <p className="nb-section-title">{self ? `${personName(person)} (you)` : personName(person)}</p>
-        {person?.username ? <p className="nb-meta">@{person.username}</p> : null}
+        <p className="nbm-person-name">{self ? `${personName(person)} (you)` : personName(person)}</p>
+        {person?.username ? <p className="nbm-person-handle">@{person.username}</p> : null}
         {presence.status ? <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="text-[15px]" /> : null}
-        <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        <p className="nbm-person-meta">
           <PresenceBadge availability={presence.availability} size={10} />
           {/* No "Offline" guess before presence has loaded. */}
           {presence.loaded ? presence.availabilityText : "\u00a0"}
           {localTime ? <span>· {localTime} local time</span> : null}
         </p>
-        <div className="flex flex-wrap gap-2">
-          {person?.username && !self ? (
-            <Button asChild variant="outline" size="sm" className="pointer-coarse:h-11"><Link href={profileHref({ id: person.id, username: person.username })}><User size={16} /> View profile</Link></Button>
-          ) : null}
-        </div>
+        {person?.username && !self ? (
+          <div className="nbm-qa"><Link href={profileHref({ id: person.id, username: person.username })} className="nbm-qa-link"><User size={16} aria-hidden="true" /> View profile</Link></div>
+        ) : null}
         <QuickActions channel={channel} onStar={() => setState({ starred: !channel.starred })} />
       </div>
       {context.data && (context.data.sharedProjects.length || context.data.sharedChannels.length) ? (
         <div className="space-y-3 p-4">
           {context.data.sharedProjects.length ? (
             <div>
-              <p className="nb-micro mb-1">Workspaces in common</p>
+              <p className="nbm-glabel mb-1"><span>Workspaces in common</span><span className="nbm-glabel-rule" aria-hidden="true" /></p>
               {context.data.sharedProjects.map((p) => <Link key={p.id} href={`/workspaces/${p.slug ?? p.id}`} className="block truncate py-0.5 text-[13px] text-primary hover:underline">{p.title}</Link>)}
             </div>
           ) : null}
           {context.data.sharedChannels.length ? (
             <div>
-              <p className="nb-micro mb-1">Channels in common</p>
+              <p className="nbm-glabel mb-1"><span>Channels in common</span><span className="nbm-glabel-rule" aria-hidden="true" /></p>
               {context.data.sharedChannels.map((c) => (
                 <Link key={c.id} href={conversationHref(c.id)} className="block truncate py-0.5 text-[13px] hover:underline">#{c.name}{c.project_title ? <span className="text-muted-foreground"> · {c.project_title}</span> : null}</Link>
               ))}
@@ -417,13 +414,13 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
       {/* Notes to self: nothing to notify or close. */}
       {self ? null : <NotifyRow channel={channel} onChange={(notify) => setState({ notify })} />}
       {self ? null : (
-        <div className="flex flex-wrap items-center gap-2 p-4">
-          <Button type="button" variant="outline" onClick={onClose} className="pointer-coarse:h-11"><X size={16} /> Close conversation</Button>
-          {person ? <Button type="button" variant="ghost" onClick={reporting.open} className="text-muted-foreground pointer-coarse:h-11"><Flag size={16} /> Report {personName(person)}</Button> : null}
+        <div className="nbm-dgroup">
+          <button type="button" onClick={onClose}><X size={16} aria-hidden="true" /> Close conversation</button>
+          {person ? <button type="button" className="is-danger" onClick={reporting.open}><Flag size={16} aria-hidden="true" /> Report {personName(person)}</button> : null}
           {person ? (
-            <Button type="button" variant="ghost" onClick={() => (channel.blocked_by_me ? blocking.openUnblock : blocking.openBlock)({ id: person.id, name: personName(person) })} className="text-muted-foreground pointer-coarse:h-11">
-              <Ban size={16} /> {channel.blocked_by_me ? "Unblock" : "Block"} {personName(person)}
-            </Button>
+            <button type="button" className={channel.blocked_by_me ? undefined : "is-danger"} onClick={() => (channel.blocked_by_me ? blocking.openUnblock : blocking.openBlock)({ id: person.id, name: personName(person) })}>
+              <Ban size={16} aria-hidden="true" /> {channel.blocked_by_me ? "Unblock" : "Block"} {personName(person)}
+            </button>
           ) : null}
           {reporting.dialog}
           {blocking.dialog}
@@ -456,8 +453,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         <span className="sr-only">Loading details…</span>
         {[40, 70, 55].map((width) => (
           <div key={width} className="space-y-2">
-            <Skeleton className="h-3 w-20 rounded-sm" />
-            <Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} />
+            <span aria-hidden="true" className="nbm-sk h-[9px] w-20" />
+            <span aria-hidden="true" className="nbm-sk h-[9px]" style={{ width: `${width}%` }} />
           </div>
         ))}
       </div>
