@@ -16,6 +16,8 @@ async function open(page: Page, view: string) {
         gettingStarted: { items: [{ id: 'rules', label: 'Read the Code of conduct', href: '?tab=docs', done: true }, { id: 'hello', label: 'Say hi in introductions', href: '/messages', done: false }] }, questions: [], answers: {}, showAnswer: false }),
       agreeToCodeAction: async () => { calls.push(['agree']); return { success: true }; },
       tickGettingStartedAction: async (_o: string, id: string) => { calls.push(['tick', id]); return { success: true }; },
+      readJoinTermsAction: async () => ({ success: true, terms: { agreeRequired: true, rules, questions: [{ id: 'why', label: 'What brings you here?' }], cocHref: '/org/devs?tab=docs&doc=code-of-conduct' } }),
+      joinOrganizationAction: async (code: string, note: string | null, community: unknown) => { calls.push(['join', code, note, community]); return { success: true, outcome: 'requested', org: { id: 'o', title: 'Devs', slug: 'devs' } }; },
       readJoiningSettingsAction: async () => ({ success: true, settings: { agreeRequired: true, questions: [], gettingStarted: [], welcomePost: false, firstDayLimit: true } }),
       saveJoiningSettingsAction: async (_o: string, v: unknown) => { calls.push(['save', v]); return { success: true }; },
     };
@@ -51,4 +53,18 @@ test('Settings → Joining: a join question and Getting started items', async ({
   expect(await axeViolations(page)).toEqual([]);
   await s.getByRole('button', { name: 'Save joining' }).click();
   await expect.poll(async () => ((await calls(page))[0]?.[1] as { questions: unknown[] })?.questions).toEqual([{ id: 'what-brings-you-here-0', label: 'What brings you here?' }]);
+});
+
+test('Join a community: the rules, I agree and (when approving joins) the join questions come first', async ({ page }) => {
+  await open(page, 'join');
+  const t = page.getByTestId('join-terms');
+  await expect(t.getByRole('listitem')).toHaveCount(2);
+  const button = page.getByRole('button', { name: 'Request to join' });
+  await expect(button).toBeDisabled();
+  await t.getByLabel('I agree to the Code of conduct').check();
+  await expect(button).toBeDisabled();
+  await t.getByLabel('What brings you here? *').fill('Rust meetups');
+  expect(await axeViolations(page)).toEqual([]);
+  await button.click();
+  await expect.poll(async () => (await calls(page))[0]).toEqual(['join', 'ABC123', '', { agreed: true, answers: { why: 'Rust meetups' } }]);
 });

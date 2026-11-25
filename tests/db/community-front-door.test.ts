@@ -85,3 +85,27 @@ test("34.2: rules show to visitors; members agree to the current version and aga
   const [prefs] = await sql`SELECT view_prefs->'community'->'answers' AS a FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${member!}`;
   assert.deepEqual(prefs!.a, { why: "Learning Rust" }, "only the community's questions are kept");
 });
+
+test("34.2 calls 1–2 (B5.1b): joining a community needs I agree; approval needs the join answers, which reach organisers", async () => {
+  const join = await loadAppModule(() => import("../../src/lib/organizations/join"));
+  const [owner, a, b] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public" }));
+  created.push(id);
+  const code = generateJoinCode();
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'community', status = 'active', join_code = ${code}, join_code_enabled = true,
+    org_settings = ${sql.json({ community: { agreeRequired: true, questions: [{ id: "why", label: "What brings you here?" }], gettingStarted: [], welcomePost: false, firstDayLimit: true } })} WHERE id = ${id}`;
+  await assert.rejects(() => join.joinOrgByCode(a!, code, null, { agreed: false }), /Agree to the Code of conduct/);
+  const joined = await join.joinOrgByCode(a!, code, null, { agreed: true, answers: { why: "Rust meetups" } });
+  assert.equal(joined?.outcome, "joined");
+  const [m] = await sql`SELECT view_prefs->'community' AS c FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${a!}`;
+  assert.equal((m!.c as { answers: Record<string, string> }).answers.why, "Rust meetups");
+  assert.ok((m!.c as { agreed: { at: string } }).agreed.at, "the agreement is kept with its date");
+
+  await sql`UPDATE workspaces SET org_settings = org_settings || '{"joinMode":"approval"}'::jsonb WHERE id = ${id}`;
+  await assert.rejects(() => join.joinOrgByCode(b!, code, null, { agreed: true }), /Answer the join questions/);
+  const asked = await join.joinOrgByCode(b!, code, "Hi", { agreed: true, answers: { why: "Learning Go" } });
+  assert.equal(asked?.outcome, "requested");
+  const [req] = await sql`SELECT message FROM role_applications WHERE workspace_id = ${id} AND applicant_id = ${b!}`;
+  assert.match(String(req!.message), /What brings you here\? Learning Go/);
+});

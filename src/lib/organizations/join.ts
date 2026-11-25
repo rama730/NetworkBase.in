@@ -105,19 +105,25 @@ export async function readPrivateOrgState(orgId: string, userId: string | null):
  * member count, Max members and block list are read and acted on together. Requests reuse role_applications
  * with no role. Callers check the code exists and rate-limit; this is shared with onboarding completion.
  */
-export function joinOrgByCode(userId: string, code: string, note?: string | null) {
-  return joinOrg(userId, and(eq(workspaces.joinCode, code), eq(workspaces.joinCodeEnabled, true))!, note);
+/** Report 34.2 (B5.1b): what a community asks of someone joining — agreeing to its Code of conduct and join answers. */
+export type CommunityJoin = { agreed?: boolean; answers?: Record<string, string> };
+/** A community join that didn't agree, or didn't answer when organisers approve joins; its message is shown as it is. */
+export class CommunityJoinError extends Error {}
+
+export function joinOrgByCode(userId: string, code: string, note?: string | null, community?: CommunityJoin) {
+  return joinOrg(userId, and(eq(workspaces.joinCode, code), eq(workspaces.joinCodeEnabled, true))!, note, community);
 }
 
 /** Public orgs can also be joined from their page without the code (report §6.1). */
-export function joinPublicOrg(userId: string, orgId: string, note?: string | null) {
-  return joinOrg(userId, and(eq(workspaces.id, orgId), inArray(workspaces.visibility, ["public", "unlisted"]))!, note);
+export function joinPublicOrg(userId: string, orgId: string, note?: string | null, community?: CommunityJoin) {
+  return joinOrg(userId, and(eq(workspaces.id, orgId), inArray(workspaces.visibility, ["public", "unlisted"]))!, note, community);
 }
 
 async function joinOrg(
   userId: string,
   where: SQL,
   note?: string | null,
+  community?: CommunityJoin,
 ): Promise<{ outcome: OrgJoinOutcome; org: OrgSummary } | null> {
   const result = await db.transaction(async (tx) => {
     const [org] = await tx
@@ -131,6 +137,7 @@ async function joinOrg(
         deletionScheduledAt: workspaces.deletionScheduledAt,
         orgSettings: workspaces.orgSettings,
         maxCollaborators: workspaces.maxCollaborators,
+        orgType: workspaces.orgType,
       })
       .from(workspaces)
       // A restricted org (trust and safety §7.2) takes no one new, by code, link or page.
@@ -161,6 +168,19 @@ async function joinOrg(
       request: request ? { status: request.status, updatedAt: request.updatedAt, decidedBySelf: request.decisionBy === userId } : null,
     });
     const summary = { id: org.id, title: org.title, slug: org.slug };
+    // Report 34.2 calls 1–2 (B5.1b): a community asks for agreement (and, when approving joins, the join answers) first.
+    let communityAnswers: Record<string, string> = {};
+    if (org.orgType === "community" && (outcome === "joined" || outcome === "requested")) {
+      const { readCommunitySettings } = await import("@/lib/organizations/community");
+      const c = readCommunitySettings(org.orgSettings);
+      if (c.agreeRequired && community?.agreed !== true) throw new CommunityJoinError("Agree to the Code of conduct to join.");
+      communityAnswers = Object.fromEntries(c.questions.map((q) => [q.id, String(community?.answers?.[q.id] ?? "").trim().slice(0, 500)]).filter(([, v]) => v));
+      if (outcome === "requested" && c.questions.some((q) => !communityAnswers[q.id])) throw new CommunityJoinError("Answer the join questions to ask to join.");
+      if (outcome === "requested" && c.questions.length) {
+        const lines = c.questions.map((q) => `${q.label} ${communityAnswers[q.id]}`).join("\n");
+        note = [note?.trim(), lines].filter(Boolean).join("\n\n").slice(0, 500);
+      }
+    }
     // Belong to up to 50 organizations (report §26.11): checked before joining or asking to.
     if (outcome === "joined" || outcome === "requested") {
       const limit = await accountOrgLimit(tx, userId, "join");
@@ -170,6 +190,13 @@ async function joinOrg(
     if (outcome === "joined") {
       // Joining by code is always Member (decision 58); a pending request is closed by the join.
       await addWorkspaceMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
+      if (org.orgType === "community" && community?.agreed) {
+        // The Code of conduct version agreed to, the date, and the answers, on the new membership (report 34.2 layer 3).
+        const [coc] = Array.from(await tx.execute<{ version: number }>(sql`SELECT coalesce((settings->'org'->>'readVersion')::int, 0) AS version FROM workspace_documents
+          WHERE workspace_id = ${org.id}::uuid AND lower(filename) LIKE '%code of conduct%' AND published_version_id IS NOT NULL ORDER BY created_at LIMIT 1`));
+        await tx.execute(sql`UPDATE workspace_members SET view_prefs = coalesce(view_prefs, '{}'::jsonb) || jsonb_build_object('community', ${JSON.stringify({ agreed: { version: Number(coc?.version ?? 0), at: new Date().toISOString() }, answers: communityAnswers, showAnswer: false })}::jsonb)
+          WHERE workspace_id = ${org.id}::uuid AND user_id = ${userId}::uuid`);
+      }
       // Audit N13: an invite to the same address is used up by joining, so it doesn't linger as "Invited".
       await closeOpenInvite(tx, org.id, userId);
       // Late joiners get copies of open assignments (report §16.9), after the commit (audit N67).

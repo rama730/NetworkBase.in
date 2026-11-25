@@ -8,6 +8,7 @@ import { useState, useTransition } from 'react'
 import { ChevronDown, ClipboardList, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
+import { CommunityJoinTerms, termsMet, useJoinTerms, type JoinTermsValue } from '@/components/organizations/CommunityJoinTerms'
 import { JoinRequestNote } from '@/components/organizations/JoinOrgButton'
 import { restoreOrgAction } from '@/app/actions/org-lifecycle'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -58,6 +59,11 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
     const refreshSidebar = useRefreshSidebar()
     const [pending, startTransition] = useTransition()
     const [error, setError] = useState<string | null>(null)
+    // Report 34.2 (B5.1b): a community shows its rules, I agree and join questions before Join.
+    const termsQuery = useJoinTerms({ orgId }, loggedIn && !requestPending)
+    const terms = termsQuery.data?.success ? termsQuery.data.terms : null
+    const [agree, setAgree] = useState<JoinTermsValue>({ agreed: false, answers: {} })
+    const [askTerms, setAskTerms] = useState(false)
 
     if (!loggedIn) {
         return <Button asChild><Link href={`/login?redirect=${encodeURIComponent(href)}`}>{joinMode === 'approval' ? 'Request to join' : 'Join'}</Link></Button>
@@ -81,11 +87,22 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
                     <Button variant="ghost" disabled={pending} onClick={() => run(() => cancelJoinRequestAction(orgId))}>Cancel request</Button>
                 </>
             ) : (
-                <Button disabled={pending} onClick={() => run(() => joinPublicOrgAction(orgId))}>
+                <Button disabled={pending} onClick={() => (terms ? setAskTerms(true) : run(() => joinPublicOrgAction(orgId)))}>
                     {joinMode === 'approval' ? 'Request to join' : 'Join'}
                 </Button>
             )}
             {error ? <span role="alert" className="text-[13px] text-destructive">{error}</span> : null}
+            {terms ? (
+                <Dialog open={askTerms} onOpenChange={setAskTerms}>
+                    <DialogContent>
+                        <DialogHeader><DialogTitle>Join the community</DialogTitle><DialogDescription>Read the rules first.</DialogDescription></DialogHeader>
+                        <CommunityJoinTerms terms={terms} approval={joinMode === 'approval'} value={agree} onChange={setAgree} />
+                        <Button disabled={pending || !termsMet(terms, agree, joinMode === 'approval')} onClick={() => { setAskTerms(false); run(() => joinPublicOrgAction(orgId, null, agree)) }}>
+                            {joinMode === 'approval' ? 'Request to join' : 'Join'}
+                        </Button>
+                    </DialogContent>
+                </Dialog>
+            ) : null}
         </span>
     )
 }

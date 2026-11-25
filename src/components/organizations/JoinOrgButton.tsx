@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/organizations/org-ui'
 import { fieldError, fieldLabel } from '@/lib/organizations/display'
 import { toast } from '@/lib/feedback'
 import type { OrgJoinMode } from '@/lib/organizations/join-rules'
+import { CommunityJoinTerms, termsMet, useJoinTerms, type JoinTermsValue } from '@/components/organizations/CommunityJoinTerms'
 
 /** Join (instant mode) or Request to join (approval mode) with an optional note. */
 export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinMode: OrgJoinMode; orgHref: string }) {
@@ -19,11 +20,15 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
     const [note, setNote] = useState('')
     const [message, setMessage] = useState<{ kind: 'status' | 'error'; text: string } | null>(null)
     const [pending, startTransition] = useTransition()
+    // Report 34.2 (B5.1b): a community asks for agreement and join answers before Join.
+    const termsQuery = useJoinTerms({ code })
+    const terms = termsQuery.data?.success ? termsQuery.data.terms : null
+    const [agree, setAgree] = useState<JoinTermsValue>({ agreed: false, answers: {} })
 
     const submit = () =>
         startTransition(async () => {
             // Audit N37: a thrown server error is a message, never the page's error boundary.
-            const result = await joinOrganizationAction(code, joinMode === 'approval' ? note : null).catch(() => ({ success: false as const, error: 'Couldn’t do that. Try again.' }))
+            const result = await joinOrganizationAction(code, joinMode === 'approval' ? note : null, terms ? agree : undefined).catch(() => ({ success: false as const, error: 'Couldn’t do that. Try again.' }))
             if (!result.success) return setMessage({ kind: 'error', text: result.error })
             refreshSidebar()
             if (result.outcome === 'joined' || result.outcome === 'already_member') return router.replace(orgHref)
@@ -50,8 +55,9 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
                     />
                 </>
             ) : null}
+            {terms ? <CommunityJoinTerms terms={terms} approval={joinMode === 'approval'} value={agree} onChange={setAgree} /> : null}
             {message ? <p role="alert" className={fieldError}>{message.text}</p> : null}
-            <Button type="button" onClick={submit} disabled={pending} className="min-h-11 w-full">
+            <Button type="button" onClick={submit} disabled={pending || !termsMet(terms, agree, joinMode === 'approval')} className="min-h-11 w-full">
                 {pending ? 'Joining…' : joinMode === 'approval' ? 'Request to join' : 'Join'}
             </Button>
         </div>

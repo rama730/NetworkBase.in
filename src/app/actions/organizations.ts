@@ -29,7 +29,7 @@ import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizati
 import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
 import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
 import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, ledChildWorkspaces, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
-import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
+import { CommunityJoinError, countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus, type CommunityJoin } from '@/lib/organizations/join';
 import { adminsCanSeeLine, joinPageState, normalizeJoinCode, orgMemberCap, ORG_JOIN_MESSAGES, type JoinPageState, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { namesOf, notifyJoined, notifyJoinOutcome, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
@@ -127,12 +127,38 @@ export async function getJoinPreviewAction(rawCode: string): Promise<{ success: 
 /** Turns only the account-limit refusal into a value; anything else rethrows and stays redacted (report §26.11). */
 function limitOnly(error: unknown): AccountOrgLimitError {
     if (error instanceof AccountOrgLimitError) return error;
+    // Report 34.2 (B5.1b): a community's "agree first" and "answer the join questions" are sentences too.
+    if (error instanceof CommunityJoinError) return new AccountOrgLimitError(error.message);
     throw error;
+}
+
+/**
+ * Join terms (report 34.2, B5.1b): before joining a community, its numbered rules (from the published Code of conduct)
+ * and join questions. By code, or for a public organization by id. Nothing else about the organization.
+ */
+export async function readJoinTermsAction(input: { code?: string; orgId?: string }) {
+    const userId = await viewerId();
+    if (!(await allowLookup(userId))) return TOO_MANY;
+    const code = input.code ? normalizeJoinCode(input.code) : null;
+    const [org] = code ? [await findOrgByJoinCode(code)] : input.orgId && /^[0-9a-f-]{36}$/i.test(input.orgId)
+        ? Array.from(await db.execute<{ id: string }>(sql`SELECT id FROM workspaces WHERE id = ${input.orgId}::uuid AND kind = 'organization' AND visibility IN ('public', 'unlisted') AND deleted_at IS NULL`)) : [];
+    if (!org) return { success: true as const, terms: null };
+    const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; content: string | null; slug: string | null; org_slug: string | null }>(sql`
+        SELECT w.org_type AS type, w.org_settings AS settings, w.slug AS org_slug,
+          (SELECT v.content FROM workspace_documents d JOIN workspace_document_versions v ON v.id = d.published_version_id
+            WHERE d.workspace_id = w.id AND lower(d.filename) LIKE '%code of conduct%' AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft' ORDER BY d.created_at LIMIT 1) AS content,
+          (SELECT d.slug FROM workspace_documents d WHERE d.workspace_id = w.id AND lower(d.filename) LIKE '%code of conduct%' AND d.published_version_id IS NOT NULL ORDER BY d.created_at LIMIT 1) AS slug
+        FROM workspaces w WHERE w.id = ${org.id}::uuid`));
+    if (w?.type !== 'community') return { success: true as const, terms: null };
+    const { parseRules, readCommunitySettings } = await import('@/lib/organizations/community');
+    const c = readCommunitySettings(w.settings);
+    return { success: true as const, terms: { agreeRequired: c.agreeRequired, rules: parseRules(w.content ?? ''), questions: c.questions, cocHref: w.slug ? `/org/${encodeURIComponent(w.org_slug ?? org.id)}?tab=docs&doc=${encodeURIComponent(w.slug)}` : null } };
 }
 
 export async function joinOrganizationAction(
     rawCode: string,
     note?: string | null,
+    community?: CommunityJoin,
 ): Promise<{ success: true; outcome: OrgJoinOutcome; org: { id: string; title: string; slug: string | null } } | Failure> {
     const userId = await viewerId();
     if (!userId) return { success: false, error: 'Sign in to join an organization.' };
@@ -149,7 +175,7 @@ export async function joinOrganizationAction(
         await notifyJoined(target.id, userId, `${invite.id}:accepted`);
         return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
     }
-    const result = code ? await joinOrgByCode(userId, code, note).catch(limitOnly) : null;
+    const result = code ? await joinOrgByCode(userId, code, note, community).catch(limitOnly) : null;
     if (result instanceof AccountOrgLimitError) return { success: false, error: result.message };
     if (!result) return NO_MATCH;
     const { outcome, org } = result;
@@ -429,12 +455,13 @@ export async function renameOrgHandleAction(orgId: string, raw: string): Promise
 export async function joinPublicOrgAction(
     orgId: string,
     note?: string | null,
+    community?: CommunityJoin,
 ): Promise<{ success: true; outcome: OrgJoinOutcome } | Failure> {
     const userId = await viewerId();
     if (!userId) return { success: false, error: 'Sign in to join an organization.' };
     if (!(await allowLookup(userId))) return TOO_MANY;
     // Audit 2.5: the 50-organization limit is a sentence, never a crash.
-    const result = await joinPublicOrg(userId, orgId, note).catch(limitOnly);
+    const result = await joinPublicOrg(userId, orgId, note, community).catch(limitOnly);
     if (result instanceof AccountOrgLimitError) return { success: false, error: result.message };
     if (!result) return { success: false, error: 'This organization can be joined only with its code.' };
     const { outcome, org } = result;
