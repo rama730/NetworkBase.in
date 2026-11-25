@@ -874,6 +874,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 messages={conversation.messages}
                 lastReadSeq={effectiveLastReadSeq}
                 meId={meId}
+                peerSeen={oneToOne ? channel?.peer_seen ?? null : null}
                 hasOlder={Boolean(conversation.query.hasNextPage)}
                 loadingOlder={conversation.query.isFetchingNextPage}
                 olderError={conversation.query.isFetchNextPageError}

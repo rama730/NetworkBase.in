@@ -307,6 +307,8 @@ export const profiles = pgTable(
     lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
     // Presence (0184). Not granted to browsers; read via app/actions/presence.ts.
     showActivity: boolean("show_activity").default(true).notNull(),
+    /** "Send read receipts" (0150): in a 1:1 DM, both must have it on for "Seen" to show either way. */
+    readReceipts: boolean("read_receipts").default(true).notNull(),
     statusEmoji: text("status_emoji"),
     statusText: text("status_text"),
     statusExpiresAt: timestamp("status_expires_at", { withTimezone: true }),
@@ -6393,6 +6395,9 @@ export const chatChannelMembers = pgTable(
     userId: uuid("user_id").notNull(),
     role: text("role", { enum: ["owner", "admin", "member"] }).default("member").notNull(),
     lastReadSeq: bigint("last_read_seq", { mode: "number" }).default(0).notNull(),
+    /** Messages mix (0150): how far they have read, only ever forward, and when — for "Seen" in a 1:1 DM. */
+    seenSeq: bigint("seen_seq", { mode: "number" }),
+    seenAt: timestamp("seen_at", { withTimezone: true }),
     mentionCount: integer("mention_count").default(0).notNull(),
     notify: text("notify", { enum: ["all", "mentions", "mute"] }).default("all").notNull(),
     starred: boolean("starred").default(false).notNull(),

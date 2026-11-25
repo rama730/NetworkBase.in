@@ -69,6 +69,8 @@ function toBootstrapProfile(
 ): StandardProfile {
     return {
         ...profile,
+        // "Send read receipts" (0150): on unless the row says otherwise.
+        readReceipts: (profile as { readReceipts?: boolean }).readReceipts ?? true,
         skills: profile.skills ?? [],
         interests: profile.interests ?? [],
         // Project contributions are loaded from normalized contribution rows.

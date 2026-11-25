@@ -1,4 +1,5 @@
 "use client";
+import { seenAfter, seenLabel } from "@/lib/messaging/seen";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,6 +29,8 @@ type Props = {
   messages: ChatMessageView[];
   lastReadSeq: number;
   meId: string | null;
+  /** In a 1:1 DM with read receipts on for both: how far they have read (0150). */
+  peerSeen?: { seq: number; at: string } | null;
   hasOlder: boolean;
   loadingOlder: boolean;
   loadOlder: () => void;
@@ -178,11 +181,12 @@ function DayLabel({ label, onPick, float = false }: { label: string; onPick: (da
  * Virtualized timeline (Virtuoso prepend pattern): older pages prepend without
  * moving the reader, new messages follow only when already at the bottom.
  */
-export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null, olderError = false, behindLatest = false, onReloadLatest, sentTick = 0 }: Props) {
+export function Timeline({ messages, lastReadSeq, meId, peerSeen = null, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null, olderError = false, behindLatest = false, onReloadLatest, sentTick = 0 }: Props) {
   const virtuoso = useRef<VirtuosoHandle>(null);
   // The divider stays where it was when the channel opened, not where the cursor moves to.
   const [dividerSeq] = useState(lastReadSeq);
   const items = useMemo(() => buildTimeline(messages, { lastReadSeq: dividerSeq, meId }), [dividerSeq, meId, messages]);
+  const seenSeq = useMemo(() => seenAfter(messages, meId, peerSeen), [messages, meId, peerSeen]);
   const [atBottom, setAtBottom] = useState(true);
   const [unseen, setUnseen] = useState(0);
   // The only thing read aloud as messages arrive: "2 new messages" (the list itself stays quiet).
@@ -449,12 +453,15 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         </div>
       );
     }
-    const row = <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} tabStop={tabSeq === item.message.seq} />;
+    const message = <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} tabStop={tabSeq === item.message.seq} />;
+    // "Seen" under your newest message once they've read it; never "Sent" or "Delivered".
+    const seen = seenSeq === item.message.seq && peerSeen ? seenLabel(peerSeen.at) : null;
+    const row = seen ? <>{message}<p className="nbm-seen" title={new Date(peerSeen!.at).toLocaleString()}><span aria-hidden="true">{seen.text}</span><span className="sr-only">{seen.spoken}</span></p></> : message;
     if (item.key === lastItemKey) {
       return <LastItemTracker onHeightIncrease={onLastItemHeightIncrease}>{row}</LastItemTracker>;
     }
     return row;
-  }, [highlight, lastItemKey, onLastItemHeightIncrease, pickDate, tabSeq]);
+  }, [highlight, lastItemKey, onLastItemHeightIncrease, pickDate, tabSeq, seenSeq, peerSeen]);
 
   return (
     <>

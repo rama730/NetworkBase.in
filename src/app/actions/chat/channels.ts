@@ -203,6 +203,8 @@ export type ChannelDetails = ChatChannelSummary & {
   can_admin: boolean;
   /** Who can post here (org #general admins-only, read-only workspaces). */
   posting?: ChatPosting;
+  /** How far the other person has read, in a 1:1 DM with read receipts on for both (0150). */
+  peer_seen?: { seq: number; at: string } | null;
 };
 
 /** Header and details for a channel the viewer belongs to, or a project's public channel they can join. */
@@ -232,6 +234,14 @@ export async function getChannel(input: { channelId: string }) {
                FROM chat_channel_members o JOIN profiles pr ON pr.id = o.user_id
                WHERE o.channel_id = c.id ORDER BY (o.user_id = ${user.id}::uuid) LIMIT 1
              ) END AS dm_user,
+             -- "Seen" (0150): a 1:1 DM only, both people with read receipts on, never across a block.
+             CASE WHEN c.kind = 'dm' AND c.member_count = 2 AND c.application_id IS NULL THEN (
+               SELECT jsonb_build_object('seq', o.seen_seq, 'at', o.seen_at)
+               FROM chat_channel_members o JOIN profiles op ON op.id = o.user_id JOIN profiles mp ON mp.id = ${user.id}::uuid
+               WHERE o.channel_id = c.id AND o.user_id <> ${user.id}::uuid AND o.seen_seq IS NOT NULL
+                 AND op.read_receipts AND mp.read_receipts
+                 AND NOT app_private.chat_is_blocked(${user.id}::uuid, o.user_id)
+             ) END AS peer_seen,
              CASE WHEN c.kind = 'private' AND c.name IS NULL THEN (
                SELECT jsonb_agg(jsonb_build_object('id', gp.id, 'username', gp.username, 'full_name', gp.full_name, 'avatar_url', gp.avatar_url) ORDER BY preview.joined_at, gp.id)
                FROM (SELECT other.user_id, other.joined_at FROM chat_channel_members other

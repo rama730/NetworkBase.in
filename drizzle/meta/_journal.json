@@ -1044,6 +1044,13 @@
       "when": 1795619303600,
       "tag": "0149_chat_attachment_media",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1795619363600,
+      "tag": "0150_chat_seen",
+      "breakpoints": true
     }
   ]
 }

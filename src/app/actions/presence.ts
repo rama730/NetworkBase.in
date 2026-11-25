@@ -64,6 +64,7 @@ type PresenceRow = {
   id: string;
   last_active_at: string | null;
   show_activity: boolean;
+  read_receipts?: boolean;
   status_emoji: string | null;
   status_text: string | null;
   status_expires_at: string | null;
@@ -143,6 +144,8 @@ export async function getPresence(input: { userIds: string[] }) {
 
 export type MyPresenceSettings = {
   showActivity: boolean;
+  /** "Send read receipts" (0150). */
+  readReceipts: boolean;
   visibility: StatusVisibility;
   status: PersonStatus | null;
 };
@@ -152,7 +155,7 @@ export async function getMyPresenceSettings() {
   const user = await getAuthUser();
   if (!user) return unauthorized;
   const [row] = await rows<PresenceRow>(sql`
-    SELECT id, show_activity, status_emoji, status_text, status_expires_at, status_set_at, status_pauses_notifications, status_visibility
+    SELECT id, show_activity, read_receipts, status_emoji, status_text, status_expires_at, status_set_at, status_pauses_notifications, status_visibility
     FROM profiles WHERE id = ${user.id}::uuid
   `);
   if (!row) return unauthorized;
@@ -165,7 +168,7 @@ export async function getMyPresenceSettings() {
       pausesNotifications: row.status_pauses_notifications,
     })
     : null;
-  return { success: true as const, settings: { showActivity: row.show_activity, visibility: row.status_visibility, status } satisfies MyPresenceSettings };
+  return { success: true as const, settings: { showActivity: row.show_activity, readReceipts: row.read_receipts !== false, visibility: row.status_visibility, status } satisfies MyPresenceSettings };
 }
 
 const VISIBILITIES: StatusVisibility[] = ["everyone", "network", "team"];
@@ -257,6 +260,14 @@ export async function setStatusVisibility(input: { visibility: StatusVisibility 
  * so no existing profile, card or search payload can reveal it; it is mutual
  * (getPresence shows a hidden viewer everyone as Offline).
  */
+/** "Send read receipts" (Settings › Privacy): off, people don't see when you've read theirs, and you don't see theirs. */
+export async function setReadReceipts(input: { on: boolean }) {
+  const user = await getAuthUser();
+  if (!user) return unauthorized;
+  await exec(sql`UPDATE profiles SET read_receipts = ${Boolean(input?.on)}::boolean WHERE id = ${user.id}::uuid`, "presence.set_read_receipts");
+  return { success: true as const };
+}
+
 export async function setShowActivity(input: { show: boolean }) {
   const user = await getAuthUser();
   if (!user) return unauthorized;

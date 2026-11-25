@@ -218,6 +218,11 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
           queryClient.setQueryData<any>(queryKeys.chat.channel(payload.channel_id), (prev: any) =>
             prev && (payload.seq as number) > (prev.last_read_seq ?? 0) ? { ...prev, last_read_seq: payload.seq, mention_count: 0 } : prev
           );
+        } else if (event === "read.seen" && typeof payload.channel_id === "string" && typeof payload.seq === "number" && typeof payload.at === "string") {
+          // The other person in a 1:1 DM read up to here: "Seen" moves under your newest message (0150).
+          queryClient.setQueryData<any>(queryKeys.chat.channel(payload.channel_id), (prev: any) =>
+            prev && (payload.seq as number) > (prev.peer_seen?.seq ?? 0) ? { ...prev, peer_seen: { seq: payload.seq, at: payload.at } } : prev
+          );
         } else if (event === "inbox.count") {
           let data = applyInboxCounts(current.data, payload as InboxCounts);
           if (typeof payload.channel_id === "string" && typeof payload.mention_count === "number") {

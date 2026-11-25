@@ -210,6 +210,8 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 /* NEW line: clay hairline + clay square tag. */
 .nbm-newline { display: flex; align-items: center; gap: 10px; padding: 8px 20px; }
 .nbm-newline-rule { flex: 1; height: 1px; background: var(--nbm-brand); }
+/* "Seen" under your newest message in a 1:1 DM (Rich board): mono, upper case, right-aligned; fades in. */
+.nbm-seen { margin: 2px 16px 6px; text-align: right; font: 500 10.5px/1.4 var(--nbm-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--nbm-fg2); animation: nbm-fade var(--nbm-m2) var(--nbm-ease) both; }
 /* Finding a far date: the chip with the pixel beat. */
 .nbm-finding { display: inline-flex; align-items: center; gap: 8px; height: 22px; padding: 0 8px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--card); box-shadow: var(--nbm-shadow-pop); font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
 /* Open banner: a hairline strip across the timeline's top. */

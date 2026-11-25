@@ -15,7 +15,7 @@ import { LogList, SegChoice, Tag } from "@/components/settings/mix/parts";
 import { SettingsRow, SettingsRows } from "@/components/settings/ui/SettingsRow";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
-import { setShowActivity } from "@/app/actions/presence";
+import { setReadReceipts, setShowActivity } from "@/app/actions/presence";
 import { useMyPresenceSettings, useRefreshPresence } from "@/components/presence/useMyPresence";
 import { profileEditHref } from "@/lib/profile/edit-route";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
@@ -215,6 +215,13 @@ export default function PrivacySettings() {
     },
     onSuccess: async () => { await refreshPresence(); },
   });
+  const receiptsMutation = useMutation({
+    mutationFn: async (on: boolean) => {
+      const result = await setReadReceipts({ on });
+      if (!result.success) throw new Error("Couldn’t update read receipts");
+    },
+    onSuccess: async () => { await refreshPresence(); },
+  });
   const unblockMutation = useMutation({
     mutationFn: unblockAccount,
     onSuccess: async (_data, userId) => {
@@ -306,6 +313,11 @@ export default function PrivacySettings() {
           title="Show when I’m active"
           description="Others see a dot when you’re online, and when you were last active. Off hides both."
           right={<SettingsSwitch aria-label="Show when I’m active" checked={presence.data?.showActivity ?? true} disabled={!presence.data} onCheckedChange={(show) => activityMutation.mutateAsync(show)} />}
+        />
+        <SettingsRow
+          title="Send read receipts"
+          description="In one-to-one messages, people see when you’ve read their message. Off: they don’t, and you don’t see theirs either."
+          right={<SettingsSwitch aria-label="Send read receipts" checked={presence.data?.readReceipts ?? true} disabled={!presence.data} onCheckedChange={(on) => receiptsMutation.mutateAsync(on)} />}
         />
         <SettingsRow title="Status visibility" description="You choose who sees each status when you set it, from your picture menu." right={<span className="v text-muted-foreground">Per status</span>} />
         <SettingsRow

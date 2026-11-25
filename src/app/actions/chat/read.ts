@@ -52,6 +52,17 @@ export async function markRead(input: { channelId: string; seq: number }) {
     `);
     // The Inbox count moves too (reading a channel reads its mentions): every badge updates at once.
     if (moved) publishUser(user.id, "read.moved", { channel_id: input.channelId, seq: input.seq, ...(await countsOrNothing(user.id)) });
+    // "Seen" (0150): the other person in a 1:1 DM learns it live, under the same rules as getChannel's peer_seen.
+    if (moved) {
+      const [peer] = await chatRows<{ user_id: string }>(sql`
+        SELECT o.user_id FROM chat_channels c
+        JOIN chat_channel_members o ON o.channel_id = c.id AND o.user_id <> ${user.id}::uuid
+        JOIN profiles op ON op.id = o.user_id JOIN profiles mp ON mp.id = ${user.id}::uuid
+        WHERE c.id = ${input.channelId}::uuid AND c.kind = 'dm' AND c.member_count = 2 AND c.application_id IS NULL
+          AND op.read_receipts AND mp.read_receipts AND NOT app_private.chat_is_blocked(${user.id}::uuid, o.user_id)
+      `).catch(() => []);
+      if (peer) publishUser(peer.user_id, "read.seen", { channel_id: input.channelId, seq: input.seq, at: new Date().toISOString() });
+    }
     return { success: true as const, moved };
   } catch (error) {
     return chatFailure(error, "mark_read");
