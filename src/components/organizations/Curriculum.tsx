@@ -40,7 +40,7 @@ export function TeachingSettings({ schoolId }: { schoolId: string }) {
       <div className="space-y-5 text-[13px]" data-testid="teaching-settings">
         <fieldset className="space-y-2">
           <legend className="font-medium">Standards</legend>
-          <p className="text-muted-foreground">{current.length ? `${current.length} standards` : "No standards yet."} Import a CSV with code, description, grade and subject; it replaces the list. Nothing is fetched from a link.</p>
+          <p className="text-muted-foreground">{current.length ? `${current.length} ${current.length === 1 ? "standard" : "standards"}.` : "No standards yet."} Import a CSV with code, description, grade and subject; it replaces the list. Nothing is fetched from a link.</p>
           <input type="file" accept=".csv,text/csv" aria-label="Standards CSV" onChange={(e) => { const f = e.target.files?.[0]; if (f) void f.text().then((t) => setImported(parseStandardsCsv(t))); }} />
           {imported ? (
             <div className="space-y-2" data-testid="standards-preview">

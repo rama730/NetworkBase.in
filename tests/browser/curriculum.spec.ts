@@ -25,7 +25,7 @@ const calls = (page: Page) => page.evaluate(() => (window as any).__calls);
 test('Settings → Teaching: import standards from a CSV with a preview, edit the template, turn on the overview', async ({ page }) => {
   await open(page, 'teaching');
   const s = page.getByTestId('teaching-settings');
-  await expect(s).toContainText('1 standards');
+  await expect(s).toContainText('1 standard. Import a CSV');
   await s.getByLabel('Standards CSV').setInputFiles({ name: 's.csv', mimeType: 'text/csv', buffer: Buffer.from('code,description,grade,subject\nSC6.3,Forces,6,Science\nSC6.4,Friction,6,Science\n,x,6,Science') });
   await expect(page.getByTestId('standards-preview')).toContainText('2 standards ready · 1 rows skipped');
   expect(await axeViolations(page)).toEqual([]);
