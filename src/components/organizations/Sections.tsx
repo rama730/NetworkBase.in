@@ -1,5 +1,7 @@
 "use client";
 
+import { readScoresAction } from "@/app/actions/mocks";
+import { ScoresView } from "@/components/organizations/MockScores";
 import { readMentoringAction } from "@/app/actions/mentoring";
 import { MentorsView } from "@/components/organizations/Mentoring";
 import { readPathAction } from "@/app/actions/learning-path";
@@ -36,7 +38,10 @@ const useSections = (orgId: string) => useQuery({ queryKey: key(orgId), queryFn:
 
 /** A class's Members tab: Roster (today's) or Sections. */
 export function ClassMembers({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [view, setView] = useState<"roster" | "sections" | "attendance" | "completion" | "progress" | "mentors">("roster");
+  const [view, setView] = useState<"roster" | "sections" | "attendance" | "completion" | "progress" | "mentors" | "scores">("roster");
+  // B2.4a (report 31.4): staff see Scores once the class has an exam to use as a mock.
+  const scores = useQuery({ queryKey: ["mock-scores", orgId, null], queryFn: () => readScoresAction(orgId, null), staleTime: 30_000 });
+  const scoresOn = scores.data?.success && (scores.data.mocks.length > 0 || scores.data.exams.length > 0);
   // B2.3a (report 31.5): staff see Mentors once Mentoring is on.
   const mentoring = useQuery({ queryKey: ["mentoring", orgId], queryFn: () => readMentoringAction(orgId), staleTime: 30_000 });
   const mentorsOn = mentoring.data?.success && mentoring.data.on && Boolean(mentoring.data.staff);
@@ -46,13 +51,13 @@ export function ClassMembers({ orgId, children }: { orgId: string; children: Rea
   return (
     <div>
       <div role="group" aria-label="Members view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="class-members-switch">
-        {(["roster", "sections", "attendance", "completion", ...(selfPaced ? ["progress" as const] : []), ...(mentorsOn ? ["mentors" as const] : [])] as const).map((v) => (
+        {(["roster", "sections", "attendance", "completion", ...(selfPaced ? ["progress" as const] : []), ...(mentorsOn ? ["mentors" as const] : []), ...(scoresOn ? ["scores" as const] : [])] as const).map((v) => (
           <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
-            {v === "roster" ? "Roster" : v === "sections" ? "Sections" : v === "attendance" ? "Attendance" : v === "completion" ? "Completion" : v === "progress" ? "Progress" : "Mentors"}
+            {v === "roster" ? "Roster" : v === "sections" ? "Sections" : v === "attendance" ? "Attendance" : v === "completion" ? "Completion" : v === "progress" ? "Progress" : v === "mentors" ? "Mentors" : "Scores"}
           </button>
         ))}
       </div>
-      {view === "sections" ? <SectionsView orgId={orgId} /> : view === "attendance" ? <AttendanceView orgId={orgId} /> : view === "completion" ? <CompletionView orgId={orgId} /> : view === "progress" ? <ProgressTable projectId={orgId} /> : view === "mentors" ? <MentorsView orgId={orgId} /> : children}
+      {view === "sections" ? <SectionsView orgId={orgId} /> : view === "attendance" ? <AttendanceView orgId={orgId} /> : view === "completion" ? <CompletionView orgId={orgId} /> : view === "progress" ? <ProgressTable projectId={orgId} /> : view === "mentors" ? <MentorsView orgId={orgId} /> : view === "scores" ? <ScoresView orgId={orgId} /> : children}
     </div>
   );
 }

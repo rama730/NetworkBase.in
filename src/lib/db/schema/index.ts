@@ -1310,6 +1310,24 @@ export const mentorCheckins = pgTable("mentor_checkins", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [unique("mentor_checkins_one_per_day").on(t.projectId, t.learnerId, t.onDate), index("mentor_checkins_learner_idx").on(t.projectId, t.learnerId, t.onDate)]);
+/** B2.4a (0139, report 31.4): a mock's marks per learner (raw per section) and each learner's exam, date and targets. Server only. */
+export const mockScores = pgTable("mock_scores", {
+  masterId: uuid("master_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  raws: jsonb("raws").$type<Record<string, number | null>>().default({}).notNull(),
+  enteredBy: uuid("entered_by").references(() => profiles.id, { onDelete: "set null" }),
+  enteredAt: timestamp("entered_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.masterId, t.userId] }), index("mock_scores_learner_idx").on(t.projectId, t.userId)]);
+export const prepProfiles = pgTable("prep_profiles", {
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  examName: text("exam_name"),
+  examDate: date("exam_date"),
+  targets: jsonb("targets").$type<Record<string, number>>().default({}).notNull(),
+  suggested: jsonb("suggested").$type<Record<string, number>>(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.projectId, t.userId] })]);
 /** B2.3b (0138, report 31.5): objectives (up to 3 open), a mentor's weekly slots, concerns, the mentor's note. Server only. */
 export const mentorObjectives = pgTable("mentor_objectives", {
   id: uuid("id").primaryKey().defaultRandom(),

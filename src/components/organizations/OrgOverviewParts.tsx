@@ -5,6 +5,7 @@ import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
 import { CompletionLine } from '@/components/organizations/Completion'
 import { MentoringCard } from '@/components/organizations/Mentoring'
+import { MyPrepCard } from '@/components/organizations/MockScores'
 import { YourAttendanceLine } from '@/components/organizations/Attendance'
 import { useEffect, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -271,6 +272,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {isClass ? <YourAttendanceLine orgId={orgId} /> : null}
                 {isClass ? <CompletionLine orgId={orgId} /> : null}
                 {isClass ? <MentoringCard orgId={orgId} /> : null}
+                {isClass ? <MyPrepCard orgId={orgId} /> : null}
                 {record.length ? <Notice><span data-testid={data.archivedSummary ? 'org-archived-summary' : 'org-term-mine'}>{record.join(' · ')}</span></Notice> : null}
                 {data.welcome && !welcomeClosed ? (
                     // Report §26.7, decision 49: once after joining; × hides it for good.
