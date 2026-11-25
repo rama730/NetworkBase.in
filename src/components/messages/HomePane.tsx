@@ -154,7 +154,7 @@ export function HomePane() {
               <Card
                 title="Unread"
                 icon={<Dot size={16} />}
-                action={clearable.length ? <Button type="button" variant="ghost" size="sm" onClick={markAll} className="text-primary pointer-coarse:h-11">{project ? `Mark ${project.title} read` : MARK_ALL_LABEL}</Button> : null}
+                action={clearable.length ? <Button type="button" variant="ghost" size="sm" onClick={markAll} className="nbm-glabel-act text-primary pointer-coarse:h-11">{project ? `Mark ${project.title} read` : MARK_ALL_LABEL}</Button> : null}
               >
                 {unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />)}
                 {needing.length > UNREAD_SHOWN ? (

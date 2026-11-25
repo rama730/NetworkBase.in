@@ -28,7 +28,7 @@ test('Inbox groups: a mono label with a rule and Mark as read; no indented left 
 });
 
 test('Inbox tabs are mix tabs with padded counts; the inline reply is a composer cell', () => {
-  assert.match(views, /className="nbm-tab flex-none gap-1\.5"/);
+  assert.match(views, /className="nbm-tab flex-none"/);
   assert.match(views, /<span className="nbm-count ml-1\.5"><span aria-hidden="true">\{padCount\(counts\[f\.id\]\)\}<\/span>/);
   assert.match(views, /className="nbm-ireply"/);
 });
@@ -50,7 +50,7 @@ test('Search: big find field, filter cells with an ink set state, warm-mark high
 });
 
 test('Browse: Show and Sort as segmented cells; Joined is a square tag', () => {
-  assert.match(views, /role="radiogroup" aria-label="Show" className="nbm-seg"/);
-  assert.match(views, /role="radiogroup" aria-label="Sort" className="nbm-seg"/);
+  assert.match(views, /<RadioCells label="Show"/);
+  assert.match(views, /<RadioCells label="Sort"/);
   assert.match(views, /<span className="nbm-tag flex-none"><Check size=\{12\} aria-hidden="true" \/> Joined<\/span>/);
 });

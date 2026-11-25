@@ -1,4 +1,5 @@
 "use client";
+import { RadioCells } from "@/components/messages/mix/primitives";
 import { TabMarker } from "@/components/ui/TabMarker";
 import { padCount } from "@/lib/messaging/mix-format";
 import { PixelBeat } from "@/components/ui/PixelBeat";
@@ -154,17 +155,18 @@ function SnippetRow({ href, target, onOpen, author, head, time, timeLabel, body,
         }}
         className="flex min-w-0 flex-1 gap-3 rounded-md"
       >
-        {/* The mono time column, then who and what. */}
-        <span className="nbm-lrowx-time" title={time ? fullTime(time) : undefined}>{timeLabel ? `${timeLabel} ` : ""}{when(time)}</span>
         <UserAvatar identity={author} size={34} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5 text-[13px]">
             {head}
+            {timeLabel ? <span className="nbm-lrow-meta flex-none">{timeLabel}</span> : null}
           </span>
           <span className={`mt-0.5 line-clamp-2 block text-[15px] ${dim || folded ? "text-muted-foreground" : ""}`}>{folded ? "Message from someone you blocked" : body}</span>
           {unread ? <span className="sr-only">, unread</span> : null}
           {extra}
         </span>
+        {/* The mono time column: shown first (order -1), read after the message. */}
+        <span className="nbm-lrowx-time" title={time ? fullTime(time) : undefined}>{when(time)}</span>
       </Link>
       {aside}
     </div>
@@ -320,16 +322,8 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter channels" className="max-w-md pl-9 pointer-coarse:h-11 pointer-coarse:text-[17px]" />
         </label>
-        <div role="radiogroup" aria-label="Show" className="nbm-seg">
-          {([["all", "All channels"], ["joined", "Joined"], ["open", "Not joined"], ["archived", "Archived"]] as const).map(([value, label]) => (
-            <button key={value} type="button" role="radio" aria-checked={show === value} onClick={() => setShow(value)}>{label}</button>
-          ))}
-        </div>
-        <div role="radiogroup" aria-label="Sort" className="nbm-seg">
-          {([["name", "Sort: Name"], ["members", "Sort: Most members"]] as const).map(([value, label]) => (
-            <button key={value} type="button" role="radio" aria-checked={sort === value} onClick={() => setSort(value)}>{label}</button>
-          ))}
-        </div>
+        <RadioCells label="Show" value={show} onChange={setShow} options={[["all", "All channels"], ["joined", "Joined"], ["open", "Not joined"], ["archived", "Archived"]] as const} />
+        <RadioCells label="Sort" value={sort} onChange={setSort} options={[["name", "Sort: Name"], ["members", "Sort: Most members"]] as const} />
       </div>
       <p className="border-b border-border px-4 py-2 text-[13px] text-muted-foreground">Private channels aren’t listed. Ask a member to add you.</p>
       {channels.isLoading ? <ListSkeleton header={false} label="Loading channels" rows={4} /> : null}
@@ -493,11 +487,11 @@ function InboxGroup({ items, nav, onOpen, onToggleRead, onMarkRead, onReplied }:
       <div className="nbm-igroup">
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-[13px]">
           <ChevronDown size={14} aria-hidden="true" className={open ? "" : "-rotate-90"} />
-          <span className={`min-w-0 truncate ${unread ? "is-unread" : ""}`}>{items.length} {noun} {inThread ? "in a thread in" : "in"} <Place item={items[0]!} /> · {when(items[0]!.created_at)}</span>
+          <span className={`min-w-0 truncate ${unread ? "is-unread" : ""}`}>{items.length} {noun} {inThread ? "in a thread in" : "in"} <Place item={items[0]!} /> · <span title={fullTime(items[0]!.created_at)}>{when(items[0]!.created_at)}</span></span>
           {unread ? <span className="nbm-count hot"><span aria-hidden="true">{padCount(unread)}</span><span className="sr-only">{unread} unread</span></span> : null}
           <span className="nbm-glabel-rule" aria-hidden="true" />
         </button>
-        {unreadItems.length ? <Button type="button" variant="ghost" size="sm" onClick={() => onMarkRead(unreadItems)} className="h-7 px-2 text-[12px] pointer-coarse:h-11"><CheckCheck size={14} /> Mark as read</Button> : null}
+        {unreadItems.length ? <Button type="button" variant="ghost" size="sm" onClick={() => onMarkRead(unreadItems)} className="nbm-igroup-act h-7 px-2 text-[12px] pointer-coarse:h-11"><CheckCheck size={14} /> Mark as read</Button> : null}
       </div>
       {open ? <ul>{items.map((item) => <li key={`${item.seq}:${item.kind}:${item.emoji ?? ""}`} className="group/inbox"><InboxRow item={item} nav={nav} onOpen={onOpen} onToggleRead={onToggleRead} onReplied={onReplied} /></li>)}</ul> : null}
     </li>
@@ -694,7 +688,7 @@ export function InboxView() {
             tabIndex={filter === f.id ? 0 : -1}
             onKeyDown={(event) => tabKeys(event, index)}
             onClick={() => selectFilter(f.id)}
-            className="nbm-tab flex-none gap-1.5"
+            className="nbm-tab flex-none"
           >
             {f.label}{counts[f.id] ? <span className="nbm-count ml-1.5"><span aria-hidden="true">{padCount(counts[f.id])}</span><span className="sr-only">{counts[f.id]} unread</span></span> : null}
           </button>
@@ -1119,7 +1113,7 @@ export function SearchView() {
     staleTime: 30_000,
   });
   const results = resultPages.data?.pages.flat();
-  const control = "h-[var(--ui-control-height)] rounded-md border border-input bg-card px-2 text-[13px] pointer-coarse:h-11";
+  const control = "nbm-fcell";
   const filtered = Boolean(inChannel || from || hasFile || after || before);
   const rows = useRowTabStop();
   return (

@@ -602,13 +602,13 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-lrowx.is-unread { background: color-mix(in srgb, var(--nbm-hl) 60%, transparent); }
 .nbm-lrowx.is-unread:hover { background: var(--nbm-hl); }
 .nbm-lrowx.is-unread [data-row-link] .font-medium { font-weight: 600; }
-.nbm-lrowx-time { flex: none; width: 64px; padding-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font: 10.5px/1.4 var(--nbm-mono); color: var(--nbm-fg2); }
+.nbm-lrowx-time { flex: none; order: -1; width: 64px; padding-top: 2px; white-space: normal; overflow-wrap: anywhere; text-align: right; font: 10.5px/1.4 var(--nbm-mono); color: var(--nbm-fg2); }
 @media (max-width: 639px) { .nbm-lrowx-time { width: 44px; } }
 .nbm-igroup { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px 0 16px; font: 500 10.5px/1.3 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); transition: background-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-igroup:hover { background: var(--nbm-soft); }
 .nbm-igroup > button { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
 .nbm-igroup .is-unread { color: var(--foreground); }
-.nbm-igroup > button:last-child { flex: none; text-transform: none; letter-spacing: 0; font-family: inherit; }
+.nbm-igroup-act { flex: none; text-transform: none; letter-spacing: 0; font-family: inherit; }
 .nbm-ireply { padding: 0 20px 12px 88px; animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
 @media (max-width: 639px) { .nbm-ireply { padding-left: 12px; } }
 .nbm-lgroup { margin: 0; padding: 14px 20px 6px; }
@@ -652,3 +652,10 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-sw-group { padding: 8px 12px 4px; }
 .nbm-sw-row { min-height: 40px; border-radius: 3px; font-size: 14px; }
 .nbm-sw-row[aria-selected="true"] { background: var(--nbm-soft); }
+
+/* Phase 8 review fixes */
+.nbm-lgroup.nbm-lrow-meta { letter-spacing: .06em; text-transform: uppercase; }
+.nbm-glabel-act { margin-left: auto; text-transform: none; letter-spacing: 0; font-family: inherit; }
+.nbm[data-testid="chat-window"] .nbm-lhead-title, .nbm[data-testid="chat-window"] .nbm-chead-title { font-size: 20px; }
+.nbm[data-testid="chat-window"] .nbm-lrowx-time { width: 44px; }
+.nbm-fcell[data-set="true"] svg { color: currentColor; opacity: 1; }

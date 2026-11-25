@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { capCount, padCount } from "@/lib/messaging/mix-format";
+import { rovingTabKey } from "@/components/messages/keys";
 
 /** Three stepping squares: the only loader in Messages. A label makes it a status for screen readers. */
 export function PixelBeat({ label, className = "" }: { label?: string; className?: string }) {
@@ -41,4 +42,29 @@ export function MixCount({ value, hot = false, cap = 99, pad = true }: { value: 
 /** Square mono tag. */
 export function MixTag({ tone, children, className = "" }: { tone?: "ok" | "warn" | "bad" | "hot"; children: ReactNode; className?: string }) {
   return <span className={`nbm-tag${tone ? ` ${tone}` : ""} ${className}`}>{children}</span>;
+}
+
+/** Segmented radio cells (the mix): one Tab stop, ←/→ and ↑/↓ move the choice, like native radios. */
+export function RadioCells<T extends string>({ label, value, options, onChange, className = "" }: {
+  label: string; value: T; options: readonly (readonly [T, string])[]; onChange: (value: T) => void; className?: string;
+}) {
+  const index = Math.max(0, options.findIndex(([v]) => v === value));
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={`nbm-seg ${className}`}
+      onKeyDown={(event) => {
+        const key = event.key === "ArrowDown" ? "ArrowRight" : event.key === "ArrowUp" ? "ArrowLeft" : event.key;
+        const next = rovingTabKey({ key, preventDefault: () => event.preventDefault() } as React.KeyboardEvent, index, options.length);
+        if (next === null) return;
+        onChange(options[next]![0]);
+        (event.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+      }}
+    >
+      {options.map(([v, text]) => (
+        <button key={v} type="button" role="radio" aria-checked={v === value} tabIndex={v === value ? 0 : -1} onClick={() => onChange(v)}>{text}</button>
+      ))}
+    </div>
+  );
 }
