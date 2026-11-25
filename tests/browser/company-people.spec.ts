@@ -15,6 +15,7 @@ async function open(page: Page, view: string) {
       readDirectoryAction: async () => ({ success: true, me: 'dev', admin: true, limited: false, offices: ['London'], viewersAllowed: false, managerLeft: [], people }),
       saveMyDirectoryAction: async (_o: string, v: unknown) => { calls.push(['mine', v]); return { success: true }; },
       setReportsToAction: async (_o: string, p: string, m: string | null) => { calls.push(['reports', p, m]); return { success: true }; },
+      readPeopleCountsAction: async () => ({ success: true, total: 4, teams: [{ name: 'Engineering', n: 2 }, { name: 'Sales', n: 1 }], offices: [{ name: 'London', n: 1 }, { name: 'No office', n: 3 }], joined: [{ month: '2026-11', n: 4 }] }),
       saveDirectorySettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
     };
   }, [
@@ -56,6 +57,9 @@ test('Org chart: a tree from Reports to with report counts; admins change who so
   await tree.getByLabel('Mei Lin reports to').selectOption({ label: 'Ana Ruiz' });
   await expect.poll(async () => (await calls(page))[0]).toEqual(['reports', 'mei', 'ana']);
   expect(await axeViolations(page)).toEqual([]);
+  await page.getByRole('tab', { name: /Counts/ }).click();
+  await expect(page.getByTestId('people-counts')).toContainText('4 people');
+  await expect(page.getByTestId('people-counts')).toContainText('Engineering2');
   await page.getByRole('tab', { name: /Roster/ }).click();
   await expect(page.getByText('Roster here')).toBeVisible();
 });

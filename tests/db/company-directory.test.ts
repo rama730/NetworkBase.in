@@ -77,6 +77,15 @@ test("33.3: every member reads the Directory (never an email); Viewers only if a
   const after = await people.readDirectoryAction(id);
   assert.ok(after.success && !after.limited);
   assert.equal((after.people.find((p) => p.id === dev!) as { reportsTo: string }).reportsTo, ana!);
+  // Counts (call 8): admins only, numbers only.
+  viewerId = dev!;
+  assert.equal((await people.readPeopleCountsAction(id)).success, false);
+  viewerId = owner!;
+  const counts = await people.readPeopleCountsAction(id);
+  assert.ok(counts.success);
+  assert.equal(counts.total, 3);
+  assert.deepEqual(counts.offices.find((o) => o.name === "London")?.n, 1);
+  assert.equal(/Dev|Ana|Khan/.test(JSON.stringify(counts)), false, "never a name");
   // The person and the line managers are told; whoever made the change isn't told about their own change.
   const notes = await sql`SELECT user_id FROM user_notifications WHERE user_id IN (${dev!}, ${owner!}) AND title LIKE ${"% now reports to %"}`;
   assert.equal(new Set(notes.map((n) => n.user_id)).size, 2);

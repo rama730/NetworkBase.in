@@ -132,3 +132,26 @@ export async function saveDirectorySettingsAction(orgId: string, input: { viewer
   await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('directory', jsonb_build_object('viewers', ${input.viewers}::boolean)) WHERE id = ${orgId}::uuid`);
   return { success: true };
 }
+
+/** Counts (call 8, admins): people by team and by office, and joins per month for the last 12 — never a name. */
+export async function readPeopleCountsAction(orgId: string) {
+  const ctx = await company(orgId);
+  if (!ctx?.admin) return DENIED;
+  const [total, teams, offices, joined] = await Promise.all([
+    db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer'`),
+    db.execute<{ name: string; n: number }>(sql`
+      SELECT w.title AS name, count(DISTINCT m.user_id)::int AS n FROM workspaces w JOIN workspace_members m ON m.workspace_id = w.id
+      JOIN workspace_members c ON c.workspace_id = ${orgId}::uuid AND c.user_id = m.user_id AND c.role <> 'viewer'
+      WHERE w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND w.status <> 'archived' GROUP BY w.title ORDER BY 2 DESC, 1`),
+    db.execute<{ name: string | null; n: number }>(sql`
+      SELECT view_prefs->'directory'->>'office' AS name, count(*)::int AS n FROM workspace_members
+      WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer' GROUP BY 1 ORDER BY 2 DESC`),
+    db.execute<{ month: string; n: number }>(sql`
+      SELECT to_char(date_trunc('month', joined_at), 'YYYY-MM') AS month, count(*)::int AS n FROM workspace_members
+      WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer' AND joined_at > date_trunc('month', now()) - interval '11 months' GROUP BY 1 ORDER BY 1`),
+  ]);
+  return { success: true as const, total: Number(Array.from(total)[0]?.n ?? 0),
+    teams: Array.from(teams).map((t) => ({ name: t.name, n: Number(t.n) })),
+    offices: Array.from(offices).map((o) => ({ name: o.name ?? "No office", n: Number(o.n) })),
+    joined: Array.from(joined).map((j) => ({ month: j.month, n: Number(j.n) })) };
+}

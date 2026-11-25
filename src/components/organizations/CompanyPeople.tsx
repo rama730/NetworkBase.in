@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { readDirectoryAction, saveDirectorySettingsAction, saveMyDirectoryAction, setReportsToAction, type DirectoryPerson } from "@/app/actions/company-people";
+import { readDirectoryAction, readPeopleCountsAction, saveDirectorySettingsAction, saveMyDirectoryAction, setReportsToAction, type DirectoryPerson } from "@/app/actions/company-people";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { localTime, orgChart, type ChartNode } from "@/lib/organizations/directo
 // Report 33.3 (plan B4.2a–b, K2): Members in a company — the Directory for every member, the org chart, and the
 // roster (admins) — plus Settings → Directory.
 const key = (orgId: string) => ["company-directory", orgId] as const;
-type View = "directory" | "chart" | "roster";
+type View = "directory" | "chart" | "counts" | "roster";
 
 export function CompanyPeople({ orgId, roster }: { orgId: string; roster: ReactNode | null }) {
   const [view, setView] = useState<View>("directory");
@@ -26,12 +26,12 @@ export function CompanyPeople({ orgId, roster }: { orgId: string; roster: ReactN
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading the directory…</p>;
   if (!q.data?.success) return roster ?? <ErrorNotice what="Directory" onRetry={() => void q.refetch()} />;
   const d = q.data;
-  const tabs = [{ key: "directory" as const, label: "Directory", count: d.people.length }, ...(d.limited ? [] : [{ key: "chart" as const, label: "Org chart" }]), ...(roster ? [{ key: "roster" as const, label: "Roster" }] : [])];
+  const tabs = [{ key: "directory" as const, label: "Directory", count: d.people.length }, ...(d.limited ? [] : [{ key: "chart" as const, label: "Org chart" }]), ...(d.admin ? [{ key: "counts" as const, label: "Counts" }] : []), ...(roster ? [{ key: "roster" as const, label: "Roster" }] : [])];
   return (
     <section aria-label="People" className="space-y-4" data-testid="company-people">
       <UnderlineTabs tabs={tabs} value={view} onChange={setView} label="People views" idPrefix="company-people" />
       <div id={`company-people-panel-${view}`} role="tabpanel">
-        {view === "roster" && roster ? roster : view === "chart" && !d.limited ? <OrgChart orgId={orgId} people={d.people as DirectoryPerson[]} admin={d.admin} managerLeft={"managerLeft" in d ? d.managerLeft ?? [] : []} />
+        {view === "roster" && roster ? roster : view === "counts" && d.admin ? <Counts orgId={orgId} /> : view === "chart" && !d.limited ? <OrgChart orgId={orgId} people={d.people as DirectoryPerson[]} admin={d.admin} managerLeft={"managerLeft" in d ? d.managerLeft ?? [] : []} />
           : d.limited ? <ul className="space-y-1 text-[13px]" data-testid="directory-limited">{d.people.map((p) => <li key={p.id}><span className="font-medium">{p.name}</span>{p.title ? <span className="text-muted-foreground"> · {p.title}</span> : null}</li>)}</ul>
           : <Directory orgId={orgId} me={d.me} people={d.people as DirectoryPerson[]} offices={d.offices} />}
       </div>
@@ -156,5 +156,25 @@ export function DirectorySettingsCard({ orgId }: { orgId: string }) {
     <SettingsCard title="Directory" headingLevel={2} description="Every member sees the company directory. Email and phone never show; people use Message.">
       <label className="flex items-center gap-2 text-[13px]" data-testid="directory-settings"><input className="nb-check" type="checkbox" checked={on} onChange={(e) => void save(e.target.checked)} />Viewers see the directory (names and titles only)</label>
     </SettingsCard>
+  );
+}
+
+/** Counts (call 8, admins): numbers only — by team, by office, joins per month. */
+function Counts({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["company-counts", orgId], queryFn: () => readPeopleCountsAction(orgId), staleTime: 60_000 });
+  const d = q.data?.success ? q.data : null;
+  if (!d) return q.isPending ? <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Counting…</p> : <ErrorNotice what="Counts" onRetry={() => void q.refetch()} />;
+  const table = (title: string, rows: Array<{ name: string; n: number }>) => (
+    <div className="space-y-1"><p className="font-medium">{title}</p>
+      {rows.length ? <ul className="space-y-0.5">{rows.map((r) => <li key={r.name} className="flex justify-between gap-4"><span>{r.name}</span><span className="font-mono">{r.n}</span></li>)}</ul> : <p className="text-muted-foreground">None yet.</p>}
+    </div>
+  );
+  return (
+    <div className="grid gap-6 text-[13px] sm:grid-cols-3" data-testid="people-counts">
+      <p className="sm:col-span-3 text-muted-foreground"><span className="font-mono text-foreground">{d.total}</span> people · counts never name anyone</p>
+      {table("By team", d.teams)}
+      {table("By office", d.offices)}
+      {table("Joined per month", d.joined.map((j) => ({ name: j.month, n: j.n })))}
+    </div>
   );
 }
