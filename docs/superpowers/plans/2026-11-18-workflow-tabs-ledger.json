@@ -1188,9 +1188,9 @@
       "text": "B4.1 K1 Company home and handbook (33.2) — Build: Handbook starter sections; page owner + Review by; Process (SOP) template + Run this process; About relabels +",
       "kind": "unit",
       "milestone": "B4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/organization-docs.test.ts; tests/db/handbook.test.ts; tests/db/company-about.test.ts; tests/browser/handbook.spec.ts; tests/browser/company.spec.ts",
+      "evidence": "K1a–e live 2026-11-25/26 (c586aa4cb..5aac19862). Checked live in Chrome on wt-test-b4-company: Handbook sections + empty-handbook Add a page, Process template → How we work, Run this process (task + 3 steps), owner + Review by → Needs review + Still correct, publish → Review by +12 mo, review cycle setting, Values/Offices, Mission/How we work labels, What's new + Needs review cards, team page Share with the company. Weekly owner Summary is a time-based step (DB/unit tested). Live fixes: rail badges under title, options layout, header title, unpublished team pages read at latest version."
     },
     {
       "key": "B4.2",
@@ -1198,9 +1198,9 @@
       "text": "B4.2 K2 Directory and org chart (33.3) — Build: time zone + working hours on company membership; time-off type on Away; Directory, Org chart (indented tree from",
       "kind": "unit",
       "milestone": "B4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/company-directory.test.ts; tests/db/company-directory.test.ts; tests/browser/company-people.spec.ts",
+      "evidence": "K2a,b,d live (01ed43ac8, 75cc98714, f6dcc106c): Directory, my card (off hours), org chart + Reports to, Counts, Import people, Settings → Directory — checked live except Import send (would email real addresses). K2c Who's out + time-off types NOT built: needs a migration (Away type) queued behind another session's 0148–0150 not in prod."
     },
     {
       "key": "B4.3",
@@ -1208,9 +1208,9 @@
       "text": "B4.3 K3 Company goals and projects (33.4) — Depends: D3 (A5.1); includes D3 W8 Contributes to. Build: company periods; Supports on workspaces; workspace start/e",
       "kind": "unit",
       "milestone": "B4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/company-goals.test.ts; tests/browser/company-goals.spec.ts",
+      "evidence": "Live 2026-11-25/26 (38638af87, cf0bf5f90, 72e1f4066). Checked live: company goals doc, objective + key result + check-in (40% At risk), team Supports/dates/Post status (also an Update), Goals cascade, Timeline, Company goals card. Private team goals masked (security fix, DB-tested)."
     },
     {
       "key": "B4.5",
@@ -1228,9 +1228,9 @@
       "text": "B4.4 K4 New hire onboarding (33.5) — Build: New people assignment target with day offsets; start date on invites/memberships; early access (Start here, Handbook",
       "kind": "unit",
       "milestone": "B4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/company-onboarding.test.ts; tests/db/company-onboarding.test.ts; tests/browser/company-onboarding.spec.ts",
+      "evidence": "Live 2026-11-26 (6355bee66). Checked live: Settings → Onboarding plan switched on, Members → Onboarding. Start here, steps for line manager/buddy, start-date move, How's it going? DB-tested only (one account). Not built: start date on invites (needs migration), early access, Leaving plan, team plans, team-kind steps (K5)."
     },
     {
       "key": "B5.1",
