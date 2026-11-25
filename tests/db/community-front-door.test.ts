@@ -46,6 +46,11 @@ test("34.2: rules show to visitors; members agree to the current version and aga
   const [v] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${id}, ${d!.id}, 1, ${orgStarterDoc("community", { title: "Pune Devs" })}, 'c1') RETURNING id`;
   await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${d!.id}`;
 
+  // A draft Code of conduct never shows: only its published version.
+  await sql`UPDATE workspace_documents SET published_version_id = NULL WHERE id = ${d!.id}`;
+  viewerId = visitor!;
+  assert.ok((await fd.readCommunityRulesAction(id) as { rules: unknown[] }).rules.length === 0);
+  await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${d!.id}`;
   viewerId = visitor!;
   const rules = await fd.readCommunityRulesAction(id);
   assert.ok(rules.success);
@@ -71,6 +76,9 @@ test("34.2: rules show to visitors; members agree to the current version and aga
   assert.equal((await fd.saveJoiningSettingsAction(id, { agreeRequired: true, questions: [], gettingStarted: [], welcomePost: false, firstDayLimit: true })).success, false, "organisers set Joining");
   viewerId = owner!;
   assert.match((await fd.saveJoiningSettingsAction(id, { agreeRequired: true, questions: [], gettingStarted: [{ id: "x", label: "Out", href: "https://evil.example" }], welcomePost: false, firstDayLimit: true }) as { error: string }).error, /inside NetworkBase/);
+  for (const href of ["//evil.example", "/\\evil.example", "?x=1\\y"]) {
+    assert.equal((await fd.saveJoiningSettingsAction(id, { agreeRequired: true, questions: [], gettingStarted: [{ id: "x", label: "Out", href }], welcomePost: false, firstDayLimit: true })).success, false, href);
+  }
   assert.equal((await fd.saveJoiningSettingsAction(id, { agreeRequired: true, questions: [{ id: "why", label: "What brings you here?" }], gettingStarted: [{ id: "hello", label: "Say hi", href: "/messages" }], welcomePost: false, firstDayLimit: true })).success, true);
   viewerId = member!;
   assert.equal((await fd.saveJoinAnswersAction(id, { answers: { why: "Learning Rust", other: "ignored" }, showAnswer: false })).success, true);

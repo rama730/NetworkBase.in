@@ -31,8 +31,11 @@ async function community(orgId: string) {
 async function codeOfConduct(orgId: string) {
   const [d] = Array.from(await db.execute<{ id: string; slug: string; version: number; content: string | null }>(sql`
     SELECT d.id, d.slug, coalesce((d.settings->'org'->>'readVersion')::int, 0) AS version,
-      (SELECT v.content FROM workspace_document_versions v WHERE v.doc_id = d.id ORDER BY (v.id = d.published_version_id) DESC, v.version_number DESC LIMIT 1) AS content
-    FROM workspace_documents d WHERE d.workspace_id = ${orgId}::uuid AND lower(d.filename) LIKE '%code of conduct%' ORDER BY d.created_at LIMIT 1`));
+      v.content
+    FROM workspace_documents d JOIN workspace_document_versions v ON v.id = d.published_version_id
+    -- Security review (B5.1): only the published version — a draft's text never reaches visitors or members.
+    WHERE d.workspace_id = ${orgId}::uuid AND lower(d.filename) LIKE '%code of conduct%' AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft'
+    ORDER BY d.created_at LIMIT 1`));
   return d ? { id: d.id, slug: d.slug, version: Number(d.version), rules: parseRules(d.content ?? "") } : null;
 }
 
@@ -100,11 +103,17 @@ export async function saveJoinAnswersAction(orgId: string, input: { answers: Rec
   return { success: true };
 }
 
+/** Security review (B5.1): a path or ?query on this site — never "//host", a backslash, or anything that leaves it. */
+function insideLink(h: string) {
+  if (!(h.startsWith("/") || h.startsWith("?")) || h.startsWith("//") || h.includes("\\")) return false;
+  try { return new URL(h, "https://networkbase.in/org/x").origin === "https://networkbase.in"; } catch { return false; }
+}
+
 const settingsSchema = z.object({
   agreeRequired: z.boolean(),
   questions: z.array(z.object({ id: z.string().regex(/^[a-z0-9-]{1,40}$/), label: z.string().trim().min(1, "Write each question.").max(200) }).strict()).max(3, "Up to 3 join questions."),
   gettingStarted: z.array(z.object({ id: z.string().regex(/^[a-z0-9-]{1,40}$/), label: z.string().trim().min(1, "Name each item.").max(120),
-    href: z.string().trim().max(300).refine((h) => h.startsWith("/") || h.startsWith("?"), "Links stay inside NetworkBase.") }).strict()).max(5, "Up to 5 items."),
+    href: z.string().trim().max(300).refine(insideLink, "Links stay inside NetworkBase.") }).strict()).max(5, "Up to 5 items."),
   welcomePost: z.boolean(),
   firstDayLimit: z.boolean(),
 }).strict();
