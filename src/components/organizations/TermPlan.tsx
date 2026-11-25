@@ -2,6 +2,7 @@
 
 import { readPathAction, setPathSettingsAction } from "@/app/actions/learning-path";
 import { PathView } from "@/components/workspaces/tabs/sprint/LearningPath";
+import { EventsView } from "@/components/organizations/SchoolEvents";
 import { Fragment, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -26,20 +27,20 @@ const planKey = (orgId: string) => ["term-plan", orgId] as const;
 
 /** A class's Sprints tab: Term plan (default) or today's Sprint view. */
 export function ClassSprints({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [view, setView] = useState<"plan" | "calendar" | "sprint">("plan");
+  const [view, setView] = useState<"plan" | "calendar" | "events" | "sprint">("plan");
   // B2.2a (report 31.3 call 1): a self-paced class plans a Path instead; one or the other, never both.
   const path = useQuery({ queryKey: ["learning-path", orgId], queryFn: () => readPathAction(orgId), staleTime: 15_000 });
   if (path.data?.success && path.data.settings.pacing === "self") return <SelfPacedSprints orgId={orgId}>{children}</SelfPacedSprints>;
   return (
     <div>
       <div role="group" aria-label="Sprints view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="class-sprints-switch">
-        {(["plan", "calendar", "sprint"] as const).map((v) => (
+        {(["plan", "calendar", "events", "sprint"] as const).map((v) => (
           <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
-            {v === "plan" ? "Term plan" : v === "calendar" ? "Calendar" : "Sprint"}
+            {v === "plan" ? "Term plan" : v === "calendar" ? "Calendar" : v === "events" ? "Events" : "Sprint"}
           </button>
         ))}
       </div>
-      {view === "plan" ? <TermPlanView orgId={orgId} /> : view === "calendar" ? <TermCalendar orgId={orgId} /> : children}
+      {view === "plan" ? <TermPlanView orgId={orgId} /> : view === "calendar" ? <TermCalendar orgId={orgId} /> : view === "events" ? <EventsView orgId={orgId} /> : children}
     </div>
   );
 }

@@ -84,6 +84,11 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
     stages: [s("draft", "Draft", "todo", false), s("ready", "Ready", "todo", false), s("archived", "Archived", "done", false, true),
       s("taught", "Taught", "done", false, true), s("cancelled", "Cancelled", "done", false, true)],
   },
+  event: {
+    id: "event", label: "Event", icon: "CalendarDays", joinStage: null, doneStage: "done",
+    // B3.1b (report 32.2 call 3): a school or class event, never on the board: Planned → Confirmed → Done, or Cancelled.
+    stages: [s("planned", "Planned", "todo", false), s("confirmed", "Confirmed", "todo", false), s("done", "Done", "done", false, true), s("cancelled", "Cancelled", "done", false, true)],
+  },
 };
 
 export function workflowType(id: string): WorkflowType {

@@ -1151,6 +1151,12 @@ async function isEducationClass(projectId: string) {
   return row?.kind === "organization" && !row.orgLevel && typeProfile(row.orgType as Parameters<typeof typeProfile>[0]).schools;
 }
 
+async function isEducationOrg(projectId: string) {
+  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  const { typeProfile } = await import("@/lib/organizations/type-profile");
+  return row?.kind === "organization" && typeProfile(row.orgType as Parameters<typeof typeProfile>[0]).schools;
+}
+
 async function checkNewItemType(projectId: string, userId: string, type: string, stage: string | null, fields: Record<string, unknown>) {
   const t = WORKFLOW_TYPES[type];
   if (!t) return { error: `There’s no “${type}” type. Use one of: ${Object.keys(WORKFLOW_TYPES).join(", ")}` } as const;
@@ -1159,7 +1165,9 @@ async function checkNewItemType(projectId: string, userId: string, type: string,
   const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
   // B1.2 (report 30.3): every Education class has the Term plan, so its lessons need no workflow.
   const classLesson = type === "class_lesson" && await isEducationClass(projectId);
-  if (!classLesson && (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id))) {
+  // B3.1b (report 32.2 call 3): every Education school and class has a calendar, so its events need no workflow.
+  const schoolEvent = type === "event" && await isEducationOrg(projectId);
+  if (!classLesson && !schoolEvent && (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id))) {
     const [hidden] = entry ? await db.select({ id: workspaceWorkflows.id }).from(workspaceWorkflows)
       .where(and(eq(workspaceWorkflows.workspaceId, projectId), eq(workspaceWorkflows.workflow, entry.id), isNotNull(workspaceWorkflows.hiddenAt))).limit(1) : [];
     return hidden ? { error: `${name} was removed from this workspace`, code: "type_removed" } as const : { error: `${name} isn’t in this workspace` } as const;

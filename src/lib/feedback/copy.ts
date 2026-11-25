@@ -744,4 +744,9 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Check the school year.": {"title": "Check the school year.", "type": "warning"},
   "A school year is at most 400 days.": {"title": "A school year is at most 400 days.", "type": "warning"},
   "{name} is outside the terms.": {"title": "{name} is outside the terms.", "type": "warning"},
+  "Name the event.": {"title": "Name the event.", "type": "warning"},
+  "Check the event’s date, time and audience.": {"title": "Check the event’s date, time and audience.", "type": "warning"},
+  "A repeat ends after the first day.": {"title": "A repeat ends after the first day.", "type": "warning"},
+  "Couldn’t add the event.": {"title": "Couldn’t add the event."},
+  "Couldn’t load the events.": {"title": "Couldn’t load the events."},
 };
