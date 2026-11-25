@@ -90,7 +90,7 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
       aria-label="Messages window"
       data-messages-surface
       data-testid="chat-window"
-      className="fixed bottom-[5.5rem] right-6 z-30 flex outline-none h-[min(640px,calc(100dvh-5.5rem))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-md"
+      className="nbm fixed bottom-[5.5rem] right-6 z-30 flex outline-none h-[min(640px,calc(100dvh-5.5rem))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-md"
     >
       {/* The list, Inbox and conversation screens carry their own header (one header, not two). */}
       {screen.type === "list" || screen.type === "inbox" || screen.type === "channel" ? null : (
