@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
     Download,
     File,
@@ -207,6 +207,25 @@ function useReducedMotion() {
     return reduced;
 }
 
+/** A GIF held still (reduced motion): its first frame drawn once on a canvas; an <img> would keep animating. */
+function StillFrame({ src, alt, onLoad, onError }: { src: string; alt: string; onLoad: () => void; onError: () => void }) {
+    const ref = useRef<HTMLCanvasElement>(null);
+    useEffect(() => {
+        const image = new Image();
+        image.onload = () => {
+            const canvas = ref.current;
+            if (!canvas) return;
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            canvas.getContext('2d')?.drawImage(image, 0, 0);
+            onLoad();
+        };
+        image.onerror = onError;
+        image.src = src;
+    }, [src, onLoad, onError]);
+    return <canvas ref={ref} role="img" aria-label={alt} className="nbm-mtile-img is-loaded" />;
+}
+
 /** The 12×12 colour grid, painted at once and pixelated, under the image while it loads. */
 function PixelPreview({ colors }: { colors: string[] }) {
     const ref = useRef<HTMLCanvasElement>(null);
@@ -275,6 +294,8 @@ function MediaAttachmentTileV2({
         setFallbackUrl(attachmentRetryUrl(attachment.url, attempt + 1) ?? `${attachment.url}${attachment.url.includes('?') ? '&' : '?'}retry=${attempt + 1}`);
     };
     const frameStyle: CSSProperties = { width: `${box.width}px`, aspectRatio: box.ratio };
+    const markLoaded = useCallback(() => { setLoaded(true); setSlow(false); onContentLoad?.(); }, [onContentLoad]);
+    const markError = useCallback(() => setHasError(true), []);
 
     return (
         <div className="nbm-mtile msg-media-frame group/video" style={frameStyle} data-media-orientation={getMediaOrientation(normalizeMediaDimensions(attachment.width, attachment.height))}>
@@ -294,7 +315,8 @@ function MediaAttachmentTileV2({
             {/* Under everything: the pixel preview, else the soft cell. */}
             {colors ? <PixelPreview colors={colors} /> : null}
 
-            {displayUrl && !hasError ? (
+            {displayUrl && !hasError && still ? <StillFrame src={displayUrl} alt={attachment.filename || ''} onLoad={markLoaded} onError={markError} /> : null}
+            {displayUrl && !hasError && !still ? (
                 // Native img: local object URLs and signed fallbacks don't fit an image loader.
                 <img
                     key={attempt}
@@ -316,7 +338,7 @@ function MediaAttachmentTileV2({
                             setHasError(true);
                         }
                     }}
-                    className={cn('nbm-mtile-img', loaded ? 'is-loaded' : '', still ? 'is-still' : '')}
+                    className={cn('nbm-mtile-img', loaded ? 'is-loaded' : '')}
                 />
             ) : null}
 

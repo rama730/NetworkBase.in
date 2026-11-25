@@ -44,3 +44,8 @@ test('grids: 4px gaps, mono +N on 70% ink; file chips as list cells', () => {
   assert.match(css, /\.nbm-tile-more\s*\{[^}]*var\(--nbm-mono\)/);
   assert.match(tiles, /className="nbm-fchip"/);
 });
+
+test('a GIF under reduced motion shows its first frame on a canvas (an <img> would keep animating)', () => {
+  assert.match(tiles, /function StillFrame\(/);
+  assert.match(tiles, /&& still \? <StillFrame src=\{displayUrl\}/);
+});
