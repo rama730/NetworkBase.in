@@ -8,6 +8,7 @@ import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql,
 // the staff), My timetable and Your day; staff read their own slots, leaders the whole timetable.
 
 let viewerId = "";
+let token: string | null = null;
 moduleStubs.set("@/lib/supabase/server", {
   createClient: async () => ({ auth: {
     getUser: async () => ({ data: { user: viewerId ? { id: viewerId, user_metadata: {} } : null }, error: null }),
@@ -28,6 +29,8 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
     getViewerProfileContext: async () => ({ userId: viewerId || null, profile: null }),
   });
+  const shared = await loadAppModule(() => import("../../src/app/api/v1/_shared"));
+  moduleStubs.set("@/app/api/v1/_shared", { ...shared, requireAuthenticatedUser: async () => (viewerId ? { user: { id: viewerId }, tokenKind: token } : Promise.reject(new Error("401"))) });
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   tt = await loadAppModule(() => import("../../src/app/actions/school-timetable"));
 });
@@ -40,8 +43,8 @@ after(async () => {
 });
 
 test("the school day, an imported timetable, Your day; leaders see all, staff their own", async () => {
-  const [principal, teacher, other, token] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
-  void token; void assignments;
+  const [principal, teacher, other, fourth] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
+  void fourth; void assignments;
   const school = await sql.begin((tx) => createProject(tx, principal!));
   created.push(school);
   await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', org_level = 'institution', join_code = ${generateJoinCode()} WHERE id = ${school}`;
@@ -81,6 +84,9 @@ test("the school day, an imported timetable, Your day; leaders see all, staff th
   assert.equal((await tt.setSlotChangeAction(school, s6a!.id, "2026-09-08", { kind: "room", room: "Hall" })).success, false, "the slot's teacher or a leader");
   viewerId = teacher!;
   assert.equal((await tt.setSlotChangeAction(school, s6a!.id, "2026-09-09", { kind: "room", room: "Hall" })).success, false, "that lesson isn't on Wednesday");
+  token = "agent";
+  assert.equal((await tt.setSlotChangeAction(school, s6a!.id, "2026-09-08", { kind: "room", room: "Hall" })).success, false, "security review: never a token");
+  token = null;
   assert.equal((await tt.setSlotChangeAction(school, s6a!.id, "2026-09-08", { kind: "room", room: "Hall" })).success, true);
   const changed = await tt.readTimetableAction(school, "2026-09-08");
   assert.ok(changed.success && changed.yourDay[0]!.slots[0]!.room === "Hall");

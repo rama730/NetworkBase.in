@@ -16,7 +16,8 @@ import { isLooseUuid } from "@/lib/validations/uuid";
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You can’t do that here." };
 
-async function school(schoolId: string, write = false) {
+/** `write`: the school's leaders, never a token. `"staff"`: anyone on the staff who can write, never a token (security review). */
+async function school(schoolId: string, write: boolean | "staff" = false) {
   if (!isLooseUuid(schoolId)) return null;
   const auth: { user: { id: string } | null; tokenKind?: string | null } = await requireAuthenticatedUser().catch(() => ({ user: null }));
   const userId = auth.user?.id;
@@ -26,7 +27,8 @@ async function school(schoolId: string, write = false) {
     SELECT org_level AS level, org_settings AS settings, time_zone AS zone FROM workspaces WHERE id = ${schoolId}::uuid AND deleted_at IS NULL`));
   if (w?.level !== "institution" || !a.canRead || !(a.isOwner || a.isMember)) return null;
   const leader = a.isOwner || a.memberRole === "admin";
-  if (write && (!leader || !a.canWrite)) return null;
+  if (write === "staff" && (!a.canWrite || a.memberRole === "viewer")) return null;
+  if (write === true && (!leader || !a.canWrite)) return null;
   return { userId, leader, settings: w.settings, zone: w.zone };
 }
 
@@ -110,7 +112,7 @@ export async function importTimetableAction(schoolId: string, rows: ImportSlot[]
 
 /** B3.4d "Today only": cancel a lesson or move its room for one day — the school's leaders or the slot's teacher. */
 export async function setSlotChangeAction(schoolId: string, slotId: string, day: string, change: { kind: "cancelled" } | { kind: "room"; room: string } | null): Promise<{ success: true } | Failure> {
-  const ctx = await school(schoolId, false);
+  const ctx = await school(schoolId, "staff");
   if (!ctx || !isLooseUuid(slotId) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return DENIED;
   const [slot] = Array.from(await db.execute<{ teacher_id: string | null; day: number }>(sql`SELECT teacher_id, day FROM school_timetable_slots WHERE id = ${slotId}::uuid AND workspace_id = ${schoolId}::uuid`));
   if (!slot || (!ctx.leader && slot.teacher_id !== ctx.userId)) return DENIED;
