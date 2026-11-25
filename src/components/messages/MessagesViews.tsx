@@ -134,7 +134,7 @@ function SnippetRow({ href, target, onOpen, author, head, time, timeLabel, body,
   return (
     // Unread rows get the same faint tint as unread notifications.
     <div
-      className={`group/snippet flex gap-3 px-4 py-3 hover:bg-muted ${unread ? "bg-primary/[0.04] dark:bg-primary/[0.08]" : ""}`}
+      className={`nbm-lrowx group/snippet${unread ? " is-unread" : ""}`}
       data-unread={unread ? "true" : undefined}
       data-row-tabstop={tabStop ? "" : undefined}
       onFocus={onFocusRow}
@@ -154,11 +154,12 @@ function SnippetRow({ href, target, onOpen, author, head, time, timeLabel, body,
         }}
         className="flex min-w-0 flex-1 gap-3 rounded-md"
       >
+        {/* The mono time column, then who and what. */}
+        <span className="nbm-lrowx-time" title={time ? fullTime(time) : undefined}>{timeLabel ? `${timeLabel} ` : ""}{when(time)}</span>
         <UserAvatar identity={author} size={34} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5 text-[13px]">
             {head}
-            <span className="nb-meta ml-auto flex-none" title={time ? fullTime(time) : undefined}>{timeLabel ? `${timeLabel} ` : ""}{when(time)}</span>
           </span>
           <span className={`mt-0.5 line-clamp-2 block text-[15px] ${dim || folded ? "text-muted-foreground" : ""}`}>{folded ? "Message from someone you blocked" : body}</span>
           {unread ? <span className="sr-only">, unread</span> : null}
@@ -495,16 +496,16 @@ function InboxGroup({ items, nav, onOpen, onToggleRead, onMarkRead, onReplied }:
   const inThread = items[0]!.kind === "thread_reply";
   return (
     <li className="border-b border-border">
-      <div className="flex min-h-11 items-center gap-2 px-4 hover:bg-muted">
+      <div className="nbm-igroup">
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-[13px]">
           <ChevronDown size={14} aria-hidden="true" className={open ? "" : "-rotate-90"} />
-          <span className={`min-w-0 truncate ${unread ? "font-semibold" : "font-medium"}`}>{items.length} {noun} {inThread ? "in a thread in" : "in"} <Place item={items[0]!} /></span>
-          {unread ? <span className="nb-chat-count">{unread > 99 ? "99+" : unread}<span className="sr-only"> unread</span></span> : null}
-          <span className="nb-meta ml-auto flex-none" title={fullTime(items[0]!.created_at)}>{when(items[0]!.created_at)}</span>
+          <span className={`min-w-0 truncate ${unread ? "is-unread" : ""}`}>{items.length} {noun} {inThread ? "in a thread in" : "in"} <Place item={items[0]!} /> · {when(items[0]!.created_at)}</span>
+          {unread ? <span className="nbm-count hot"><span aria-hidden="true">{padCount(unread)}</span><span className="sr-only">{unread} unread</span></span> : null}
+          <span className="nbm-glabel-rule" aria-hidden="true" />
         </button>
         {unreadItems.length ? <Button type="button" variant="ghost" size="sm" onClick={() => onMarkRead(unreadItems)} className="h-7 px-2 text-[12px] pointer-coarse:h-11"><CheckCheck size={14} /> Mark as read</Button> : null}
       </div>
-      {open ? <ul className="border-l-2 border-border pl-2">{items.map((item) => <li key={`${item.seq}:${item.kind}:${item.emoji ?? ""}`} className="group/inbox"><InboxRow item={item} nav={nav} onOpen={onOpen} onToggleRead={onToggleRead} onReplied={onReplied} /></li>)}</ul> : null}
+      {open ? <ul>{items.map((item) => <li key={`${item.seq}:${item.kind}:${item.emoji ?? ""}`} className="group/inbox"><InboxRow item={item} nav={nav} onOpen={onOpen} onToggleRead={onToggleRead} onReplied={onReplied} /></li>)}</ul> : null}
     </li>
   );
 }
