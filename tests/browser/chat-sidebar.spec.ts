@@ -134,3 +134,40 @@ test('mix: the open row is a soft fill with no edge bar', async ({ page }) => {
   expect(style.bg).not.toBe('rgba(0, 0, 0, 0)');
   expect(parseFloat(style.radius)).toBe(0);
 });
+
+test('mix: the workspace cell names the workspace with a mono sub line', async ({ page }) => {
+  await open(page, '?w=nfb');
+  const cell = page.getByTestId('chat-project-switcher');
+  await expect(cell).toContainText('Network for builders');
+  await expect(cell.locator('.nbm-ws-sub')).toHaveText(/^Workspace · 3 people$/);
+  expect(await cell.evaluate((el) => el.getBoundingClientRect().height)).toBe(56);
+  await open(page);
+  await expect(page.getByTestId('chat-project-switcher').locator('.nbm-ws-sub')).toHaveText(/^\d+ workspaces$/);
+});
+
+test('mix: Jump to… on the page opens the switcher', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: /Jump to…/ }).click();
+  await expect(page.getByTestId('switcher-open')).toHaveText('true');
+});
+
+test('mix: All | Unread is a two-cell switch; Unread shows the note', async ({ page }) => {
+  await open(page);
+  const group = page.getByRole('group', { name: 'Show' });
+  const all = group.getByRole('button', { name: 'All' }), unread = group.getByRole('button', { name: 'Unread' });
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await unread.click();
+  await expect(unread).toHaveAttribute('aria-pressed', 'true');
+  await expect(all).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByText('Showing unread only')).toBeVisible();
+  await page.getByRole('button', { name: 'Show all' }).click();
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('mix: unread in another workspace is a 6px square', async ({ page }) => {
+  await open(page, '?w=nfb');
+  const mark = page.getByTestId('chat-project-switcher').locator('.nbm-sq');
+  await expect(mark).toHaveCount(1);
+  const box = await mark.evaluate((el) => { const s = getComputedStyle(el); return [s.width, s.height, s.borderRadius]; });
+  expect(box).toEqual(['6px', '6px', '0px']);
+});

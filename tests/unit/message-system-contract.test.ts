@@ -1050,7 +1050,7 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
 
     // B. Sidebar: switcher header, unreads filter, row menus, drafts markers.
     assert.match(sections, /function ProjectSwitcher[\s\S]*All workspaces/, "Project switcher header with an All workspaces mode");
-    assert.match(sections, /onClick=\{onToggleUnreads\}\s*aria-pressed=\{unreadsOnly\}/, "Unreads filter is a visible toggle in the sidebar header (plan #66)");
+    assert.match(sections, /aria-pressed=\{unreadsOnly\} onClick=\{unreadsOnly \? undefined : onToggleUnreads\}>Unread</, "Unreads filter is a visible toggle in the sidebar header (plan #66; mix: All | Unread)");
     assert.doesNotMatch(sections, /role="menuitemcheckbox"/, "Unreads filter is no longer buried in ⋯");
     assert.doesNotMatch(sections, /aria-label="Search messages and conversations"/, "No local search box: the app header search covers it");
     assert.match(sections, /function HoverMenu[\s\S]*Options for/, "Desktop rows have a hover ⋯ menu");

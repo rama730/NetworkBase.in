@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Bell, BellOff, Bookmark, CheckCheck, ChevronDown, Compass, FolderOpen, House, Inbox, Keyboard, LayoutGrid, Link2, ListFilter, LogOut, MailOpen, MoreHorizontal, Pencil, Plus, Search, Settings, SquarePen, Star, StarOff, UserPlus, X } from "lucide-react";
+import { Bell, BellOff, Bookmark, CheckCheck, ChevronDown, Compass, FolderOpen, House, Inbox, Keyboard, LayoutGrid, Link2, LogOut, MailOpen, MoreHorizontal, Pencil, Plus, Search, Settings, SquarePen, Star, StarOff, UserPlus, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { getOrCreateDm, setMemberState } from "@/app/actions/chat/members";
@@ -28,7 +28,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
   DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByWorkspace, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
-  projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons, workspaceBadges,
+  projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons, workspaceBadges, workspacePeople,
 } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { APPLICATION_STATUS_LABEL, APPLICATION_STATUS_TONE, isDecidedApplication } from "@/lib/messaging/application-status";
@@ -452,20 +452,51 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   const otherUnread = open ? projects.reduce((sum, project) => sum + (project.id === open.id ? 0 : badges.get(project.id) ?? 0), 0) : 0;
   const projectHref = open ? `/${open.kind === "organization" ? "org" : "projects"}/${open.slug ?? open.id}` : "";
   const shortcutHint = useModKeyHint("/");
+  const searchHint = useModKeyHint("k");
+
+  const people = open ? workspacePeople(data, open.id) : null;
+  const sub = open
+    ? `${open.kind === "organization" ? "Organization" : "Workspace"}${people ? ` · ${people} ${people === 1 ? "person" : "people"}` : ""}`
+    : `${projects.length} ${projects.length === 1 ? "workspace" : "workspaces"}`;
+  const label = `${open ? open.title : "All workspaces"}, switch workspace${otherUnread ? ", unread in other workspaces" : ""}`;
+  // Unread elsewhere: the square mark, never a dot.
+  const elsewhere = otherUnread ? <span className="nbm-sq nbm-ws-mark" aria-hidden="true" /> : null;
+  const seg = (
+    <div className="nbm-seg flex-none" role="group" aria-label="Show">
+      <button type="button" aria-pressed={!unreadsOnly} onClick={unreadsOnly ? onToggleUnreads : undefined}>All</button>
+      <button type="button" aria-pressed={unreadsOnly} onClick={unreadsOnly ? undefined : onToggleUnreads}>Unread</button>
+    </div>
+  );
 
   return (
+    <div>
     <div className="flex items-center gap-0.5">
       <DropdownMenu>
-        <DropdownMenuTrigger className="nb-chat-row min-w-0 flex-1 font-semibold text-foreground" aria-label={`${open ? open.title : "All workspaces"}, switch workspace${otherUnread ? ", unread in other workspaces" : ""}`} data-testid="chat-project-switcher">
+        {inPage ? (
+          // The page: the workspace cell (square tile, name, mono sub line).
+          <DropdownMenuTrigger className="nbm-ws min-w-0 flex-1" aria-label={label} data-testid="chat-project-switcher">
+            <span className="nbm-ws-tile">
+              {open ? <WorkspaceBadge project={open} className="size-7 rounded-[5px] text-[12px]" /> : <LayoutGrid size={16} aria-hidden="true" />}
+              {elsewhere}
+            </span>
+            <span className="min-w-0">
+              <span className="nbm-ws-name">{open ? open.title : "All workspaces"}</span>
+              <span className="nbm-ws-sub">{sub}</span>
+            </span>
+            <ChevronDown size={14} aria-hidden="true" className="flex-none text-muted-foreground" />
+          </DropdownMenuTrigger>
+        ) : (
+        <DropdownMenuTrigger className="nb-chat-row min-w-0 flex-1 font-semibold text-foreground" aria-label={label} data-testid="chat-project-switcher">
           {open ? (
             <WorkspaceBadge project={open} size="sm" />
           ) : (
             <LayoutGrid size={16} aria-hidden="true" />
           )}
           <span className="min-w-0 flex-1 truncate text-left">{open ? open.title : "All workspaces"}</span>
-          {otherUnread ? <span className="size-2 flex-none rounded-full bg-primary ring-2 ring-card" aria-hidden="true" /> : null}
+          {elsewhere}
           <ChevronDown size={14} aria-hidden="true" className="flex-none text-muted-foreground" />
         </DropdownMenuTrigger>
+        )}
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuLabel>Switch workspace</DropdownMenuLabel>
           {/* A radio group: screen readers hear which project is selected. */}
@@ -490,17 +521,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      {/* Selected filter = ink fill (spec), the same look as the Inbox's filter tabs. */}
-      <button
-        type="button"
-        onClick={onToggleUnreads}
-        aria-pressed={unreadsOnly}
-        className={`nb-icon-button size-7 flex-none pointer-coarse:size-11 ${unreadsOnly ? "bg-foreground text-background hover:bg-foreground hover:text-background" : ""}`}
-        aria-label="Unread only"
-        title={unreadsOnly ? "Showing unread only" : "Show unread only"}
-      >
-        <ListFilter size={16} />
-      </button>
+      {inPage ? null : seg}
       {/* One ⋯ for the page: the project's options (by role) and the keyboard shortcuts. */}
       {inPage ? (
         <DropdownMenu>
@@ -523,6 +544,16 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
           <FolderOpen size={16} />
         </Link>
       ) : null}
+    </div>
+    {inPage ? (
+      <div className="flex items-center gap-1.5 px-3 pb-1.5 pt-2.5">
+        <button type="button" className="nb-chat-jump" onClick={() => useChatUi.getState().setSwitcherOpen(true)} aria-keyshortcuts="Meta+K Control+K">
+          <Search size={14} aria-hidden="true" /><span className="flex-1 text-left">Jump to…</span>
+          <kbd className="nbm-mono pointer-coarse:hidden">{searchHint}</kbd>
+        </button>
+        {seg}
+      </div>
+    ) : null}
     </div>
   );
 }
@@ -736,9 +767,9 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         <ProjectSwitcher inPage={inPage} unreadsOnly={unreadsOnly} onToggleUnreads={toggleUnreads} />
         {unreadsOnly ? (
           // While the filter is on, say so and offer the way back.
-          <p className="flex items-center gap-1.5 px-2.5 text-[12px] text-muted-foreground">
-            <ListFilter size={14} aria-hidden="true" /> Showing unread only
-            <button type="button" onClick={toggleUnreads} className="ml-auto font-medium text-primary hover:underline pointer-coarse:min-h-11">Show all</button>
+          <p className="nbm-meta nbm-unread-note flex items-center gap-1.5 px-3.5">
+            Showing unread only ·
+            <button type="button" onClick={toggleUnreads} className="font-medium text-primary hover:underline pointer-coarse:min-h-11">Show all</button>
           </p>
         ) : null}
       </div>
@@ -749,7 +780,6 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           <Link href={open ? `/messages/w/${open.id}` : "/messages"} className="nb-chat-row max-lg:hidden" aria-current={here(open ? `/messages/w/${open.id}` : "/messages")}>
             <House size={16} aria-hidden="true" /><span className="flex-1">Home</span>
           </Link>
-          {/* No Jump to… here: the top bar's search finds conversations on this page (same ⌘K). */}
           <Link href="/messages/inbox" className="nb-chat-row" aria-current={here("/messages/inbox")} data-unread={inboxUnread ? "true" : undefined}>
             <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
           </Link>

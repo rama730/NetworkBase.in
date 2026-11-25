@@ -219,6 +219,11 @@ export function workspaceBadges(data: ChatBootstrap | undefined) {
   return rolled;
 }
 
+/** A workspace's people: everyone is in its #general (the default channel); null when that isn't loaded. */
+export function workspacePeople(data: ChatBootstrap | undefined, projectId: string): number | null {
+  return data?.channels.find((c) => c.project_id === projectId && c.is_default)?.member_count ?? null;
+}
+
 /** Projects ordered by most recent activity (L-30). */
 export function projectsByActivity(data: ChatBootstrap | undefined) {
   if (!data?.projects) return [];

@@ -137,3 +137,17 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm .nb-chat-section-title { gap: 10px; min-height: 28px; margin-top: 10px; padding: 0 8px 0 14px; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; color: var(--nbm-fg2); }
 .nbm .nb-chat-section-title b { font-weight: 500; color: var(--foreground); }
 .nbm .nb-chat-section-title .nbm-count { min-width: 18px; height: 16px; font-size: 10px; }
+
+/* Workspace cell, Jump field, unread note (Phase 2 Task 6) */
+.nbm-ws { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; height: 56px; padding: 0 12px 0 14px; border-bottom: 1px solid var(--nbm-line); text-align: left; color: var(--foreground); transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-ws:hover, .nbm-ws[data-state="open"] { background: var(--nbm-soft); }
+.nbm-ws-tile { position: relative; display: grid; place-items: center; width: 28px; height: 28px; }
+.nbm-ws-mark { position: absolute; top: -3px; right: -3px; }
+.nbm-ws-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.nbm-ws-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10.5px/1.4 var(--nbm-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm .nb-chat-jump { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; height: 32px; padding: 0 8px 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--background); color: var(--nbm-fg2); font-size: 13px; transition: border-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
+.nbm .nb-chat-jump:hover { border-color: var(--foreground); color: var(--foreground); }
+.nbm .nb-chat-jump:active { transform: translateY(1px); transition-duration: 60ms; }
+.nbm .nb-chat-jump kbd { font-size: 10.5px; }
+.nbm-unread-note { margin: 0; padding-bottom: 6px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+.nbm-unread-note button { font: inherit; letter-spacing: inherit; text-transform: inherit; }
