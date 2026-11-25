@@ -307,3 +307,26 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-day-float { padding: 0; }
 .nbm-day-float .nbm-day-rule { display: none; }
 @media (pointer: coarse) { .nbm-tab[data-closable="true"] { padding-right: 32px; } }
+
+/* Row states and system lines (Phase 4 Task 16) */
+.nbm-sys { display: flex; align-items: flex-start; gap: 12px; padding: 4px 20px; font-size: 13px; color: var(--nbm-fg2); }
+.nbm-sys b { font-weight: 500; color: var(--foreground); }
+.nbm-sys-gutter, .nbm-sys-face { display: flex; flex: none; justify-content: center; width: 36px; }
+.nbm-sys-glyph { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--card); color: var(--nbm-fg2); }
+.nbm-sys-join { margin: 4px 0; transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-sys-join:hover { background-color: var(--card); }
+.nbm-wave { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border: 1px dashed var(--nbm-line); border-radius: 3px; background: var(--card); font-size: 12px; color: var(--nbm-fg2); transition: border-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
+.nbm-wave:hover { border-color: var(--nbm-brand); color: var(--foreground); }
+.nbm-wave:active { transform: translateY(1px); transition-duration: 60ms; }
+@media (pointer: coarse) { .nbm-wave { height: 36px; } }
+.nbm-folded { margin: 2px 20px; padding: 6px 12px; border: 1px dashed var(--nbm-line); border-radius: 5px; font-size: 13px; color: var(--nbm-fg2); }
+.nbm-folded button { font-weight: 500; color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
+.nbm-failed { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 4px 0 0; font-size: 12.5px; color: var(--nbm-bad); }
+.nbm-failed-label { font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-bad); }
+.nbm-failed button { font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+/* Long messages: 12 lines, a fade, then "Show all · N characters". */
+.nbm-fold-body[data-folded="true"] { max-height: calc(14.5px * 1.5 * 12); overflow: hidden; }
+.nbm-fold-body[data-folded="true"][data-over="true"] { -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 3em), transparent); mask-image: linear-gradient(to bottom, black calc(100% - 3em), transparent); }
+.nbm-fold-toggle { margin-top: 4px; font: 500 11px/1 var(--nbm-mono); letter-spacing: .04em; color: var(--nbm-brand); }
+.nbm-fold-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (pointer: coarse) { .nbm-fold-toggle { min-height: 44px; } }

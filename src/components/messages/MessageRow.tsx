@@ -1,8 +1,9 @@
 "use client";
 
+import { foldLabel, systemLine } from "@/lib/messaging/system-line";
 import { PixelBeat } from "@/components/messages/mix/primitives";
 import Link from "next/link";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,7 +35,7 @@ import { PersonHoverCard } from "@/components/presence/PersonHoverCard";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { formatChatTime, personName } from "@/lib/messaging/channel-view";
-import { applicationLineKind, normalizeApplicationLine, type ApplicationLineKind } from "@/lib/messaging/application-status";
+import { applicationLineKind, type ApplicationLineKind } from "@/lib/messaging/application-status";
 import { messageHref } from "@/lib/messaging/routes";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeline";
@@ -148,16 +149,18 @@ function SystemRow({
   const Icon = (lineKind ? APPLICATION_LINE_ICONS[lineKind] : undefined) ?? SYSTEM_ICONS.find(([pattern]) => pattern.test(message.body))?.[1] ?? Hash;
   const isJoin = /^joined/.test(message.body);
   const people = [message, ...(others ?? [])].map((m) => personName(m.author));
-  const who = people.length === 1 ? people[0] : people.length === 2 ? `${people[0]} and ${people[1]}` : `${people[0]} and ${people.length - 1} others`;
-  const body = message.body.startsWith("removed <@") ? `removed ${ctx.nameOf(message.body.slice(10, -1)) ?? "someone"}` : normalizeApplicationLine(message.body);
+  // Names for <@id> tokens, no actor before a whole sentence, a capped tooltip (system-line.ts).
+  const line = systemLine(message.body, people, ctx.nameOf);
+  const who = line.who ?? "";
+  const body = line.text;
   const at = (others?.at(-1) ?? message).created_at;
   const authorRole = message.author?.project_role_title;
 
   if (isJoin && message.author) {
     const userHref = profileHref({ id: message.author.id, username: message.author.username });
     return (
-      <div className="group/sys my-1.5 flex items-start gap-2.5 px-4 py-1 text-[13px] rounded-lg hover:bg-muted/20 transition-colors" data-seq={message.seq}>
-        <span className="flex w-[34px] flex-none justify-center pt-0.5" aria-hidden="true">
+      <div className="nbm-sys nbm-sys-join" data-seq={message.seq} title={line.title}>
+        <span className="nbm-sys-face" aria-hidden="true">
           <UserAvatar identity={message.author} size={24} />
         </span>
         <div className="min-w-0 flex-1">
@@ -166,17 +169,15 @@ function SystemRow({
               {who}
             </Link>
             {authorRole ? (
-              <span className="inline-flex items-center gap-1 rounded-md border border-border/80 bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-foreground/90">
-                💼 {authorRole}
-              </span>
+              <span className="nbm-tag">{authorRole}</span>
             ) : null}
             <span className="text-muted-foreground">{body}.</span>
-            <span className="nb-meta ml-auto text-[11px]" title={new Date(at).toLocaleString()}>
+            <span className="nbm-msg-time ml-auto" title={new Date(at).toLocaleString()}>
               {formatChatTime(at, "clock")}
             </span>
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-1">
+          <div className="nbm-reacts">
             {message.reactions.map((r) => (
               <ReactionChip
                 key={r.emoji}
@@ -193,10 +194,10 @@ function SystemRow({
                 onClick={() => onToggleReaction("👋")}
                 aria-label={`Wave to ${who}`}
                 title={`Say hello to ${who}`}
-                className="inline-flex h-6 items-center gap-1 rounded-md border border-dashed border-border/80 bg-card/60 px-2 text-[12px] text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors pointer-coarse:h-9"
+                className="nbm-wave"
               >
-                <span>👋</span>
-                <span className="text-[11px]">Wave</span>
+                <span className="nbm-rc-e">👋</span>
+                <span>Wave</span>
               </button>
             ) : null}
           </div>
@@ -206,13 +207,30 @@ function SystemRow({
   }
 
   return (
-    <div className="my-1 flex items-start gap-2.5 px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq} title={people.length > 2 ? people.join(", ") : undefined}>
-      {/* The icon sits in the avatar column, so the text lines up with message text. */}
-      <span className="flex w-[34px] flex-none justify-center" aria-hidden="true"><span className="inline-flex size-5 items-center justify-center rounded-sm bg-muted text-muted-foreground"><Icon size={14} /></span></span>
+    <div className="nbm-sys" data-seq={message.seq} title={line.title}>
+      {/* The glyph sits in the avatar column, so the text lines up with message text. */}
+      <span className="nbm-sys-gutter" aria-hidden="true"><span className="nbm-sys-glyph"><Icon size={14} /></span></span>
       {/* A decision note can be long: it wraps instead of being cut off. */}
-      <span className="min-w-0 flex-1 whitespace-pre-wrap break-words"><span className="font-medium text-foreground">{who}</span> {body}</span>
-      <span className="nb-meta" title={new Date(at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}>{formatChatTime(at, "clock")}</span>
+      <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{who ? <><b>{who}</b> </> : null}{body}</span>
+      <span className="nbm-msg-time" title={new Date(at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}>{formatChatTime(at, "clock")}</span>
     </div>
+  );
+}
+
+/** Long messages stop at 12 lines with a fade and "Show all · 4,000 characters"; short ones never show the button. */
+function FoldBody({ length, children }: { length: number; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [over, setOver] = useState(false);
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && !open) setOver(el.scrollHeight > el.clientHeight + 1);
+  }, [length, open]);
+  return (
+    <>
+      <div ref={ref} className="nbm-fold-body" data-folded={open ? undefined : "true"} data-over={over ? "true" : undefined}>{children}</div>
+      {over || open ? <button type="button" className="nbm-fold-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Show less" : foldLabel(length)}</button> : null}
+    </>
   );
 }
 
@@ -474,7 +492,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     : ctx.blockedIds?.has(message.author_id) ? "blocked" : ctx.mutedIds?.has(message.author_id) ? "muted" : null;
   if (foldedAs) {
     return (
-      <div className="px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq}>
+      <div className="nbm-folded" data-seq={message.seq}>
         Message from someone you {foldedAs}<span className="sr-only">, hidden</span>.{" "}
         <button type="button" className="font-medium text-foreground underline underline-offset-2 hover:text-primary pointer-coarse:min-h-11" onClick={() => setUnfolded(true)}>Show</button>
       </div>
@@ -579,6 +597,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           ) : (
             <>
               {message.body ? (
+                <FoldBody length={message.body.length}>
                 <MessageBody
                   body={message.body}
                   nameOf={ctx.nameOf}
@@ -587,6 +606,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                   wrapMention={wrapMention}
                   suffix={message.edited_at ? <span className="nbm-edited ml-1" title={`Edited ${new Date(message.edited_at).toLocaleString()}`}>(edited)</span> : undefined}
                 />
+                </FoldBody>
               ) : message.edited_at ? <span className="nbm-edited">(edited)</span> : null}
               {message.attachments.length ? (
                 <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
@@ -612,8 +632,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           ) : null}
           {pending && !message.failed && grouped ? <p className="nbm-msg-sending" aria-hidden="true"><PixelBeat />Sending…</p> : null}
           {message.failed ? (
-            <p role="alert" className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[var(--status-danger)]">
-              <span>Not sent{failed?.assetIds.length ? ` · ${failed.assetIds.length} file${failed.assetIds.length === 1 ? "" : "s"}` : ""}</span>
+            <p role="alert" className="nbm-failed">
+              <span className="nbm-failed-label">Not sent{failed?.assetIds.length ? ` · ${failed.assetIds.length} file${failed.assetIds.length === 1 ? "" : "s"}` : ""}</span>
               {failed ? <button type="button" onClick={() => message.client_message_id && void retrySend(queryClient, message.client_message_id)} className="font-medium underline pointer-coarse:min-h-11">Retry</button> : null}
               {/* Edit puts the text back in the box; files can't go with it, so a send with files only retries. */}
               {failed && message.body && !failed.assetIds.length ? <button type="button" onClick={() => message.client_message_id && editFailedSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq, failed.body)} className="font-medium underline pointer-coarse:min-h-11">Edit</button> : null}
