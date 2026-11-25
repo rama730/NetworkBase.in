@@ -462,3 +462,16 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-popover-glyph { display: grid; flex: none; place-items: center; width: 20px; height: 20px; border-radius: 3px; background: var(--nbm-soft); color: var(--nbm-fg2); font-size: 15px; line-height: 1; }
 .nbm-popover-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px/1.3 var(--nbm-mono); color: var(--nbm-fg2); }
 .nbm-popover-cmd { font: 500 12.5px/1.3 var(--nbm-mono); color: var(--nbm-brand); }
+
+/* Notices and footers (Phase 5 Task 22) */
+.nbm-comp-foot { flex: none; padding: 8px 12px 12px; border-top: 1px solid var(--nbm-line); background: var(--card); }
+.nbm-comp-foot-cell { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; min-height: 52px; padding: 8px 14px; border: 1px solid var(--nbm-line); border-radius: 6px; background: var(--nbm-soft); font-size: 13px; color: var(--nbm-fg2); text-align: center; animation: nbm-fade var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm-comp-foot-cell strong, .nbm-comp-foot-cell b { color: var(--foreground); font-weight: 600; }
+.nbm-comp-note { flex-wrap: wrap; margin: 0 0 8px; border: 0; border-radius: 5px; }
+.nbm-comp-note:not(:has([data-away])) { display: none; }
+.nbm-comp-note .nbm-tag { gap: 5px; text-transform: none; letter-spacing: 0; font-family: inherit; font-size: 12px; background: var(--card); color: var(--foreground); }
+.nbm-comp-draft { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: var(--nbm-fg2); }
+.nbm-comp-draft button { font-weight: 500; color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
+.nbm-check { appearance: none; flex: none; width: 15px; height: 15px; margin: 0; border: 1.5px solid var(--nbm-input); border-radius: 2px; background: var(--card); transition: background-color var(--nbm-m1) var(--nbm-ease), border-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-check:checked { border-color: var(--nbm-brand); background: var(--nbm-brand) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5l4.5-5' fill='none' stroke='white' stroke-width='1.8'/%3E%3C/svg%3E") center / 11px no-repeat; }
+.nbm-dmctx { margin: 0; padding: 6px 16px 0; border-top: 1px solid var(--nbm-line); }

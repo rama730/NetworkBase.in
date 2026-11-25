@@ -891,12 +891,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             )}
             {conversation.query.isError ? <ErrorNotice what="Messages" onRetry={() => void conversation.query.refetch()} className="mx-3 mb-2" /> : null}
             {!isMember ? (
-              <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border bg-muted px-4 py-3 text-[13px]">
-                <span className="text-muted-foreground">You’re previewing <strong className="font-semibold text-foreground">{displayName}</strong>. Join to post.</span>
+              <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">
+                <span>You’re previewing <strong className="font-semibold text-foreground">{displayName}</strong>. Join to post.</span>
                 <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join channel</Button>
-              </div>
+              </div></div>
             ) : channel.reply_closed ? (
-              <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+              <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">
                 {channel.blocked_by_me && dmPerson ? (
                   <>
                     <span>You blocked {dmPerson.name}. They can’t message you. You can still read this conversation.</span>
@@ -904,12 +904,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     <Button type="button" variant="ghost" size="sm" onClick={reportDm.open} className="pointer-coarse:h-11">Report</Button>
                   </>
                 ) : <span>You can’t reply to this conversation.</span>}
-              </div>
+              </div></div>
             ) : archived ? (
-              <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+              <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">
                 <span>This channel is archived. You can read it, but not post.</span>
                 {channel.can_admin ? <Button type="button" variant="outline" size="sm" onClick={() => void unarchive()} className="pointer-coarse:h-11">Unarchive</Button> : null}
-              </div>
+              </div></div>
             ) : (
               <>
               {channel.kind === "dm" && channel.dm_user && !self ? <DmContextLine person={channel.dm_user} /> : null}
@@ -1005,7 +1005,7 @@ function DmContextLine({ person }: { person: ChatPerson }) {
     theirs && theirs !== time() ? `${theirs} their time` : null,
   ].filter(Boolean);
   if (!parts.length) return null;
-  return <p className="nb-meta border-t border-border px-4 pt-1.5">{parts.join(" · ")}</p>;
+  return <p className="nbm-meta nbm-dmctx">{parts.join(" · ")}</p>;
 }
 
 /** Next to a DM's name: their status (emoji + text), else when they were active. */

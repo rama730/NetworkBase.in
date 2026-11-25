@@ -118,7 +118,7 @@ function AwayName({ userId, name }: { userId: string; name: string }) {
   if (!status || !isAway(status)) return null;
   const until = status.expiresAt ? new Date(status.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
   return (
-    <span data-away className="nb-tag">
+    <span data-away className="nbm-tag">
       {status.emoji ? <span aria-hidden="true" className="font-[system-ui]">{status.emoji}</span> : null}
       <strong className="font-semibold text-foreground">{name}</strong>
       {status.text || until ? <span>{[status.text, until ? `until ${until}` : null].filter(Boolean).join(" ")}</span> : null}
@@ -857,14 +857,14 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         </ul>
       ) : null}
       {mentionedIds.length ? (
-        <p role="status" className="mb-2 hidden flex-wrap items-center gap-1.5 rounded-md bg-[var(--status-warning-soft)] px-3 py-1.5 text-[13px] text-[var(--status-warning)] has-[[data-away]]:flex">
+        <p role="status" className="nbm-warn nbm-comp-note">
           <span>Away (they’ll see this when they’re back):</span>
           {mentionedIds.map((id) => <AwayName key={id} userId={id} name={labelOf(`<@${id}>`).slice(1)} />)}
         </p>
       ) : null}
       {restored && !blank ? (
-        <div className="mb-1.5 flex items-center gap-2 text-[12px] text-muted-foreground">
-          <span className="nb-status" data-status="draft">Draft</span>
+        <div className="nbm-comp-draft">
+          <span className="nbm-tag">Draft</span>
           <span>Restored from earlier.</span>
           <Button type="button" variant="link" size="sm" onClick={discardDraft} className="h-auto px-0 pointer-coarse:min-h-11">Discard</Button>
         </div>
@@ -1023,7 +1023,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       <p className="nbm-comp-hint" aria-hidden="true">{canSend ? sendHint : sendBlockedReason}{uploads.length ? ` · Max ${CHAT_MAX_ATTACHMENTS} files · ${Math.round(DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES / 1024 / 1024)} MB each · no SVG` : ""}</p>
       {threadRootSeq && alsoSendTo ? (
         <label className="mt-1.5 flex w-fit items-center gap-2 text-[13px] text-muted-foreground pointer-coarse:min-h-11">
-          <input type="checkbox" checked={alsoToChannel} onChange={(e) => setAlsoToChannel(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+          <input type="checkbox" checked={alsoToChannel} onChange={(e) => setAlsoToChannel(e.target.checked)} className="nbm-check" />
           Also send to {alsoSendTo}
         </label>
       ) : null}

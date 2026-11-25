@@ -44,3 +44,22 @@ test('a queued send shows the pixel progress in the Send button', () => {
 test('with files attached the mono hint also states the limits, from the real constants', () => {
   assert.match(composer, /\{uploads\.length \? ` · Max \$\{CHAT_MAX_ATTACHMENTS\} files · \$\{Math\.round\(DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES \/ 1024 \/ 1024\)\} MB each · no SVG` : ""\}/);
 });
+
+const view = readFileSync('src/components/messages/ConversationView.tsx', 'utf8');
+
+test('read-only footers are one cell in the composer’s place, same words', () => {
+  assert.equal((view.match(/<div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">/g) ?? []).length, 3);
+  assert.match(view, /You’re previewing/);
+  assert.match(view, /You can’t reply to this conversation\./);
+  assert.match(view, /This channel is archived\. You can read it, but not post\./);
+  assert.match(css, /\.nbm-comp-foot-cell\s*\{[^}]*border:\s*1px solid var\(--nbm-line\)[^}]*border-radius:\s*6px/);
+});
+
+test('away notice: a warm strip with square tags, hidden until someone is away; draft tag; square Also send to', () => {
+  assert.match(composer, /<p role="status" className="nbm-warn nbm-comp-note">/);
+  assert.match(css, /\.nbm-comp-note:not\(:has\(\[data-away\]\)\)\s*\{\s*display:\s*none/);
+  assert.match(composer, /<span data-away className="nbm-tag">/);
+  assert.match(composer, /<span className="nbm-tag">Draft<\/span>/);
+  assert.match(composer, /className="nbm-check"/);
+  assert.match(view, /className="nbm-meta nbm-dmctx"/);
+});
