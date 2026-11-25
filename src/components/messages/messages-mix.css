@@ -19,6 +19,8 @@
   --nbm-hl: #FBEBD9;
   --nbm-mark: #F6D9A8;
   --nbm-on-bad: #FFFFFF;
+  /* A PDF page in the viewer: paper in both themes (documents are white). */
+  --nbm-sheet: #FFFFFF;
   --nbm-scrim: rgba(13, 17, 20, .28);
   /* Over photos and video, in both themes. */
   --nbm-on-media: #FFFFFF;
@@ -781,7 +783,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-viewer-imgbox { position: absolute; inset: 16px; display: flex; align-items: center; justify-content: center; }
 .nbm-viewer-imgbox.is-zoomed { cursor: grab; touch-action: none; }
 .nbm-viewer-imgbox.is-zoomed:active { cursor: grabbing; }
-.nbm-viewer-sheet { position: relative; width: min(960px, 100%); height: 100%; overflow: hidden; border-radius: 3px; background: #FFFFFF; }
+.nbm-viewer-sheet { position: relative; width: min(960px, 100%); height: 100%; overflow: hidden; border-radius: 3px; background: var(--nbm-sheet); }
 .nbm-viewer-error { display: grid; justify-items: center; gap: 10px; padding: 24px 28px; border: 1px solid color-mix(in srgb, var(--nbm-on-media) 18%, transparent); border-radius: 6px; text-align: center; }
 .nbm-viewer-error p { margin: 0; font-size: 14px; }
 .nbm-viewer-nav { position: absolute; top: 50%; z-index: 4; display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid color-mix(in srgb, var(--nbm-on-media) 24%, transparent); border-radius: 5px; background: var(--nbm-stage); color: var(--nbm-on-media); transform: translateY(-50%); }

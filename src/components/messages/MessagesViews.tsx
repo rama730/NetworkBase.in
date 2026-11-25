@@ -392,7 +392,7 @@ function describe(item: InboxItem) {
 
 /** An unread mark: the same dot as unread notifications. */
 function UnreadDot() {
-  return <span className="mt-2 size-2 flex-none rounded-full bg-primary ring-2 ring-card" aria-hidden="true" />;
+  return <span className="mt-2 size-2 flex-none rounded-[2px] bg-primary ring-2 ring-card" aria-hidden="true" />;
 }
 
 type RowNav = { tabStop: boolean; onFocusRow: () => void };
