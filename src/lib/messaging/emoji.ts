@@ -69,3 +69,11 @@ export function searchEmoji(query: string, limit = 24): EmojiEntry[] {
     .slice(0, limit)
     .map(({ entry }) => ({ emoji: entry[0], name: entry[1] }));
 }
+
+/** 1–3 emoji alone (spaces aside): the message shows them big (40px). */
+export function isBigEmoji(text: string) {
+  const compact = text.replace(/\s+/g, "");
+  if (!compact || compact.length > 48) return false;
+  const parts = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(compact)].map((s) => s.segment);
+  return parts.length <= 3 && parts.every((part) => /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u.test(part));
+}

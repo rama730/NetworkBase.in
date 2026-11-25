@@ -19,6 +19,7 @@ export function CodeSnippetBlock({ language = "text", code }: Props) {
       variant={SHELLS.has(lang) ? "command" : "code"}
       label={SHELLS.has(lang) ? "Terminal" : lang && lang !== "text" ? lang : "Code"}
       lines={!SHELLS.has(lang) && lineCount >= 3}
+      collapseAfter={12}
     >
       {code}
     </TerminalBlock>

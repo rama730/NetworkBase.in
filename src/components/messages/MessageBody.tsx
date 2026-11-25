@@ -6,7 +6,7 @@ import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markd
 import remarkGfm from "remark-gfm";
 
 import { CodeSnippetBlock } from "@/components/messages/CodeSnippetBlock";
-import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
+import { isBigEmoji } from "@/lib/messaging/emoji";
 import { firstExternalMarkdownLink } from "@/lib/messaging/markdown-links";
 import { normalizeSafeExternalUrl, sameOriginPath } from "@/lib/messaging/safe-links";
 import { conversationHref } from "@/lib/messaging/routes";
@@ -31,7 +31,11 @@ export function tokensToMarkdown(body: string, nameOf: Props["nameOf"], channelN
   return splitTokens(body)
     .map((segment) => {
       if (segment.type === "text") return segment.value;
-      if (segment.type === "user") return `[@${escapeLabel(nameOf(segment.id) ?? "someone")}](mention:${segment.id})`;
+      // Someone this client doesn't know: a quiet "@someone", never a live-looking chip.
+      if (segment.type === "user") {
+        const name = nameOf(segment.id);
+        return name ? `[@${escapeLabel(name)}](mention:${segment.id})` : "[@someone](mention-gone:)";
+      }
       if (segment.type === "channel") return `[#${escapeLabel(channelNameOf(segment.id) ?? "channel")}](channel:${segment.id})`;
       return `[@${segment.value}](broadcast:${segment.value})`;
     })
@@ -39,7 +43,7 @@ export function tokensToMarkdown(body: string, nameOf: Props["nameOf"], channelN
 }
 
 function urlTransform(url: string) {
-  if (/^(mention|channel|broadcast):/.test(url)) return url;
+  if (/^(mention|mention-gone|channel|broadcast):/.test(url)) return url;
   return defaultUrlTransform(url);
 }
 
@@ -61,16 +65,12 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
       if (href?.startsWith("mention:")) {
         const id = href.slice(8);
         const self = id === meId;
-        // Mention chip: the Node person glyph + name (accent, never a status colour); you are in bold.
-        const chip = (
-          <span className={`inline-flex items-baseline gap-0.5 rounded-sm bg-accent px-0.5 text-primary ${self ? "font-semibold" : "font-medium"} ${wrapMention ? "cursor-pointer" : ""}`}>
-            <PresenceGlyph kind="person" className="size-[0.85em] translate-y-[0.1em] self-center" />
-            {typeof children === "string" ? children.replace(/^@/, "") : Array.isArray(children) && typeof children[0] === "string" ? [children[0].replace(/^@/, ""), ...children.slice(1)] : children}
-          </span>
-        );
+        // Mention chip (the mix): tint + clay text; you get the warm mark fill.
+        const chip = <span className={self ? "nbm-mn nbm-mn-me" : "nbm-mn"}>{children}</span>;
         return wrapMention ? wrapMention(id, chip) : chip;
       }
-      if (href?.startsWith("broadcast:")) return <span className="rounded-sm bg-accent px-0.5 font-semibold text-primary">{children}</span>;
+      if (href?.startsWith("mention-gone:")) return <span className="nbm-mn-gone">{children}</span>;
+      if (href?.startsWith("broadcast:")) return <span className="nbm-mn nbm-mn-all">{children}</span>;
       if (href?.startsWith("channel:")) return <Link href={conversationHref(href.slice(8))} className="font-medium text-primary hover:underline">{children}</Link>;
       // Links into this app (shared messages, a pasted "Copy link") open in place, not in a new tab.
       const path = href ? inAppPath(href) : null;
@@ -82,7 +82,7 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
     code({ className, children }) {
       const block = /language-/.test(className ?? "") || String(children).includes("\n");
       if (block) return <code className="font-mono text-[13px]">{children}</code>;
-      return <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[13px]">{children}</code>;
+      return <code className="nbm-code">{children}</code>;
     },
     pre({ children }) {
       if (children && typeof children === "object" && "props" in children) {
@@ -96,7 +96,19 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
       return <pre className="my-1 max-w-full overflow-x-auto rounded-md border border-border bg-muted p-3">{children}</pre>;
     },
     blockquote({ children }) {
-      return <blockquote className="my-1 border-l-2 border-border pl-3 text-muted-foreground">{children}</blockquote>;
+      return <blockquote className="nbm-quote">{children}</blockquote>;
+    },
+    h1: ({ children }) => <h2 className="nbm-h">{children}</h2>,
+    h2: ({ children }) => <h2 className="nbm-h">{children}</h2>,
+    h3: ({ children }) => <h3 className="nbm-h nbm-h-sm">{children}</h3>,
+    h4: ({ children }) => <h3 className="nbm-h nbm-h-sm">{children}</h3>,
+    h5: ({ children }) => <h3 className="nbm-h nbm-h-sm">{children}</h3>,
+    h6: ({ children }) => <h3 className="nbm-h nbm-h-sm">{children}</h3>,
+    // Wide tables scroll inside their own hairline box, never the timeline.
+    table: ({ children }) => <div className="nbm-tw" tabIndex={0} role="region" aria-label="Table"><table>{children}</table></div>,
+    hr: () => <hr className="nbm-hr" />,
+    li({ className, children }) {
+      return <li className={className?.includes("task-list-item") ? "nbm-task" : undefined}>{children}</li>;
     },
     ul({ children }) {
       return <ul className="my-1 list-disc pl-5">{children}</ul>;
@@ -107,13 +119,16 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
     p({ children }) {
       return <p className="whitespace-pre-wrap">{children}</p>;
     },
-    img({ alt }) {
-      return <span>{alt}</span>;
+    // Markdown images: https only, lazy, without a referrer; anything else shows its alt text.
+    img({ src, alt }) {
+      const safe = typeof src === "string" && /^https:\/\//i.test(src) ? normalizeSafeExternalUrl(src) : null;
+      // eslint-disable-next-line @next/next/no-img-element -- user content from any host; next/image needs known hosts
+      return safe ? <img src={safe} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" className="nbm-img" /> : <span>{alt}</span>;
     },
   }), [meId, wrapMention]);
 
   return (
-    <div className={`text-[15px] leading-relaxed [overflow-wrap:anywhere] ${suffix ? "[&>p:nth-last-child(2)]:inline" : ""}`}>
+    <div className={`${isBigEmoji(body) ? "nbm-body nbm-body-big" : "nbm-body"}${suffix ? " [&>p:nth-last-child(2)]:inline" : ""}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={urlTransform} components={components} skipHtml>
         {markdown}
       </ReactMarkdown>

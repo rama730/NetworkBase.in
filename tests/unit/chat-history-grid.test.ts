@@ -177,11 +177,11 @@ test("dense message content keeps full paragraphs, mentions, lists and code read
     assert.equal((html.match(/data-message-history=/g) ?? []).length, 1);
     assert.match(html, /Maya Rao/);
     assert.match(html, /#design-review/);
-    assert.match(html, /bg-accent/);
-    assert.match(html, /<code[^>]*bg-muted/);
+    assert.match(html, /class="nbm-mn"/);
+    assert.match(html, /<code class="nbm-code"/);
     assert.match(html, /<ul[^>]*list-disc/);
     assert.match(html, /<pre/);
-    assert.match(html, /\[overflow-wrap:anywhere\]/);
+    assert.match(html, /class="nbm-body/);
     assert.ok(html.includes(filename));
     assert.ok(html.includes(longParagraph.trim()));
     assert.match(html, /Final note stays visible/);

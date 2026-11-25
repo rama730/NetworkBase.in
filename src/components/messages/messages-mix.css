@@ -330,3 +330,26 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-fold-toggle { margin-top: 4px; font: 500 11px/1 var(--nbm-mono); letter-spacing: .04em; color: var(--nbm-brand); }
 .nbm-fold-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (pointer: coarse) { .nbm-fold-toggle { min-height: 44px; } }
+
+/* Message body (Phase 4 Task 17) */
+.nbm-body { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; color: var(--foreground); }
+.nbm-body-big { font-size: 40px; line-height: 1.15; }
+.nbm-mn { padding: 0 3px; border-radius: 3px; background: var(--nbm-tint); color: var(--nbm-brand); font-weight: 500; cursor: pointer; }
+.nbm-mn-me { background: var(--nbm-mark); color: var(--foreground); }
+.nbm-mn-all { font-weight: 600; cursor: default; }
+.nbm-mn-gone { color: var(--nbm-fg2); }
+.nbm-code { padding: 1px 5px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--nbm-soft); font: 12.5px/1.4 var(--nbm-mono); }
+.nbm-quote { margin: 4px 0; padding: 6px 10px; border-radius: 3px; background: var(--nbm-soft); color: var(--nbm-fg2); }
+.nbm-h { margin: 8px 0 2px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+.nbm-h-sm { font-size: 13.5px; }
+.nbm-tw { max-width: 100%; margin: 6px 0; overflow-x: auto; border: 1px solid var(--nbm-line); border-radius: 5px; transition: border-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-tw:hover, .nbm-tw:focus-visible { border-color: var(--foreground); }
+.nbm-tw table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.45; }
+.nbm-tw th, .nbm-tw td { padding: 6px 10px; border-bottom: 1px solid var(--nbm-line); text-align: left; vertical-align: top; }
+.nbm-tw th { font: 500 10.5px/1.3 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); background: var(--nbm-soft); }
+.nbm-tw tr:last-child td { border-bottom: 0; }
+.nbm-task { list-style: none; margin-left: -1.25rem; }
+.nbm-task input[type="checkbox"] { appearance: none; width: 13px; height: 13px; margin: 0 8px 0 0; border: 1.5px solid var(--nbm-input); border-radius: 2px; vertical-align: -1px; }
+.nbm-task input[type="checkbox"]:checked { border-color: var(--nbm-brand); background: var(--nbm-brand) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5l4.5-5' fill='none' stroke='white' stroke-width='1.8'/%3E%3C/svg%3E") center / 10px no-repeat; }
+.nbm-hr { height: 1px; margin: 10px 0; border: 0; background: var(--nbm-line); }
+.nbm-img { display: block; max-width: min(360px, 100%); max-height: 360px; margin: 6px 0; border: 1px solid var(--nbm-line); border-radius: 3px; object-fit: contain; }
