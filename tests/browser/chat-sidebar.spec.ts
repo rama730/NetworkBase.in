@@ -13,15 +13,17 @@ let script: string, css: string;
 const channel = (id: string, project: string, name: string, extra = '') => `{id:'${id}',kind:'channel',name:'${name}',topic:null,project_id:'${project}',application_id:null,is_default:true,last_seq:5,last_top_seq:5,last_read_seq:5,mention_count:0,
   notify:'all',starred:false,archived_at:null,channel_archived_at:null,last_message_at:null,last_preview:null,last_author_id:null,member_count:3,role:'member',dm_user:null,members_preview:null${extra}}`;
 const FALCON = '11111111-1111-4111-8111-111111111111', LONE = '22222222-2222-4222-8222-222222222222';
+const BIG = Array.from({ length: 20 }, (_, i) => channel(`big-${i}`, 'big', `ch-${String(i + 1).padStart(2, '0')}`, i ? ',is_default:false' : '')).join(',');
 const shell = `
 const data = { server_time: new Date().toISOString(), activity_latest_at: null, channels: [
   ${channel('c-gen', 'cse', 'general')}, ${channel(FALCON, 'falcon', 'team-falcon-hash-table-library', ",last_seq:9,mention_count:1")},
-  ${channel('c-o1', 'osprey', 'osprey-general')}, ${channel('c-o2', 'osprey', 'osprey-design', ',is_default:false')}, ${channel('c-nfb', 'nfb', 'general')}, ${channel('c-nfb2', 'nfb', 'random', ',is_default:false,last_seq:8,last_top_seq:8')}, ${channel(LONE, 'lone', 'compiler-lab')}],
+  ${channel('c-o1', 'osprey', 'osprey-general')}, ${channel('c-o2', 'osprey', 'osprey-design', ',is_default:false')}, ${channel('c-nfb', 'nfb', 'general')}, ${channel('c-nfb2', 'nfb', 'random', ',is_default:false,last_seq:8,last_top_seq:8')}, ${channel(LONE, 'lone', 'compiler-lab')}, ${BIG}],
   projects: [
     { id: 'cse', title: 'CSE 3B · Data Structures 2026', slug: 'cse', cover_image: null, role: 'owner', kind: 'organization', parent_id: null },
     { id: 'falcon', title: 'Team Falcon: Hash table library', slug: 'falcon', cover_image: null, role: 'member', kind: 'workspace', parent_id: 'cse', parent_title: 'CSE 3B' },
     { id: 'osprey', title: 'Team Osprey', slug: 'osprey', cover_image: null, role: 'member', kind: 'workspace', parent_id: 'cse', parent_title: 'CSE 3B' },
     { id: 'nfb', title: 'Network for builders', slug: 'nfb', cover_image: null, role: 'owner', kind: 'workspace', parent_id: null },
+    { id: 'big', title: 'Big Studio', slug: 'big', cover_image: null, role: 'member', kind: 'workspace', parent_id: null },
     { id: 'lone', title: 'Compiler Lab', slug: 'lone', cover_image: null, role: 'viewer', kind: 'workspace', parent_id: 'cse-3a', parent_title: 'CSE-3A' },
   ] };
 export const useChatShell = () => ({ data, loadError: null, refresh: async () => {} });
@@ -170,4 +172,21 @@ test('mix: unread in another workspace is a 6px square', async ({ page }) => {
   await expect(mark).toHaveCount(1);
   const box = await mark.evaluate((el) => { const s = getComputedStyle(el); return [s.width, s.height, s.borderRadius]; });
   expect(box).toEqual(['6px', '6px', '0px']);
+});
+
+test('mix: a long channel list stops at 12 read rows with "N more channels"', async ({ page }) => {
+  await open(page, '?w=big');
+  const more = page.getByRole('button', { name: '8 more channels' });
+  await expect(more).toBeVisible();
+  await expect(page.getByRole('link', { name: /^ch-13/ })).toHaveCount(0);
+  await more.click();
+  await expect(page.getByRole('link', { name: /^ch-20/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Show fewer' }).click();
+  await expect(page.getByRole('link', { name: /^ch-20/ })).toHaveCount(0);
+});
+
+test('mix: every row carries its full name as a title', async ({ page }) => {
+  await open(page);
+  const row = page.getByRole('link', { name: /team-falcon-hash-table-library/ });
+  await expect(row).toHaveAttribute('title', 'team-falcon-hash-table-library');
 });

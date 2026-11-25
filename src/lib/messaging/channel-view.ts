@@ -1,6 +1,7 @@
 import { MESSAGE_LEVEL_LABELS } from "@/lib/copy/terms";
 import type { ChatBootstrap, ChatChannelSummary, ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { formatAbsoluteTimestamp, formatRelativeTimestamp } from "@/lib/notifications/presentation";
+import { joinPeople } from "@/lib/messaging/mix-format";
 
 type NotifyChannel = Pick<ChatChannelSummary, "kind" | "project_id"> & { application_id?: string | null };
 
@@ -73,8 +74,21 @@ export function channelTitle(channel: ChatChannelSummary, meId: string | null) {
   }
   if (channel.name) return channel.name;
   if (channel.title) return channel.title;
-  const names = (channel.members_preview ?? []).map((person) => personName(person).split(" ")[0]);
-  return names.length ? names.join(", ") : "Group";
+  const names = (channel.members_preview ?? []).map((person) => personName(person).split(" ")[0] ?? "");
+  // The preview holds 3 people; member_count (minus you) says how many others there are.
+  return names.length ? groupTitle(names, Math.max(names.length, channel.member_count - 1)) : "Group";
+}
+
+/** A group without a name: "Ana, Ben, Chen and 6 others". `total` counts people beyond the names given. */
+export function groupTitle(names: string[], total = names.length): string {
+  return joinPeople([...names, ...Array<string>(Math.max(0, total - names.length)).fill("")], 3);
+}
+
+/** The sidebar's long channel lists: every row that needs you, plus the first `keep` others, in order. */
+export function capChannels<T extends { id: string }>(rows: T[], needsYou: (row: T) => boolean, keep = 12): { shown: T[]; hidden: number } {
+  let read = 0;
+  const shown = rows.filter((row) => needsYou(row) || read++ < keep);
+  return { shown, hidden: rows.length - shown.length };
 }
 
 export function isUnread(channel: ChatChannelSummary) {

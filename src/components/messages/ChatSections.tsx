@@ -27,7 +27,7 @@ import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByWorkspace, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
+  DM_SIDEBAR_LIMIT, attention, capChannels, channelTitle, channelsByWorkspace, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
   projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons, workspaceBadges, workspacePeople,
 } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
@@ -144,6 +144,7 @@ function Row({ channel, meId, variant, onSelect, draft, team }: { channel: ChatC
   );
   const shared = {
     className: `nb-chat-row${preview ? " nb-chat-row-preview" : ""}`,
+    title,
     "data-unread": isUnread(channel) && channel.notify !== "mute" && !channel.blocked_by_me ? "true" : undefined,
     "data-muted": channel.notify === "mute" ? "true" : undefined,
     "data-testid": `chat-row-${channel.id}`,
@@ -641,6 +642,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const [allDms, setAllDms] = useState(false);
   const [decidedOpen, setDecidedOpen] = useState<Record<string, boolean>>({});
   const [teamOpen, setTeamOpen] = useState<Record<string, boolean>>({});
+  const [allChannels, setAllChannels] = useState<Record<string, boolean>>({});
   // An unread DM always shows, however old: "N more" only hides read ones.
   const dmRows = variant === "sidebar" && !allDms ? others.filter((c, i) => i < DM_SIDEBAR_LIMIT || needsAttention(c)) : others;
   const hiddenDms = others.length - dmRows.length;
@@ -714,9 +716,17 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   /** A project's channels (its application threads live in the Applications section). */
   const projectRows = (id: string, channelRows: ChatChannelSummary[]) => {
     const empty = !(byProject.get(id) ?? []).length;
+    // Long lists stop at unread + 12 read rows (the sidebar only); "N more channels" opens the rest in place.
+    const capped = variant === "sidebar" && !allChannels[id] ? capChannels(channelRows, needsAttention) : { shown: channelRows, hidden: 0 };
+    const expandable = capped.hidden > 0 || Boolean(allChannels[id]) && capChannels(channelRows, needsAttention).hidden > 0;
     return (
       <>
-        {channelRows.map(row)}
+        {capped.shown.map(row)}
+        {expandable ? (
+          <button type="button" className="nb-chat-row" aria-expanded={Boolean(allChannels[id])} onClick={() => setAllChannels((all) => ({ ...all, [id]: !all[id] }))}>
+            <span className="pl-6 text-muted-foreground">{allChannels[id] ? "Show fewer" : `${capped.hidden} more channel${capped.hidden === 1 ? "" : "s"}`}</span>
+          </button>
+        ) : null}
         {empty ? (
           <p className="px-2.5 py-1 text-[13px] text-muted-foreground">
             No channels yet{inPage ? null : <> · <Link href={`/messages/w/${id}/browse`} className="font-medium text-primary hover:underline">Open messages</Link></>}

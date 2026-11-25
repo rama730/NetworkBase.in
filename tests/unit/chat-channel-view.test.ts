@@ -78,7 +78,7 @@ test("titles, counts and project badges follow the report rules", () => {
   const byId = new Map(data.channels.map((c) => [c.id, c]));
   assert.equal(channelTitle(byId.get("dm")!, "me"), "Priya Shah");
   assert.equal(channelTitle(byId.get("self")!, "me"), "You");
-  assert.equal(channelTitle(channel("g", { kind: "private", name: null, members_preview: [priya, me] }), "me"), "Priya, Me");
+  assert.equal(channelTitle(channel("g", { kind: "private", name: null, members_preview: [priya, me] }), "me"), "Priya and Me");
   assert.equal(rowCount(byId.get("dm")!), 3, "DMs count unread messages");
   assert.equal(rowCount(byId.get("general")!), 2, "channels count mentions only");
   assert.equal(rowCount(byId.get("muted")!), byId.get("muted")!.mention_count, "muted channels still show their mentions (#157)");
