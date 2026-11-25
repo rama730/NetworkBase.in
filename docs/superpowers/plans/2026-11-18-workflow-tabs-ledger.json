@@ -1218,9 +1218,9 @@
       "text": "B4.5 K5 Requests to central teams (33.6) — Depends: T4 (A2.4–A2.6), K4 (B4.4). Build: Take requests from the company; private types (read rules in SQL); Ask a t",
       "kind": "unit",
       "milestone": "B4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/company-requests.test.ts; tests/browser/company-requests.spec.ts",
+      "evidence": "Live 2026-11-26 (352a5b3ff + security fix 51098e2eb: No goes back to the handler, nobody acts as someone else). Checked live: team switch Take requests from the company, Ask a team from the company Overview with matching handbook page shown, request in the team Inbox with its clock, My asks New → Declined. Not built: private request types (call 4, needs a task read rule across the team board), K4 team-kind onboarding steps."
     },
     {
       "key": "B4.4",
