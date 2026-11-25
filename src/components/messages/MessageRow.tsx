@@ -1,5 +1,6 @@
 "use client";
 
+import { joinPeople } from "@/lib/messaging/mix-format";
 import { foldLabel, systemLine } from "@/lib/messaging/system-line";
 import { PixelBeat } from "@/components/messages/mix/primitives";
 import Link from "next/link";
@@ -217,48 +218,86 @@ function SystemRow({
   );
 }
 
-/** A /poll message as a card: one button per option with its bar (votes ÷ all votes), "Pick any" (each option is a reaction). */
-function PollCard({ poll, reactions, canVote, onVote }: { poll: NonNullable<ReturnType<typeof pollParts>>; reactions: ChatMessageView["reactions"]; canVote: boolean; onVote: (emoji: string) => void }) {
-  const stats = pollStats(poll.options, reactions);
+/** One poll option: its bar and count; who voted for it on hover (the same list as a reaction's tooltip). */
+function PollOption({ option, seq, canVote, onVote, label }: {
+  option: ReturnType<typeof pollStats>["options"][number]; seq: number; canVote: boolean; onVote: (emoji: string) => void; label: string;
+}) {
+  const ctx = useConversationContext();
+  const [open, setOpen] = useState(false);
+  const reactors = useQuery({
+    queryKey: queryKeys.chat.reactors(ctx.channelId, seq),
+    enabled: open && option.count > 0,
+    queryFn: async () => {
+      const result = await listReactors({ channelId: ctx.channelId, seq });
+      return result.success ? result.reactors : {};
+    },
+    staleTime: 15_000,
+  });
+  const names = reactors.data?.[option.emoji] ?? [];
+  const who = joinPeople(names, 3);
   return (
-    <div className="nbm-poll" role="group" aria-label={`Poll: ${poll.question}`}>
-      <div className="nbm-poll-head"><span className="nbm-tag"><ListChecks size={12} aria-hidden="true" />Poll</span></div>
-      <p className="nbm-poll-q">{poll.question}</p>
-      {stats.options.map((option) => (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger asChild>
         <button
-          key={option.emoji}
           type="button"
           className="nbm-poll-opt"
           aria-pressed={option.me}
           aria-disabled={canVote ? undefined : true}
           onClick={canVote ? () => onVote(option.emoji) : undefined}
-          aria-label={`${option.label}, ${option.count} vote${option.count === 1 ? "" : "s"}${option.me ? ", your vote" : ""}`}
+          aria-label={`${label}, ${option.count} vote${option.count === 1 ? "" : "s"}${option.me ? ", your vote" : ""}`}
         >
           <span className="nbm-poll-num" aria-hidden="true">{option.emoji}</span>
           <span className="nbm-poll-main" aria-hidden="true">
-            <span className="nbm-poll-label">{option.label}</span>
+            <span className="nbm-poll-label">{label}</span>
             <span className="nbm-poll-track"><span className="nbm-poll-bar" style={{ width: `${option.share}%` }} /></span>
           </span>
           <span className="nbm-poll-count" aria-hidden="true">{option.count} <i>{option.share}%</i></span>
         </button>
-      ))}
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[240px] text-center">
+        {who ? `${who} reacted with ${option.emoji}` : option.count ? "Loading…" : "No votes yet"}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** A /poll message as a card: one button per option with its bar (votes ÷ all votes), "Pick any" (each option is a reaction). */
+function PollCard({ poll, seq, reactions, canVote, onVote, suffix }: { poll: NonNullable<ReturnType<typeof pollParts>>; seq: number; reactions: ChatMessageView["reactions"]; canVote: boolean; onVote: (emoji: string) => void; suffix?: React.ReactNode }) {
+  const ctx = useConversationContext();
+  // The /poll text keeps its tokens (encode() in the Composer): names, not <@id>, here too.
+  const plain = (text: string) => tokensToPlainText(text, ctx.nameOf, ctx.channelNameOf).replace(/\*\*(.+?)\*\*/g, "$1");
+  const stats = pollStats(poll.options, reactions);
+  return (
+    <div className="nbm-poll" role="group" aria-label={`Poll: ${plain(poll.question)}`}>
+      <div className="nbm-poll-head"><span className="nbm-tag"><ListChecks size={12} aria-hidden="true" />Poll</span>{suffix}</div>
+      <p className="nbm-poll-q">{plain(poll.question)}</p>
+      <TooltipProvider delayDuration={250}>
+        {stats.options.map((option) => <PollOption key={option.emoji} option={option} seq={seq} canVote={canVote} onVote={onVote} label={plain(option.label)} />)}
+      </TooltipProvider>
       <div className="nbm-poll-foot"><span>{stats.votes ? `${stats.votes} vote${stats.votes === 1 ? "" : "s"}` : "No votes yet"}</span><span>Pick any</span></div>
     </div>
   );
 }
 
 /** Long messages stop at 12 lines with a fade and "Show all · 4,000 characters"; short ones never show the button. */
+const FOLD_PX = 14.5 * 1.5 * 12;
 function FoldBody({ length, children }: { length: number; children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
   const [open, setOpen] = useState(false);
+  // Watches the content itself: a narrower column, an image shown, or an edit can make it overflow later.
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (el && !open) setOver(el.scrollHeight > el.clientHeight + 1);
-  }, [length, open]);
+    const el = inner.current;
+    if (!el) return;
+    const measure = () => setOver(el.getBoundingClientRect().height > FOLD_PX + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
-      <div ref={ref} className="nbm-fold-body" data-folded={open ? undefined : "true"} data-over={over ? "true" : undefined}>{children}</div>
+      <div className="nbm-fold-body" data-folded={open ? undefined : "true"} data-over={over ? "true" : undefined}><div ref={inner}>{children}</div></div>
       {over || open ? <button type="button" className="nbm-fold-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Show less" : foldLabel(length)}</button> : null}
     </>
   );
@@ -627,9 +666,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           ) : (
             <>
               {poll ? (
-                <PollCard poll={poll} reactions={message.reactions} canVote={ctx.isMember !== false && !pending} onVote={(emoji) => void toggleReaction(emoji)} />
+                <PollCard poll={poll} seq={message.seq} reactions={message.reactions} canVote={ctx.isMember !== false && !pending} onVote={(emoji) => void toggleReaction(emoji)} suffix={message.edited_at ? <span className="nbm-edited ml-auto">(edited)</span> : undefined} />
               ) : message.body ? (
-                <FoldBody length={message.body.length}>
+                <FoldBody length={tokensToPlainText(message.body, ctx.nameOf, ctx.channelNameOf).length}>
                 <MessageBody
                   body={message.body}
                   nameOf={ctx.nameOf}
@@ -648,7 +687,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             </>
           )}
           {/* A deleted message keeps no reactions (like Slack). */}
-          {chips.length && !deleted ? (
+          {(chips.length || (poll && actions)) && !deleted ? (
             <TooltipProvider delayDuration={250}>
               <div className="nbm-reacts">
                 {chips.map((r) => (

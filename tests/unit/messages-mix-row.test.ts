@@ -11,7 +11,7 @@ test('row shell: nbm-msg with grouped and mention flags; the jump target flashes
   assert.match(row, /data-mention=\{mentioned \? "true" : undefined\}/);
   assert.match(css, /\.nbm-msg\s*\{[^}]*padding:\s*8px 20px 4px/);
   assert.match(css, /\.nbm-msg\[data-grouped="true"\]\s*\{[^}]*padding-top:\s*1px/);
-  assert.match(css, /\.nbm-msg:hover, \.nbm-msg:focus-within\s*\{[^}]*background(-color)?:\s*var\(--card\)/);
+  assert.match(css, /\.nbm-msg:hover, \.nbm-msg:focus-within\s*\{[^}]*background(-color)?:\s*var\(--nbm-soft\)/);
   // A mention keeps its warm fill on hover (hover never imitates it).
   assert.match(css, /\.nbm-msg\[data-mention="true"\], \.nbm-msg\[data-mention="true"\]:hover, \.nbm-msg\[data-mention="true"\]:focus-within\s*\{[^}]*var\(--nbm-hl\)/);
 });

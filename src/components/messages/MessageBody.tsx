@@ -61,7 +61,7 @@ function inAppPath(href: string) {
 function MarkdownImage({ src, alt }: { src: string; alt: string }) {
   const [shown, setShown] = useState(false);
   if (shown) return <img src={src} alt={alt} referrerPolicy="no-referrer" className="nbm-img" />;
-  return <button type="button" className="nbm-img-load" title={new URL(src).hostname} onClick={() => setShown(true)}>Show image · {alt || "image"}</button>;
+  return <button type="button" className="nbm-img-load" title={new URL(src).hostname} onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShown(true); }}>Show image · {alt || "image"}</button>;
 }
 
 export const MessageBody = memo(function MessageBody({ body, nameOf, channelNameOf, meId, suffix, wrapMention }: Props) {

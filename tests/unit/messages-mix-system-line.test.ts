@@ -38,9 +38,9 @@ test('row states and system rows use the mix classes', () => {
   assert.match(row, /<span className="nbm-tag">\{authorRole\}<\/span>/);
   assert.match(row, /className="nbm-folded"/);
   assert.match(row, /<p role="alert" className="nbm-failed">/);
-  assert.match(row, /<FoldBody length=\{message\.body\.length\}>/);
+  assert.match(row, /<FoldBody length=\{tokensToPlainText\(message\.body, ctx\.nameOf, ctx\.channelNameOf\)\.length\}>/);
   assert.match(css, /\.nbm-sys-glyph\s*\{[^}]*width:\s*22px[^}]*height:\s*22px[^}]*border:\s*1px solid var\(--nbm-line\)/);
   assert.match(css, /\.nbm-folded\s*\{[^}]*dashed/);
   assert.match(css, /\.nbm-failed-label\s*\{[^}]*var\(--nbm-mono\)[^}]*var\(--nbm-bad\)/);
-  assert.match(css, /\.nbm-fold-body\[data-folded="true"\]\s*\{[^}]*max-height:/);
+  assert.match(css, /\.nbm-fold-body\[data-folded="true"\]\[data-over="true"\]\s*\{[^}]*max-height:/);
 });

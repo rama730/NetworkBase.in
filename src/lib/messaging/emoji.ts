@@ -75,5 +75,10 @@ export function isBigEmoji(text: string) {
   const compact = text.replace(/\s+/g, "");
   if (!compact || compact.length > 48) return false;
   const parts = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(compact)].map((s) => s.segment);
-  return parts.length <= 3 && parts.every((part) => /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u.test(part));
+  // Emoji shown as emoji: their default presentation, a VS16 (❤️), a keycap (1️⃣), a ZWJ family, or a flag pair (not ©, ™, ↔ or a lone letter).
+  return parts.length <= 3 && parts.every((part) => {
+    const flags = part.match(/\p{Regional_Indicator}/gu);
+    if (flags) return flags.length === 2;
+    return /\p{Emoji_Presentation}|\uFE0F|\u20E3|\u200D/u.test(part);
+  });
 }

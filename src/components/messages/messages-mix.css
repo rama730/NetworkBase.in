@@ -91,7 +91,7 @@
 @keyframes nbm-slide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes nbm-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes nbm-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
-@keyframes nbm-flash { from { background-color: var(--nbm-tint); } to { background-color: transparent; } }
+@keyframes nbm-flash { from { background-color: var(--nbm-tint); } }
 @keyframes nbm-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* entrances, applied by components only when something just opened or arrived because of a click */
@@ -273,11 +273,12 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 /* Shell: 36px gutter + body; hover = the card fill; a mention of you keeps its warm paper fill; the jump target flashes clay. */
 .nbm-msg { position: relative; padding: 8px 20px 4px; transition: background-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-msg[data-grouped="true"] { padding-top: 1px; }
-.nbm-msg:hover, .nbm-msg:focus-within { background-color: var(--card); }
+.nbm-msg:hover, .nbm-msg:focus-within { background-color: var(--nbm-soft); }
 .nbm-msg[data-mention="true"], .nbm-msg[data-mention="true"]:hover, .nbm-msg[data-mention="true"]:focus-within { background-color: var(--nbm-hl); }
 .nbm-msg-gutter { flex: none; width: 36px; }
-.nbm-gutter-time { display: block; width: 100%; padding-top: 3px; text-align: right; font: 10.5px/1.4 var(--nbm-mono); color: transparent; transition: color var(--nbm-m1) var(--nbm-ease); }
-.nbm-msg:hover .nbm-gutter-time, .nbm-msg:focus-within .nbm-gutter-time { color: var(--nbm-fg2); }
+.nbm-gutter-time { display: block; visibility: hidden; width: 100%; padding-top: 3px; text-align: right; font: 10.5px/1.4 var(--nbm-mono); color: var(--nbm-fg2); }
+.nbm-msg:hover .nbm-gutter-time, .nbm-msg:focus-within .nbm-gutter-time { visibility: visible; }
+@media (pointer: coarse) { .nbm-gutter-time { display: none; } }
 .nbm-gutter-time:hover { text-decoration: underline; }
 .nbm-msg-name { font-size: 14px; font-weight: 600; color: var(--foreground); }
 .nbm-msg-time { font: 11px/1 var(--nbm-mono); color: var(--nbm-fg2); }
@@ -317,19 +318,19 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-sys-gutter, .nbm-sys-face { display: flex; flex: none; justify-content: center; width: 36px; }
 .nbm-sys-glyph { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--card); color: var(--nbm-fg2); }
 .nbm-sys-join { margin: 4px 0; transition: background-color var(--nbm-m1) var(--nbm-ease); }
-.nbm-sys-join:hover { background-color: var(--card); }
+.nbm-sys-join:hover { background-color: var(--nbm-soft); }
 .nbm-wave { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border: 1px dashed var(--nbm-line); border-radius: 3px; background: var(--card); font-size: 12px; color: var(--nbm-fg2); transition: border-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
 .nbm-wave:hover { border-color: var(--nbm-brand); color: var(--foreground); }
 .nbm-wave:active { transform: translateY(1px); transition-duration: 60ms; }
 @media (pointer: coarse) { .nbm-wave { height: 36px; } }
 .nbm-folded { margin: 2px 20px; padding: 6px 12px; border: 1px dashed var(--nbm-line); border-radius: 5px; font-size: 13px; color: var(--nbm-fg2); }
 .nbm-folded button { font-weight: 500; color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
+.nbm-folded button:hover { color: var(--nbm-brand); }
 .nbm-failed { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 4px 0 0; font-size: 12.5px; color: var(--nbm-bad); }
 .nbm-failed-label { font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-bad); }
 .nbm-failed button { font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
 /* Long messages: 12 lines, a fade, then "Show all · N characters". */
-.nbm-fold-body[data-folded="true"] { max-height: calc(14.5px * 1.5 * 12); overflow: hidden; }
-.nbm-fold-body[data-folded="true"][data-over="true"] { -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 3em), transparent); mask-image: linear-gradient(to bottom, black calc(100% - 3em), transparent); }
+.nbm-fold-body[data-folded="true"][data-over="true"] { max-height: calc(14.5px * 1.5 * 12); overflow: clip; -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 3em), transparent); mask-image: linear-gradient(to bottom, black calc(100% - 3em), transparent); }
 .nbm-fold-toggle { margin-top: 4px; font: 500 11px/1 var(--nbm-mono); letter-spacing: .04em; color: var(--nbm-brand); }
 .nbm-fold-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (pointer: coarse) { .nbm-fold-toggle { min-height: 44px; } }
@@ -384,7 +385,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-card-body { padding: 12px 14px; }
 .nbm-card-foot { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px -14px -12px; padding: 10px 14px; border-top: 1px solid var(--nbm-line); background: var(--nbm-soft); }
 .nbm-log { display: grid; gap: 4px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--nbm-fg2); }
-.nbm-log > li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; }
+.nbm-log > li { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 10px; }
 .nbm-log-at { font: 11px/1.5 var(--nbm-mono); color: var(--nbm-fg2); }
 .nbm-appbar { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 40px; padding: 6px 16px; border-bottom: 1px solid var(--nbm-line); background: var(--card); }
 .nbm-appbar-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11.5px/1.3 var(--nbm-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--nbm-fg2); }
@@ -397,6 +398,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-lp-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--foreground); }
 .nbm-lp-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--nbm-fg2); }
 .nbm-lp-x { background: var(--card); }
+@media (pointer: coarse) { .nbm-lp-x { width: 44px; height: 44px; } }
 
 /* ================= Composer (Phase 5) ================= */
 .nbm-comp { position: relative; border: 1px solid var(--nbm-line); border-radius: 6px; background: var(--card); transition: border-color var(--nbm-m1) var(--nbm-ease); }
