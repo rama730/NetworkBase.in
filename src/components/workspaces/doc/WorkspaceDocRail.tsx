@@ -172,6 +172,8 @@ export function WorkspaceDocRail({
     const [collapsed, setCollapsed] = useCollapsedSections(projectId);
     const grouped = org?.mode === "org"
         ? [
+            // Report 33.2 Needs review view: pages past Review by, for admins and their owners (they also stay in their group).
+            { id: null as DocSection | null, name: "Needs review", docs: rail.docs.filter((doc) => { const o = orgById.get(doc.id); return Boolean(o?.needsReview && (org.isAdmin || (o.owner && o.owner === org.viewerId))); }).map((doc) => ({ ...doc, prefix: null as string | null })) },
             ...org.groups.map((group) => ({ id: null as DocSection | null, name: group.name, docs: rail.docs.filter((doc) => orgById.get(doc.id)?.group === group.id).map((doc) => ({ ...doc, prefix: null as string | null })) })),
             { id: null as DocSection | null, name: "Other", docs: rail.docs.filter((doc) => !orgById.has(doc.id)).map((doc) => ({ ...doc, prefix: null as string | null })) },
         ].filter((section) => section.docs.length > 0)

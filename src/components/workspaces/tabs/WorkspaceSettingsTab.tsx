@@ -9,6 +9,7 @@ import { OrgDangerZone, OrgOwnershipPanel } from "@/components/organizations/Org
 import { OrgOnDiscover, OrgVerifiedBadge, OrgWebAddress } from "@/components/organizations/OrgDiscoverySections";
 import { useRefreshSidebar } from "@/hooks/useRefreshSidebar";
 import { OrgSchoolCard } from "@/components/organizations/OrgSchoolCard";
+import { HandbookSettings } from "@/components/organizations/OrgDocParts";
 import { ClassDetailsSettings } from "@/components/organizations/ClassHomeParts";
 import { TermPlanSettings } from "@/components/organizations/TermPlan";
 import { SectionSettingsCard } from "@/components/organizations/Sections";
@@ -1868,6 +1869,7 @@ function ProjectSettingsContent({
                 {sections.some((s) => s.id === "readme") && (
                     <section id="project-settings-readme" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
+                            {organization?.type === "company" ? <HandbookSettings orgId={projectId} /> : null}
                             <SettingsCard
                                 title="Document publishing"
                                 headingLevel={2}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_DOC_GROUPS, docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle } from "../../src/lib/organizations/doc-rules";
+import { COMPANY_DOC_GROUPS, DEFAULT_DOC_GROUPS, needsReview, nextReviewBy, docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle } from "../../src/lib/organizations/doc-rules";
 
 test("templates fill {{project}}, {{team}} and {{date}} and name the copy", () => {
   const filled = fillDocTemplate("# Lab report: {{project}}\nTeam: {{ team }}\nDate: {{date}}\n{{unknown}}", { project: "Compiler Lab", team: "Parser", date: "Oct 30" });
@@ -22,7 +22,7 @@ test("New until opened at the current re-read version; Updated for 7 days after 
 });
 
 test("options default to the first group, templates to Templates, and show in child projects", () => {
-  assert.deepEqual(readOrgDocOptions(undefined), { group: "start", required: false, template: false, showInChildren: true, readVersion: 0, lifecycle: null, publishedAt: null }, "older documents have no lifecycle and read live");
+  assert.deepEqual(readOrgDocOptions(undefined), { group: "start", required: false, template: false, showInChildren: true, readVersion: 0, lifecycle: null, publishedAt: null, owner: null, reviewBy: null }, "older documents have no lifecycle and read live");
   assert.equal(readOrgDocOptions({ template: true }).group, "templates");
   assert.equal(readOrgDocOptions({ group: "gone" }).group, "start", "a removed group falls back");
   assert.deepEqual(readDocGroups([]), DEFAULT_DOC_GROUPS);
@@ -37,4 +37,21 @@ test("37.4, decision 101: a document is a Draft, Published, or Published with ch
   assert.equal(docState({ lifecycle: "published", publishedAt: at, fileUpdatedAt: new Date("2026-10-31T10:00:00Z"), latestVersionId: null, publishedVersionId: "v", linked: true }), "published");
   assert.equal(docState({ lifecycle: null, publishedAt: null, fileUpdatedAt: new Date(), latestVersionId: null, publishedVersionId: null, linked: true }), "published", "older file documents read live");
   assert.equal(docState({ lifecycle: null, publishedAt: null, fileUpdatedAt: null, latestVersionId: "v2", publishedVersionId: "v1", linked: false }), "changed");
+});
+
+test("B4.1 handbook: a company starts with its four sections; owner and Review by; Needs review never hides a page", () => {
+  assert.deepEqual(readDocGroups([], "company").map((g) => g.name), ["Overview", "How we work", "People", "Policies"]);
+  assert.deepEqual(readDocGroups(undefined, "education"), DEFAULT_DOC_GROUPS);
+  assert.equal(readDocGroups([{ id: "x", name: "Mine" }], "company")[0]!.name, "Mine", "saved groups win");
+  assert.equal(readOrgDocOptions({}, COMPANY_DOC_GROUPS).group, "overview");
+  const o = readOrgDocOptions({ owner: "11111111-1111-4111-8111-111111111111", reviewBy: "2027-03-01" });
+  assert.deepEqual([o.owner, o.reviewBy], ["11111111-1111-4111-8111-111111111111", "2027-03-01"]);
+  assert.deepEqual([readOrgDocOptions({ owner: "x", reviewBy: "soon" }).owner, readOrgDocOptions({ reviewBy: "soon" }).reviewBy], [null, null]);
+  assert.equal(needsReview("2027-03-01", "2027-02-28"), false);
+  assert.equal(needsReview("2027-03-01", "2027-03-01"), true);
+  assert.equal(needsReview(null, "2030-01-01"), false);
+  assert.equal(nextReviewBy("2026-11-25", 6), "2027-05-25");
+  assert.equal(nextReviewBy("2026-08-31", 6), "2027-02-28", "the 31st clamps");
+  assert.equal(nextReviewBy("2026-11-25", 12), "2027-11-25");
+  assert.equal(nextReviewBy("2026-11-25", 0), null);
 });

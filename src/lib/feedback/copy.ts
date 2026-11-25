@@ -817,4 +817,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Write one next step.": {"title": "Write one next step.", "type": "warning"},
   "Check the feedback.": {"title": "Check the feedback.", "type": "warning"},
   "Write it after the lesson, before it’s been read.": {"title": "Write it after the lesson, before it’s been read.", "type": "warning"},
+  "Pick someone in the organization as the owner.": {"title": "Pick someone in the organization as the owner.", "type": "warning"},
+  "Pick 6 months, 12 months or off.": {"title": "Pick 6 months, 12 months or off.", "type": "warning"},
+  "You don’t have permission to do this.": {"title": "You don’t have permission to do this.", "type": "warning"},
+  "Use 1 to 20 groups with names up to 40 characters.": {"title": "Use 1 to 20 groups with names up to 40 characters.", "type": "warning"},
 };

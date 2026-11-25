@@ -85,6 +85,8 @@ export const chatDue = inngest.createFunction(
       await step.run("mentoring", async () => (await import("@/lib/organizations/mentoring-server")).notifyMentoring());
       // B3.1c (report 32.2 call 10): Next week at school, a Summary on the week's last school day after 3 PM.
       await step.run("school-week", async () => (await import("@/lib/organizations/school-events-server")).notifySchoolWeek());
+      // B4.1 (report 33.2 layer 15): "2 handbook pages need review" in each page owner's weekly Summary.
+      await step.run("handbook-review", async () => (await import("@/lib/organizations/handbook-server")).notifyHandbookReview());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

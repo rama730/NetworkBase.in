@@ -10,6 +10,14 @@ export const DEFAULT_DOC_GROUPS: DocGroup[] = [
   { id: "templates", name: "Templates" },
 ];
 
+/** Report 33.2 call 2 (B4.1): a company starts with a sectioned Handbook instead of one page. */
+export const COMPANY_DOC_GROUPS: DocGroup[] = [
+  { id: "overview", name: "Overview" },
+  { id: "how", name: "How we work" },
+  { id: "people", name: "People" },
+  { id: "policies", name: "Policies" },
+];
+
 /** Org options kept in project_docs.settings.org (report §19.3, §19.11). */
 export type OrgDocOptions = {
   group: string;
@@ -22,13 +30,16 @@ export type OrgDocOptions = {
   lifecycle: "draft" | "published" | null;
   /** When it was last published; "Updated" and Unpublished changes count from here. */
   publishedAt: string | null;
+  /** Report 33.2 call 3: the page's owner (a person in the organization) and when it should be checked again. */
+  owner: string | null;
+  reviewBy: string | null;
 };
 
-export function readDocGroups(value: unknown): DocGroup[] {
+export function readDocGroups(value: unknown, orgType?: string | null): DocGroup[] {
   const groups = Array.isArray(value)
     ? value.filter((g): g is DocGroup => Boolean(g) && typeof g.id === "string" && typeof g.name === "string" && g.name.trim().length > 0)
     : [];
-  return groups.length ? groups : DEFAULT_DOC_GROUPS;
+  return groups.length ? groups : orgType === "company" ? COMPANY_DOC_GROUPS : DEFAULT_DOC_GROUPS;
 }
 
 export function readOrgDocOptions(value: unknown, groups: DocGroup[] = DEFAULT_DOC_GROUPS): OrgDocOptions {
@@ -44,7 +55,20 @@ export function readOrgDocOptions(value: unknown, groups: DocGroup[] = DEFAULT_D
     readVersion: Number.isInteger(o.readVersion) && (o.readVersion as number) > 0 ? (o.readVersion as number) : 0,
     lifecycle: o.lifecycle === "draft" || o.lifecycle === "published" ? o.lifecycle : null,
     publishedAt: typeof o.publishedAt === "string" ? o.publishedAt : null,
+    owner: typeof o.owner === "string" && /^[0-9a-f-]{36}$/i.test(o.owner) ? o.owner : null,
+    reviewBy: typeof o.reviewBy === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.reviewBy) ? o.reviewBy : null,
   };
+}
+
+/** Late pages are marked Needs review, never hidden (report 33.2 call 3). Dates are YYYY-MM-DD. */
+export const needsReview = (reviewBy: string | null, today: string) => Boolean(reviewBy && reviewBy <= today);
+
+/** The next Review by: `months` after today (the 31st clamps to the month's last day); 0 = no review cycle. */
+export function nextReviewBy(today: string, months: number): string | null {
+  if (!months) return null;
+  const [y, m, d] = today.split("-").map(Number) as [number, number, number];
+  const last = new Date(Date.UTC(y, m - 1 + months + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + months, Math.min(d, last))).toISOString().slice(0, 10);
 }
 
 const UPDATED_DAYS = 7;

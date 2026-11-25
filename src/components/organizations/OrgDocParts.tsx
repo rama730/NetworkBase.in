@@ -9,12 +9,14 @@ import { ArrowDown, ArrowUp, Lock, MoreHorizontal, Plus, X } from 'lucide-react'
 import {
     ensureDocsFolderAction,
     markDocOpenedAction,
+    markOrgDocStillCorrectAction,
     publishOrgDocAction,
     readOrgDocsAction,
     readOrgTemplateCopyAction,
     readTemplateTargetsAction,
     readUnreadDocPeopleAction,
     remindUnreadDocAction,
+    saveHandbookSettingsAction,
     saveOrgDocGroupsAction,
     updateOrgDocOptionsAction,
     type OrgDocItem,
@@ -105,6 +107,7 @@ export function OrgDocChips({ item }: { item?: OrgDocItem }) {
             {item.state === 'draft' ? <StatusBadge state="draft">Draft</StatusBadge> : null}
             {item.state === 'changed' ? <StatusBadge state="changed">Changed</StatusBadge> : null}
             {item.required ? <StatusBadge state="required">Required</StatusBadge> : null}
+            {item.needsReview ? <StatusBadge state="at_risk">Needs review</StatusBadge> : null}
             {item.sprint ? <span className="nb-meta">{item.sprint}</span> : null}
         </span>
     )
@@ -185,6 +188,19 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
                     {data.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
             </label>
+            {/* Report 33.2 call 3: every handbook page has an owner and an optional Review by. */}
+            <label className="block"><span className={fieldLabel}>Owner</span>
+                <select value={doc.owner ?? ''} disabled={pending} onChange={(e) => setOption({ owner: e.target.value || null })} className="nb-select mt-1.5 w-full">
+                    <option value="">No owner</option>
+                    {doc.owner && doc.ownerGone ? <option value={doc.owner}>Someone who left</option> : null}
+                    {data.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <span className={`block ${fieldHint}`}>The owner keeps the page right: they publish it and mark it Still correct.</span>
+            </label>
+            <label className="block"><span className={fieldLabel}>Review by</span>
+                <Input type="date" value={doc.reviewBy ?? ''} disabled={pending} onChange={(e) => setOption({ reviewBy: e.target.value || null })} className="mt-1.5 w-[180px] font-mono" />
+                <span className={`block ${fieldHint}`}>{data.reviewMonths ? `Publishing sets it ${data.reviewMonths} months ahead.` : 'Optional. Late pages are marked Needs review, never hidden.'}</span>
+            </label>
             <label className="block"><span className={fieldLabel}>Visibility</span>
                 <select value={visibility === 'public' ? 'public' : 'members_only'} disabled={pending} onChange={(e) => setOption({ visibility: e.target.value as 'public' | 'members_only' })} className="nb-select mt-1.5 w-full] border border-border bg-background px-2">
                     <option value="members_only">Organization only</option>
@@ -232,18 +248,21 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
     const [publishOpen, setPublishOpen] = useState(false)
     const [pending, startTransition] = useTransition()
     const admin = data.mode === 'org' && data.isAdmin
-    const status = admin ? (doc.state === 'draft' ? 'Draft' : doc.state === 'changed' ? 'Unpublished changes' : 'Published') : doc.label === 'new' ? 'New' : doc.label === 'updated' ? 'Updated' : 'Read'
+    // Report 33.2 People: the page's owner publishes it and marks it Still correct, like an admin.
+    const pageOwner = data.mode === 'org' && Boolean(data.viewerId) && doc.owner === data.viewerId
+    const canPublish = admin || pageOwner
+    const status = canPublish ? (doc.state === 'draft' ? 'Draft' : doc.state === 'changed' ? 'Unpublished changes' : 'Published') : doc.label === 'new' ? 'New' : doc.label === 'updated' ? 'Updated' : 'Read'
     return (
         <header className="mb-5 space-y-1.5 border-b border-border pb-4" data-testid="org-doc-header">
             <div className="flex items-start gap-2">
                 <h1 className="nb-section-title min-w-0 flex-1 break-words">{docTitle(doc.filename)}</h1>
                 {editHref ? <Button asChild size="sm" variant="outline"><Link href={editHref}>Edit</Link></Button> : null}
-                {admin || onRemove ? (
+                {canPublish || onRemove ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><button type="button" aria-label="Document actions" className="nb-touch-target inline-flex size-[var(--ui-control-height-sm)] items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             {admin ? <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>Options…</DropdownMenuItem> : null}
-                            {admin && doc.state !== 'published' ? <DropdownMenuItem onSelect={() => setPublishOpen(true)}>Publish…</DropdownMenuItem> : null}
+                            {canPublish && doc.state !== 'published' ? <DropdownMenuItem onSelect={() => setPublishOpen(true)}>Publish…</DropdownMenuItem> : null}
                             {editHref ? <DropdownMenuItem asChild><Link href={`${editHref}&filesPanel=version_history`}>History</Link></DropdownMenuItem> : null}
                             {onRemove ? <DropdownMenuItem variant="destructive" onSelect={onRemove}>Remove</DropdownMenuItem> : null}
                         </DropdownMenuContent>
@@ -252,9 +271,10 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
             </div>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
                 {updatedAt ? <span>Updated by {updatedBy ?? 'someone'} · {formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}</span> : null}
-                <StatusBadge state={admin ? (doc.state === 'published' ? 'published' : doc.state) : (doc.label ?? 'read')}>{status}</StatusBadge>
+                <StatusBadge state={canPublish ? (doc.state === 'published' ? 'published' : doc.state) : (doc.label ?? 'read')}>{status}</StatusBadge>
                 {admin && doc.readers ? <ReadByLine orgId={data.orgId} docId={doc.id} readers={doc.readers} /> : null}
             </p>
+            {data.mode === 'org' ? <ReviewLine data={data} doc={doc} canReview={canPublish} /> : null}
             {admin ? (
                 <Dialog open={optionsOpen} onOpenChange={setOptionsOpen}>
                     <DialogContent>
@@ -263,7 +283,7 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
                     </DialogContent>
                 </Dialog>
             ) : null}
-            {admin ? <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} required={doc.required} memberCount={data.memberCount}
+            {canPublish ? <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} required={doc.required} memberCount={data.memberCount}
                 onPublish={(input) => startTransition(async () => {
                     const result = await publishOrgDocAction(data.orgId, doc.id, input)
                     if (!result.success) return void toast.error(result.error ?? 'Couldn’t publish.')
@@ -391,5 +411,50 @@ export function OrgDocBanner({ orgTitle, href, backHref }: { orgTitle: string; h
         <Notice className="mb-4" action={<><Link href={href} className="nb-link text-[13px]">Open in {orgTitle}</Link><Link href={backHref} className="nb-link text-[13px]">Workspace documents</Link></>}>
             <span className="font-medium">From {orgTitle}</span><span className="text-muted-foreground"> · Read-only</span>
         </Notice>
+    )
+}
+
+/** Owner · Review by on the page (report 33.2 surfaces), Needs review and Still correct for its owner and admins. */
+function ReviewLine({ data, doc, canReview }: { data: OrgDocsData; doc: OrgDocItem; canReview: boolean }) {
+    const queryClient = useQueryClient()
+    const [pending, startTransition] = useTransition()
+    if (!doc.owner && !doc.reviewBy) return null
+    const still = () => startTransition(async () => {
+        const result = await markOrgDocStillCorrectAction(data.orgId, doc.id)
+        if (!result.success) return void toast.error(result.error)
+        toast.success(result.reviewBy ? `Still correct · next review ${result.reviewBy}` : 'Still correct')
+        await queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(data.orgId) })
+    })
+    return (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground" data-testid="doc-review-line">
+            {doc.owner ? (doc.ownerGone ? (data.isAdmin ? <StatusBadge state="at_risk">No owner</StatusBadge> : null) : <span>Owner: {doc.ownerName ?? 'someone'}</span>) : null}
+            {doc.reviewBy ? <span>Review by <span className="font-mono">{doc.reviewBy}</span></span> : null}
+            {doc.needsReview ? <StatusBadge state="at_risk">Needs review</StatusBadge> : null}
+            {doc.needsReview && canReview ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={still}>Still correct</Button> : null}
+        </p>
+    )
+}
+
+/** Settings → Handbook (report 33.2 layer 2): the default review cycle for handbook pages. */
+export function HandbookSettings({ orgId }: { orgId: string }) {
+    const queryClient = useQueryClient()
+    const data = useOrgDocs(orgId).data
+    const [pending, startTransition] = useTransition()
+    if (!data || data.mode !== 'org' || !data.isAdmin) return null
+    const save = (reviewMonths: number) => startTransition(async () => {
+        const result = await saveHandbookSettingsAction(orgId, { reviewMonths })
+        if (!result.success) return void toast.error(result.error)
+        toast.success('Handbook saved')
+        await queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(orgId) })
+    })
+    return (
+        <div className="space-y-2 rounded-md border border-border p-4 text-[13px]" data-testid="handbook-settings">
+            <p className="font-medium text-foreground">Handbook</p>
+            <label className="flex flex-wrap items-center gap-2"><span>Review cycle</span>
+                <select className="nb-select" data-size="sm" value={data.reviewMonths} disabled={pending} onChange={(e) => save(Number(e.target.value))} aria-label="Review cycle">
+                    <option value={0}>Off</option><option value={6}>Every 6 months</option><option value={12}>Every 12 months</option>
+                </select></label>
+            <p className="text-muted-foreground">Publishing a page sets its next Review by. On that date its owner sees Needs review and checks it; the page stays visible.</p>
+        </div>
     )
 }

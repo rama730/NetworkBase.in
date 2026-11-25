@@ -11,7 +11,7 @@ import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
-import { docFileName, docLabel, docState, docTitle, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
+import { docFileName, docLabel, docState, docTitle, fillDocTemplate, needsReview, nextReviewBy, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
 import { getOrBuildWorkspaceDocPublishMetadata } from '@/lib/workspaces/doc';
 import { readWorkspaceFileText } from '@/lib/files/content-reader';
 import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
@@ -34,6 +34,10 @@ export type OrgDocItem = OrgDocOptions & {
     state: 'draft' | 'published' | 'changed'
     /** Admins on Required documents (report §28.4, decision 58): members who opened it at this re-read version. */
     readers: { read: number; total: number } | null
+    /** Report 33.2 (B4.1): past Review by (never hidden), the owner's name, and an owner who left the organization. */
+    needsReview: boolean
+    ownerName: string | null
+    ownerGone: boolean
 }
 export type OrgDocsData = {
     mode: 'org' | 'child';
@@ -51,10 +55,15 @@ export type OrgDocsData = {
     docs: OrgDocItem[];
     /** Admins link a doc to one of these (report §19.3 Linked sprint). */
     sprints: Array<{ id: string; name: string }>;
+    /** Report 33.2 (B4.1): the viewer (page owners publish and review their pages), the handbook's review cycle in
+     * months (0 = off), and, for admins, the people who can own a page. */
+    viewerId: string | null;
+    reviewMonths: number;
+    people: Array<{ id: string; name: string }>;
 };
 
 async function readOrg(orgId: string) {
-    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, orgSettings: workspaces.orgSettings, timeZone: workspaces.timeZone })
+    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, orgSettings: workspaces.orgSettings, timeZone: workspaces.timeZone, orgType: workspaces.orgType })
         .from(workspaces).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt))).limit(1);
     return org ?? null;
 }
@@ -88,6 +97,26 @@ async function writeOrgOptions(docId: string, settings: unknown, patch: Partial<
 
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
 
+const reviewMonthsOf = (settings: unknown) => { const m = (settings as { handbook?: { reviewMonths?: unknown } } | null)?.handbook?.reviewMonths; return m === 6 || m === 12 ? m : 0; };
+const todayUtc = () => new Date().toISOString().slice(0, 10);
+
+/** People who can own a handbook page: the org's owner and its members other than Viewers. */
+async function pageOwners(orgId: string) {
+    return Array.from(await db.execute<{ id: string; name: string | null }>(sql`
+        SELECT p.id, coalesce(p.full_name, p.username) AS name FROM profiles p
+        WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${orgId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer') ORDER BY 2`))
+        .map((p) => ({ id: p.id, name: p.name ?? 'Someone' }));
+}
+
+/** An admin, or the page's owner while they're still in the organization (report 33.2 People: owners edit, publish, mark Still correct). */
+async function adminOrPageOwner(orgId: string, doc: { settings: unknown }, action?: OrgAction) {
+    const admin = await orgAdmin(orgId, action);
+    if (admin) return admin;
+    const { userId } = await getViewerAuthContext();
+    const owner = readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).owner;
+    return userId && owner === userId && (await pageOwners(orgId)).some((p) => p.id === userId) ? userId : null;
+}
+
 /**
  * The org's docs with their options and the viewer's labels. In a child project: the From <org> section,
  * for org people only (outside people never see it, report §19.7). Null when neither applies.
@@ -105,7 +134,7 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const listed = await listWorkspaceDocsAction(orgId);
     if (!listed.success) return { success: false, error: listed.error };
     const ids = listed.docs.map((d) => d.id);
-    const groups = readDocGroups((org.orgSettings as { docGroups?: unknown } | null)?.docGroups);
+    const groups = readDocGroups((org.orgSettings as { docGroups?: unknown } | null)?.docGroups, org.orgType);
     const [rows, opens, sprints] = ids.length === 0 ? [[], [], []] : await Promise.all([
         db.select({ id: workspaceDocuments.id, settings: workspaceDocuments.settings, updatedAt: workspaceNodes.updatedAt, linkedNodeId: workspaceDocuments.linkedNodeId,
             publishedVersionId: workspaceDocuments.publishedVersionId,
@@ -120,6 +149,9 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const openById = new Map(opens.map((o) => [o.docId, o]));
     const sprintById = new Map(sprints.map((s) => [s.docId, s]));
     const isAdmin = role === 'owner' || role === 'admin';
+    const people = mode === 'org' && role ? await pageOwners(orgId) : [];
+    const nameOf = new Map(people.map((p) => [p.id, p.name]));
+    const today = todayUtc();
     // Read by N of M (report §28.4): members only; owners, admins and viewers aren't counted.
     const readers = isAdmin && mode === 'org' ? await readRequiredReaders(orgId, rows.filter((r) => readOrgDocOptions(normalizeWorkspaceDocSettings(r.settings).org).required).map((r) => r.id)) : new Map<string, { read: number; total: number }>();
     const docs = listed.docs.flatMap((d): OrgDocItem[] => {
@@ -135,8 +167,11 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
             label: userId ? docLabel({ readVersion: options.readVersion, opened: opened ? { version: opened.version, at: opened.at } : null, updatedAt: changedAt }) : null,
             sprint: sprintById.get(d.id)?.name ?? null,
             sprintId: sprintById.get(d.id)?.sprintId ?? null,
-            state: isAdmin ? state : 'published',
+            state: isAdmin || (userId && options.owner === userId && nameOf.has(userId)) ? state : 'published',
             readers: readers.get(d.id) ?? null,
+            needsReview: needsReview(options.reviewBy, today),
+            ownerName: options.owner ? nameOf.get(options.owner) ?? null : null,
+            ownerGone: Boolean(options.owner && mode === 'org' && !nameOf.has(options.owner)),
         }];
     });
     const linkable = mode === 'org' && isAdmin
@@ -144,7 +179,8 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
             .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(workspaceSprints.startDate)
         : [];
     const [members] = isAdmin ? await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${orgId} AND role IN ('member', 'viewer')`) : [];
-    return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, isInside: Boolean(role), memberCount: members?.n ?? 0, signedIn: Boolean(userId), groups, docs, sprints: linkable } };
+    return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, isInside: Boolean(role), memberCount: members?.n ?? 0, signedIn: Boolean(userId), groups, docs, sprints: linkable,
+        viewerId: userId ?? null, reviewMonths: reviewMonthsOf(org.orgSettings), people: isAdmin ? people : [] } };
 }
 
 const optionsSchema = z.object({
@@ -155,6 +191,9 @@ const optionsSchema = z.object({
     visibility: z.enum(['members_only', 'public']).optional(),
     /** Linked sprint: the doc joins that sprint's Materials, which gives it the sprint chip. */
     sprintId: z.string().uuid().nullable().optional(),
+    /** Report 33.2 call 3: the page's owner and Review by (YYYY-MM-DD), or none. */
+    owner: z.string().uuid().nullable().optional(),
+    reviewBy: z.string().date().nullable().optional(),
 }).strict();
 
 /** Group, Required, Template, Show in child projects and visibility for one org doc (owners and admins). */
@@ -170,7 +209,8 @@ export async function updateOrgDocOptionsAction(orgId: string, docId: string, in
     // Report §37.4: Public only when the organization itself is public.
     if (visibility === 'public' && org && !(await orgIsPublic(orgId))) return { success: false, error: `${org.title} is private, so its documents can’t be public.` };
     // A template moves to the Templates group unless a group is chosen too (report §37.4).
-    if (patch.template === true && patch.group === undefined && readDocGroups((org?.orgSettings as { docGroups?: unknown } | null)?.docGroups).some((g) => g.id === 'templates')) patch.group = 'templates';
+    if (patch.template === true && patch.group === undefined && readDocGroups((org?.orgSettings as { docGroups?: unknown } | null)?.docGroups, org?.orgType).some((g) => g.id === 'templates')) patch.group = 'templates';
+    if (patch.owner && !(await pageOwners(orgId)).some((p) => p.id === patch.owner)) return { success: false, error: 'Pick someone in the organization as the owner.' };
     if (sprintId !== undefined) {
         const [sprint] = sprintId ? await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
             .where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, orgId))).limit(1) : [];
@@ -193,12 +233,12 @@ const publishSchema = z.object({ summary: z.string().trim().max(200), reread: z.
  * its history. Telling members is off unless chosen; Ask to re-read counts again from zero (Required only).
  */
 export async function publishOrgDocAction(orgId: string, docId: string, input: z.input<typeof publishSchema>): Promise<{ success: true } | Failure> {
-    const userId = await orgAdmin(orgId, 'publish_document');
-    if (!userId) return DENIED;
     const parsed = publishSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Keep the summary under 200 characters.' };
     const [doc, org] = await Promise.all([orgDocRow(orgId, docId), readOrg(orgId)]);
     if (!doc || !org) return { success: false, error: 'That doc is no longer available.' };
+    const userId = await adminOrPageOwner(orgId, doc, 'publish_document');
+    if (!userId) return DENIED;
     const options = readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org);
     let content: string | null = null;
     if (doc.linkedNodeId) {
@@ -225,7 +265,9 @@ export async function publishOrgDocAction(orgId: string, docId: string, input: z
         const current = normalizeWorkspaceDocSettings(fresh?.settings ?? doc.settings);
         await tx.update(workspaceDocuments).set({
             publishedVersionId: version!.id, updatedAt: now,
-            settings: { ...current, org: { ...(current.org ?? {}), lifecycle: 'published', publishedAt: now.toISOString(), readVersion: options.required && parsed.data.reread ? options.readVersion + 1 : options.readVersion } },
+            settings: { ...current, org: { ...(current.org ?? {}), lifecycle: 'published', publishedAt: now.toISOString(), readVersion: options.required && parsed.data.reread ? options.readVersion + 1 : options.readVersion,
+                // Report 33.2: publishing starts the page's review cycle again (when the handbook has one).
+                ...(reviewMonthsOf(org.orgSettings) ? { reviewBy: nextReviewBy(todayUtc(), reviewMonthsOf(org.orgSettings)) } : {}) } },
         }).where(eq(workspaceDocuments.id, doc.id));
     });
     if (parsed.data.notify) {
@@ -269,7 +311,7 @@ const groupsSchema = z.array(z.object({
 export async function saveOrgDocGroupsAction(orgId: string, groups: DocGroup[]): Promise<{ success: true } | Failure> {
     if (!(await orgAdmin(orgId))) return DENIED;
     const parsed = groupsSchema.safeParse(groups);
-    if (!parsed.success) return { success: false, error: `Use 1 to ${ORG_LIMITS.docGroupsPerOrg} groups with names up to 40 characters.` };
+    if (!parsed.success) return { success: false, error: 'Use 1 to 20 groups with names up to 40 characters.' };
     await db.update(workspaces).set({
         orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ docGroups: parsed.data })}::jsonb`,
         updatedAt: new Date(),
@@ -394,4 +436,28 @@ export async function readTemplateTargetsAction(orgId: string): Promise<{ succes
         .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), sql`${workspaces.status} <> 'archived'`, inArray(workspaceMembers.role, ['owner', 'admin', 'member'])))
         .orderBy(workspaces.title);
     return { success: true, workspaces: rows };
+}
+
+/** Still correct (report 33.2 flow "Review a page"): the owner or an admin sets the next Review by from the cycle. */
+export async function markOrgDocStillCorrectAction(orgId: string, docId: string): Promise<{ success: true; reviewBy: string | null } | Failure> {
+    const [doc, org] = await Promise.all([orgDocRow(orgId, docId), readOrg(orgId)]);
+    if (!doc || !org) return { success: false, error: 'That doc is no longer available.' };
+    if (!(await adminOrPageOwner(orgId, doc))) return DENIED;
+    const reviewBy = nextReviewBy(todayUtc(), reviewMonthsOf(org.orgSettings) || 12);
+    await writeOrgOptions(doc.id, doc.settings, { reviewBy });
+    touch(org.slug, orgId);
+    return { success: true, reviewBy };
+}
+
+/** Settings → Handbook (report 33.2 layer 2): the default review cycle — 6 or 12 months, or off. Owners and admins. */
+export async function saveHandbookSettingsAction(orgId: string, input: { reviewMonths: number }): Promise<{ success: true } | Failure> {
+    if (!(await orgAdmin(orgId))) return DENIED;
+    if (![0, 6, 12].includes(input?.reviewMonths)) return { success: false, error: 'Pick 6 months, 12 months or off.' };
+    await db.update(workspaces).set({
+        orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ handbook: { reviewMonths: input.reviewMonths } })}::jsonb`,
+        updatedAt: new Date(),
+    }).where(eq(workspaces.id, orgId));
+    const org = await readOrg(orgId);
+    touch(org?.slug ?? null, orgId);
+    return { success: true };
 }
