@@ -710,3 +710,19 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-fchip { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; max-width: 100%; padding-right: 6px; overflow: hidden; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--card); transition: border-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-fchip:hover { border-color: var(--foreground); }
 .nbm-fchip-glyph { display: grid; flex: none; width: 36px; height: 36px; place-items: center; border-radius: 3px; background: var(--nbm-soft); color: var(--nbm-fg2); }
+
+/* Audio tile (Phase 10 Task 43) */
+.nbm-audio { display: flex; align-items: center; gap: 10px; width: 360px; max-width: 100%; min-height: 52px; padding: 8px 10px 8px 8px; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--card); }
+.nbm-audio.is-error { color: var(--nbm-fg2); font-size: 13px; }
+.nbm-audio-play { display: grid; flex: none; width: 36px; height: 36px; place-items: center; border-radius: 5px; background: var(--nbm-ink); color: var(--nbm-on-ink); }
+.nbm-audio-play:active { transform: translateY(1px); }
+.nbm-audio-wave { display: flex; flex: 1; align-items: center; gap: 2px; min-width: 0; height: 32px; cursor: pointer; }
+.nbm-audio-wave:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
+.nbm-audio-bar { flex: 1; min-width: 1px; background: color-mix(in srgb, var(--foreground) 20%, transparent); transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-audio-bar[data-played="true"] { background: var(--nbm-ink); }
+.nbm-audio-track { position: relative; flex: 1; height: 2px; background: var(--nbm-line); }
+.nbm-audio-track > span { position: absolute; inset: 0 auto 0 0; background: var(--nbm-ink); }
+.nbm-audio-time { flex: none; font: 11px/1 var(--nbm-mono); color: var(--nbm-fg2); font-variant-numeric: tabular-nums; }
+.nbm-audio-speed { flex: none; min-width: 36px; height: 24px; padding: 0 6px; border: 1px solid var(--nbm-line); border-radius: 3px; font: 500 10.5px/1 var(--nbm-mono); color: var(--nbm-fg2); }
+.nbm-audio-speed:hover { border-color: var(--foreground); color: var(--foreground); }
+@media (pointer: coarse) { .nbm-audio-play { width: 44px; height: 44px; } .nbm-audio-speed { min-height: 44px; } }

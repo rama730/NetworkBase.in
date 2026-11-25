@@ -22,6 +22,7 @@ import { formatFileSize } from '@/lib/messaging/channel-view';
 import { formatDuration, parsePreview, tileBox } from '@/lib/messaging/media-kind';
 import { middleCut } from '@/lib/messaging/mix-format';
 import { PixelBeat } from '@/components/messages/mix/primitives';
+import { AudioTile } from '@/components/messages/parts/AudioTile';
 import { prefersReducedMotionFromAttributes } from '@/lib/theme/appearance';
 import { useOverlayHistory } from "@/lib/navigation/overlay-history";
 
@@ -56,12 +57,14 @@ export function MessageAttachmentsV2({
     isOwn?: boolean;
     hasReactions?: boolean;
 }) {
-    const { mediaAttachments, fileAttachments, viewerAttachments } = useMemo(() => {
+    const { mediaAttachments, fileAttachments, viewerAttachments, audioAttachments } = useMemo(() => {
         const media: ChatAttachmentV2[] = [];
         const files: ChatAttachmentV2[] = [];
+        const sounds: ChatAttachmentV2[] = [];
         const viewer: MediaItem[] = [];
 
         for (const raw of attachments) {
+            if (raw.type === 'audio') { sounds.push(raw); continue; }
             let att = raw;
             if (raw.type === 'file') {
                 const ext = raw.filename.split('.').pop()?.toLowerCase();
@@ -99,7 +102,7 @@ export function MessageAttachmentsV2({
             }
         }
 
-        return { mediaAttachments: media, fileAttachments: files, viewerAttachments: viewer };
+        return { mediaAttachments: media, fileAttachments: files, viewerAttachments: viewer, audioAttachments: sounds };
     }, [attachments]);
 
     const [activeAttachmentId, setActiveAttachmentId] = useState<string | null>(null);
@@ -127,6 +130,8 @@ export function MessageAttachmentsV2({
                         returnedVideoState={returnedVideoState}
                     />
                 ) : null}
+
+                {audioAttachments.map((attachment) => <AudioTile key={attachment.id} attachment={attachment} />)}
 
                 {fileAttachments.length > 0 ? (
                     <div className="w-[480px] min-w-0 max-w-full space-y-1 overflow-hidden">
