@@ -758,4 +758,5 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Name each class.": {"title": "Name each class.", "type": "warning"},
   "Two classes have the same name.": {"title": "Two classes have the same name.", "type": "warning"},
   "A TA marks lessons taught; the teacher takes a tick back.": {"title": "A TA marks lessons taught; the teacher takes a tick back.", "type": "warning"},
+  "Couldn’t load the year map.": {"title": "Couldn’t load the year map."},
 };

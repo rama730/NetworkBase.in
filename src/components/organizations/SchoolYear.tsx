@@ -7,6 +7,7 @@ import { readSchoolYearAction, saveSchoolYearAction } from "@/app/actions/school
 import { OrgCard } from "@/components/organizations/org-ui";
 import { StartNextYear } from "@/components/organizations/SchoolCalendarTools";
 import { EventsView } from "@/components/organizations/SchoolEvents";
+import { YearMap } from "@/components/organizations/YearMap";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
 import { PixelBeat } from "@/components/ui/PixelBeat";
@@ -27,15 +28,15 @@ const FILL: Record<DayKind, string> = { school: "border border-border bg-card", 
 
 /** School Sprints: Year (default) or today's Sprint view. */
 export function SchoolSprints({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [view, setView] = useState<"year" | "events" | "sprint">("year");
+  const [view, setView] = useState<"year" | "map" | "events" | "sprint">("year");
   return (
     <div>
       <div role="group" aria-label="Sprints view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="school-sprints-switch">
-        {(["year", "events", "sprint"] as const).map((v) => (
-          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "year" ? "Year" : v === "events" ? "Events" : "Sprint"}</button>
+        {(["year", "map", "events", "sprint"] as const).map((v) => (
+          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "year" ? "Year" : v === "map" ? "Year map" : v === "events" ? "Events" : "Sprint"}</button>
         ))}
       </div>
-      {view === "year" ? <YearView orgId={orgId} /> : view === "events" ? <EventsView orgId={orgId} /> : children}
+      {view === "year" ? <YearView orgId={orgId} /> : view === "map" ? <YearMap schoolId={orgId} /> : view === "events" ? <EventsView orgId={orgId} /> : children}
     </div>
   );
 }

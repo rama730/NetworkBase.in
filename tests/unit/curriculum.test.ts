@@ -34,3 +34,15 @@ test("Behind the map per class; Planned; Draft ⚠ within 3 school days", () => 
   assert.equal(draftSoon("draft", "2026-10-14", "2026-10-08"), false);
   assert.equal(draftSoon("ready", "2026-10-09", "2026-10-08"), false);
 });
+
+test("B3.2b Year map: school weeks from Monday; units as spans with gaps; overlaps start after the earlier unit", async () => {
+  const { mapRow, mapWeeks } = await import("@/lib/organizations/curriculum");
+  const weeks = mapWeeks("2026-09-02", "2026-10-30");
+  assert.deepEqual([weeks[0], weeks.length], ["2026-08-31", 9]);
+  const row = mapRow([
+    { name: "Cells", start: "2026-09-02", end: "2026-09-18", draft: false, assessment: false },
+    { name: "Forces", start: "2026-09-16", end: "2026-10-09", draft: true, assessment: true },
+    { name: "Undated", start: null, end: null, draft: true, assessment: false },
+  ], weeks);
+  assert.deepEqual(row.map((s) => (s.kind === "gap" ? ["gap", s.span] : [s.name, s.span, s.draft, s.assessment])), [["Cells", 3, false, false], ["Forces", 3, true, true], ["gap", 3]]);
+});

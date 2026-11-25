@@ -66,3 +66,41 @@ export function draftSoon(stage: string, day: string | null, today: string) {
   }
   return schoolDays <= 3;
 }
+
+const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const mondayOf = (d: string) => addDays(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));
+
+/** B3.2b (report 32.3 Year map): the school's weeks, Monday to Monday, across the year's span (at most 60). */
+export function mapWeeks(start: string, end: string) {
+  const out: string[] = [];
+  for (let d = mondayOf(start); d <= end && out.length < 60; d = addDays(d, 7)) out.push(d);
+  return out;
+}
+
+export type MapUnit = { name: string; start: string | null; end: string | null; draft: boolean; assessment: boolean };
+export type MapSegment = { kind: "gap"; span: number } | { kind: "unit"; span: number; name: string; draft: boolean; assessment: boolean; from: string; to: string };
+/**
+ * One course's row: its units as spans over the school weeks (a unit takes the weeks its dates touch; a later unit
+ * that overlaps starts after the earlier one), gaps between them. Undated units aren't drawn.
+ */
+export function mapRow(units: MapUnit[], weeks: string[]): MapSegment[] {
+  const index = (d: string, last: boolean) => {
+    const m = mondayOf(d);
+    const i = weeks.indexOf(m);
+    if (i >= 0) return i;
+    return m < weeks[0]! ? (last ? -1 : 0) : last ? weeks.length - 1 : weeks.length;
+  };
+  const dated = units.filter((u) => u.start && u.end && u.end >= u.start).sort((a, b) => a.start!.localeCompare(b.start!));
+  const out: MapSegment[] = [];
+  let at = 0;
+  for (const u of dated) {
+    const from = Math.max(at, index(u.start!, false));
+    const to = index(u.end!, true);
+    if (to < from || from >= weeks.length) continue;
+    if (from > at) out.push({ kind: "gap", span: from - at });
+    out.push({ kind: "unit", span: to - from + 1, name: u.name, draft: u.draft, assessment: u.assessment, from: weeks[from]!, to: weeks[to]! });
+    at = to + 1;
+  }
+  if (at < weeks.length) out.push({ kind: "gap", span: weeks.length - at });
+  return out;
+}
