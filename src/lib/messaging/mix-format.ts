@@ -22,7 +22,7 @@ export function middleCut(name: string, max = 48, keepEnd = 16): string {
 /** "Ana", "Ana and Ben", "Ana, Ben and 497 others". */
 export function joinPeople(names: string[], shown = 2): string {
   if (names.length === 0) return "";
-  if (names.length <= shown) return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  if (names.length <= shown) return names.length === 1 ? names[0] ?? "" : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   const rest = names.length - shown;
   return `${names.slice(0, shown).join(", ")} and ${rest} other${rest === 1 ? "" : "s"}`;
 }
