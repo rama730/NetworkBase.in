@@ -8953,6 +8953,13 @@ CHECK-IN · "Arjun ↔ K. Shah" (one running document, newest on top)
 11. The mentor's note on the completion entry shows only after the learner approves.
 12. Peer buddies are parked.
 
+**B2.3 build calls (2026-11-25):**
+- **Split:** B2.3a Settings → Mentoring, Mentor groups, Match mentors, Mentors view, My mentor / My mentees, check-ins with Prep, notes, Share and Was this useful?; B2.3b objectives, booking with .ics, concerns, Mentor only access, the mentor's note, notifications for prep and rhythm.
+- A pair's check-ins are rows of their own (one per pair per date, newest first) rather than a shared document, so "private to the pair" is enforced by the server, not by file permissions. They read as one running page. **[call]**
+- Mentors are the TAs of a Mentor group, and only while they're TAs; a mentor reads and edits only entries made since the pair was matched, so a new match opens nothing earlier and the old mentor leaves the pair. **[call]**
+- Shared entries reach the Teacher (the instructor) only, not other TAs. **[call]**
+- Learners never pick a Mentor group; staff match (one click for the suggestions). **[call]**
+
 ### 31.6 C4 · Capstone and demo day (agreed 2026-11-17)
 **References** (18 searches found 152 templates, 54 of them rated; 7 studied from their screenshots):
 
