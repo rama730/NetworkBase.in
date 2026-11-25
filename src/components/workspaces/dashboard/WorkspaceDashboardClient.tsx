@@ -59,6 +59,7 @@ import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } fro
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
 import { SchoolClassesTab } from '@/components/organizations/SchoolParts';
 import { ClassSprints } from '@/components/organizations/TermPlan';
+import { SchoolSprints } from '@/components/organizations/SchoolYear';
 import { ClassMembers } from '@/components/organizations/Sections';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
@@ -1333,6 +1334,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                             <Suspense fallback={<SkeletonSprints />}>
                                 {organization && !organization.isSchool && typeProfile(organization.type).schools
                                     ? <ClassSprints orgId={project.id}><SprintsWithPath projectId={project.id}><SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} /></SprintsWithPath></ClassSprints>
+                                    : organization?.isSchool ? <SchoolSprints orgId={project.id}><SprintsWithPath projectId={project.id}><SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} /></SprintsWithPath></SchoolSprints>
                                     : <SprintsWithPath projectId={project.id}><SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} /></SprintsWithPath>}
                             </Suspense>
                         </div>

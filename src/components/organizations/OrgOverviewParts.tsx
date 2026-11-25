@@ -7,6 +7,7 @@ import { CompletionLine } from '@/components/organizations/Completion'
 import { MentoringCard } from '@/components/organizations/Mentoring'
 import { MyPrepCard } from '@/components/organizations/MockScores'
 import { DemoDayCard } from '@/components/organizations/DemoDay'
+import { ThisWeekAtSchool } from '@/components/organizations/SchoolYear'
 import { YourAttendanceLine } from '@/components/organizations/Attendance'
 import { useEffect, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -269,6 +270,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {data.restricted ? <Notice tone="warning">This organization is restricted for now.</Notice> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
                 {isClass ? <ClassNextLine orgId={orgId} /> : null}
+                {isClass ? <ThisWeekAtSchool orgId={orgId} /> : null}
                 {isClass ? <YourSectionCard orgId={orgId} /> : null}
                 {isClass ? <YourAttendanceLine orgId={orgId} /> : null}
                 {isClass ? <CompletionLine orgId={orgId} /> : null}

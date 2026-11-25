@@ -42,8 +42,10 @@ export function readClassDetails(orgSettings: unknown): ClassDetails | null {
     officeHours: oh && Array.isArray(oh.days) && TIME.test(oh.start) && TIME.test(oh.end) && oh.end > oh.start
       ? { days: oh.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6), start: oh.start, end: oh.end, place: text(oh.place, 80) } : null,
     credits: typeof raw.credits === "number" && raw.credits >= 0 && raw.credits <= 60 ? raw.credits : null,
-    breaks: (Array.isArray(raw.breaks) ? raw.breaks : []).filter((b) => b && DAY.test(b.start) && DAY.test(b.end) && b.end >= b.start)
-      .map((b) => ({ name: text(b.name, 60) ?? "Break", start: b.start, end: b.end })).slice(0, 20),
+    // B3.1a (report 32.2 call 2): the school's holidays and staff days come with the class's own breaks.
+    breaks: [...(Array.isArray(raw.breaks) ? raw.breaks : []), ...((orgSettings as { schoolBreaks?: unknown[] } | null)?.schoolBreaks ?? [])]
+      .filter((b): b is { name?: unknown; start: string; end: string } => Boolean(b) && DAY.test((b as { start: string }).start) && DAY.test((b as { end: string }).end) && (b as { end: string }).end >= (b as { start: string }).start)
+      .map((b) => ({ name: text(b.name, 60) ?? "Break", start: b.start, end: b.end })).slice(0, 100),
     show: { ...DEFAULT_SHOW, ...Object.fromEntries(Object.entries(show).filter(([, v]) => typeof v === "boolean")) },
     examWeeks: (orgSettings as { examNoClasses?: unknown }).examNoClasses === false ? [] : readExamWeeks(orgSettings),
   };

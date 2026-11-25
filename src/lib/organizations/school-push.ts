@@ -10,7 +10,7 @@ import { kindStartingValues, readSchoolKind } from "@/lib/organizations/school-k
  * Report 29.2, B0.2 call "Settings pushed down": a school's term dates, AI policy, late rule, review default and
  * workspace-visibility cap are written into every class in it; the class can't change them while it's in the school.
  */
-export const SCHOOL_SETTING_KEYS = ["assignmentAiPolicy", "assignmentLateRule", "assignmentReview", "visibilityCap", "attendanceMinimum", "examWeeks"] as const;
+export const SCHOOL_SETTING_KEYS = ["assignmentAiPolicy", "assignmentLateRule", "assignmentReview", "visibilityCap", "attendanceMinimum", "examWeeks", "schoolYear", "schoolBreaks"] as const;
 /** The patch fields (updateOrgSettingsAction) that carry those settings, with the stored key or column they write. */
 export const SCHOOL_LOCKED_FIELDS: Record<string, string> = {
   ai_policy: "assignmentAiPolicy", late_rule: "assignmentLateRule", review_required: "assignmentReview", visibility_cap: "visibilityCap",
@@ -38,7 +38,7 @@ export async function pushSchoolSettings(schoolId: string, classId?: string): Pr
         THEN coalesce(c.workflow_settings, '{}'::jsonb) || jsonb_build_object('path', coalesce(c.workflow_settings->'path', '{}'::jsonb) || '{"pacing": "self"}'::jsonb)
         ELSE c.workflow_settings END,
       org_settings = ${starting}::jsonb || coalesce(c.org_settings, '{}'::jsonb) || coalesce((SELECT jsonb_object_agg(k, v) FROM jsonb_each(coalesce(s.org_settings, '{}'::jsonb)) AS e(k, v)
-        WHERE k IN ('assignmentAiPolicy', 'assignmentLateRule', 'assignmentReview', 'visibilityCap', 'attendanceMinimum', 'examWeeks')), '{}'::jsonb),
+        WHERE k IN ('assignmentAiPolicy', 'assignmentLateRule', 'assignmentReview', 'visibilityCap', 'attendanceMinimum', 'examWeeks', 'schoolYear', 'schoolBreaks')), '{}'::jsonb),
       -- Both dates or neither, so a class's own term can never end before it starts.
       term_start = CASE WHEN s.term_start IS NOT NULL AND s.term_end IS NOT NULL THEN s.term_start ELSE c.term_start END,
       term_end = CASE WHEN s.term_start IS NOT NULL AND s.term_end IS NOT NULL THEN s.term_end ELSE c.term_end END, updated_at = now()

@@ -739,4 +739,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Pick one of this demo day’s teams.": {"title": "Pick one of this demo day’s teams.", "type": "warning"},
   "Mentors don’t judge their own teams.": {"title": "Mentors don’t judge their own teams.", "type": "warning"},
   "Scores are 1 to 5.": {"title": "Scores are 1 to 5.", "type": "warning"},
+  "{name} ends before it starts.": {"title": "{name} ends before it starts.", "type": "warning"},
+  "Terms can’t overlap.": {"title": "Terms can’t overlap.", "type": "warning"},
+  "Check the school year.": {"title": "Check the school year.", "type": "warning"},
 };

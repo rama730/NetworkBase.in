@@ -109,7 +109,7 @@ export async function unlinkClassAction(classId: string): Promise<{ success: tru
   const fromInstitution = c.institutionId ? admin(await roleIn(c.institutionId, userId, "write")) : false;
   if (!fromClass && !fromInstitution) return DENIED;
   if (!c.institutionId && !pending) return { success: true };
-  await db.update(workspaces).set({ institutionId: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest' - 'department' - 'attendanceMinimum'` }).where(eq(workspaces.id, classId));
+  await db.update(workspaces).set({ institutionId: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest' - 'department' - 'attendanceMinimum' - 'schoolYear' - 'schoolBreaks'` }).where(eq(workspaces.id, classId));
   return { success: true };
 }
 

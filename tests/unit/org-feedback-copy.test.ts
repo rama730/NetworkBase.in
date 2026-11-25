@@ -6,7 +6,7 @@ import { FEEDBACK_COPY } from "@/lib/feedback/copy";
 
 // Found live (B2.5a): error toasts show only catalog messages; anything else reads "Action couldn’t finish". Every
 // message the organization actions return or throw must be in the catalog, so people see the real reason.
-const ACTIONS = ["attendance", "capstone", "demo-day", "class-home", "cohort-completion", "cohort-move", "exams", "institutions", "learning-path", "literature", "marks",
+const ACTIONS = ["attendance", "capstone", "demo-day", "school-year", "class-home", "cohort-completion", "cohort-move", "exams", "institutions", "learning-path", "literature", "marks",
   "mentoring-plan", "mentoring", "mocks", "my-week", "peer-review", "prep", "programs", "sections", "term-plan", "thesis-coordinator"];
 
 test("organization actions' messages are all in the feedback catalog", () => {
