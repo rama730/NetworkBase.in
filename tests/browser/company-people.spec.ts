@@ -16,6 +16,8 @@ async function open(page: Page, view: string) {
       saveMyDirectoryAction: async (_o: string, v: unknown) => { calls.push(['mine', v]); return { success: true }; },
       setReportsToAction: async (_o: string, p: string, m: string | null) => { calls.push(['reports', p, m]); return { success: true }; },
       readPeopleCountsAction: async () => ({ success: true, total: 4, teams: [{ name: 'Engineering', n: 2 }, { name: 'Sales', n: 1 }], offices: [{ name: 'London', n: 1 }, { name: 'No office', n: 3 }], joined: [{ month: '2026-11', n: 4 }] }),
+      readCompanyAboutAction: async () => ({ success: true, admin: true, inside: true, values: [], offices: [], publicValues: false, publicOffices: false, teams: [{ id: '11111111-1111-4111-8111-111111111111', title: 'Sales', slug: 'sales', line: null, manager: null, members: 1 }] }),
+      inviteByEmailAction: async (_o: string, v: unknown) => { calls.push(['invite', v]); return { success: true, invited: 2, existing: 0, invalid: [] }; },
       saveDirectorySettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
     };
   }, [
@@ -68,4 +70,13 @@ test('Settings → Directory: Viewers see names and titles only when switched on
   await open(page, 'settings');
   await page.getByTestId('directory-settings').getByRole('checkbox').check();
   await expect.poll(async () => (await calls(page))[0]?.[1]).toEqual({ viewers: true });
+});
+
+test('Import people: a pasted CSV becomes email invites grouped by title and team', async ({ page }) => {
+  await open(page, 'people');
+  await page.getByTestId('import-people').locator('summary').click();
+  await page.getByLabel('People to import').fill('email,title,team\nmei@acme.com,Account executive,Sales\nkai@acme.com,Account executive,Sales\nnope');
+  await expect(page.getByTestId('import-people')).toContainText('1 line isn’t an email; skipped');
+  await page.getByRole('button', { name: 'Send 2 invites' }).click();
+  await expect.poll(async () => (await calls(page)).find((c: unknown[]) => c[0] === 'invite')?.[1]).toEqual({ emails: 'mei@acme.com\nkai@acme.com', role: 'member', title: 'Account executive', childProjectId: '11111111-1111-4111-8111-111111111111' });
 });

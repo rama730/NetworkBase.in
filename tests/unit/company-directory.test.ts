@@ -36,3 +36,13 @@ test("33.3 call 1: in a company, Members is the Directory for everyone inside; o
   assert.equal(isWorkspaceTabVisibleToViewer({ ...member, isOwnerOrMember: false, orgType: "company" }), false, "visitors: nothing");
   assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "members", isOwnerOrMember: true, isOrganization: true, orgType: "company" }), "members");
 });
+
+test("33.3 Import people: email, title, team per line, grouped into invites; bad emails are counted, not sent", async () => {
+  const { importGroups } = await import("../../src/lib/organizations/directory");
+  const r = importGroups("email,title,team\nPriya@acme.com, Head of People, People\nmei@acme.com,Account executive,Sales\nkai@acme.com,Account executive,Sales\nnot-an-email,x,y\n\n");
+  assert.deepEqual(r.groups, [
+    { title: "Head of People", team: "People", emails: ["priya@acme.com"] },
+    { title: "Account executive", team: "Sales", emails: ["mei@acme.com", "kai@acme.com"] },
+  ]);
+  assert.equal(r.skipped, 1);
+});

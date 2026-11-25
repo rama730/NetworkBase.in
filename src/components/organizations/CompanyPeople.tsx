@@ -13,7 +13,7 @@ import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { localTime, orgChart, type ChartNode } from "@/lib/organizations/directory";
+import { importGroups, localTime, orgChart, type ChartNode } from "@/lib/organizations/directory";
 
 // Report 33.3 (plan B4.2a–b, K2): Members in a company — the Directory for every member, the org chart, and the
 // roster (admins) — plus Settings → Directory.
@@ -33,7 +33,7 @@ export function CompanyPeople({ orgId, roster }: { orgId: string; roster: ReactN
       <div id={`company-people-panel-${view}`} role="tabpanel">
         {view === "roster" && roster ? roster : view === "counts" && d.admin ? <Counts orgId={orgId} /> : view === "chart" && !d.limited ? <OrgChart orgId={orgId} people={d.people as DirectoryPerson[]} admin={d.admin} managerLeft={"managerLeft" in d ? d.managerLeft ?? [] : []} />
           : d.limited ? <ul className="space-y-1 text-[13px]" data-testid="directory-limited">{d.people.map((p) => <li key={p.id}><span className="font-medium">{p.name}</span>{p.title ? <span className="text-muted-foreground"> · {p.title}</span> : null}</li>)}</ul>
-          : <Directory orgId={orgId} me={d.me} people={d.people as DirectoryPerson[]} offices={d.offices} />}
+          : <>{d.admin ? <ImportPeople orgId={orgId} /> : null}<Directory orgId={orgId} me={d.me} people={d.people as DirectoryPerson[]} offices={d.offices} /></>}
       </div>
     </section>
   );
@@ -176,5 +176,44 @@ function Counts({ orgId }: { orgId: string }) {
       {table("By office", d.offices)}
       {table("Joined per month", d.joined.map((j) => ({ name: j.month, n: j.n })))}
     </div>
+  );
+}
+
+/** Import people (layer 1, admins): a CSV of email, title and team, sent through the existing email invites. */
+function ImportPeople({ orgId }: { orgId: string }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const teams = useQuery({ queryKey: ["company-about", orgId], queryFn: async () => (await import("@/app/actions/company")).readCompanyAboutAction(orgId), staleTime: 60_000 });
+  const plan = importGroups(text);
+  const count = plan.groups.reduce((n, g) => n + g.emails.length, 0);
+  const send = async () => {
+    setBusy(true);
+    const { inviteByEmailAction } = await import("@/app/actions/org-members");
+    const known = teams.data?.success ? teams.data.teams : [];
+    let invited = 0;
+    const unknownTeams = new Set<string>();
+    for (const g of plan.groups) {
+      const team = g.team ? known.find((t) => t.title.toLowerCase() === g.team.toLowerCase()) : null;
+      if (g.team && !team) unknownTeams.add(g.team);
+      const r = await inviteByEmailAction(orgId, { emails: g.emails.join("\n"), role: "member", title: g.title || null, childProjectId: team?.id ?? null });
+      if (!r.success) { setBusy(false); return void toast.error(r.error); }
+      invited += r.invited + r.existing;
+    }
+    setBusy(false);
+    setText("");
+    toast.success(`${invited} invited${unknownTeams.size ? ` · no team called ${[...unknownTeams].join(", ")}, so they join the company only` : ""}`);
+  };
+  return (
+    <details className="mb-3 rounded-md border border-border text-[13px]" data-testid="import-people">
+      <summary className="cursor-pointer px-3 py-2 font-medium">Import people</summary>
+      <div className="space-y-2 px-3 pb-3">
+        <p className="text-muted-foreground">One person per line: email, title, team. They get the company’s email invite; set Reports to once they join.</p>
+        <textarea className="nb-textarea font-mono" rows={4} value={text} onChange={(e) => setText(e.target.value)} aria-label="People to import" placeholder={"priya@acme.com, Head of People, People"} />
+        <span className="flex items-center gap-3">
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={!count || busy} onClick={() => void send()}>Send {count || ""} {count === 1 ? "invite" : "invites"}</button>
+          {plan.skipped ? <span className="text-muted-foreground">{plan.skipped} {plan.skipped === 1 ? "line isn’t" : "lines aren’t"} an email; skipped</span> : null}
+        </span>
+      </div>
+    </details>
   );
 }

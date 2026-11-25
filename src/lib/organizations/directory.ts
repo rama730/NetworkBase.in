@@ -54,3 +54,24 @@ export function localTime(now: Date, zone: string | null, hours: WorkingHours | 
   const offHours = Boolean(hours && (weekend || hm < hours.from || hm >= hours.to));
   return { label, offHours };
 }
+
+export type ImportRow = { email: string; title: string; team: string };
+
+/**
+ * Import people (layer 3): "email, title, team" per line (a header row is skipped), grouped so each group is one email
+ * invite with its title and team. ponytail: plain commas only, no quoted fields; a real CSV parser if people paste them.
+ */
+export function importGroups(text: string): { groups: Array<{ title: string; team: string; emails: string[] }>; skipped: number } {
+  const groups = new Map<string, { title: string; team: string; emails: string[] }>();
+  let skipped = 0;
+  for (const line of text.split(/\r?\n/)) {
+    const [email = "", title = "", team = ""] = line.split(",").map((c) => c.trim());
+    if (!email || /^e-?mail$/i.test(email)) continue;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { skipped++; continue; }
+    const key = `${title}\u0000${team}`;
+    const g = groups.get(key) ?? { title: title.slice(0, 60), team, emails: [] };
+    g.emails.push(email.toLowerCase());
+    groups.set(key, g);
+  }
+  return { groups: [...groups.values()], skipped };
+}
