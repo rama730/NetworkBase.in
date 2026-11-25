@@ -1425,6 +1425,22 @@ export const staffGrowth = pgTable("staff_growth", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("staff_growth_person_idx").on(t.projectId, t.userId, t.year), uniqueIndex("staff_growth_one_review").on(t.projectId, t.userId, t.year).where(sql`kind = 'review'`)]);
+/** B3.5c (0147, report 32.6 calls 6–8): observations — feedback only (Strengths and One next step). Server only. */
+export const staffObservations = pgTable("staff_observations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  observerId: uuid("observer_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  observedId: uuid("observed_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  slotId: uuid("slot_id").references(() => schoolTimetableSlots.id, { onDelete: "set null" }),
+  day: date("day").notNull(),
+  focus: text("focus").notNull(),
+  strengths: text("strengths"),
+  nextStep: text("next_step"),
+  justBetweenUs: boolean("just_between_us").default(false).notNull(),
+  state: text("state", { enum: ["booked", "written"] }).default("booked").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("staff_observations_workspace_idx").on(t.projectId, t.day), index("staff_observations_observed_idx").on(t.observedId)]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),

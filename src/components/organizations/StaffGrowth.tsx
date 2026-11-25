@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { readGrowthAction, readGrowthCountsAction, readStaffGrowthSettingsAction, saveGrowthAction, saveStaffGrowthSettingsAction } from "@/app/actions/staff-growth";
+import { Observations } from "@/components/organizations/Observations";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
 import { PixelBeat } from "@/components/ui/PixelBeat";
@@ -95,6 +96,7 @@ export function GrowthView({ schoolId }: { schoolId: string }) {
         <span className="flex gap-2"><Input value={log} maxLength={200} placeholder="A training day, a book, an observation" aria-label="New log entry" onChange={(e) => setLog(e.target.value)} className="max-w-md" />
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={!log.trim()} onClick={() => void save({ kind: "log", title: log }, "Logged").then(() => setLog(""))}>Add to the log</button></span>
       </div>
+      <Observations schoolId={schoolId} staff={d.colleagues} />
     </section>
   );
 }
