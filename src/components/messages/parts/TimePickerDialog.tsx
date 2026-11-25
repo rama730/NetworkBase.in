@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SCHEDULE_MAX_AHEAD_MS } from "@/lib/messaging/schedule-window";
 
 /** A datetime-local value for an <input>, in the viewer's own zone. */
 export function localInput(date: Date) {
@@ -47,6 +48,8 @@ function PickerForm({ initial, label, confirmLabel, onPick, onClose }: {
 }) {
   const [value, setValue] = useState(() => localInput(initial));
   const [min] = useState(() => localInput(new Date(clock() + 60_000)));
+  // The server takes at most 120 days ahead; the picker stops there too.
+  const [max] = useState(() => localInput(new Date(clock() + SCHEDULE_MAX_AHEAD_MS)));
   // The picker shows your local time; say which zone that is.
   const [zone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, " "));
   return (
@@ -59,7 +62,7 @@ function PickerForm({ initial, label, confirmLabel, onPick, onClose }: {
       }}
     >
       <label className="block text-[13px] font-medium">{label}
-        <Input type="datetime-local" required min={min} value={value} onChange={(e) => setValue(e.target.value)} className="mt-1" aria-describedby="time-picker-zone" />
+        <Input type="datetime-local" required min={min} max={max} value={value} onChange={(e) => setValue(e.target.value)} className="mt-1" aria-describedby="time-picker-zone" />
       </label>
       <p id="time-picker-zone" className="text-[13px] text-muted-foreground">Your time zone: {zone}</p>
       <DialogFooter paper>

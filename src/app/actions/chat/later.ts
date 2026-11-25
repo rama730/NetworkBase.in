@@ -8,17 +8,16 @@ import { sql } from "drizzle-orm";
 import { CHAT_LIST_PAGE, CHAT_MAX_BODY } from "@/lib/messaging/constants";
 import { chatFailure, chatRows, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import { takeSendToken } from "@/lib/messaging/send-bucket";
+import { scheduleWindow } from "@/lib/messaging/schedule-window";
 import { sendAs } from "@/lib/messaging/send";
 import type { ChatPerson } from "@/lib/messaging/types";
 
-const MAX_AHEAD_MS = 120 * 24 * 60 * 60 * 1000;
-
-function futureDate(value: unknown): string | null | "invalid" {
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return "invalid";
-  const at = Date.parse(value);
-  if (at <= Date.now() || at - Date.now() > MAX_AHEAD_MS) return "invalid";
-  return new Date(at).toISOString();
+/** A Schedule / Remind me time: null clears it; otherwise in the future and at most 120 days ahead. */
+function laterTime(value: unknown): { at: string | null } | { error: "chat_schedule_in_past" | "chat_schedule_too_far" } {
+  if (value === null || value === undefined) return { at: null };
+  const window = scheduleWindow(value);
+  if (window.ok) return { at: window.at };
+  return { error: window.reason === "too_far" ? "chat_schedule_too_far" : "chat_schedule_in_past" };
 }
 
 /** Save (on/off), optionally with a reminder time; `clearReminder` drops the reminder but keeps the item saved. */
@@ -26,8 +25,9 @@ export async function saveMessage(input: { channelId: string; seq: number; on: b
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
-  const remindAt = futureDate(input.remindAt);
-  if (remindAt === "invalid") return { success: false as const, error: "chat_schedule_in_past" };
+  const remindTime = laterTime(input.remindAt);
+  if ("error" in remindTime) return { success: false as const, error: remindTime.error };
+  const remindAt = remindTime.at;
   try {
     if (!input.on) {
       await chatRows(sql`
@@ -127,9 +127,16 @@ export async function scheduleMessage(input: { channelId: string; body: string; 
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || typeof input.body !== "string" || !input.body.trim() || input.body.length > CHAT_MAX_BODY) return invalidInput;
   if (input.threadRootSeq != null && !isMessageSeq(input.threadRootSeq)) return invalidInput;
-  const sendAt = futureDate(input.sendAt);
-  if (sendAt === "invalid" || sendAt === null) return { success: false as const, error: "chat_schedule_in_past" };
+  const sendTime = laterTime(input.sendAt);
+  if ("error" in sendTime) return { success: false as const, error: sendTime.error };
+  if (sendTime.at === null) return { success: false as const, error: "chat_schedule_in_past" };
+  const sendAt = sendTime.at;
   try {
+    // The 100-unsent limit has its own words; it used to come back as "not a member".
+    const [pending] = await chatRows<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM chat_scheduled_messages WHERE user_id = ${user.id}::uuid AND sent_at IS NULL
+    `);
+    if ((pending?.n ?? 0) >= 100) return { success: false as const, error: "chat_scheduled_limit" };
     const [row] = await chatRows<{ id: string }>(sql`
       INSERT INTO chat_scheduled_messages (channel_id, user_id, body, thread_root_seq, send_at)
       SELECT ${input.channelId}::uuid, ${user.id}::uuid, ${input.body}, ${input.threadRootSeq ?? null}::bigint, ${sendAt}::timestamptz
@@ -216,8 +223,10 @@ export async function rescheduleScheduled(input: { id: string; sendAt: string })
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.id)) return invalidInput;
-  const sendAt = futureDate(input.sendAt);
-  if (sendAt === "invalid" || sendAt === null) return { success: false as const, error: "chat_schedule_in_past" };
+  const sendTime = laterTime(input.sendAt);
+  if ("error" in sendTime) return { success: false as const, error: sendTime.error };
+  if (sendTime.at === null) return { success: false as const, error: "chat_schedule_in_past" };
+  const sendAt = sendTime.at;
   try {
     const rows = await chatRows<{ id: string }>(sql`
       UPDATE chat_scheduled_messages SET send_at = ${sendAt}::timestamptz, failed_reason = NULL

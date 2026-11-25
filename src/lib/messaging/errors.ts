@@ -1,5 +1,5 @@
 // User-facing copy for the chat_* error codes raised by the SQL functions.
-const MESSAGES: Record<string, string> = {
+export const CHAT_ERROR_MESSAGES: Record<string, string> = {
   chat_unauthorized: "Sign in to continue.",
   chat_network: "Couldn’t reach the server. Retry from the message.",
   chat_invalid_input: "That didn’t look right. Check it and try again.",
@@ -45,11 +45,28 @@ const MESSAGES: Record<string, string> = {
   chat_group_size: "Group messages have up to 9 people.",
   chat_share_not_allowed: "Messages in an application conversation are private and can’t be shared.",
   chat_application_members_fixed: "People in an application conversation are fixed: the applicant and the workspace’s reviewers.",
-  chat_canvas_not_installed: "Channel notes aren’t set up on this server yet (database migration 0182 is pending).",
+  chat_canvas_not_installed: "Notes aren’t available here yet.",
   chat_canvas_delete_forbidden: "Only channel admins can delete a note that has content.",
   chat_canvas_conflict: "Someone else just edited this note. Showing the latest version.",
+  // Codes the SQL raises that had no words (they showed "Something went wrong").
+  chat_general_admins_only: "Only admins post in #general.",
+  chat_org_read_only: "This workspace is read-only. You can still read and search.",
+  chat_org_channels_admins_only: "Only admins create channels here.",
+  chat_channel_not_found: "That conversation isn’t available anymore.",
+  chat_application_not_found: "That application isn’t available anymore.",
+  chat_project_not_found: "That workspace isn’t available anymore.",
+  chat_invalid_thread_root: "That thread isn’t available anymore. Post in the channel instead.",
+  chat_invalid_broadcast: "@channel and @here work only in a channel’s main conversation.",
+  chat_dm_requires_two_users: "Pick someone to message.",
+  // Causes that used to borrow another code's words.
+  chat_tab_limit: "A conversation can have up to 20 tabs.",
+  chat_tab_duplicate: "That tab is already here.",
+  chat_scheduled_limit: "You have 100 scheduled messages. Send or cancel one first.",
+  chat_schedule_too_far: "Pick a time within the next 120 days.",
+  // Not a chat_* code: a limited account messaging someone outside its workspaces and connections.
+  account_limited: "Your account is limited. For now you can’t reach people outside your workspaces and connections. See Settings → Account standing.",
 };
 
 export function chatErrorMessage(code: string | undefined) {
-  return (code && MESSAGES[code]) || "Something went wrong. Try again.";
+  return (code && CHAT_ERROR_MESSAGES[code]) || "Something went wrong. Try again.";
 }

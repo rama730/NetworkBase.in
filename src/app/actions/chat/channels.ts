@@ -315,6 +315,11 @@ export async function addChannelTab(input: { channelId: string; kind: ChannelTab
   if (!isUuid(input?.channelId) || !["tasks", "link", "files"].includes(input.kind) || !title) return invalidInput;
   if (input.kind === "link" && (!url || !/^https?:\/\//i.test(url) || url.length > 2000)) return invalidInput;
   try {
+    // A 21st tab and a tab that is already here each get their own words (they shared "channel name taken").
+    const [existing] = await chatRows<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM chat_channel_tabs WHERE channel_id = ${input.channelId}::uuid
+    `);
+    if ((existing?.n ?? 0) >= 20) return { success: false as const, error: "chat_tab_limit" };
     const [tab] = await chatRows<ChannelTab>(sql`
       INSERT INTO chat_channel_tabs (channel_id, kind, title, url, position, created_by)
       SELECT ${input.channelId}::uuid, ${input.kind}, ${title}, ${url},
@@ -324,7 +329,7 @@ export async function addChannelTab(input: { channelId: string; kind: ChannelTab
       ON CONFLICT DO NOTHING
       RETURNING id, kind, title, url, position
     `);
-    if (!tab) return { success: false as const, error: "chat_duplicate" };
+    if (!tab) return { success: false as const, error: "chat_tab_duplicate" };
     publishChannel(input.channelId, "tabs.changed", { channel_id: input.channelId });
     return { success: true as const, tab };
   } catch (error) {
