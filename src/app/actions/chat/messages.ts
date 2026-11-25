@@ -384,26 +384,35 @@ export async function shareMessage(input: { channelId: string; seq: number; toCh
   }
 }
 
-export type ChannelFile = { channel_id: string; seq: number; thread_root_seq: number | null; asset_id: string; name: string; mime: string; size: number; created_at: string; author: string | null };
+export type ChannelFile = { channel_id: string; seq: number; idx: number; thread_root_seq: number | null; asset_id: string; name: string; mime: string; size: number; created_at: string; author: string | null };
 
-/** Every attachment in a conversation, newest first. */
-export async function listFiles(input: { channelId: string }) {
+/**
+ * Every attachment in a conversation, newest first, a page at a time: 200 files, or 60 photos and videos
+ * (kind "media", the Photos view). `before` is the (seq, idx) of the last file shown; `next` says where the next page starts.
+ */
+export async function listFiles(input: { channelId: string; kind?: "media"; before?: { seq: number; idx: number } }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId)) return invalidInput;
+  if (input.before && !(Number.isInteger(input.before.seq) && Number.isInteger(input.before.idx))) return invalidInput;
+  const limit = input.kind === "media" ? 60 : 200;
   try {
     const files = await chatRows<ChannelFile>(sql`
-      SELECT a.channel_id, a.message_seq::int AS seq, m.thread_root_seq::int AS thread_root_seq, a.asset_id, a.name, a.mime, a.size::bigint AS size, a.created_at,
+      SELECT a.channel_id, a.message_seq::int AS seq, a.idx::int AS idx, m.thread_root_seq::int AS thread_root_seq, a.asset_id, a.name, a.mime, a.size::bigint AS size, a.created_at,
              coalesce(pr.full_name, pr.username) AS author
       FROM chat_attachments a
       JOIN chat_messages m ON m.channel_id = a.channel_id AND m.channel_seq = a.message_seq
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE a.channel_id = ${input.channelId}::uuid AND m.deleted_at IS NULL
         AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
-      ORDER BY a.message_seq DESC, a.idx
-      LIMIT 200
+        ${input.kind === "media" ? sql`AND (a.mime LIKE 'image/%' OR a.mime LIKE 'video/%')` : sql``}
+        ${input.before ? sql`AND (a.message_seq, a.idx) < (${input.before.seq}::bigint, ${input.before.idx}::int)` : sql``}
+      ORDER BY a.message_seq DESC, a.idx DESC
+      LIMIT ${limit}
     `);
-    return { success: true as const, files: files.map((f) => ({ ...f, size: Number(f.size) })) };
+    // Only read when the page is full, so there is a last row.
+    const last = files.at(-1)!;
+    return { success: true as const, files: files.map((f) => ({ ...f, size: Number(f.size) })), next: files.length === limit ? { seq: last.seq, idx: last.idx } : null };
   } catch (error) {
     return chatFailure(error, "files");
   }

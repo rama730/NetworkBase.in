@@ -1,6 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+import { useState } from "react";
+import type { MediaItem } from "@/components/ui/media-viewer";
+import { groupByMonth } from "@/lib/messaging/photos";
+import { PixelBeat } from "@/components/messages/mix/primitives";
+
+const MediaViewerModal = dynamic(() => import("@/components/ui/media-viewer").then((m) => m.MediaViewerModal), { ssr: false });
 import Link from "next/link";
 import { FileText, Image as ImageIcon, Paperclip, Video } from "lucide-react";
 
@@ -15,8 +22,72 @@ import { Download } from "lucide-react";
 import { DownloadLink } from "@/components/ui/download-link";
 import { middleCut } from "@/lib/messaging/mix-format";
 
-/** Every file shared in the conversation, newest first, each linking to its message. */
+/** The Files tab: List (every file) or Photos (a month grid of photos and videos, paged). */
 export function FilesView({ channelId }: { channelId: string }) {
+  const [view, setView] = useState<"list" | "photos">("list");
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="nbm-files-bar">
+        <div role="radiogroup" aria-label="Show files as" className="nbm-seg">
+          {(["list", "photos"] as const).map((value) => (
+            <button key={value} type="button" role="radio" aria-checked={view === value} onClick={() => setView(value)}>{value === "list" ? "List" : "Photos"}</button>
+          ))}
+        </div>
+      </div>
+      {view === "list" ? <FilesList channelId={channelId} /> : <PhotosGrid channelId={channelId} />}
+    </div>
+  );
+}
+
+/** Photos and videos by month, newest first; "Load older" pages back; a tile opens the viewer over the loaded set. */
+function PhotosGrid({ channelId }: { channelId: string }) {
+  const media = useInfiniteQuery({
+    queryKey: [...queryKeys.chat.files(channelId), "media"],
+    initialPageParam: null as { seq: number; idx: number } | null,
+    queryFn: async ({ pageParam }) => {
+      const result = await listFiles({ channelId, kind: "media", before: pageParam ?? undefined });
+      if (!result.success) throw new Error(result.error);
+      return result;
+    },
+    getNextPageParam: (page) => page.next,
+    staleTime: 30_000,
+  });
+  const [open, setOpen] = useState<string | null>(null);
+  const files = media.data?.pages.flatMap((page) => page.files) ?? [];
+  if (media.isLoading) return <RowsSkeleton label="Loading photos…" />;
+  if (media.isError && !files.length) return <ErrorNotice what="Photos" onRetry={() => void media.refetch()} className="m-4" />;
+  if (!files.length) return <EmptyState compact icon={ImageIcon} title="No photos or videos yet" description="Photos and videos shared here show up in this view." className="m-4" />;
+  const items: MediaItem[] = files.map((file) => ({ id: file.asset_id, url: `/api/v1/chat/attachments/${file.asset_id}`, filename: file.name, type: file.mime.startsWith("video/") ? "video" : "image" }));
+  return (
+    <div className="nbm-photos app-scroll app-scroll-y min-h-0 flex-1">
+      {groupByMonth(files).map((group) => (
+        <section key={group.label} aria-label={group.label}>
+          <p className="nbm-glabel"><span>{group.label}</span><span className="nbm-glabel-rule" aria-hidden="true" /></p>
+          <div className="nbm-photos-grid">
+            {group.files.map((file) => (
+              <button key={`${file.seq}:${file.idx}`} type="button" className="nbm-photo" onClick={() => setOpen(file.asset_id)} aria-label={`Open ${file.name || "photo"}`} title={file.name}>
+                {file.mime.startsWith("video/") ? (
+                  <span className="nbm-photo-video"><Video size={18} aria-hidden="true" /></span>
+                ) : (
+                  <img src={`/api/v1/chat/attachments/${file.asset_id}`} alt="" loading="lazy" />
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+      {media.hasNextPage ? (
+        <div className="p-4">
+          <button type="button" className="nbm-loadmore" disabled={media.isFetchingNextPage} onClick={() => void media.fetchNextPage()}>{media.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Load older"}</button>
+        </div>
+      ) : null}
+      {open ? <MediaViewerModal attachments={items} initialAttachmentId={open} originRect={null} initialVideoTime={0} onClose={() => setOpen(null)} /> : null}
+    </div>
+  );
+}
+
+/** Every file shared in the conversation, newest first, each linking to its message. */
+function FilesList({ channelId }: { channelId: string }) {
   const files = useQuery({
     queryKey: queryKeys.chat.files(channelId),
     queryFn: async () => {

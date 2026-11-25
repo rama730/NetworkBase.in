@@ -582,3 +582,14 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-mrow-add { width: 100%; text-align: left; font-size: 14px; }
 .nbm-mrow-add:disabled { cursor: default; }
 .nbm-mrow-add:disabled:hover { background: transparent; }
+
+/* Files tab: List | Photos (Phase 7 Task 31) */
+.nbm-files-bar { display: flex; flex: none; align-items: center; justify-content: flex-end; padding: 8px 20px; border-bottom: 1px solid var(--nbm-line); }
+.nbm-photos { display: grid; align-content: start; gap: 12px; padding: 12px 20px 20px; }
+.nbm-photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; margin-top: 8px; }
+.nbm-photo { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 3px; background: var(--nbm-soft); transition: opacity var(--nbm-m1) var(--nbm-ease); }
+.nbm-photo img { width: 100%; height: 100%; object-fit: cover; }
+.nbm-photo:hover { opacity: .9; }
+.nbm-photo:focus-visible { outline-offset: -2px; }
+.nbm-photo-video { display: grid; width: 100%; height: 100%; place-items: center; color: var(--nbm-fg2); }
+.nbm-loadmore .nbm-beat { margin-right: 6px; }
