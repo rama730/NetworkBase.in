@@ -1088,9 +1088,9 @@
       "text": "B2.1 C1 Cohorts and programs (31.2) — Build: Program snapshot in the template library; cohort ↔ program link; Start a cohort (duplicateOrg, dates shifted, no le",
       "kind": "unit",
       "milestone": "B2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/programs.test.ts; tests/unit/completion.test.ts; tests/unit/school-kind.test.ts; tests/db/programs.test.ts; tests/db/cohort-completion.test.ts; tests/db/cohort-move.test.ts; tests/db/school-kind.test.ts; tests/browser/school-card.spec.ts; tests/browser/completion.spec.ts",
+      "evidence": "B2.1a–d live 2026-11-25 (0135 programs, 0136 cohort_completions; last push 9ce4118f5). Live in Chrome on wt-test-b0-school: Save as program, Programs \"17 weeks · 1 cohort · next start Jan 11, 2027\", Start a cohort made wt-test-b0-class-cohort-1 (20 seats, approval, program link; chip \"Upcoming 0 / 20\"), live fixes d5046941b (source class is the first cohort — re-saved and counted \"1 cohort\"; cohort end from program weeks; chip seats), Retire/Restore, Timeline (one range, running solid, upcoming dashed), Kind = Coaching or bootcamp saved with existing classes unchanged (SQL), Members → Completion \"Recording opens on Feb 26, 2027 · No learners yet\". Recording, override reasons, the verified profile entry, Move to a later cohort and the coaching starting values on join are DB-tested only (one test account; no learner). Security reviews: class access for programs, tokens refused, seat row lock."
     },
     {
       "key": "B2.2",
