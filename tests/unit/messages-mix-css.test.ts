@@ -51,3 +51,7 @@ test('dark values exist for the tokens that broke on dark', () => {
   for (const t of ['--nbm-on-bad:', '--nbm-scrim:', '--nbm-shadow-pop:', '--nbm-hl:', '--nbm-mark:'])
     assert.ok(css.split(t).length >= 3, `${t} needs a light and a dark value`);
 });
+
+test('segmented cells are 44px tall on touch', () => {
+  assert.match(css, /@media \(pointer: coarse\) \{[^}]*\.nbm-seg > button \{[^}]*min-height: 44px/);
+});
