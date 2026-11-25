@@ -122,7 +122,7 @@ export async function readNeedsReviewAction(orgId: string) {
  * From teams (report 33.2 call 7, B4.1e): pages a team marked Company-wide, readable by everyone in the company. A team's
  * other pages stay in the team. A page needs a published version; a leaders-only page never leaves its team.
  */
-const companyWideWhere = (orgId: string) => sql`w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND d.settings->>'companyWide' = 'true'
+const companyWideWhere = (orgId: string) => sql`w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND d.settings->>'companyWide' = w.parent_id::text
   AND d.published_version_id IS NOT NULL AND coalesce(d.settings->>'visibilityOverride', 'inherit_workspace') <> 'leaders_only'`;
 
 export async function readCompanyWidePagesAction(orgId: string) {

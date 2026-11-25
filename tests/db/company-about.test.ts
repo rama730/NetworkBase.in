@@ -138,7 +138,7 @@ test("33.2 call 7: a team's pages stay in the team unless marked Company-wide; t
     return d!.id as string;
   };
   const shipping = await page("shipping");
-  const secret = await page("salaries", { companyWide: true, visibilityOverride: "leaders_only" });
+  const secret = await page("salaries", { companyWide: id, visibilityOverride: "leaders_only" });
   await page("notes");
 
   viewerId = member!;
@@ -147,6 +147,10 @@ test("33.2 call 7: a team's pages stay in the team unless marked Company-wide; t
   assert.equal(listed.pages.length, 0, "nothing leaves the team until marked (and never a leaders-only page)");
   assert.equal((await company.readCompanyWidePageAction(id, shipping)).success, false);
   assert.equal((await workspaceDoc.setCompanyWideAction(team, { docSlug: "shipping", on: true })).success, false, "only the team's editors share a page");
+  const [editor] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${team}, ${editor!}, 'member')`;
+  viewerId = editor!;
+  assert.match((await workspaceDoc.setCompanyWideAction(team, { docSlug: "shipping", on: true }) as { error: string }).error, /owner and admins/, "an editor doesn't widen who reads it");
   viewerId = lead!;
   assert.equal((await workspaceDoc.setCompanyWideAction(team, { docSlug: "shipping", on: true })).success, true);
   viewerId = member!;
@@ -159,6 +163,16 @@ test("33.2 call 7: a team's pages stay in the team unless marked Company-wide; t
   assert.equal((await company.readCompanyWidePageAction(id, secret)).success, false);
   viewerId = outsider!;
   assert.equal((await company.readCompanyWidePagesAction(id)).success, false, "outside the company: nothing");
+  // Moving the team to another company ends the sharing on its own.
+  const other = await sql.begin((tx) => createProject(tx, owner!, { visibility: "private" }));
+  created.push(other);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'company', join_code = ${generateJoinCode()} WHERE id = ${other}`;
+  await sql`UPDATE workspaces SET parent_id = ${other} WHERE id = ${team}`;
+  viewerId = owner!;
+  const moved = await company.readCompanyWidePagesAction(other);
+  assert.ok(moved.success);
+  assert.equal(moved.pages.length, 0, "the new company sees nothing until the team shares again");
+  await sql`UPDATE workspaces SET parent_id = ${id} WHERE id = ${team}`;
   await sql`UPDATE workspaces SET status = 'archived' WHERE id = ${team}`;
   viewerId = member!;
   const archived = await company.readCompanyWidePagesAction(id);

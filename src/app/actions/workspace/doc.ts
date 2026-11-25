@@ -276,7 +276,7 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}), ...(title ? { title } : {}),
                 ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}),
                 ...(supersedes ? { supersedes } : {}), ...(supersededBy ? { supersededBy } : {}), ...(reverseReason ? { reverseReason } : {}),
-                ...(docsSite ? { docsSite } : {}), ...(docsOrder != null ? { docsOrder } : {}), ...(companyWide ? { companyWide } : {}) });
+                ...(docsSite ? { docsSite } : {}), ...(docsOrder != null ? { docsOrder } : {}), ...(companyWide && companyWide === project.parentId ? { companyWide: true } : {}) });
         }
     }
     return results.sort((a, b) => {
@@ -2939,10 +2939,13 @@ export async function setCompanyWideAction(projectId: string, input: unknown) {
         const userId = await requireUserId();
         const data = z.object({ docSlug: docSlugSchema, on: z.boolean() }).parse(input);
         const context = await getDocProjectContext(projectId, userId, data.docSlug);
-        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit this document share it with the company." };
+        // Security review (B4.1e): who reads a page is the team's owner's or admins' call, not any editor's.
+        const leads = userId === context.project.ownerId || context.membership?.role === "owner" || context.membership?.role === "admin";
+        if (!context.readme || !context.permission.canEdit || !leads) return { success: false as const, error: "Only the team’s owner and admins share a page with the company." };
         const [parent] = context.project.parentId ? await db.select({ orgType: workspaces.orgType }).from(workspaces).where(and(eq(workspaces.id, context.project.parentId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt))).limit(1) : [];
         if (parent?.orgType !== "company") return { success: false as const, error: "Only a team in a company shares pages company-wide." };
-        await writeLaunchSettings(context.readme.id, { companyWide: data.on });
+        // Stored as the company's id: a team that moves to another company stops sharing on its own.
+        await writeLaunchSettings(context.readme.id, { companyWide: data.on ? context.project.parentId : null });
         revalidateProjectDoc(context.project);
         return { success: true as const };
     } catch (error) {

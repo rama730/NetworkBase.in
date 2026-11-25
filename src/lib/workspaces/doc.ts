@@ -80,7 +80,8 @@ export type WorkspaceDocSettings = {
     docsSite?: boolean;
     docsOrder?: number;
     /** Report 33.2 call 7 (B4.1e): a team's page marked Company-wide is readable by everyone in its company. */
-    companyWide?: boolean;
+    /** The company's id while shared; a move to another company ends it. */
+    companyWide?: string;
     /** Report 21.4, 38.15 W5 (A6.35): a snippet's language, tags and what it's for (kind "snippet"). */
     language?: string;
     tags?: string[];
@@ -225,7 +226,7 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(typeof source.period === "string" && /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/.test(source.period) ? { period: source.period } : {}),
         ...(typeof source.closedAt === "string" && Number.isFinite(Date.parse(source.closedAt)) ? { closedAt: source.closedAt } : {}),
         ...(typeof source.docsSite === "boolean" ? { docsSite: source.docsSite } : {}),
-        ...(source.companyWide === true ? { companyWide: true } : {}),
+        ...(typeof source.companyWide === "string" && UUID.test(source.companyWide) ? { companyWide: source.companyWide } : {}),
         ...(Number.isFinite(source.docsOrder) ? { docsOrder: source.docsOrder } : {}),
         ...(typeof source.language === "string" && /^[\w#+ -]{1,30}$/.test(source.language) ? { language: source.language } : {}),
         ...(Array.isArray(source.tags) && source.tags.every((t) => typeof t === "string" && /^[a-z0-9-]{1,30}$/.test(t)) ? { tags: (source.tags as string[]).slice(0, 8) } : {}),
