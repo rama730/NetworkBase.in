@@ -12,6 +12,7 @@ import { OrgSchoolCard } from "@/components/organizations/OrgSchoolCard";
 import { HandbookSettings } from "@/components/organizations/OrgDocParts";
 import { CompanySettingsCard } from "@/components/organizations/CompanyParts";
 import { DirectorySettingsCard } from "@/components/organizations/CompanyPeople";
+import { OnboardingPlanSettings } from "@/components/organizations/CompanyOnboarding";
 import { ClassDetailsSettings } from "@/components/organizations/ClassHomeParts";
 import { TermPlanSettings } from "@/components/organizations/TermPlan";
 import { SectionSettingsCard } from "@/components/organizations/Sections";
@@ -1459,6 +1460,7 @@ function ProjectSettingsContent({
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <CompanySettingsCard orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <DirectorySettingsCard orgId={projectId} /> : null}
+                {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <OnboardingPlanSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /><AttendanceSettingsCard orgId={projectId} /><MentoringSettingsCard orgId={projectId} /><MarkingSettingsCard orgId={projectId} /><ExamSettingsCard orgId={projectId} /></> : null}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">

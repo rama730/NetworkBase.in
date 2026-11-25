@@ -2,6 +2,7 @@
 
 import { NeedsReviewCard, WhatsNewCard } from '@/components/organizations/CompanyParts'
 import { CompanyGoalsCard } from '@/components/organizations/CompanyGoals'
+import { StartHere } from '@/components/organizations/CompanyOnboarding'
 import { SchoolAttentionCard } from '@/components/organizations/SchoolParts'
 import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
@@ -270,6 +271,8 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 </div>
                 {/* Report §29.2: everyone inside sees it; the owner's reason and Appeal live in Settings → Moderation. */}
                 {data.restricted ? <Notice tone="warning">This organization is restricted for now.</Notice> : null}
+                {/* Report 33.5 (B4.4): a new person's Start here comes before anything else. */}
+                {orgType === 'company' ? <StartHere orgId={orgId} /> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
                 {isClass ? <ClassNextLine orgId={orgId} /> : null}
                 {isClass ? <ThisWeekAtSchool orgId={orgId} /> : null}
