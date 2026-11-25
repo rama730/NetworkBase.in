@@ -160,3 +160,11 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
   .nbm[data-messages-surface]:has([data-chat-pane="drawer"]) > .nb-chat-sidebar[data-sheet="true"] { display: flex; position: absolute; top: 0; bottom: 0; left: 0; z-index: 40; width: 260px; box-shadow: var(--nbm-shadow-pop); animation: nbm-slide-left var(--nbm-m2) var(--nbm-ease) both; }
   .nbm[data-messages-surface]:has([data-chat-pane="drawer"]) > .nbm-sheet-scrim { display: block; position: absolute; inset: 0; z-index: 39; background: var(--nbm-scrim); animation: nbm-fade var(--nbm-m1) var(--nbm-ease) both; }
 }
+
+/* Phone swipe cells and list rows (Phase 2 Task 9) */
+.nbm .nb-chat-swipe { border-radius: 0; }
+.nbm .nb-chat-swipe-actions > button { width: 72px; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; }
+.nbm-swipe-ink { background: var(--nbm-ink); color: var(--nbm-on-ink); }
+.nbm-swipe-soft { background: var(--nbm-soft); color: var(--foreground); }
+.nbm-swipe-clay { background: var(--nbm-brand); color: var(--nbm-on-brand); }
+.nbm .nb-chat-row-preview .nb-meta { font: 11.5px/1.4 var(--nbm-mono); font-variant-numeric: tabular-nums; }

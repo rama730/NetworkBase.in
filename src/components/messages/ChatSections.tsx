@@ -321,14 +321,14 @@ function SwipeActions({ channel, meId, children }: { channel: ChatChannelSummary
     Read: actions.read, Mute: actions.mute, Unmute: actions.mute, Close: actions.close, Star: actions.star, Unstar: actions.star,
   };
   const tones: Record<string, string> = {
-    Read: "bg-accent text-accent-foreground", Mute: "bg-secondary text-foreground", Unmute: "bg-secondary text-foreground",
+    Read: "nbm-swipe-ink", Mute: "nbm-swipe-soft", Unmute: "nbm-swipe-soft",
   };
   const width = labels.length * SWIPE_BUTTON;
   return (
     <div className="nb-chat-swipe group/row flex items-center">
       <div className="nb-chat-swipe-actions" aria-hidden={offset === 0}>
         {labels.map((label) => (
-          <button key={label} type="button" tabIndex={offset ? 0 : -1} className={tones[label] ?? "bg-[var(--status-warning-soft)] text-[var(--status-warning)]"} onClick={run(handlers[label]!)}>{label}</button>
+          <button key={label} type="button" tabIndex={offset ? 0 : -1} className={tones[label] ?? "nbm-swipe-clay"} onClick={run(handlers[label]!)}>{label}</button>
         ))}
       </div>
       <div
