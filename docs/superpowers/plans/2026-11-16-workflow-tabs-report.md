@@ -9927,6 +9927,14 @@ SCHOOL · Tasks → Deadlines (leaders)       Week 6: Science 3 · English 1 · 
 8. States are seen by the person and their reviewers; leaders see counts; there's no public overdue list.
 9. "Overdue" replaces "Missing" and "Late" for staff.
 
+**B3.3 build calls (2026-11-25):**
+- **Split:** B3.3a staff hand-ins at the school (Each course, Then approved by, Overdue); B3.3b hand in a unit or lesson; B3.3c templates, the clash check, quiet weeks, Week N of every term, Deadlines and I've read this.
+- In a school, Each course sends the hand-in to each course's teacher, in the school, one per teacher on its staff (a teacher with two courses hands in once). **[call]**
+- Then approved by is one of the school's admins; step 1 approves one version (a new version needs step 1 again); Approve all leaves two-step hand-ins to one at a time. **[call]**
+- Handing in a unit or lesson is a text hand-in written from it as it is now (frozen as that version) with a link back, so versions, Return and the queue need nothing new; the queue says Changed since handed in and can mark its Draft lessons Ready. **[call]**
+- Week N of every term makes drafts in the later terms (same weekday; a day off moves it to the school day before); the Deadlines view lives in the school's Sprints beside the Year view. **[call]**
+- A sign-off is a hand-in with nothing to attach; at a school its button says I've read this and the hand-in keeps the date. **[call]**
+
 ### 32.5 S4 · Timetable, cover and duties (agreed 2026-11-17)
 **References** (14 more searches on timetables, cover and rotas found 121 templates; 5 studied from their screenshots):
 
