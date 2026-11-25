@@ -1178,9 +1178,9 @@
       "text": "B3.5 S5 Staff meetings and growth (32.6) — Build: school meeting types (D1); Reports to label; goals ≤ 3 (D3 objectives); year review template (no ratings); obs",
       "kind": "unit",
       "milestone": "B3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/staff-growth.test.ts; tests/db/staff-observations.test.ts; tests/unit/meeting-rules.test.ts; tests/unit/use-server-exports.test.ts; tests/browser/staff-growth.spec.ts",
+      "evidence": "B3.5a-b live 2026-11-25 (f991df2d5 via a6cbe8875 + 4ce631352 fix: a \"use server\" file exported an array, Growth failed live; guard test added; 0146 prod); B3.5c observations live (f339f8919, 0147 prod) + empty-colleagues note de3659a3d. Checked live in Chrome on wt-test-b0-school: Settings → Staff growth saved; Growth added WT goal, self-reflection, log entry; Observations section and school counts load. Booking, writing, reading and line-manager access are DB-tested only (one account)."
     },
     {
       "key": "B4.1",
