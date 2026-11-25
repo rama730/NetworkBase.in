@@ -30,10 +30,8 @@ export const lessonFieldsSchema = z.object({
   /** B1.2 (report 30.3): a term-plan lesson's outcome codes and its place in its week. */
   outcomes: z.array(z.string().trim().min(1).max(12)).max(20).optional(),
   order: z.number().int().min(0).max(1000).optional(),
-  /** B3.2a (report 32.3 calls 3–4): Lesson · Assessment · Activity, per-class Taught ticks and class notes. */
+  /** B3.2a (report 32.3 call 3): Lesson · Assessment · Activity. Ticks and class notes are written only by their own actions. */
   lessonType: z.enum(["lesson", "assessment", "activity"]).optional(),
-  taught: z.record(z.string().max(20), z.object({ on: z.string().max(10), by: z.string().uuid() })).optional(),
-  classNotes: z.record(z.string().max(20), z.string().max(200)).optional(),
 }).strict();
 
 type Step = { id: string; lessons: Array<{ id: string }> };

@@ -259,6 +259,8 @@ export async function markClassTaughtAction(orgId: string, taskId: string, group
   if (!ctx?.staff || !ctx.canWrite || !isLooseUuid(taskId)) return DENIED;
   const groups = readGroups(ctx.c.orgSettings);
   if (!groups.includes(String(group))) return { success: false, error: "That class isn’t taught on this course." };
+  // Security review: like the lesson's own stage, a TA marks taught; only the teacher takes a tick back.
+  if (!taught && !ctx.teacher) return { success: false, error: "A TA marks lessons taught; the teacher takes a tick back." };
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: ctx.c.timeZone || "UTC" }).format(new Date());
   const tick = JSON.stringify({ on: today, by: ctx.userId });
   const [row] = Array.from(await db.execute<{ fields: unknown; stage: string | null }>(sql`
@@ -271,7 +273,7 @@ export async function markClassTaughtAction(orgId: string, taskId: string, group
   if (!row) return { success: false, error: "That lesson isn’t in this class." };
   const done = allTaught(groups, readTicks(row.fields));
   const stage = done ? "taught" : row.stage === "taught" ? "ready" : row.stage;
-  if (stage !== row.stage) await db.update(tasks).set({ stage, status: done ? "done" : "todo" }).where(eq(tasks.id, taskId));
+  if (stage !== row.stage) await db.update(tasks).set({ stage, status: done ? "done" : "todo" }).where(and(eq(tasks.id, taskId), eq(tasks.projectId, orgId), eq(tasks.itemType, "class_lesson")));
   return { success: true, lessonTaught: done };
 }
 
