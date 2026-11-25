@@ -225,6 +225,11 @@ const AddPeopleDialog = dynamic(() => import("@/components/messages/parts/AddPeo
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
 const TasksTab = dynamic(() => import("@/components/workspaces/v2/TasksTab"), { ssr: false, loading: () => <SkeletonTasks /> });
 
+/** The composer's place while the posting rules load. */
+function ComposerSlotSkeleton() {
+  return <div className="nbm-comp-foot" aria-hidden="true"><span className="nbm-sk block h-[86px]" /></div>;
+}
+
 /** True while the element is narrower than `px` (the column, not the window): the header folds its cells into ⋯. */
 function useNarrow(px: number) {
   const [narrow, setNarrow] = useState(false);
@@ -913,6 +918,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 <span>This channel is archived. You can read it, but not post.</span>
                 {channel.can_admin ? <Button type="button" variant="outline" size="sm" onClick={() => void unarchive()} className="pointer-coarse:h-11">Unarchive</Button> : null}
               </div></div>
+            ) : channel.project_id && channel.posting === undefined ? (
+              // The sidebar's seed has no posting rules yet: hold the box's place until they're known.
+              <ComposerSlotSkeleton />
             ) : posting?.kind === "blocked" ? (
               // Read-only workspace, or a member in an admins-only #general (threads stay open).
               <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">

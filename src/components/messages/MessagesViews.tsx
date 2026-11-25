@@ -38,7 +38,8 @@ import { laterTimes } from "@/lib/messaging/reminders";
 import { previewText } from "@/lib/messaging/tokens";
 import type { ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
-import { useChannelMembers, useTyping } from "@/components/messages/useConversation";
+import { useChannelDetails, useChannelMembers, useTyping } from "@/components/messages/useConversation";
+import { postingFooter } from "@/lib/messaging/posting";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
 import { useWindowNav } from "@/components/messages/window-nav";
 import { editingWithText, rovingTabKey } from "@/components/messages/keys";
@@ -183,6 +184,9 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
   const people = members.data ?? [];
   const typing = useTyping(channelId, { rootSeq, people, memberCount: people.length, enabled: true });
   const { user } = useAuth();
+  // The same posting rules as the thread drawer: read-only takes the box; admins-only hides "Also send to".
+  const details = useChannelDetails(channelId);
+  const posting = postingFooter(details.data?.posting);
   // ↑ in the empty box, as in a conversation: the thread opens with your last reply ready to edit
   // (the Inbox has no message list to edit it in place).
   const editLast = async () => {
@@ -211,6 +215,12 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
         }
       }}
     >
+      {posting?.kind === "blocked" && posting.cause === "read-only" ? (
+        <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">
+          <span className="nbm-tag">{posting.tag}</span>
+          <span><b>{posting.line}</b>{posting.reason ? ` ${posting.reason}` : null}</span>
+        </div></div>
+      ) : (
       <Composer
         channelId={channelId}
         threadRootSeq={rootSeq}
@@ -221,7 +231,7 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
         autoFocus="always"
         onTyping={typing.notify}
         typingNames={typing.names}
-        alsoSendTo={alsoSendTo}
+        alsoSendTo={posting?.kind === "blocked" ? null : alsoSendTo}
         onEditLast={() => void editLast()}
         onSent={() => {
           onDone();
@@ -232,6 +242,7 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
           void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
         }}
       />
+      )}
     </div>
   );
 }

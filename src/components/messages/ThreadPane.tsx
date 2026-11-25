@@ -391,8 +391,8 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   // A note to yourself has nowhere else to send a copy.
   // Read-only workspaces take the reply box; in an admins-only #general replies stay open but "Also send to" would post at the top.
   const posting = postingFooter(details.data?.posting);
-  const alsoSendTo = posting?.kind === "blocked" && posting.tag === "Admins only" ? null : details.data && isSelfDm(details.data, meId) ? null : conversationLabel;
-  const readOnly = posting?.kind === "blocked" && posting.tag !== "Admins only" ? posting : null;
+  const alsoSendTo = posting?.kind === "blocked" && posting.cause === "admins-only" ? null : details.data && isSelfDm(details.data, meId) ? null : conversationLabel;
+  const readOnly = posting?.kind === "blocked" && posting.cause === "read-only" ? posting : null;
   const showInConversation = () => {
     if (onShowInConversation) return onShowInConversation();
     // On a phone the thread was pushed like a page: go back to the conversation (not a second

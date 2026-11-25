@@ -821,7 +821,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         <ul className="nbm-tiles" aria-label="Attachments">
           {uploads.map((u) => (
             u.isImage && u.previewUrl ? (
-              <li key={u.id} className="nbm-tile" data-failed={u.error ? "true" : undefined}>
+              <li key={u.id} className="nbm-tile" data-failed={u.error ? "true" : undefined} title={u.error ? u.reason : undefined}>
                 <img src={u.previewUrl} alt={u.name} className="nbm-tile-img" />
                 {u.progress < 100 && !u.error ? (
                   <div className="nbm-tile-veil">

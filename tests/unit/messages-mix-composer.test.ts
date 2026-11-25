@@ -30,7 +30,7 @@ test('Send split in clay; blocked = soft fill; the reason as a mono hint under t
 
 test('attachments: square tiles, 10-square pixel progress, failed tiles in red with Retry and ×', () => {
   assert.doesNotMatch(composer, /UploadBar/);
-  assert.match(composer, /<li key=\{u\.id\} className="nbm-tile" data-failed=\{u\.error \? "true" : undefined\}>/);
+  assert.match(composer, /<li key=\{u\.id\} className="nbm-tile" data-failed=\{u\.error \? "true" : undefined\}/);
   assert.match(composer, /<PixelProgress value=\{u\.progress\} label=\{`Upload progress: \$\{u\.name\}`\} \/>/);
   assert.match(composer, /className="nbm-ftile" data-failed=\{u\.error \? "true" : undefined\}/);
   assert.match(css, /\.nbm-tile\s*\{[^}]*width:\s*64px[^}]*height:\s*64px[^}]*border-radius:\s*3px/);

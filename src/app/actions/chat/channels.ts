@@ -242,8 +242,8 @@ export async function getChannel(input: { channelId: string }) {
              -- Who can post: the same conditions as chat_org_general_post_guard and chat_org_read_only_guard.
              jsonb_build_object(
                'generalAdminsOnly', (c.is_default AND p.kind = 'organization' AND coalesce((p.org_settings->>'generalAdminsOnly')::boolean, false)),
-               'orgAdmin', (p.owner_id = ${user.id}::uuid OR EXISTS (
-                 SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = p.id AND wm.user_id = ${user.id}::uuid AND wm.role = 'admin')),
+               'orgAdmin', coalesce(p.owner_id = ${user.id}::uuid OR EXISTS (
+                 SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = p.id AND wm.user_id = ${user.id}::uuid AND wm.role = 'admin'), false),
                'readOnly', CASE
                  WHEN p.suspended_at IS NOT NULL THEN jsonb_build_object('reason', 'suspended', 'title', p.title)
                  WHEN o.suspended_at IS NOT NULL THEN jsonb_build_object('reason', 'suspended', 'title', o.title)
