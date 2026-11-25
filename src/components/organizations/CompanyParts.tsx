@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { readCompanyAboutAction, readCompanyWidePageAction, readCompanyWidePagesAction, readNeedsReviewAction, readWhatsNewAction, saveCompanyAboutAction, type CompanyOffice, type CompanyValue } from "@/app/actions/company";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import MarkdownPreview from "@/components/workspaces/v2/preview/MarkdownPreview";
 import { RailSection } from "@/components/ui/rail-section";
@@ -158,9 +159,9 @@ export function FromTeamsPages({ orgId }: { orgId: string }) {
         ))}
       </ul>
       <Dialog open={Boolean(open)} onOpenChange={(o) => { if (!o) setOpen(null); }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader><DialogTitle>{p?.title ?? "Team page"}</DialogTitle><DialogDescription>{p ? (p.archived ? "From an archived team" : `From ${p.team} · company-wide`) : "Loading…"}</DialogDescription></DialogHeader>
-          {p ? <MarkdownPreview content={p.content} fidelity="app" /> : null}
+        <DialogContent size="wide" className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{p?.title ?? "Team page"}</DialogTitle><DialogDescription>{p ? (p.archived ? "From an archived team" : `From ${p.team} · company-wide`) : "A team’s page, shared with the company."}</DialogDescription></DialogHeader>
+          {p ? <MarkdownPreview content={p.content} fidelity="app" /> : <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Opening the page…</p>}
         </DialogContent>
       </Dialog>
     </div>
@@ -184,7 +185,7 @@ export function CompanyWideToggle({ projectId, docSlug, on }: { projectId: strin
   };
   return (
     <button type="button" aria-pressed={on} disabled={busy} onClick={() => void flip()} data-testid="company-wide-toggle"
-      className={on ? "inline-flex h-8 items-center rounded-[5px] border border-foreground bg-muted/60 px-2.5 text-[12px] font-medium" : "inline-flex h-8 items-center rounded-[5px] border border-border px-2.5 text-[12px] font-medium text-muted-foreground hover:text-foreground"}>
+      className={FORM_SECONDARY_CLASS}>
       {on ? "Company-wide" : "Share with the company"}
     </button>
   );

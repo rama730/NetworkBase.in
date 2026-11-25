@@ -65,7 +65,7 @@ function Directory({ orgId, me, people, offices }: { orgId: string; me: string; 
           return (
             <li key={p.id} className="space-y-1 rounded-md border border-border p-3" data-testid="person-card">
               <span className="flex items-center gap-2">
-                {p.avatarUrl ? <img src={p.avatarUrl} alt="" className="size-8 rounded-[4px] object-cover" /> : <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-[4px] bg-muted font-mono">{p.name.slice(0, 1)}</span>}
+                {p.avatarUrl ? <img src={p.avatarUrl} alt="" className="size-8 rounded-sm object-cover" /> : <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-sm bg-muted font-mono">{p.name.slice(0, 1)}</span>}
                 <span className="min-w-0"><span className="block truncate font-medium">{p.name}{p.id === me ? " (you)" : ""}</span>{p.title ? <span className="block truncate text-muted-foreground">{p.title}</span> : null}</span>
               </span>
               {p.teams.length || p.office ? <p className="text-muted-foreground">{[p.teams.join(", "), p.office].filter(Boolean).join(" · ")}</p> : null}
