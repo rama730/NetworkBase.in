@@ -1020,7 +1020,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         </div>
       </div>
       {/* The reason Send waits, or its keys, in mono under the box while you type (pointer screens). */}
-      <p className="nbm-comp-hint" aria-hidden="true">{canSend ? sendHint : sendBlockedReason}</p>
+      <p className="nbm-comp-hint" aria-hidden="true">{canSend ? sendHint : sendBlockedReason}{uploads.length ? ` · Max ${CHAT_MAX_ATTACHMENTS} files · ${Math.round(DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES / 1024 / 1024)} MB each · no SVG` : ""}</p>
       {threadRootSeq && alsoSendTo ? (
         <label className="mt-1.5 flex w-fit items-center gap-2 text-[13px] text-muted-foreground pointer-coarse:min-h-11">
           <input type="checkbox" checked={alsoToChannel} onChange={(e) => setAlsoToChannel(e.target.checked)} className="size-4 accent-[var(--primary)]" />

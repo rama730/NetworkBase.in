@@ -25,7 +25,7 @@ test('Send split in clay; blocked = soft fill; the reason as a mono hint under t
   assert.match(css, /\.nbm-send > button\s*\{[^}]*background:\s*var\(--nbm-brand\)[^}]*color:\s*var\(--nbm-on-brand\)/);
   assert.match(css, /\.nbm-send > button\[data-blocked="true"\][^{]*\{[^}]*background:\s*var\(--nbm-soft\)/);
   assert.match(css, /border-left:\s*1px solid color-mix\(in srgb, var\(--nbm-on-brand\) 24%, transparent\)/);
-  assert.match(composer, /<p className="nbm-comp-hint" aria-hidden="true">\{canSend \? sendHint : sendBlockedReason\}<\/p>/);
+  assert.match(composer, /<p className="nbm-comp-hint" aria-hidden="true">\{canSend \? sendHint : sendBlockedReason\}/);
 });
 
 test('attachments: square tiles, 10-square pixel progress, failed tiles in red with Retry and ×', () => {
@@ -39,4 +39,8 @@ test('attachments: square tiles, 10-square pixel progress, failed tiles in red w
 
 test('a queued send shows the pixel progress in the Send button', () => {
   assert.match(composer, /\{queued \? <PixelProgress value=\{uploadPercent\} label="Upload progress" \/> : <SendHorizontal size=\{16\} \/>\}/);
+});
+
+test('with files attached the mono hint also states the limits, from the real constants', () => {
+  assert.match(composer, /\{uploads\.length \? ` · Max \$\{CHAT_MAX_ATTACHMENTS\} files · \$\{Math\.round\(DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES \/ 1024 \/ 1024\)\} MB each · no SVG` : ""\}/);
 });
