@@ -208,6 +208,7 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
   };
   return (
     <div
+      className="nbm-ireply"
       onKeyDown={(event) => {
         // Esc with text typed keeps the box (and the draft): only an empty box closes.
         if (event.key === "Escape" && !event.defaultPrevented && !editingWithText(event.target)) {
@@ -700,9 +701,9 @@ export function InboxView() {
             tabIndex={filter === f.id ? 0 : -1}
             onKeyDown={(event) => tabKeys(event, index)}
             onClick={() => selectFilter(f.id)}
-            className={`nb-tab -mb-px inline-flex min-h-10 flex-none items-center gap-1.5 border-b-2 text-[13px] font-medium pointer-coarse:min-h-11 ${filter === f.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            className="nbm-tab flex-none gap-1.5"
           >
-            {f.label}{counts[f.id] ? <span className="nb-tab-count">{counts[f.id] > 99 ? "99+" : <><span aria-hidden="true">{padCount(counts[f.id])}</span><span className="sr-only">{counts[f.id]}</span></>}<span className="sr-only"> unread</span></span> : null}
+            {f.label}{counts[f.id] ? <span className="nbm-count ml-1.5"><span aria-hidden="true">{padCount(counts[f.id])}</span><span className="sr-only">{counts[f.id]} unread</span></span> : null}
           </button>
         ))}
           <TabMarker overlap />
@@ -805,9 +806,12 @@ export function SavedView() {
                 </>}
                 // Orange only while it's due; once it has reminded you, it's a plain note.
                 extra={item.remind_at ? (
-                  <span className={`mt-1 inline-flex items-center gap-1 text-[12px] ${due ? "font-medium text-[var(--status-warning)]" : "text-muted-foreground"}`}>
-                    <AlarmClock size={14} aria-hidden="true" />
-                    {item.reminded_at ? "Reminder sent" : due ? "Reminder due" : "Reminder"} · {formatChatTime(item.remind_at, "at")}
+                  <span className="mt-1.5 flex items-center gap-2">
+                    <span className={`nbm-tag ${due ? "warn" : ""}`}>
+                      <AlarmClock size={12} aria-hidden="true" />
+                      {item.reminded_at ? "Reminder sent" : due ? "Reminder due" : "Reminder"}
+                    </span>
+                    <span className="nbm-lrow-meta">{formatChatTime(item.remind_at, "at")}</span>
                   </span>
                 ) : null}
                 tabStop={rows.stop(key, index)}
@@ -932,7 +936,7 @@ export function DraftsView() {
   return (
     <ViewScreen title="Drafts and scheduled">
       <section aria-labelledby="drafts-heading">
-        <h2 id="drafts-heading" className="nb-micro flex items-center gap-2 border-b border-border px-4 py-2"><Pencil size={14} aria-hidden="true" /> Drafts on this device</h2>
+        <h2 id="drafts-heading" className="nbm-glabel nbm-lgroup"><span>Drafts on this device</span><span className="nbm-glabel-rule" aria-hidden="true" /></h2>
         {!drafts.length ? <p className="border-b border-border px-4 py-4 text-[13px] text-muted-foreground">No drafts. Anything you start typing and leave is kept here.</p> : null}
         <ul>
           {sortedDrafts.map((draft) => (
@@ -956,7 +960,7 @@ export function DraftsView() {
       {/* With drafts on screen, an empty Scheduled section is just noise. */}
       {!showScheduled ? null : (
         <section aria-labelledby="scheduled-heading">
-          <h2 id="scheduled-heading" className="nb-micro flex items-center gap-2 border-b border-border px-4 py-2"><Clock size={14} aria-hidden="true" /> Scheduled</h2>
+          <h2 id="scheduled-heading" className="nbm-glabel nbm-lgroup"><span>Scheduled</span><span className="nbm-glabel-rule" aria-hidden="true" /></h2>
           {scheduled.isError ? <ListError what="Scheduled messages" query={scheduled} /> : null}
           {nothingScheduled ? <p className="border-b border-border px-4 py-4 text-[13px] text-muted-foreground">Nothing scheduled. Use the arrow next to Send to send a message later.</p> : null}
           <ul>
@@ -965,7 +969,7 @@ export function DraftsView() {
                 <Link href={item.thread_root_seq ? threadHref(item.channel_id, item.thread_root_seq) : conversationHref(item.channel_id)} className="min-w-0 flex-1">
                   <p className="flex items-baseline gap-2 text-[13px]">
                     <span className="font-medium">To {item.channel_name ? `#${item.channel_name}` : titleOf(item.channel_id)}</span>
-                    <span className={item.failed_reason ? "text-destructive" : "text-muted-foreground"}>
+                    <span className={item.failed_reason ? "nbm-failed-label" : "nbm-lrow-meta"}>
                       {/* Yours to someone you blocked were cancelled by the block (Blocking B16); only you ever see this. */}
                       {item.failed_reason === "cancelled_by_block" ? `Canceled because you blocked ${titleOf(item.channel_id)}`
                         : item.failed_reason ? `Couldn’t send: ${chatErrorMessage(item.failed_reason)}` : formatChatTime(item.send_at, "at")}

@@ -26,3 +26,16 @@ test('Inbox groups: a mono label with a rule and Mark as read; no indented left 
   assert.match(views, /className="nbm-igroup"/);
   assert.match(views, /<span className="nbm-glabel-rule" aria-hidden="true" \/>/);
 });
+
+test('Inbox tabs are mix tabs with padded counts; the inline reply is a composer cell', () => {
+  assert.match(views, /className="nbm-tab flex-none gap-1\.5"/);
+  assert.match(views, /<span className="nbm-count ml-1\.5"><span aria-hidden="true">\{padCount\(counts\[f\.id\]\)\}<\/span>/);
+  assert.match(views, /className="nbm-ireply"/);
+});
+
+test('Saved: reminder tags (Set / Due warn / Sent); Drafts and scheduled: mono groups, failed in red mono', () => {
+  assert.match(views, /<span className=\{`nbm-tag \$\{due \? "warn" : ""\}`\}>/);
+  assert.match(views, /<h2 id="drafts-heading" className="nbm-glabel nbm-lgroup">/);
+  assert.match(views, /<h2 id="scheduled-heading" className="nbm-glabel nbm-lgroup">/);
+  assert.match(views, /className=\{item\.failed_reason \? "nbm-failed-label" : "nbm-lrow-meta"\}/);
+});

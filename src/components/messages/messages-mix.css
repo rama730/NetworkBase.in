@@ -609,3 +609,6 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-igroup > button { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
 .nbm-igroup .is-unread { color: var(--foreground); }
 .nbm-igroup > button:last-child { flex: none; text-transform: none; letter-spacing: 0; font-family: inherit; }
+.nbm-ireply { padding: 0 20px 12px 88px; animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
+@media (max-width: 639px) { .nbm-ireply { padding-left: 12px; } }
+.nbm-lgroup { margin: 0; padding: 14px 20px 6px; }
