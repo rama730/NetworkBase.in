@@ -23,3 +23,18 @@ export function cleanMediaExtras(input: { preview?: unknown; durationMs?: unknow
   const peaks = Array.isArray(input.peaks) && input.peaks.length <= 48 && input.peaks.every((p) => Number.isInteger(p) && p >= 0 && p <= 100) ? (input.peaks as number[]) : null;
   return { preview, durationMs, peaks };
 }
+
+/** A tile's box before the file loads: the stored shape fitted to 320×360, else a 4:3 box 240 wide (one jump at most). */
+export function tileBox(width: number | null | undefined, height: number | null | undefined) {
+  if (!width || !height || width <= 0 || height <= 0) return { width: 240, ratio: "4 / 3" };
+  const scale = Math.min(1, 320 / width, 360 / height);
+  return { width: Math.max(1, Math.round(width * scale)), ratio: `${width} / ${height}` };
+}
+
+/** "0:42", "3:05", "1:02:03"; "" without a length. */
+export function formatDuration(ms: number | null | undefined) {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "";
+  const total = Math.round(ms / 1000);
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+}

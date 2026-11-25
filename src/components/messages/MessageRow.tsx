@@ -1,5 +1,6 @@
 "use client";
 
+import { mediaKind } from "@/lib/messaging/media-kind";
 import { joinPeople } from "@/lib/messaging/mix-format";
 import { foldLabel, systemLine } from "@/lib/messaging/system-line";
 import { PixelBeat } from "@/components/messages/mix/primitives";
@@ -53,13 +54,15 @@ import { profileHref } from "@/lib/routing/identifiers";
 const HOVER_QUICK_COUNT = 3;
 const LONG_PRESS_MS = 500;
 
-// ponytail: the timeline shows the uploaded image itself, already capped at 1920px
-// and 5 MB on the device (S3-07). ceiling: ~6-10 MB for a channel of 20 photos.
-// upgrade: 400px thumbnails when measured timeline bandwidth or plan image transforms justify it.
 function toViewerAttachment(attachment: ChatAttachmentView): ChatAttachmentV2 {
   const url = `/api/v1/chat/attachments/${attachment.asset_id}`;
-  const type = attachment.mime.startsWith("image/") ? "image" : attachment.mime.startsWith("video/") ? "video" : "file";
-  return { id: attachment.asset_id, type, url, localUrl: attachment.local_url, filename: attachment.name || "file", sizeBytes: attachment.size, mimeType: attachment.mime, thumbnailUrl: null, width: attachment.width, height: attachment.height };
+  const kind = mediaKind(attachment.mime, attachment.name);
+  return {
+    id: attachment.asset_id, type: kind, url, localUrl: attachment.local_url, filename: attachment.name || "file", sizeBytes: attachment.size, mimeType: attachment.mime,
+    // The 640px thumb or the video's poster (0149); the viewer still loads the original.
+    thumbnailUrl: attachment.thumb_asset_id ? `/api/v1/chat/attachments/${attachment.thumb_asset_id}` : null,
+    width: attachment.width, height: attachment.height, preview: attachment.preview ?? null, durationMs: attachment.duration_ms ?? null, peaks: attachment.peaks ?? null,
+  };
 }
 
 const CreateTaskModal = dynamic(() => import("@/components/workspaces/v2/tasks/CreateTaskModal"), { ssr: false });

@@ -71,7 +71,9 @@ test("chat attachments use canonical direct uploads and short-lived member-check
 
 test("missing message media exposes a terminal unavailable state", () => {
   const attachments = read("src/components/messages/parts/message-attachments.tsx");
-  assert.match(attachments, /Media unavailable/);
+  // The mix: the tile keeps its box and says which kind failed (approved copy), with Retry and Download.
+  assert.match(attachments, /Image didn’t load/);
+  assert.match(attachments, /Video didn’t load/);
   assert.doesNotMatch(attachments, /Download media/);
 });
 

@@ -1,16 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
     Download,
     File,
-    Image as ImageIcon,
+    ImageOff,
     Play,
+    RotateCw,
     Video,
 } from 'lucide-react';
 import {
-    fitMediaWithinBounds,
-    MESSAGE_MEDIA_INLINE_BOUNDS,
     normalizeMediaDimensions,
     type MediaDimensions,
 } from '@/lib/messaging/media-metadata';
@@ -20,6 +19,10 @@ import { DownloadLink } from '@/components/ui/download-link';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
 import { formatFileSize } from '@/lib/messaging/channel-view';
+import { formatDuration, parsePreview, tileBox } from '@/lib/messaging/media-kind';
+import { middleCut } from '@/lib/messaging/mix-format';
+import { PixelBeat } from '@/components/messages/mix/primitives';
+import { prefersReducedMotionFromAttributes } from '@/lib/theme/appearance';
 import { useOverlayHistory } from "@/lib/navigation/overlay-history";
 
 const MediaViewerModal = dynamic(
@@ -29,7 +32,11 @@ const MediaViewerModal = dynamic(
 
 export interface ChatAttachmentV2 {
     id: string;
-    type: 'image' | 'video' | 'file';
+    type: 'image' | 'video' | 'audio' | 'file';
+    /** 0149 extras: the 12×12 pixel preview, a video's or audio's length, an audio waveform. */
+    preview?: string | null;
+    durationMs?: number | null;
+    peaks?: number[] | null;
     url: string;
     filename: string;
     sizeBytes: number | null;
@@ -186,17 +193,39 @@ function MediaAttachmentListV2({
                         onContentLoad={onContentLoad}
                         returnedVideoState={returnedVideoState}
                     />
-                    {more > 0 && index === 3 ? (
-                        <span className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-[inherit] bg-foreground/55 text-[20px] font-semibold text-background" aria-hidden="true">
-                            +{more}
-                        </span>
-                    ) : null}
+                    {more > 0 && index === 3 ? <span className="nbm-tile-more" aria-hidden="true">+{more}</span> : null}
                 </div>
             ))}
         </div>
     );
 }
 
+/** Reduced motion (the app setting or the OS, both on <html>): read after mount, so server and client agree. */
+function useReducedMotion() {
+    const [reduced, setReduced] = useState(false);
+    useEffect(() => setReduced(prefersReducedMotionFromAttributes(document.documentElement)), []);
+    return reduced;
+}
+
+/** The 12×12 colour grid, painted at once and pixelated, under the image while it loads. */
+function PixelPreview({ colors }: { colors: string[] }) {
+    const ref = useRef<HTMLCanvasElement>(null);
+    useEffect(() => {
+        const ctx = ref.current?.getContext('2d');
+        if (!ctx) return;
+        colors.forEach((color, i) => {
+            ctx.fillStyle = color;
+            ctx.fillRect(i % 12, Math.floor(i / 12), 1, 1);
+        });
+    }, [colors]);
+    return <canvas ref={ref} width={12} height={12} aria-hidden="true" className="nbm-pxpreview" />;
+}
+
+/**
+ * One photo or video in the timeline (the mix, §7.2): the exact box from the start, the pixel preview painted at once,
+ * the thumbnail (or the file) settling over it; a slow line says so after 2 s; a video shows its poster, a square play
+ * cell and its length; a GIF says GIF and holds still under reduced motion; an error keeps the box with Retry and Download.
+ */
 function MediaAttachmentTileV2({
     attachment,
     onClick,
@@ -208,153 +237,115 @@ function MediaAttachmentTileV2({
     onContentLoad?: () => void;
     returnedVideoState?: { id: string; time: number } | null;
 }) {
-    const initialDimensions = useMemo(
-        () => normalizeMediaDimensions(attachment.width, attachment.height),
-        [attachment.height, attachment.width],
-    );
-    const [dimensions, setDimensions] = useState<MediaDimensions | null>(initialDimensions);
+    const box = tileBox(attachment.width, attachment.height);
+    const colors = useMemo(() => parsePreview(attachment.preview), [attachment.preview]);
     const [loaded, setLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
+    const [slow, setSlow] = useState(false);
     const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
+    const [attempt, setAttempt] = useState(0);
+    const isGif = (attachment.mimeType ?? '').toLowerCase() === 'image/gif';
+    const still = useReducedMotion() && isGif;
+    const isVideo = attachment.type === 'video';
 
-    const previewUrl = attachment.type === 'image'
+    // Historical video tiles render only the stored poster (thumbnail).
+    // The selected viewer owns the first video-body request and playback.
+    const previewUrl = !isVideo
         ? attachment.localUrl || attachment.thumbnailUrl || attachment.url
         : attachment.thumbnailUrl;
     const displayUrl = fallbackUrl || previewUrl;
 
-    // Reset loaded/error states only if the underlying preview URL changes (e.g. optimistic -> remote)
     useEffect(() => {
         setLoaded(false);
         setHasError(false);
         setFallbackUrl(null);
     }, [previewUrl]);
+    // A slow line: after 2 s still loading, say so on the tile.
+    useEffect(() => {
+        if (loaded || hasError || !displayUrl) return;
+        const timer = window.setTimeout(() => setSlow(true), 2000);
+        return () => window.clearTimeout(timer);
+    }, [loaded, hasError, displayUrl, attempt]);
 
-    const fittedSize = dimensions
-        ? fitMediaWithinBounds(dimensions, MESSAGE_MEDIA_INLINE_BOUNDS)
-        : null;
-    const frameStyle: CSSProperties = fittedSize
-        ? {
-            width: `${fittedSize.width}px`,
-            aspectRatio: `${dimensions!.width} / ${dimensions!.height}`,
-        }
-        : {
-            width: `${MESSAGE_MEDIA_INLINE_BOUNDS.maxWidth}px`,
-            aspectRatio: '1 / 1',
-        };
-
-    const recordDimensions = useCallback((width: number, height: number) => {
-        const nextDimensions = normalizeMediaDimensions(width, height);
-        if (nextDimensions) setDimensions(nextDimensions);
-    }, []);
+    const retry = () => {
+        setHasError(false);
+        setLoaded(false);
+        setSlow(false);
+        setAttempt((n) => n + 1);
+        setFallbackUrl(attachmentRetryUrl(attachment.url, attempt + 1) ?? `${attachment.url}${attachment.url.includes('?') ? '&' : '?'}retry=${attempt + 1}`);
+    };
+    const frameStyle: CSSProperties = { width: `${box.width}px`, aspectRatio: box.ratio };
 
     return (
-        <div
-            className={cn(
-                'msg-media-frame group/video relative max-w-full overflow-hidden rounded-lg bg-muted',
-            )}
-            style={frameStyle}
-            data-media-orientation={getMediaOrientation(dimensions)}
-        >
+        <div className="nbm-mtile msg-media-frame group/video" style={frameStyle} data-media-orientation={getMediaOrientation(normalizeMediaDimensions(attachment.width, attachment.height))}>
             {!hasError ? (
                 <button
                     type="button"
                     onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
-                        const time = returnedVideoState?.id === attachment.id
-                            ? returnedVideoState.time
-                            : 0;
+                        const time = returnedVideoState?.id === attachment.id ? returnedVideoState.time : 0;
                         onClick(rect, time);
                     }}
-                    aria-label={attachment.filename
-                        ? `Open media viewer for ${attachment.filename}`
-                        : 'Open media viewer'}
-                    className="absolute inset-0 z-10 rounded-[inherit] border-0 focus:outline-none focus-visible:bg-foreground/25"
+                    aria-label={attachment.filename ? `Open media viewer for ${attachment.filename}` : 'Open media viewer'}
+                    className="nbm-mtile-hit"
                 />
             ) : null}
 
-            {attachment.type === 'image' ? (
-                <div
-                    className={cn(
-                        'pointer-events-none absolute inset-0 flex items-center justify-center bg-secondary transition-opacity duration-[180ms]',
-                        loaded ? 'opacity-0' : 'animate-none opacity-100',
-                    )}
-                >
-                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                </div>
-            ) : null}
+            {/* Under everything: the pixel preview, else the soft cell. */}
+            {colors ? <PixelPreview colors={colors} /> : null}
 
-            {attachment.type === 'video' ? (
-                displayUrl ? (
-                    // Historical video tiles deliberately render only the stored thumbnail.
-                    // The selected viewer owns the first video-body request and playback.
-                     
-                    <img
-                        src={displayUrl}
-                        alt={attachment.filename || ''}
-                        onLoad={() => {
-                            setLoaded(true);
-                            onContentLoad?.();
-                        }}
-                        onError={() => {
-                            setHasError(true);
-                            setLoaded(true);
-                        }}
-                        className="absolute inset-0 block h-full w-full rounded-[inherit] object-cover transition-opacity duration-[180ms]"
-                    />
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-secondary">
-                        <Video className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-                    </div>
-                )
-            ) : (
-                // Native img is intentional: local object URLs and remote
-                // attachment fallbacks are not compatible with image loaders.
-                 
+            {displayUrl && !hasError ? (
+                // Native img: local object URLs and signed fallbacks don't fit an image loader.
                 <img
-                    src={displayUrl || undefined}
+                    key={attempt}
+                    src={displayUrl}
                     alt={attachment.filename || ''}
-                    onLoad={(event) => {
-                        const target = event.currentTarget as HTMLImageElement;
-                        recordDimensions(target.naturalWidth, target.naturalHeight);
+                    onLoad={() => {
                         setLoaded(true);
+                        setSlow(false);
                         onContentLoad?.();
                     }}
                     onError={() => {
-                        if (!fallbackUrl && displayUrl !== attachment.url) {
+                        if (!fallbackUrl && displayUrl !== attachment.url && !isVideo) {
                             setFallbackUrl(attachment.url);
-                        } else if (displayUrl === attachment.url) {
+                        } else if (!fallbackUrl && displayUrl === attachment.url) {
                             const renewed = attachmentRetryUrl(attachment.url, 0);
                             if (renewed) setFallbackUrl(renewed);
-                            else { setHasError(true); setLoaded(true); }
+                            else setHasError(true);
                         } else {
                             setHasError(true);
-                            setLoaded(true);
                         }
                     }}
-                    className={cn(
-                        'absolute inset-0 h-full w-full block rounded-[inherit] object-cover transition-opacity duration-[180ms]',
-                        loaded && !hasError ? 'opacity-100' : 'opacity-0',
-                    )}
+                    className={cn('nbm-mtile-img', loaded ? 'is-loaded' : '', still ? 'is-still' : '')}
                 />
-            )}
-
-            {/* A video reads as a video, not a photo. */}
-            {attachment.type === 'video' && !hasError ? (
-                <span className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden="true">
-                    <span className="grid size-10 place-items-center rounded-full bg-foreground/60 text-background">
-                        <Play className="h-5 w-5 translate-x-px" fill="currentColor" />
-                    </span>
-                </span>
             ) : null}
+
+            {isVideo && !displayUrl && !hasError ? <span className="nbm-mtile-glyph" aria-hidden="true"><Video className="h-6 w-6" /></span> : null}
+
+            {slow && !loaded && !hasError ? (
+                <span className="nbm-tile-slow" aria-hidden="true"><PixelBeat />Loading · {formatFileSize(attachment.sizeBytes ?? 0)}</span>
+            ) : null}
+
+            {/* A video reads as a video: a square ink play cell and its length. */}
+            {isVideo && !hasError ? (
+                <>
+                    <span className="nbm-tile-play" aria-hidden="true"><Play className="h-5 w-5" fill="currentColor" /></span>
+                    {attachment.durationMs ? <span className="nbm-tile-duration" aria-hidden="true">{formatDuration(attachment.durationMs)}</span> : null}
+                </>
+            ) : null}
+            {isGif && !hasError ? <span className="nbm-tile-duration" aria-hidden="true">GIF</span> : null}
+            {still && !hasError ? <span className="nbm-tile-play" aria-hidden="true"><Play className="h-5 w-5" fill="currentColor" /></span> : null}
 
             {hasError ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-muted text-muted-foreground">
-                    <File className="h-6 w-6 mb-1 text-muted-foreground" />
-                    <p className="text-[11px] font-semibold">Media unavailable</p>
-                    <p className="mt-0.5 max-w-full truncate px-2 text-[11px]">{attachment.filename}</p>
+                <div className="nbm-tile-err" role="group" aria-label={isVideo ? 'Video didn’t load' : 'Image didn’t load'}>
+                    <ImageOff className="h-5 w-5" aria-hidden="true" />
+                    <p>{isVideo ? 'Video didn’t load' : 'Image didn’t load'}</p>
+                    <div className="flex gap-1.5">
+                        <button type="button" className="nbm-tile-err-act" onClick={retry}><RotateCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry</button>
+                        <DownloadLink href={attachment.url} filename={attachment.filename} className="nbm-tile-err-act" aria-label={`Download ${attachment.filename}`}><Download className="h-3.5 w-3.5" aria-hidden="true" /> Download</DownloadLink>
+                    </div>
                 </div>
             ) : null}
-
         </div>
     );
 }
@@ -366,49 +357,35 @@ function FileAttachmentCardV2({
     attachment: ChatAttachmentV2;
     onPreview?: () => void;
 }) {
-    // The file's type at a glance ("PDF", "ZIP"), and Download always visible.
+    // A list cell: the glyph tile, the name cut in the middle (the version stays), mono "PDF · 1.2 MB", a square Download.
     const extension = (attachment.filename.match(/\.([a-z0-9]{1,5})$/i)?.[1] ?? '').toUpperCase();
     const content = (
         <>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card">
-                <File className="h-[18px] w-[18px] text-muted-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-                <p className="truncate break-all text-[13px] font-medium text-foreground">
-                    {attachment.filename}
-                </p>
-                <p className="nb-meta">{[extension, attachment.sizeBytes ? formatFileSize(attachment.sizeBytes) : null].filter(Boolean).join(" · ")}</p>
-            </div>
+            <span className="nbm-fchip-glyph" aria-hidden="true"><File className="h-[18px] w-[18px]" /></span>
+            <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium text-foreground" title={attachment.filename}>{middleCut(attachment.filename)}</span>
+                <span className="nbm-lrow-meta block">{[extension, attachment.sizeBytes ? formatFileSize(attachment.sizeBytes) : null].filter(Boolean).join(" · ")}</span>
+            </span>
         </>
     );
     const download = (
         <DownloadLink
             href={attachment.url}
             filename={attachment.filename}
-            className="nb-icon-button size-9 shrink-0 pointer-coarse:size-11"
+            className="nbm-cell nb-touch-target shrink-0"
             aria-label={`Download ${attachment.filename}`}
             title="Download"
         >
             <Download className="h-4 w-4" />
         </DownloadLink>
     );
-
-    if (onPreview) {
-        return (
-            <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg border border-border bg-card pr-1.5 transition-colors duration-[130ms] hover:bg-muted">
-                <button type="button" onClick={onPreview} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
-                    {content}
-                </button>
-                {download}
-            </div>
-        );
-    }
-
     return (
-        <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg border border-border bg-card pr-1.5 transition-colors duration-[130ms] hover:bg-muted">
-            <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 items-center gap-3 p-3">
-                {content}
-            </a>
+        <div className="nbm-fchip">
+            {onPreview ? (
+                <button type="button" onClick={onPreview} className="flex min-w-0 flex-1 items-center gap-3 p-2.5 text-left">{content}</button>
+            ) : (
+                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 items-center gap-3 p-2.5">{content}</a>
+            )}
             {download}
         </div>
     );
