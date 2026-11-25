@@ -151,3 +151,12 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm .nb-chat-jump kbd { font-size: 10.5px; }
 .nbm-unread-note { margin: 0; padding-bottom: 6px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
 .nbm-unread-note button { font: inherit; letter-spacing: inherit; text-transform: inherit; }
+
+/* Sidebar sheet: 1024–1279px with a drawer open (Phase 2 Task 8) */
+@keyframes nbm-slide-left { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+.nbm-sheet-toggle, .nbm-sheet-scrim { display: none; }
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .nbm[data-messages-surface]:has([data-chat-pane="drawer"]) .nbm-sheet-toggle { display: inline-grid; }
+  .nbm[data-messages-surface]:has([data-chat-pane="drawer"]) > .nb-chat-sidebar[data-sheet="true"] { display: flex; position: absolute; top: 0; bottom: 0; left: 0; z-index: 40; width: 260px; box-shadow: var(--nbm-shadow-pop); animation: nbm-slide-left var(--nbm-m2) var(--nbm-ease) both; }
+  .nbm[data-messages-surface]:has([data-chat-pane="drawer"]) > .nbm-sheet-scrim { display: block; position: absolute; inset: 0; z-index: 39; background: var(--nbm-scrim); animation: nbm-fade var(--nbm-m1) var(--nbm-ease) both; }
+}

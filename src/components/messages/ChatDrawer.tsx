@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 
 import { usePanes } from "@/components/messages/usePanes";
+import { useChatUi } from "@/components/messages/chat-ui-store";
 import { ThreadSkeleton } from "@/components/messages/ConversationSkeleton";
 import { useChannelDetails } from "@/components/messages/useConversation";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +35,8 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
   const { user } = useAuth();
   const details = useChannelDetails(channelId);
   const heading = useRef<HTMLHeadingElement>(null);
+  // The sidebar sheet only exists beside a drawer: closing the drawer closes it too.
+  useEffect(() => () => useChatUi.getState().setSidebarSheet(false), []);
   const view: View = panes.pane ?? (panes.thread ? "thread" : "details");
   // The thread's Follow and ⋯ render here, in the drawer's one header.
   const [slot, setSlot] = useState<HTMLElement | null>(null);

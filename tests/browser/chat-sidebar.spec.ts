@@ -190,3 +190,21 @@ test('mix: every row carries its full name as a title', async ({ page }) => {
   const row = page.getByRole('link', { name: /team-falcon-hash-table-library/ });
   await expect(row).toHaveAttribute('title', 'team-falcon-hash-table-library');
 });
+
+test('mix: 1024–1279 with a drawer open, "Show conversations" brings the sidebar back as a sheet; Esc closes it', async ({ page }) => {
+  await open(page, '?sheet=1');
+  await page.setViewportSize({ width: 1180, height: 900 });
+  const toggle = page.getByRole('button', { name: 'Show conversations' });
+  const sidebar = page.getByRole('complementary', { name: 'Conversations' });
+  await expect(sidebar).toBeHidden();
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(sidebar).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  expect(await sidebar.evaluate((el) => getComputedStyle(el).position)).toBe('absolute');
+  await page.keyboard.press('Escape');
+  await expect(sidebar).toBeHidden();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(toggle).toBeHidden();
+  await expect(sidebar).toBeVisible();
+});

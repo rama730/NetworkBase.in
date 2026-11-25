@@ -9,6 +9,9 @@ type ChatUiState = {
   /** null = Home. undefined = not chosen yet (follow the open channel). */
   projectId: string | null | undefined;
   switcherOpen: boolean;
+  /** 1024–1279px with a drawer open: the sidebar shown as a sheet over the conversation. */
+  sidebarSheet: boolean;
+  setSidebarSheet: (open: boolean) => void;
   /** The keyboard shortcuts dialog (⌘/). */
   shortcutsOpen: boolean;
   /** Project ids whose Create channel / Invite people dialogs are open. */
@@ -27,6 +30,8 @@ type ChatUiState = {
 export const useChatUi = create<ChatUiState>()((set) => ({
   projectId: undefined,
   switcherOpen: false,
+  sidebarSheet: false,
+  setSidebarSheet: (sidebarSheet) => set({ sidebarSheet }),
   shortcutsOpen: false,
   createChannelFor: null,
   inviteFor: null,

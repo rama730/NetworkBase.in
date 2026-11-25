@@ -1,5 +1,6 @@
 "use client";
 
+import { SidebarSheetToggle } from "@/components/messages/MessagesSidebar";
 import { useBugsAdded } from "@/components/messages/useBugsAdded";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
@@ -605,6 +606,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       <section className="flex h-full min-h-0 flex-col bg-card" aria-label={title} data-chat-pane="conversation">
         <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2 sm:px-3">
           {backButton}
+          {surface === "page" ? <SidebarSheetToggle /> : null}
           {channel.kind === "dm" ? (
             <button type="button" onClick={() => openDetails("about")} className="inline-flex flex-none rounded-md" aria-label={`About ${title}`}>
               <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} size={34} title="" />

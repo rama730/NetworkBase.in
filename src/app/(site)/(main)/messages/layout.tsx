@@ -12,7 +12,7 @@ export const metadata = buildRouteMetadata({
 /** App navigation (from MainLayout) → chat sidebar → conversation. */
 export default function MessagesLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div data-messages-surface className="nbm flex h-full min-h-0">
+    <div data-messages-surface className="nbm relative flex h-full min-h-0">
       <MessagesSidebar />
       <div className="relative min-h-0 min-w-0 flex-1">{children}</div>
       <MessagesChrome />
