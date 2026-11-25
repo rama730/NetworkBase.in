@@ -141,8 +141,14 @@ export async function readJoinTermsAction(input: { code?: string; orgId?: string
     if (!(await allowLookup(userId))) return TOO_MANY;
     const code = input.code ? normalizeJoinCode(input.code) : null;
     const [org] = code ? [await findOrgByJoinCode(code)] : input.orgId && /^[0-9a-f-]{36}$/i.test(input.orgId)
-        ? Array.from(await db.execute<{ id: string }>(sql`SELECT id FROM workspaces WHERE id = ${input.orgId}::uuid AND kind = 'organization' AND visibility IN ('public', 'unlisted') AND deleted_at IS NULL`)) : [];
+        ? Array.from(await db.execute<{ id: string }>(sql`SELECT id FROM workspaces WHERE id = ${input.orgId}::uuid AND kind = 'organization' AND visibility IN ('public', 'unlisted')
+            AND deleted_at IS NULL AND restricted_at IS NULL AND suspended_at IS NULL AND deletion_scheduled_at IS NULL`)) : [];
     if (!org) return { success: true as const, terms: null };
+    // Security review (B5.1b): the same read gate as the organization's own pages.
+    if (!code) {
+        const { getWorkspaceAccessById } = await import('@/lib/data/workspace-access');
+        if (!(await getWorkspaceAccessById(org.id, userId)).canRead) return { success: true as const, terms: null };
+    }
     const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; content: string | null; slug: string | null; org_slug: string | null }>(sql`
         SELECT w.org_type AS type, w.org_settings AS settings, w.slug AS org_slug,
           (SELECT v.content FROM workspace_documents d JOIN workspace_document_versions v ON v.id = d.published_version_id
