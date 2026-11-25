@@ -63,14 +63,15 @@ export async function saveStaffGrowthSettingsAction(schoolId: string, input: unk
   return { success: true };
 }
 
-/** Who may read `person`'s record: the person and their line manager. */
-const canSee = (ctx: { userId: string; settings: unknown }, person: string) => person === ctx.userId || growthOf(ctx.settings).reportsTo[person] === ctx.userId;
+/** Who may read `person`'s record: the person, and their line manager while the person is still on the staff (a stale Reports to opens nothing). */
+const canSee = async (ctx: { userId: string; settings: unknown }, schoolId: string, person: string) =>
+  person === ctx.userId || (growthOf(ctx.settings).reportsTo[person] === ctx.userId && (await staff(schoolId)).some((s) => s.id === person));
 
 /** My growth (or, for a line manager, a person who reports to me): goals, the year review, the development log. */
 export async function readGrowthAction(schoolId: string, person: string | null, year: string) {
   const ctx = await school(schoolId);
   const who = person ?? ctx?.userId ?? "";
-  if (!ctx || !isLooseUuid(who) || !/^\d{4}$/.test(year) || !canSee(ctx, who)) return DENIED;
+  if (!ctx || !isLooseUuid(who) || !/^\d{4}$/.test(year) || !(await canSee(ctx, schoolId, who))) return DENIED;
   const rows = Array.from(await db.execute<{ id: string; kind: GrowthKind; title: string; body: Record<string, string> | null; created_at: string; by: string | null }>(sql`
     SELECT g.id, g.kind, g.title, g.body, g.created_at::text, coalesce(p.full_name, p.username) AS by FROM staff_growth g LEFT JOIN profiles p ON p.id = g.created_by
     WHERE g.workspace_id = ${schoolId}::uuid AND g.user_id = ${who}::uuid AND g.year = ${year} ORDER BY g.kind, g.created_at`));
@@ -78,6 +79,7 @@ export async function readGrowthAction(schoolId: string, person: string | null, 
   const reports = Object.entries(reportsTo).filter(([, m]) => m === ctx.userId).map(([p]) => p);
   const names = new Map((await staff(schoolId)).map((s) => [s.id, s.name]));
   return { success: true as const, person: who, personName: names.get(who) ?? "Staff", mine: who === ctx.userId, headings,
+    colleagues: [...names.entries()].filter(([id]) => id !== ctx.userId).map(([id, name]) => ({ id, name })),
     manager: reportsTo[who] ? names.get(reportsTo[who]!) ?? null : null, myReports: reports.map((p) => ({ id: p, name: names.get(p) ?? "Staff" })),
     goals: rows.filter((r) => r.kind === "goal"), review: rows.find((r) => r.kind === "review") ?? null, log: rows.filter((r) => r.kind === "log") };
 }
@@ -92,7 +94,7 @@ const entrySchema = z.object({ kind: z.enum(["goal", "review", "log"]), year: z.
 export async function saveGrowthAction(schoolId: string, person: string | null, input: unknown): Promise<{ success: true } | Failure> {
   const ctx = await school(schoolId, true);
   const who = person ?? ctx?.userId ?? "";
-  if (!ctx || !isLooseUuid(who) || !canSee(ctx, who)) return DENIED;
+  if (!ctx || !isLooseUuid(who) || !(await canSee(ctx, schoolId, who))) return DENIED;
   const parsed = entrySchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Check the entry." };
   const e = parsed.data;
