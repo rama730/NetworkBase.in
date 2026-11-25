@@ -142,7 +142,8 @@
     "drizzle/0136_cohort_completions.sql",
     "drizzle/0137_class_mentoring.sql",
     "drizzle/0138_mentoring_plan.sql",
-    "drizzle/0139_mock_scores.sql"
+    "drizzle/0139_mock_scores.sql",
+    "drizzle/0140_prep_syllabus.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

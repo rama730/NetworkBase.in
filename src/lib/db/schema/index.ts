@@ -1328,6 +1328,31 @@ export const prepProfiles = pgTable("prep_profiles", {
   suggested: jsonb("suggested").$type<Record<string, number>>(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.projectId, t.userId] })]);
+/** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
+export const prepTopics = pgTable("prep_topics", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  position: integer("position").default(0).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("prep_topics_workspace_idx").on(t.projectId, t.position)]);
+export const prepTopicStages = pgTable("prep_topic_stages", {
+  topicId: uuid("topic_id").notNull().references(() => prepTopics.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  stage: text("stage", { enum: ["not_started", "learning", "revised", "confident"] }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.topicId, t.userId] })]);
+export const prepMistakes = pgTable("prep_mistakes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  topicId: uuid("topic_id").references(() => prepTopics.id, { onDelete: "set null" }),
+  reason: text("reason", { enum: ["careless", "concept", "time", "misread", "unsure"] }).notNull(),
+  note: text("note"),
+  sharedAt: timestamp("shared_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("prep_mistakes_learner_idx").on(t.projectId, t.userId, t.createdAt)]);
 /** B2.3b (0138, report 31.5): objectives (up to 3 open), a mentor's weekly slots, concerns, the mentor's note. Server only. */
 export const mentorObjectives = pgTable("mentor_objectives", {
   id: uuid("id").primaryKey().defaultRandom(),

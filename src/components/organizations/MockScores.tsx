@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { readMockMarksAction, readMyPrepAction, readScoresAction, saveMockMarksAction, saveMyPrepAction, saveScoreLayoutAction } from "@/app/actions/mocks";
+import { logMistakeAction, readMistakesAction, readSyllabusAction, saveTopicsAction, setTopicStageAction, shareMistakeAction } from "@/app/actions/prep";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -12,6 +13,8 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { LAYOUT_PRESETS, sectionScore } from "@/lib/organizations/mocks";
+import { MISTAKE_REASONS, TOPIC_STAGES, type MistakeReason, type TopicStage } from "@/lib/organizations/prep";
+import { cn } from "@/lib/utils";
 
 // Report 31.4 C3 (plan B2.4a): Members → Scores (staff), Enter marks, and My prep (learners). No averages, no ranks.
 const LINK = "nb-touch-target text-[13px] font-medium text-primary underline-offset-2 hover:underline";
@@ -77,6 +80,7 @@ export function ScoresView({ orgId }: { orgId: string }) {
           <button type="button" className={FORM_PRIMARY_CLASS} disabled={!setup.examId} onClick={() => void setUp()}>Set up</button>
         </div>
       ) : null}
+      <StaffSyllabus orgId={orgId} />
       <Dialog open={entering != null} onOpenChange={(o) => { if (!o) setEntering(null); }}>
         <DialogContent size="wide">
           <DialogHeader><DialogTitle>Enter marks</DialogTitle><DialogDescription>Each learner sees only their own, once results are released.</DialogDescription></DialogHeader>
@@ -135,8 +139,11 @@ export function MyPrepCard({ orgId }: { orgId: string }) {
   const client = useQueryClient();
   const q = useQuery({ queryKey: ["my-prep", orgId], queryFn: () => readMyPrepAction(orgId), staleTime: 30_000 });
   const [edit, setEdit] = useState<{ name: string; date: string; overall: string } | null>(null);
+  const [tab, setTab] = useState<"scores" | "syllabus" | "mistakes">("scores");
+  const syllabus = useQuery({ queryKey: ["prep-syllabus", orgId], queryFn: () => readSyllabusAction(orgId), staleTime: 30_000 });
   const d = q.data?.success ? q.data : null;
-  if (!d || (!d.series.length && !d.exam.name)) return null;
+  const hasTopics = syllabus.data?.success && syllabus.data.topics.length > 0;
+  if (!d || (!d.series.length && !d.exam.name && !hasTopics)) return null;
   const save = async () => {
     const r = await saveMyPrepAction(orgId, { examName: edit!.name || null, examDate: edit!.date || null, targets: { ...d.targets, ...(edit!.overall ? { overall: Number(edit!.overall) } : {}) } });
     if (!r.success) return void toast.error(r.error);
@@ -157,7 +164,14 @@ export function MyPrepCard({ orgId }: { orgId: string }) {
             <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save</button>
           </span>
         ) : null}
-        {d.series.map((s) => (
+        <div role="group" aria-label="My prep view" className="inline-flex rounded-md border border-border p-0.5 text-[12px]">
+          {(["scores", "syllabus", "mistakes"] as const).map((v) => (
+            <button key={v} type="button" aria-pressed={tab === v} onClick={() => setTab(v)} className={cn("rounded-sm px-2.5 py-1", tab === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
+              {v === "scores" ? "Scores" : v === "syllabus" ? "Syllabus" : "Mistakes"}
+            </button>
+          ))}
+        </div>
+        {tab === "syllabus" ? <MySyllabus orgId={orgId} /> : tab === "mistakes" ? <MyMistakes orgId={orgId} /> : d.series.map((s) => (
           <div key={s.name} className="overflow-x-auto" role="region" aria-label={`${s.name} scores`} tabIndex={0}>
             <table className="w-full text-[12px]">
               <thead><tr className="text-left text-muted-foreground"><th className="py-1 pr-3 font-medium">{s.name}</th><th className="py-1 pr-3 font-medium">Target</th>
@@ -177,5 +191,92 @@ export function MyPrepCard({ orgId }: { orgId: string }) {
         ))}
       </div>
     </OrgCard>
+  );
+}
+
+/** B2.4b (call 9): my own stage on each topic. */
+function MySyllabus({ orgId }: { orgId: string }) {
+  const client = useQueryClient();
+  const q = useQuery({ queryKey: ["prep-syllabus", orgId], queryFn: () => readSyllabusAction(orgId), staleTime: 30_000 });
+  if (!q.data?.success || q.data.staff) return null;
+  if (!q.data.topics.length) return <p className="text-muted-foreground">Your teacher hasn’t listed the topics yet.</p>;
+  return (
+    <ul className="divide-y divide-border" data-testid="my-syllabus">
+      {q.data.topics.map((t) => (
+        <li key={t.id} className="flex items-center justify-between gap-2 py-1.5">
+          <span>{t.name}</span>
+          <select className="nb-select" data-size="sm" aria-label={`Stage for ${t.name}`} value={t.stage}
+            onChange={(e) => void setTopicStageAction(orgId, t.id, e.target.value as TopicStage).then((r) => { if (!r.success) return void toast.error(r.error); void client.invalidateQueries({ queryKey: ["prep-syllabus", orgId] }); })}>
+            {(Object.keys(TOPIC_STAGES) as TopicStage[]).map((s) => <option key={s} value={s}>{TOPIC_STAGES[s]}</option>)}
+          </select>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** B2.4b (call 8): my private mistakes, weak topics, and Share with my mentor. */
+function MyMistakes({ orgId }: { orgId: string }) {
+  const client = useQueryClient();
+  const q = useQuery({ queryKey: ["prep-mistakes", orgId], queryFn: () => readMistakesAction(orgId, null), staleTime: 15_000 });
+  const [form, setForm] = useState<{ topicId: string; reason: MistakeReason; note: string }>({ topicId: "", reason: "concept", note: "" });
+  if (!q.data?.success) return null;
+  const d = q.data;
+  const refresh = () => client.invalidateQueries({ queryKey: ["prep-mistakes", orgId] });
+  const log = async () => {
+    const r = await logMistakeAction(orgId, { topicId: form.topicId || null, reason: form.reason, note: form.note || undefined });
+    if (!r.success) return void toast.error(r.error);
+    setForm({ ...form, note: "" });
+    void refresh();
+  };
+  return (
+    <div className="space-y-2" data-testid="my-mistakes">
+      {d.weak.length ? <p>Weak topics: {d.weak.map((w) => `${w.name} (${w.mistakes})`).join(" · ")}</p> : null}
+      <span className="flex flex-wrap items-center gap-2">
+        <select className="nb-select" data-size="sm" aria-label="Topic" value={form.topicId} onChange={(e) => setForm({ ...form, topicId: e.target.value })}>
+          <option value="">No topic</option>{d.topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <select className="nb-select" data-size="sm" aria-label="Reason" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value as MistakeReason })}>
+          {(Object.keys(MISTAKE_REASONS) as MistakeReason[]).map((r) => <option key={r} value={r}>{MISTAKE_REASONS[r]}</option>)}
+        </select>
+        <Input value={form.note} maxLength={1000} placeholder="What happened (only you see it)" aria-label="Mistake note" onChange={(e) => setForm({ ...form, note: e.target.value })} className="w-[260px]" />
+        <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void log()}>Log</button>
+      </span>
+      <ul className="divide-y divide-border">
+        {d.mistakes.map((m) => (
+          <li key={m.id} className="flex flex-wrap items-center gap-2 py-1.5">
+            <span className="nb-meta font-mono">{m.at.slice(0, 10)}</span><span>{m.topic ?? "No topic"} · {MISTAKE_REASONS[m.reason]}</span>{m.note ? <span className="text-muted-foreground">{m.note}</span> : null}
+            <button type="button" className={LINK} onClick={() => void shareMistakeAction(orgId, m.id, !m.shared).then((r) => { if (!r.success) return void toast.error(r.error); void refresh(); })}>{m.shared ? "Shared with my mentor · Stop" : "Share with my mentor"}</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** B2.4b: staff list the topics (one per line) and see each topic's stages as counts. */
+function StaffSyllabus({ orgId }: { orgId: string }) {
+  const client = useQueryClient();
+  const q = useQuery({ queryKey: ["prep-syllabus", orgId], queryFn: () => readSyllabusAction(orgId), staleTime: 30_000 });
+  const [draft, setDraft] = useState<string | null>(null);
+  if (!q.data?.success || !q.data.staff) return null;
+  const d = q.data;
+  const text = draft ?? d.topics.map((t) => t.name).join("\n");
+  const save = async () => {
+    const r = await saveTopicsAction(orgId, text.split("\n"));
+    if (!r.success) return void toast.error(r.error);
+    toast.success("Topics saved");
+    setDraft(null);
+    void client.invalidateQueries({ queryKey: ["prep-syllabus", orgId] });
+  };
+  return (
+    <section aria-label="Syllabus" className="space-y-2 rounded-md border border-border p-3" data-testid="staff-syllabus">
+      <p className="font-medium">Syllabus <span className="nb-meta font-mono">{d.topics.length}</span></p>
+      {d.topics.length ? (
+        <ul className="space-y-0.5 text-[12px]">{d.topics.map((t) => <li key={t.id}>{t.name}: {(Object.keys(TOPIC_STAGES) as TopicStage[]).map((s) => `${TOPIC_STAGES[s]} ${t.counts[s]}`).join(" · ")}</li>)}</ul>
+      ) : null}
+      <textarea className="nb-textarea" rows={3} value={text} aria-label="Topics, one per line" onChange={(e) => setDraft(e.target.value)} placeholder="One topic per line" />
+      <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void save()}>Save topics</button>
+    </section>
   );
 }
