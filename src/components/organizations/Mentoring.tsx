@@ -27,7 +27,8 @@ const rhythmWord = (r: { on: boolean; days: number | null } | null) => (!r ? nul
 /** Members → Mentors (staff): mentor cards, pairs off rhythm, and Match mentors for anyone not matched. */
 export function MentorsView({ orgId }: { orgId: string }) {
   const client = useQueryClient();
-  const q = useMentoring(orgId);
+  // Found live: a Mentor group made in Sections didn't show until reload; the view reads afresh each time it opens.
+  const q = useQuery({ queryKey: key(orgId), queryFn: () => readMentoringAction(orgId), refetchOnMount: "always" });
   const [busy, setBusy] = useState(false);
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading mentors…</p>;
   if (!q.data?.success) return <ErrorNotice what="Mentors" onRetry={() => void q.refetch()} />;
