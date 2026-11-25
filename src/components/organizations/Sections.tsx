@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { deleteSectionAction, moveStudentAction, pickSectionAction, readReviewLoadAction, readSectionsAction, rebalanceReviewsAction, saveSectionAction, saveSectionSettingsAction, splitStudentsAction, type SectionRow } from "@/app/actions/sections";
 import { readOrgMembersAction } from "@/app/actions/org-members";
-import { messageUserInWindow } from "@/components/messages/message-user";
+import { MessageUserLink } from "@/components/messages/MessageUserLink";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { meetsText } from "@/components/organizations/ClassHomeParts";
 import { AttendanceView } from "@/components/organizations/Attendance";
@@ -241,7 +241,7 @@ export function YourSectionCard({ orgId }: { orgId: string }) {
       {mine.length ? mine.map((s) => (
         <div key={s.id} className="space-y-1 text-[13px]">
           <p className="font-medium text-foreground">{s.name} · {KIND[s.kind]}{s.meets.length ? <span className="font-normal text-muted-foreground"> · {meetsText(s.meets)}</span> : null}{s.room ? <span className="font-normal text-muted-foreground"> · {s.room}</span> : null}</p>
-          {s.tas.map((t) => <p key={t.id}>TA {t.name} · <Link href={`/messages?userId=${t.id}`} onClick={(e) => messageUserInWindow(t.id, e)} className="nb-link">Message</Link></p>)}
+          {s.tas.map((t) => <p key={t.id}>TA {t.name} · <MessageUserLink userId={t.id} className="nb-link" /></p>)}
           {s.officeHours ? <p className="text-muted-foreground">Office hours {s.officeHours.days.map((d) => DAYS[d]).join(" ")} {timeLabel(s.officeHours.start)}–{timeLabel(s.officeHours.end)}</p> : null}
           <p className="text-muted-foreground">{s.students.length} in your {word.toLowerCase()}</p>
         </div>

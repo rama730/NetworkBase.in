@@ -58,7 +58,7 @@ import { fieldLabel, formatOrgDate, withCount } from '@/lib/organizations/displa
 import { rolePlural } from '@/lib/organizations/role-words'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { ChevronRight, Mail, Search } from 'lucide-react'
-import { messageUserInWindow } from '@/components/messages/message-user'
+import { MessageUserLink } from "@/components/messages/MessageUserLink";
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { Ban } from 'lucide-react'
 import { serverFirst } from '@/lib/server-first'
@@ -218,7 +218,7 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                                 <StatusBadge state="neutral">Outside</StatusBadge>
                                 <span className="min-w-0 truncate text-muted-foreground">{o.projects.map((p) => p.title).join(', ')}</span>
                                 <span className="ml-auto flex flex-wrap items-center gap-1.5">
-                                    <Link href={`/messages?userId=${o.userId}`} onClick={(e) => messageUserInWindow(o.userId, e)} className="nb-link px-1">Message</Link>
+                                    <MessageUserLink userId={o.userId} className="nb-link px-1" />
                                     {o.projects.map((p) => (
                                         <Button key={p.id} type="button" size="sm" variant="outline" disabled={pending} onClick={() => setOutsideAsk({ userId: o.userId, name: o.name, projectId: p.id, title: p.title })}>
                                             Remove from {p.title}
@@ -464,7 +464,7 @@ function MemberDrawer({ orgId, row, isSelf, data, label, pending, run, onRole, o
                     <p className="nb-meta">Joined {ago(row.joinedAt)} · active here {activeHere(row.lastActiveAt)}</p>
                     <p className="flex gap-4">
                         {row.username ? <Link href={`/u/${row.username}`} className="nb-link">View profile</Link> : null}
-                        <Link href={`/messages?userId=${row.userId}`} onClick={(e) => messageUserInWindow(row.userId, e)} className="nb-link">Message</Link>
+                        <MessageUserLink userId={row.userId} className="nb-link" />
                     </p>
                 </div>
             </header>

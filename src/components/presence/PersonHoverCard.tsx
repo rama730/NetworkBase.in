@@ -40,7 +40,7 @@ function CardBody({ person, onReport, onBlock, blocked }: { person: Person; onRe
   // Their time only when their clock differs from yours.
   const theirTime = timeZone && clock(timeZone) !== clock() ? `${clock(timeZone)} local time` : null;
   // Message follows who can message whom (EntryPoints): off with a tag and reason, or Unblock when you blocked them.
-  const gate = messageGate({ canMessage: context.data?.canMessage, blocked: context.data?.blocked ?? blocked, blockedByMe: blocked });
+  const gate = messageGate({ canMessage: context.data?.canMessage, reason: context.data?.reason, blockedByMe: blocked });
   const shared = context.data ? [["Shared workspaces", context.data.sharedProjects.length], ["Shared channels", context.data.sharedChannels.length]] as const : null;
   return (
     <div className="nb-hcard">

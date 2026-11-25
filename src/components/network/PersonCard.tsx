@@ -22,6 +22,7 @@ import {
 import { BlockPersonDialog } from "@/components/privacy/BlockDialog";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { messageUserInWindow } from "@/components/messages/message-user";
+import { MessageOffMenuItem } from "@/components/messages/MessageUserLink";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { suggestionReason } from "@/lib/network/mix";
 
@@ -209,8 +210,8 @@ function PersonCard({
                             Message
                         </Link>
                     </DropdownMenuItem>
-                ) : null}
-                {profile.canSendMessage !== false ? <DropdownMenuSeparator /> : null}
+                ) : <MessageOffMenuItem />}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                     onClick={() => void handleCancel()}
                     disabled={connecting || cancelling}
@@ -260,7 +261,7 @@ function PersonCard({
                             Message
                         </Link>
                     </DropdownMenuItem>
-                ) : null}
+                ) : <MessageOffMenuItem />}
                 <DropdownMenuItem asChild>
                     <Link href={profileHref(profile)} className="flex items-center gap-2 cursor-pointer w-full">
                         View profile

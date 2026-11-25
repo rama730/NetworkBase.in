@@ -3,7 +3,8 @@
 import { sameOriginPath } from "@/lib/messaging/safe-links";
 import { evictCachedTimelines } from "@/lib/messaging/storage-cache";
 import { useChatWindow } from "@/components/messages/chat-window-store";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChatShellContext, type ChatShell } from "@/components/messages/chat-shell-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
@@ -25,17 +26,6 @@ import { clearFailedSends, retryAllFailed } from "@/components/messages/failed-s
 
 type Snapshot = { data: ChatBootstrap };
 
-export type ChatShell = {
-  data: ChatBootstrap | undefined;
-  badge: number;
-  status: BroadcastStatus;
-  /** The channel list could not be loaded (shown with a Retry). */
-  loadError: string | null;
-  /** Full reload of the channel list (membership changes, returning to the tab). */
-  refresh: () => void;
-  /** Move this tab's read cursor without waiting for the server echo. */
-  applyRead: (channelId: string, seq: number) => void;
-};
 
 // A delta asks for changes since the last server_time minus this overlap, so a
 // send that committed just after that snapshot is never missed.
@@ -44,14 +34,6 @@ const DELTA_OVERLAP_MS = 5_000;
 // ceiling: runs once per tab load. upgrade: delete one release after cutover.
 const LEGACY_STORAGE_KEYS = ["messages-v2-ui", "messages-v2-outbox"];
 
-const ChatShellContext = createContext<ChatShell>({
-  data: undefined,
-  badge: 0,
-  status: "connecting",
-  loadError: null,
-  refresh: () => undefined,
-  applyRead: () => undefined,
-});
 
 async function load(since: string | null): Promise<Snapshot> {
   const result = since ? await bootstrap({ since }) : await readShellPart("chatSummary");
@@ -289,18 +271,5 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useChatShell() {
-  return useContext(ChatShellContext);
-}
-
-/** People the viewer blocked (Blocking B23, B34): one stable set, new only when the list itself changes. */
-export function useBlockedIds(): ReadonlySet<string> {
-  const key = useChatShell().data?.blocked_ids?.join(",") ?? "";
-  return useMemo(() => new Set(key ? key.split(",") : []), [key]);
-}
-
-/** People the viewer muted (B26), the same way. */
-export function useMutedIds(): ReadonlySet<string> {
-  const key = useChatShell().data?.muted_ids?.join(",") ?? "";
-  return useMemo(() => new Set(key ? key.split(",") : []), [key]);
-}
+// The context and its hooks live in a light module so a Message link elsewhere in the app doesn't load the shell.
+export { useBlockedIds, useChatShell, useMutedIds, type ChatShell } from "@/components/messages/chat-shell-context";

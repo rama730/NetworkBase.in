@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { BookOpenText, CalendarClock, CalendarRange, Clock, Hash, Link2, MapPin, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { RailSection } from "@/components/ui/rail-section";
-import { messageUserInWindow } from "@/components/messages/message-user";
+import { MessageUserLink } from "@/components/messages/MessageUserLink";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
@@ -63,7 +63,7 @@ export function ClassDetailsRail({ orgId, settingsHref }: { orgId: string; setti
           {data.teacher ? (
             <Row icon={<UserRound />} label="Teacher">
               <span className="flex flex-wrap items-center gap-2">{data.teacher.name}
-                {data.role !== "visitor" && data.role !== "teacher" ? <Link href={`/messages?userId=${data.teacher.id}`} onClick={(e) => messageUserInWindow(data.teacher!.id, e)} className="nb-link">Message</Link> : null}
+                {data.role !== "visitor" && data.role !== "teacher" ? <MessageUserLink userId={data.teacher.id} className="nb-link" /> : null}
               </span>
             </Row>
           ) : null}

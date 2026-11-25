@@ -8,7 +8,7 @@ import { PixelPlace } from '@/components/ui/PixelPerson'
 import { PixelTick } from '@/components/ui/PixelTick'
 import { Notice } from '@/components/ui/notice'
 
-import { messageUserInWindow } from '@/components/messages/message-user'
+import { MessageUserLink } from "@/components/messages/MessageUserLink";
 
 import { capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules'
 import type { CreateWorkspaceInput } from '@/lib/validations/workspace'
@@ -104,7 +104,7 @@ export function WherePicker() {
                     {locations.filter((location) => location.block === 'Only admins create workspaces here.' && location.ownerId).map((location) => (
                         <p key={location.id} className="nb-where-ask">
                             {location.title}: only admins create workspaces here.{' '}
-                            <Link href={`/messages?userId=${location.ownerId}`} onClick={(event) => { messageUserInWindow(location.ownerId!, event) }} className="nb-link hover:underline">Message admins</Link>
+                            <MessageUserLink userId={location.ownerId!} className="nb-link hover:underline">Message admins</MessageUserLink>
                         </p>
                     ))}
                 </div>

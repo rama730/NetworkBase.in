@@ -12,7 +12,7 @@ import { readMyMovableWorkspacesAction, readOrgWorkspacesAction, remindLeadsActi
 import { approveMoveInAction, archiveChildAction, assignChildLeadAction, cancelDetachRequestAction, cancelMoveInAction, detachChildAction, moveWorkspaceToOrgAction, readLeadCandidatesAction, unarchiveChildAction } from '@/app/actions/organizations'
 import type { OrgWorkspaceRequest } from '@/lib/organizations/needs-you'
 import { attentionItems, reasonCounts, workspacesSummary, type AttentionItem, type AttentionKind } from '@/lib/organizations/workspace-attention'
-import { messageUserInWindow } from '@/components/messages/message-user'
+import { MessageUserLink } from "@/components/messages/MessageUserLink";
 import WorkspaceCard from '@/components/workspaces/WorkspaceCard'
 import WorkspaceCardSkeleton from '@/components/workspaces/WorkspaceCardSkeleton'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
@@ -295,7 +295,7 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
         )
     }
     const messageLead = (r: Row) => !isAdmin && r.lead && r.lead.id !== user?.id
-        ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="nb-link relative z-10 px-1 text-[12px]">Message workspace lead</Link> : null
+        ? <MessageUserLink userId={r.lead.id} className="nb-link relative z-10 px-1 text-[12px]">Message workspace lead</MessageUserLink> : null
     const menu = (r: Row) => !canAct ? null : r.status === 'archived' ? <>
         <DropdownMenuItem onSelect={() => unarchive(r)}>Unarchive</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => setAsk({ kind: 'detach', rows: [r] })} className="text-destructive">Detach</DropdownMenuItem>

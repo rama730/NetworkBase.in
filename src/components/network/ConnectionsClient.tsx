@@ -36,6 +36,7 @@ import {
 import { profileHref } from "@/lib/routing/identifiers";
 
 import { messageUserInWindow } from "@/components/messages/message-user";
+import { MessageOffMenuItem } from "@/components/messages/MessageUserLink";
 import { useBlockFlow } from "@/components/privacy/BlockDialog";
 import {
     activeNetworkFilters,
@@ -320,7 +321,12 @@ function ConnectionCard({
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                             </>
-                        ) : null}
+                        ) : (
+                            <>
+                                <MessageOffMenuItem />
+                                <DropdownMenuSeparator />
+                            </>
+                        )}
                         <DropdownMenuItem
                             onClick={() =>
                                 onDisconnect(connection.id, displayName)

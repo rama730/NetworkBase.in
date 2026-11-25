@@ -21,7 +21,7 @@ import { CompanyAboutSections } from '@/components/organizations/CompanyParts'
 import { RulesSummary } from '@/components/organizations/CommunityFrontDoor'
 import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
-import { messageUserInWindow } from '@/components/messages/message-user'
+import { MessageUserLink } from "@/components/messages/MessageUserLink";
 import type { Workspace } from '@/types/discover'
 import { formatInZone } from '@/lib/organizations/zoned-time'
 import { ErrorNotice } from '@/components/ui/ErrorNotice'
@@ -163,7 +163,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                                         {/* Live-fix 21: the role word, then their title ("Teacher · Course Instructor"). */}
                                         <span className="block truncate text-[12px] text-muted-foreground">{[roleName(l.role), l.title].filter(Boolean).join(' · ')}</span>
                                     </span>
-                                    {data.card.kind !== 'visitor' ? <Link href={`/messages?userId=${l.id}`} onClick={(e) => messageUserInWindow(l.id, e)} className="nb-link shrink-0">Message</Link> : null}
+                                    {data.card.kind !== 'visitor' ? <MessageUserLink userId={l.id} className="nb-link shrink-0" /> : null}
                                 </li>
                             ))}
                         </ul>

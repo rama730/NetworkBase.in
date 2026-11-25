@@ -7,6 +7,7 @@ import { publishChannel, publishUser, publishUsers } from "@/lib/messaging/publi
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
 import type { ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { getRedisClient, rateLimit } from "@/lib/redis";
+import type { MessageReason } from "@/lib/messaging/can-message";
 
 /**
  * Read-only lookup of the viewer's existing DM with one person (API-016): it never creates a
@@ -158,18 +159,29 @@ export async function searchPeople(input: { query: string }) {
   }
 }
 
-/** For a list of Message buttons (organization members, directories): who you can message, one boolean each. */
+/**
+ * Can I message them, and the reason when it is safe to say: their own privacy is connections only (the same fact
+ * their profile already shows). A block is never named — it reads as a plain no.
+ */
+function messageGateSql(me: string, target: ReturnType<typeof sql>) {
+  return sql`
+    SELECT t.id, app_private.chat_can_dm(${me}::uuid, t.id) AS can,
+           CASE WHEN NOT app_private.chat_can_dm(${me}::uuid, t.id)
+                 AND coalesce(p.message_privacy, 'connections') = 'connections'
+                 AND NOT app_private.chat_is_blocked(${me}::uuid, t.id) THEN 'connections' END AS reason
+    FROM (SELECT ${target} AS id) t LEFT JOIN profiles p ON p.id = t.id`;
+}
+
+/** For a list of Message buttons (organization members, directories): who you can message, one answer each. */
 export async function canMessageMany(input: { userIds: string[] }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
+  if (!(await rateLimit(`chat:can-message:${user.id}`, 600, 3600))) return { success: false as const, error: "chat_rate_limited" };
   const ids = [...new Set(Array.isArray(input?.userIds) ? input.userIds.filter(isUuid) : [])].filter((id) => id !== user.id).slice(0, 100);
-  if (!ids.length) return { success: true as const, gates: {} as Record<string, { canMessage: boolean; blocked: boolean }> };
+  if (!ids.length) return { success: true as const, gates: {} as Record<string, { canMessage: boolean; reason: MessageReason }> };
   try {
-    const rows = await chatRows<{ id: string; can: boolean; blocked: boolean }>(sql`
-      SELECT id, app_private.chat_can_dm(${user.id}::uuid, id) AS can, app_private.chat_is_blocked(${user.id}::uuid, id) AS blocked
-      FROM unnest(${uuidArray(ids)}) AS id
-    `);
-    return { success: true as const, gates: Object.fromEntries(rows.map((row) => [row.id, { canMessage: Boolean(row.can) && !row.blocked, blocked: Boolean(row.blocked) }])) };
+    const rows = await chatRows<{ id: string; can: boolean; reason: MessageReason }>(sql`${messageGateSql(user.id, sql`unnest(${uuidArray(ids)})`)}`);
+    return { success: true as const, gates: Object.fromEntries(rows.map((row) => [row.id, { canMessage: Boolean(row.can), reason: row.reason }])) };
   } catch (error) {
     return chatFailure(error, "can_message");
   }
@@ -184,8 +196,8 @@ export type PersonContext = {
   sharedChannels: { id: string; name: string; project_title: string | null }[];
   /** Whether a DM with them can start (their privacy, organizations, blocks): `chat_can_dm`. */
   canMessage: boolean;
-  /** Blocked either way (who blocked whom stays private; the card knows your own blocks). */
-  blocked: boolean;
+  /** Why not, only when it is their own message privacy; a block is never named. */
+  reason: MessageReason;
 };
 
 /** For a DM's details and a person's card: their time zone (if they share activity), headline and location, and what you have in common. */
@@ -195,7 +207,7 @@ export async function getPersonContext(input: { userId: string }) {
   if (!isUuid(input?.userId)) return invalidInput;
   try {
     const blocked = await chatValue<boolean>(sql`SELECT app_private.chat_is_blocked(${user.id}::uuid, ${input.userId}::uuid) AS value`);
-    if (blocked) return { success: true as const, context: { timeZone: null, sharedProjects: [], sharedChannels: [], canMessage: false, blocked: true } satisfies PersonContext };
+    if (blocked) return { success: true as const, context: { timeZone: null, sharedProjects: [], sharedChannels: [], canMessage: false, reason: null } satisfies PersonContext };
     const [sharedProjects, sharedChannels, profile, timeZone, canMessage] = await Promise.all([
       chatRows<PersonContext["sharedProjects"][number]>(sql`
         SELECT p.id, p.title, p.slug FROM workspace_members a
@@ -213,7 +225,7 @@ export async function getPersonContext(input: { userId: string }) {
       `),
       chatRows<{ show_activity: boolean | null; visibility: string | null; headline: string | null; location: string | null }>(sql`SELECT show_activity, visibility, headline, location FROM profiles WHERE id = ${input.userId}::uuid`).then((rows) => rows[0] ?? null),
       getRedisClient()?.get<string>(`presence:tz:${input.userId}`).catch(() => null) ?? Promise.resolve(null),
-      chatValue<boolean>(sql`SELECT app_private.chat_can_dm(${user.id}::uuid, ${input.userId}::uuid) AS value`),
+      chatRows<{ can: boolean; reason: MessageReason }>(sql`${messageGateSql(user.id, sql`${input.userId}::uuid`)}`).then((rows) => rows[0] ?? { can: false, reason: null }),
     ]);
     // The profile's own visibility decides: public, yours, or someone you share a project with.
     const open = profile?.visibility === "public" || input.userId === user.id || sharedProjects.length > 0;
@@ -223,8 +235,8 @@ export async function getPersonContext(input: { userId: string }) {
       location: open ? profile?.location?.trim() || null : null,
       sharedProjects,
       sharedChannels,
-      canMessage: Boolean(canMessage),
-      blocked: false,
+      canMessage: Boolean(canMessage.can),
+      reason: canMessage.reason,
     };
     return { success: true as const, context };
   } catch (error) {

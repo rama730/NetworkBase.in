@@ -149,6 +149,7 @@ export function ProfileBand(props: ProfileBandProps) {
         canManageBlock,
         hasSecondaryHandler: Boolean(onConnectSecondary),
     })
+    const messageOff = Boolean(isAuthenticated && !showMessageAction && !isInteractionBlocked)
     const connectLabel = connectionState === 'accepted' ? 'Connected' : connectionState === 'pending_outgoing' ? 'Requested' : connectionState === 'pending_incoming' ? 'Accept' : 'Connect'
     const connectIcon = connectionState === 'accepted' || connectionState === 'pending_incoming' ? <UserCheck className="size-4" /> : connectionState === 'pending_outgoing' ? <Clock className="size-4" /> : <UserPlus className="size-4" />
     const secondaryLabel = connectionState === 'accepted' ? 'Disconnect' : connectionState === 'pending_outgoing' ? 'Cancel request' : connectionState === 'pending_incoming' ? 'Decline' : null
@@ -180,7 +181,9 @@ export function ProfileBand(props: ProfileBandProps) {
             {!isAuthenticated && !privacyRelationship.blockedByTarget ? <Button className="nb-pf-grow" onClick={onConnectPrimary} disabled={isLoadingConnection}><UserPlus className="size-4" />Sign in to connect</Button> : null}
             {showRelationshipAction ? (
                 <>
-                    {connectionState === 'accepted' && showMessageAction ? <Button variant="outline" className="nb-pf-btn nb-pf-grow" onClick={onMessage}><MessageSquare className="size-4" />Message</Button> : null}
+                    {/* Message sits beside Connect whenever they take your messages (EntryPoints 05); off with the tag when they don't (06). */}
+                    {showMessageAction ? <Button variant="outline" className="nb-pf-btn nb-pf-grow" onClick={onMessage}><MessageSquare className="size-4" />Message</Button> : null}
+                    {messageOff ? <span className="nb-msg-off" title="Only accepts messages from connections"><Button variant="outline" className="nb-pf-btn" disabled><MessageSquare className="size-4" />Message</Button><span className="nb-state-tag">Can’t message</span><span className="sr-only">Only accepts messages from connections</span></span> : null}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant={relationshipControlVariant} className={cn('nb-pf-grow gap-1.5', relationshipControlVariant !== 'default' && 'nb-pf-btn')} disabled={!isAuthenticated || isLoadingConnection} aria-label={`${relationshipControlLabel} options`}>
