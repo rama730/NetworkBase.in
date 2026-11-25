@@ -116,12 +116,18 @@ test("33.2 call 6: Run this process makes the runner a task with the published S
   const o = await org();
   const proc = await addDoc(o.id, "release-process", ["# Release process\n\n## Steps\n- [ ] Tag the build\n- [ ] Write notes\n- [ ] Ship it\n\n## References\n- [ ] not a step", "# Release process\n\n## Steps\n- [ ] Draft only"], { lifecycle: "published" }, 0);
   const empty = await addDoc(o.id, "no-steps", ["# Nothing to run"], { lifecycle: "published" });
+  await sql`UPDATE workspace_documents SET settings = settings || '{"kind":"process"}'::jsonb WHERE id IN (${proc}, ${empty})`;
+  const draft = await addDoc(o.id, "draft-process", ["# Draft\n\n## Steps\n- [ ] secret step"], { lifecycle: "draft" }, -1);
+  const notProcess = await addDoc(o.id, "a-policy", ["# Policy\n\n## Steps\n- [ ] x"], { lifecycle: "published" });
+  await sql`UPDATE workspace_documents SET settings = settings || '{"kind":"process"}'::jsonb WHERE id = ${draft}`;
   const [viewer] = await Promise.all([sql.begin((tx) => createUser(tx))]);
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.id}, ${viewer!}, 'viewer')`;
   viewerId = viewer!;
   assert.equal((await docs.runProcessAction(o.id, proc)).success, false, "Viewers read, they don't run");
   viewerId = o.a;
   assert.match((await docs.runProcessAction(o.id, empty) as { error: string }).error, /no Steps/);
+  assert.equal((await docs.runProcessAction(o.id, draft)).success, false, "a draft stays with its owner and admins");
+  assert.match((await docs.runProcessAction(o.id, notProcess) as { error: string }).error, /no Steps/, "only Process pages run");
   const run = await docs.runProcessAction(o.id, proc);
   assert.ok(run.success, JSON.stringify(run));
   assert.equal(run.steps, 3, "the published version's steps, not the newer draft's");
@@ -129,6 +135,5 @@ test("33.2 call 6: Run this process makes the runner a task with the published S
   assert.deepEqual([task!.title, task!.assignee_id, task!.source_doc_id, task!.workspace_id], ["Run: release-process", o.a, proc, o.id]);
   const subs = await sql`SELECT title FROM task_subtasks WHERE task_id = ${run.taskId} ORDER BY position`;
   assert.deepEqual(subs.map((r) => r.title), ["Tag the build", "Write notes", "Ship it"]);
-  const listed = await item(o.id, o.a, "release-process");
-  assert.equal(listed?.kind ?? null, null, "kind comes from the template it started from");
+  assert.equal((await item(o.id, o.a, "release-process"))?.kind, "process");
 });

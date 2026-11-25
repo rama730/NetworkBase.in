@@ -478,6 +478,10 @@ export async function runProcessAction(orgId: string, docId: string): Promise<{ 
     if (!userId || !role || role === 'viewer') return DENIED;
     const [doc, org] = await Promise.all([orgDocRow(orgId, docId), readOrg(orgId)]);
     if (!doc || !org) return { success: false, error: 'That doc is no longer available.' };
+    // Only a Process page, and a draft only for its owner or an admin: members run what members can read.
+    const settings = normalizeWorkspaceDocSettings(doc.settings);
+    if (settings.kind !== 'process') return { success: false, error: 'This process has no Steps to run yet.' };
+    if (readOrgDocOptions(settings.org).lifecycle === 'draft' && !(await adminOrPageOwner(orgId, doc))) return DENIED;
     const [row] = await db.select({ publishedVersionId: workspaceDocuments.publishedVersionId }).from(workspaceDocuments).where(eq(workspaceDocuments.id, doc.id)).limit(1);
     let content: string | null = null;
     if (row?.publishedVersionId) {
