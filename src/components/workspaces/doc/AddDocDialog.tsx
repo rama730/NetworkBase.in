@@ -28,12 +28,15 @@ export function AddDocDialog({
     open,
     onOpenChange,
     section,
+    orgGroup,
 }: {
     projectId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     /** Report 38.3 S1: opened from a rail section's +, the new or picked document lands in that section. */
     section?: DocSection | null;
+    /** Report 33.2 (B4.1): opened from an empty handbook section, the new page lands in that group. */
+    orgGroup?: string | null;
 }) {
     const router = useRouter();
     const pathname = usePathname();
@@ -71,7 +74,7 @@ export function AddDocDialog({
             if (org?.mode === "org") {
                 const { updateOrgDocOptionsAction } = await import("@/app/actions/org-docs");
                 // Report 33.2 (B4.1b): a company's processes start in How we work.
-                await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only", ...(key === "process" && org.groups.some((g) => g.id === "how") ? { group: "how" } : {}) });
+                await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only", ...(orgGroup && org.groups.some((g) => g.id === orgGroup) ? { group: orgGroup } : key === "process" && org.groups.some((g) => g.id === "how") ? { group: "how" } : {}) });
             }
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),

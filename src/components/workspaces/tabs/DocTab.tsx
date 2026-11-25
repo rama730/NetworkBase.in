@@ -73,6 +73,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
     const canEdit = readmeQuery.data?.canEdit ?? false;
     const hasDocs = (readmeQuery.data?.docs?.length ?? 0) > 0;
     const [addOpen, setAddOpen] = useState(false);
+    const [addGroup, setAddGroup] = useState<string | null>(null);
     const orgDocs = useOrgDocs(projectId).data;
     const isOrg = orgDocs?.mode === "org" && orgDocs.signedIn;
     const reportDocId = readmeQuery.data?.docs?.find((doc) => doc.slug === docSlug)?.id ?? null;
@@ -124,6 +125,25 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
                     <div className="mb-3 flex justify-end"><ItemMenu label="Doc actions" report={{ kind: "doc", targetId: reportDocId, noun: "doc" }} /></div>
                 ) : undefined}
             />
+        );
+    }
+
+    // Report 33.2 layer 11: an empty company handbook shows its four sections, each with Add a page.
+    if (!hasDocs && canEdit && orgDocs?.mode === "org" && orgDocs.orgType === "company") {
+        return (
+            <section aria-label="Handbook" className="mx-auto max-w-2xl space-y-3 py-8" data-testid="empty-handbook">
+                <p className="nb-card-title text-foreground">Your handbook</p>
+                <p className="nb-compact text-muted-foreground">Four sections to start. Each page stays a draft until you publish it.</p>
+                <ul className="divide-y divide-border rounded-md border border-border">
+                    {orgDocs.groups.map((g) => (
+                        <li key={g.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[13px]">
+                            <span className="font-medium">{g.name}</span>
+                            <Button size="sm" variant="outline" onClick={() => setAddGroup(g.id)}><Plus className="size-3.5" />Add a page<span className="sr-only"> to {g.name}</span></Button>
+                        </li>
+                    ))}
+                </ul>
+                <AddDocDialog projectId={projectId} open={Boolean(addGroup)} onOpenChange={(o) => { if (!o) setAddGroup(null); }} orgGroup={addGroup} />
+            </section>
         );
     }
 

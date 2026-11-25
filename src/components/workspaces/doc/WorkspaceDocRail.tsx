@@ -262,8 +262,12 @@ export function WorkspaceDocRail({
                                         )}
                                     >
                                         <FileText className={cn("size-3.5 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
-                                        <span className="min-w-0 flex-1 truncate">{doc.prefix ? <span className="font-mono text-[11px] text-muted-foreground">{doc.prefix} · </span> : null}{doc.title ?? docTitle(doc.filename)}</span>
-                                        <OrgDocChips item={org?.mode === "org" ? orgById.get(doc.id) : undefined} />
+                                        {/* B4.1 live check: badges sit under the title so a long row never hides the name. */}
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate">{doc.prefix ? <span className="font-mono text-[11px] text-muted-foreground">{doc.prefix} · </span> : null}{doc.title ?? docTitle(doc.filename)}</span>
+                                            {org?.mode === "org" && orgById.get(doc.id) && (orgById.get(doc.id)!.label || orgById.get(doc.id)!.state !== "published" || orgById.get(doc.id)!.required || orgById.get(doc.id)!.needsReview || orgById.get(doc.id)!.sprint)
+                                                ? <span className="mt-1 flex"><OrgDocChips item={orgById.get(doc.id)} /></span> : null}
+                                        </span>
                                     </button>
                                     {canEdit ? (
                                         <button

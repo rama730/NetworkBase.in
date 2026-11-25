@@ -198,12 +198,12 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
                 </select>
                 <span className={`block ${fieldHint}`}>The owner keeps the page right: they publish it and mark it Still correct.</span>
             </label>
-            <label className="block"><span className={fieldLabel}>Review by</span>
+            <label className="block"><span className={`block ${fieldLabel}`}>Review by</span>
                 <Input type="date" value={doc.reviewBy ?? ''} disabled={pending} onChange={(e) => setOption({ reviewBy: e.target.value || null })} className="mt-1.5 w-[180px] font-mono" />
                 <span className={`block ${fieldHint}`}>{data.reviewMonths ? `Publishing sets it ${data.reviewMonths} months ahead.` : 'Optional. Late pages are marked Needs review, never hidden.'}</span>
             </label>
-            <label className="block"><span className={fieldLabel}>Visibility</span>
-                <select value={visibility === 'public' ? 'public' : 'members_only'} disabled={pending} onChange={(e) => setOption({ visibility: e.target.value as 'public' | 'members_only' })} className="nb-select mt-1.5 w-full] border border-border bg-background px-2">
+            <label className="block"><span className={`block ${fieldLabel}`}>Visibility</span>
+                <select value={visibility === 'public' ? 'public' : 'members_only'} disabled={pending} onChange={(e) => setOption({ visibility: e.target.value as 'public' | 'members_only' })} className="nb-select mt-1.5 w-full">
                     <option value="members_only">Organization only</option>
                     <option value="public">Public</option>
                 </select>
