@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createFeedbackStore, FEEDBACK_HISTORY_LIMIT, FEEDBACK_QUEUE_LIMIT, readingDuration } from '../../src/lib/feedback/store';
 import { compactFeedback, deferredFeedback, feedbackError, feedbackStore, toast } from '../../src/lib/feedback';
 
-test('only the selected message consumes active time; pauses protect reading and local Undo', () => {
+test('every shown message consumes active time; pauses protect reading and local Undo (the mix stack)', () => {
   const store = createFeedbackStore(); let committed = 0;
   const first = store.put('info', 'Message deleted', { duration: 10000, action: { label: 'Undo', onClick() {} }, onAutoClose: () => committed++ });
   const second = store.put('success', 'Changes saved');
@@ -11,10 +11,10 @@ test('only the selected message consumes active time; pauses protect reading and
   assert.equal(store.getSnapshot().items[0]!.remaining, 10000);
   store.advance(9000, false);
   assert.equal(committed, 0);
-  assert.equal(store.getSnapshot().items[1]!.remaining, 4000);
+  assert.ok(!store.getSnapshot().items.some(item => item.id === second), 'the 4 s result ran out alongside');
+  assert.equal(store.getSnapshot().items[0]!.remaining, 1000);
   store.advance(1000, false);
   assert.equal(committed, 1);
-  assert.equal(store.getSnapshot().currentId, second);
   assert.ok(!store.getSnapshot().items.some(item => item.id === first));
 });
 
@@ -25,7 +25,7 @@ test('operation updates preserve identity and queued outcomes; distinct actions 
   store.put('warning', '6 uploaded · 2 failed', { id, action: { label: 'Retry failed', onClick() {} } });
   assert.equal(store.getSnapshot().items.length, 2);
   assert.equal(store.getSnapshot().items[1]!.count, 2);
-  assert.equal(store.getSnapshot().currentId, id);
+  assert.ok(store.getSnapshot().shown.includes(id));
   store.put('info', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
   store.put('info', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
   assert.equal(store.getSnapshot().items.length, 4);
@@ -49,14 +49,15 @@ test('finite queues archive overflow without discarding the current action or re
   for (let i = 0; i < 250; i++) store.put('success', `Saved ${i}`);
   assert.equal(store.getSnapshot().items.length, FEEDBACK_QUEUE_LIMIT);
   assert.equal(store.getSnapshot().history.length, FEEDBACK_HISTORY_LIMIT);
-  assert.equal(store.getSnapshot().currentId, current);
+  assert.ok(store.getSnapshot().shown.includes(current), 'a shown Undo is never evicted');
+  assert.ok(store.getSnapshot().items.some(item => item.id === current));
   assert.ok(store.getSnapshot().overflow > 0);
 });
 
 test('stale queued routine results expire but unresolved errors remain', () => {
   let time = 0;
   const store = createFeedbackStore(() => time);
-  store.put('loading', 'Working');
+  store.put('loading', 'Working'); store.put('loading', 'Uploading'); store.put('loading', 'Moving');
   store.put('success', 'Saved');
   const error = store.put('error', 'Not saved');
   time = 61000; store.advance(1, true);
@@ -103,13 +104,16 @@ test('compact copy preserves numeric limits, semantics, and privacy; no preview 
   assert.equal(compactFeedback('Message scheduled', 'success').options.description, undefined);
 });
 
-test('queued recovery takes priority after the current message without replacing active Undo', () => {
+test('queued recovery takes the next free slot without replacing active Undo', () => {
   const store = createFeedbackStore();
   const current = store.put('info', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
-  store.put('success', 'Task created'); const failure = store.put('error', 'Changes not saved');
-  assert.equal(store.getSnapshot().currentId, current);
+  store.put('success', 'Task created'); store.put('success', 'Link copied');
+  const waiting = store.put('success', 'Changes saved'); const failure = store.put('error', 'Changes not saved');
+  assert.ok(store.getSnapshot().shown.includes(current));
+  assert.ok(!store.getSnapshot().shown.includes(failure));
   store.remove(current, 'action');
   assert.equal(store.getSnapshot().currentId, failure);
+  assert.ok(!store.getSnapshot().shown.includes(waiting));
 });
 
 test('long operations retain their action and identity when the status changes to Still working', () => {
