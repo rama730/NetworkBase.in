@@ -1,0 +1,118 @@
+/* Messages in the mix (docs/superpowers/specs/2026-11-25-messages-mix-report.md).
+   Every rule is scoped under .nbm: the Messages surface root and the floating window carry it.
+   Loaded by the main layout so the floating window gets it on every page. */
+
+.nbm {
+  --nbm-brand: var(--primary);
+  --nbm-on-brand: var(--primary-foreground);
+  --nbm-tint: color-mix(in srgb, var(--primary) 12%, transparent);
+  --nbm-line: var(--border);
+  --nbm-soft: var(--secondary);
+  --nbm-fg2: var(--muted-foreground);
+  --nbm-input: var(--input);
+  --nbm-ok: var(--status-success);
+  --nbm-warn: var(--status-warning);
+  --nbm-bad: var(--status-danger);
+  --nbm-ink: var(--foreground);
+  --nbm-on-ink: var(--background);
+  /* the warm mention fill and the search mark: their own values, never the hover fill */
+  --nbm-hl: #FBEBD9;
+  --nbm-mark: #F6D9A8;
+  --nbm-on-bad: #FFFFFF;
+  --nbm-scrim: rgba(13, 17, 20, .28);
+  --nbm-shadow-pop: 0 12px 28px rgba(13, 17, 20, .12);
+  --nbm-mono: var(--font-jetbrains-mono, ui-monospace), ui-monospace, monospace;
+  --nbm-serif: var(--font-instrument-serif, Georgia), Georgia, serif;
+  /* motion: one ease, three durations (interaction only) */
+  --nbm-ease: cubic-bezier(.16, 1, .3, 1);
+  --nbm-m1: 150ms;
+  --nbm-m2: 220ms;
+  --nbm-m3: 300ms;
+}
+.dark .nbm {
+  --nbm-hl: #3A2A1C;
+  --nbm-mark: #5A4220;
+  --nbm-on-bad: #141A1E;
+  --nbm-scrim: rgba(0, 0, 0, .6);
+  --nbm-shadow-pop: 0 12px 28px rgba(0, 0, 0, .5);
+}
+
+/* ---------- type ---------- */
+.nbm .nbm-mono { font-family: var(--nbm-mono); }
+.nbm .nbm-meta { font: 11.5px/1.4 var(--nbm-mono); color: var(--nbm-fg2); font-variant-numeric: tabular-nums; }
+.nbm .nbm-eyebrow { display: flex; align-items: center; gap: 8px; margin: 0; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm .nbm-eyebrow::before { content: ""; width: 7px; height: 7px; flex: none; background: var(--nbm-brand); }
+.nbm .nbm-serif-title { margin: 0; font-family: var(--nbm-serif); font-weight: 400; letter-spacing: -.01em; }
+.nbm .nbm-glabel { display: flex; align-items: center; gap: 10px; min-height: 28px; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm .nbm-glabel b { color: var(--foreground); font-weight: 500; }
+.nbm .nbm-glabel-rule { flex: 1; height: 1px; background: var(--nbm-line); }
+
+/* ---------- tags, counts, the unread square (all square) ---------- */
+.nbm .nbm-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 3px; background: var(--nbm-soft); font: 500 10px/1.5 var(--nbm-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbm-fg2); white-space: nowrap; }
+.nbm .nbm-tag.ok { background: color-mix(in srgb, var(--nbm-ok) 12%, transparent); color: var(--nbm-ok); }
+.nbm .nbm-tag.warn { background: color-mix(in srgb, var(--nbm-warn) 14%, transparent); color: var(--nbm-warn); }
+.nbm .nbm-tag.bad { background: color-mix(in srgb, var(--nbm-bad) 12%, transparent); color: var(--nbm-bad); }
+.nbm .nbm-tag.hot { background: var(--nbm-brand); color: var(--nbm-on-brand); }
+.nbm .nbm-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 5px; border-radius: 3px; background: var(--nbm-soft); font: 600 10.5px/1 var(--nbm-mono); font-variant-numeric: tabular-nums; color: var(--nbm-fg2); }
+.nbm .nbm-count.hot { background: var(--nbm-brand); color: var(--nbm-on-brand); }
+.nbm .nbm-sq { display: inline-block; flex: none; width: 6px; height: 6px; background: var(--nbm-brand); }
+
+/* ---------- cells ---------- */
+.nbm .nbm-cell { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 5px; color: var(--nbm-fg2); }
+.nbm .nbm-cell:hover, .nbm .nbm-cell[aria-pressed="true"], .nbm .nbm-cell[aria-expanded="true"] { background: var(--nbm-soft); color: var(--foreground); }
+.nbm .nbm-seg { display: inline-flex; overflow: hidden; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--card); }
+.nbm .nbm-seg > button { height: 26px; padding: 0 10px; border-right: 1px solid var(--nbm-line); font: 500 10.5px var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm .nbm-seg > button:last-child { border-right: 0; }
+.nbm .nbm-seg > button:not([aria-pressed="true"]):not([aria-checked="true"]):hover { background: var(--nbm-soft); color: var(--foreground); }
+.nbm .nbm-seg > button[aria-pressed="true"], .nbm .nbm-seg > button[aria-checked="true"] { background: var(--nbm-ink); color: var(--nbm-on-ink); }
+
+/* ---------- loading: pixel beat and pixel progress (the only things that move on their own) ---------- */
+.nbm .nbm-beat { display: inline-flex; gap: 2px; align-items: center; }
+.nbm .nbm-beat > i { display: block; width: 4px; height: 4px; background: currentColor; opacity: .25; animation: nbm-beat 900ms steps(2) infinite; }
+.nbm .nbm-beat > i:nth-child(2) { animation-delay: 150ms; }
+.nbm .nbm-beat > i:nth-child(3) { animation-delay: 300ms; }
+.nbm .nbm-pxprog { display: inline-grid; grid-template-columns: repeat(10, 6px); gap: 2px; }
+.nbm .nbm-pxprog > i { display: block; height: 6px; background: color-mix(in srgb, currentColor 22%, transparent); transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm .nbm-pxprog > i[data-on] { background: currentColor; }
+
+/* ---------- motion layer: nothing moves until it is touched ---------- */
+@keyframes nbm-beat { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes nbm-drop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes nbm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes nbm-settle { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes nbm-sheet { from { opacity: .4; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes nbm-dialog { from { opacity: 0; transform: scale(.98) translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes nbm-slide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes nbm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nbm-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes nbm-flash { from { background-color: var(--nbm-tint); } to { background-color: transparent; } }
+@keyframes nbm-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* entrances, applied by components only when something just opened or arrived because of a click */
+.nbm .nbm-enter-drop { animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm .nbm-enter-rise { animation: nbm-rise var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm .nbm-settle { animation: nbm-settle var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm .nbm-enter-sheet { animation: nbm-sheet var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm .nbm-enter-dialog { animation: nbm-dialog var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm .nbm-enter-slide { animation: nbm-slide var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm .nbm-fade-in { animation: nbm-fade var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm .nbm-pop { animation: nbm-pop var(--nbm-m2) var(--nbm-ease); }
+.nbm .nbm-flash { animation: nbm-flash 2.5s var(--nbm-ease) both; }
+.nbm .nbm-breathe:hover, .nbm :hover > .nbm-breathe { animation: nbm-breathe 1.6s var(--nbm-ease) infinite; }
+
+/* fills, colours and borders ease; a press sinks 1px */
+.nbm .nbm-cell, .nbm .nbm-tag, .nbm .nbm-seg > button, .nbm .nbm-ease {
+  transition: background-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease), border-color var(--nbm-m1) var(--nbm-ease),
+              box-shadow var(--nbm-m1) var(--nbm-ease), opacity var(--nbm-m1) var(--nbm-ease), transform var(--nbm-m1) var(--nbm-ease);
+}
+.nbm .nbm-cell:active, .nbm .nbm-seg > button:active, .nbm .nbm-press:active { transform: translateY(1px); transition-duration: 60ms; }
+
+/* never animated: the unread square, counts changing in place */
+.nbm .nbm-sq, .nbm .nbm-count { transition: none; animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nbm *, .nbm *::before, .nbm *::after { animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 80ms !important; transition-property: background-color, color, border-color, opacity !important; }
+}
+html[data-reduce-motion="true"] .nbm *, html[data-reduce-motion="true"] .nbm *::before, html[data-reduce-motion="true"] .nbm *::after {
+  animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 80ms !important; transition-property: background-color, color, border-color, opacity !important;
+}

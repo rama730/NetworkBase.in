@@ -10,6 +10,7 @@ import { normalizeAuthNextPath } from '@/lib/auth/redirects';
 import { hasCurrentLegalAcceptance } from '@/lib/legal/acceptance';
 import { hasCompletedOnboarding } from '@/lib/onboarding/completion';
 import { getViewerIdentityContext } from '@/lib/server/viewer-context';
+import "@/components/messages/messages-mix.css";
 
 async function LegalAcceptanceGate({
   user,
