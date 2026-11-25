@@ -413,16 +413,16 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           onClick={() => void follow(!thread.data!.following)}
           aria-pressed={thread.data.following}
           title={thread.data.following ? "You’re notified about new replies. Click to stop." : "Get notified about new replies"}
-          className={`inline-flex h-7 flex-none items-center gap-1.5 rounded-md border px-2 text-[12px] font-medium hover:bg-muted pointer-coarse:h-11 ${thread.data.following ? "border-primary/40 bg-accent text-accent-foreground" : "border-border"}`}
+          className="nbm-follow"
         >
           {thread.data.following ? <><Check size={14} aria-hidden="true" /> Following</> : "Follow"}
         </button>
       ) : null}
       <DropdownMenu>
-        <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-8 flex-none" aria-label="Thread options">
+        <DropdownMenuTrigger className="nbm-cell nb-touch-target flex-none" aria-label="Thread options">
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent align="end" className="nbm nbm-menu w-52">
           <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${threadHref(channelId, rootSeq, { m: focusSeq, pane: "thread" }, surface === "window" ? "" : window.location.search)}`, "Thread link copied"); }}>
             <Link2 /> Copy link to thread
           </DropdownMenuItem>

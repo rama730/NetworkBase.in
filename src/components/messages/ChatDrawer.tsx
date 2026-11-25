@@ -123,11 +123,11 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
       aria-modal={modal || undefined}
       onKeyDown={trapTab}
       // Below 1024px it covers the screen at the visible height, so the reply box sits above the phone's keyboard.
-      className="fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[clamp(340px,34vw,560px)] lg:flex-none lg:border-l lg:border-border lg:h-auto"
+      className="nbm-enter-slide fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[clamp(340px,34vw,560px)] lg:flex-none lg:border-l lg:border-border lg:h-auto"
     >
-      <header className="flex min-h-14 flex-none items-center gap-1 border-b border-border px-2">
+      <header className="nbm-dhead">
         <span className="contents lg:hidden">
-          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
+          <button type="button" onClick={close} className="nbm-cell nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
         </span>
         {both ? (
           <div className="flex min-w-0 flex-1 flex-col py-1">
@@ -143,7 +143,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
                   tabIndex={active === value ? 0 : -1}
                   onClick={() => pickTab(value)}
                   onKeyDown={(event) => tabKeys(event, index)}
-                  className={`nb-tab min-h-9 border-b-2 text-[13px] font-medium capitalize ${active === value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                  className="nbm-tab capitalize"
                 >
                   {value}
                 </button>
@@ -152,18 +152,18 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
                 <TabMarker />
             </div>
             {/* Which conversation, even with both panes open. */}
-            {where ? <span className="truncate px-1 text-[12px] text-muted-foreground">{where}</span> : null}
+            {where ? <span className="nbm-dhead-where px-1">{where}</span> : null}
           </div>
         ) : (
           <div className="flex min-w-0 flex-1 flex-col px-2 py-1">
-            <h2 ref={heading} tabIndex={-1} className="nb-card-title rounded-sm outline-none">{label}</h2>
+            <h2 ref={heading} tabIndex={-1} className="nbm-dhead-title outline-none">{label}</h2>
             {where ? (
               active === "thread" && panes.thread ? (
-                <Link href={showInConversationHref(channelId, panes.thread, search)} onClick={(event) => { event.preventDefault(); router.replace(showInConversationHref(channelId, panes.thread!, window.location.search), { scroll: false }); }} replace scroll={false} className="max-w-full self-start truncate text-xs leading-4 text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
+                <Link href={showInConversationHref(channelId, panes.thread, search)} onClick={(event) => { event.preventDefault(); router.replace(showInConversationHref(channelId, panes.thread!, window.location.search), { scroll: false }); }} replace scroll={false} className="nbm-dhead-where max-w-full self-start hover:text-foreground hover:underline" title="Show in conversation">
                   {where}
                 </Link>
               ) : (
-                <span className="truncate text-xs leading-4 text-muted-foreground">{where}</span>
+                <span className="nbm-dhead-where">{where}</span>
               )
             ) : null}
           </div>
@@ -171,7 +171,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
         {/* Kept mounted (hidden behind Details) so the thread's controls don't jump into a second row. */}
         <div ref={setSlot} className={active === "thread" ? "flex flex-none items-center gap-1" : "hidden"} />
         <span className="hidden lg:contents">
-          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label={`Close ${label.toLowerCase()}`}><X size={16} /></button>
+          <button type="button" onClick={close} className="nbm-cell nb-touch-target" aria-label={`Close ${label.toLowerCase()}`}><X size={16} /></button>
         </span>
       </header>
       <div id="drawer-panel" className="flex min-h-0 flex-1 flex-col" {...(both ? { role: "tabpanel", "aria-labelledby": `drawer-tab-${active}` } : {})}>
@@ -181,7 +181,8 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
           </div>
         ) : null}
         {panes.details && active === "details" ? (
-          <DetailsPane channelId={channelId} tab={panes.details} onTab={panes.openDetails} />
+          // Switching from Thread to Details crossfades.
+          <div key={active} className="nbm-fade-in flex min-h-0 flex-1 flex-col"><DetailsPane channelId={channelId} tab={panes.details} onTab={panes.openDetails} /></div>
         ) : null}
       </div>
     </aside>
