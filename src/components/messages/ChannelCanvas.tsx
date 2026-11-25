@@ -203,25 +203,25 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
   // Inside the conversation's tab panel already: no second tabpanel.
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background">
-      <div className="flex h-11 flex-none items-center justify-between border-b border-border px-4 sm:px-6">
+      <div className="nbm-note-bar">
         <div className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-muted-foreground">
           <FileText size={14} className="flex-none" />
           <span className="truncate">{channel.name ? `#${channel.name}` : "Channel"} canvas</span>
           {/* "Saving…" and "Not saved" show on phones too; the edit time only where there's room. */}
-          {edited ? <span className={`truncate text-[12px] ${status === "error" ? "text-destructive" : "text-muted-foreground"} ${status === "idle" ? "hidden sm:inline" : ""}`}>· {edited}</span> : null}
+          {edited ? <span className={`nbm-tag ${status === "error" ? "bad" : ""} ${status === "idle" ? "nbm-note-idle" : ""}`}>{edited}</span> : null}
           {/* Only a failed save is announced (not every "Saving…" while you type). */}
           <span className="sr-only" aria-live="polite">{status === "error" ? "Note not saved" : ""}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={copyLink} className="pointer-coarse:h-11">
+          <button type="button" onClick={copyLink} className="nbm-note-copy">
             {copied ? <Check size={14} className="text-primary" /> : <Link2 size={14} />}
             <span>{copied ? "Copied" : "Copy link"}</span>
-          </Button>
+          </button>
           <DropdownMenu>
-            <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-7" aria-label="More note options">
+            <DropdownMenuTrigger className="nbm-cell nb-touch-target" aria-label="More note options">
               <MoreHorizontal size={16} />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuContent align="end" className="nbm nbm-menu w-52">
               <DropdownMenuItem onSelect={() => imageInput.current?.click()}><ImagePlus /> Upload image</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setTemplatesOpen(true)}><Sparkles /> Templates…</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -236,7 +236,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
         </div>
       </div>
       {conflict ? (
-        <div role="alert" className="flex flex-none flex-wrap items-center gap-2 border-b border-border bg-[var(--status-warning-soft)] px-4 py-2 text-[13px] text-foreground sm:px-6">
+        <div role="alert" className="nbm-warn">
           <span className="min-w-0 flex-1">Someone else saved first. Copy your version to add it back.</span>
           <Button type="button" variant="outline" size="sm" onClick={() => { void copyWithToast(conflict, "Your version copied"); }} className="pointer-coarse:h-11">Copy my version</Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setConflict(null)} className="pointer-coarse:h-11">Dismiss</Button>
@@ -244,7 +244,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
       ) : null}
 
       <div className="app-scroll app-scroll-y flex-1 overflow-x-hidden">
-        <div className="mx-auto max-w-3xl space-y-4 py-8 pr-4 sm:pr-8">
+        <div className="nbm-note">
           <input
             type="text"
             value={title}
@@ -263,7 +263,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
                 editor?.commands.focus("start");
               }
             }}
-            className="nb-page-title w-full border-none bg-transparent pl-12 text-foreground outline-none placeholder:text-muted-foreground"
+            className="nbm-note-title"
           />
           {query.error ? (
             <p role="alert" className="ml-12 rounded-md bg-[var(--status-danger-soft)] px-3 py-2 text-[13px] text-[var(--status-danger)]">
@@ -276,23 +276,23 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
 
       {empty && !trayHidden ? (
         <div className="flex-none px-4 pb-4 sm:px-8">
-          <div className="mx-auto w-full max-w-3xl rounded-lg border border-border bg-card p-4">
+          <div className="nbm-note-tray">
             <div className="flex items-center justify-between pb-3">
-              <span className="nb-ui-label text-foreground">Start from a template</span>
+              <span className="nbm-glabel"><span>Start from a template</span></span>
               <button
                 type="button"
                 onClick={() => setTrayHidden(true)}
                 aria-label="Dismiss template suggestions"
-                className="nb-icon-button nb-touch-target size-7"
+                className="nbm-cell nb-touch-target"
               >
                 <X size={16} />
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {QUICK_TEMPLATES.map((id) => CANVAS_TEMPLATES.find((t) => t.id === id)).filter(Boolean).map((template) => (
-                <Button key={template!.id} type="button" variant="outline" size="sm" onClick={() => applyTemplate(template!)} className="pointer-coarse:h-11">
+                <button key={template!.id} type="button" onClick={() => applyTemplate(template!)} className="nbm-tray-cell">
                   {template!.name}
-                </Button>
+                </button>
               ))}
               <Button type="button" variant="link" size="sm" onClick={() => setTemplatesOpen(true)} className="pointer-coarse:h-11">
                 More templates…

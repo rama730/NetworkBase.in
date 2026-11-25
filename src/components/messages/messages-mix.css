@@ -536,3 +536,17 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-drow-inline { display: flex; align-items: center; gap: 12px; }
 .nbm-drow-side { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px/1.4 var(--nbm-mono); color: var(--nbm-fg2); text-align: right; }
 .nbm-drow-inline .nbm-drow-help { margin-top: 2px; }
+
+/* ================= Note tab (Phase 7 Task 28) ================= */
+.nbm-note-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 16px 0 20px; border-bottom: 1px solid var(--nbm-line); background: var(--card); }
+@media (max-width: 639px) { .nbm-note-idle { display: none; } }
+.nbm-note-copy { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12.5px; font-weight: 500; transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-note-copy:hover { background: var(--nbm-soft); }
+@media (pointer: coarse) { .nbm-note-copy { height: 44px; } }
+.nbm-note { display: grid; gap: 16px; width: 100%; max-width: 720px; margin: 0 auto; padding: 32px 24px 32px 0; }
+.nbm-note-title { width: 100%; padding-left: 48px; border: 0; background: transparent; font: 400 34px/1.15 var(--nbm-serif); letter-spacing: -.01em; color: var(--foreground); outline: none; }
+.nbm-note-title::placeholder { color: var(--nbm-fg2); }
+.nbm-note-tray { width: 100%; max-width: 720px; margin: 0 auto; padding: 12px 14px; border: 1px solid var(--nbm-line); border-radius: 6px; background: var(--card); }
+.nbm-tray-cell { display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12.5px; font-weight: 500; transition: background-color var(--nbm-m1) var(--nbm-ease), border-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-tray-cell:hover { border-color: var(--foreground); background: var(--nbm-soft); }
+@media (pointer: coarse) { .nbm-tray-cell { height: 44px; } }

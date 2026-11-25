@@ -266,7 +266,7 @@ export function CanvasBody({ editor, channelId }: { editor: Editor | null; chann
             <DropdownMenuTrigger asChild>
               <span aria-hidden="true" className="pointer-events-none absolute inset-0" tabIndex={-1} />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuContent align="start" className="nbm nbm-menu w-56">
               {node.type.name === "image" ? (
                 <>
                   <DropdownMenuLabel className="nb-micro">Image size</DropdownMenuLabel>
@@ -283,7 +283,7 @@ export function CanvasBody({ editor, channelId }: { editor: Editor | null; chann
               ) : (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger><Type /> Turn into</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-48">
+                  <DropdownMenuSubContent className="nbm nbm-menu w-48">
                     {TURN_INTO.map(({ label, icon: Icon, run }) => (
                       <DropdownMenuItem key={label} onSelect={() => { selectBlock(); run(editor); }}><Icon /> {label}</DropdownMenuItem>
                     ))}
