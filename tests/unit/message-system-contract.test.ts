@@ -635,7 +635,7 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         templateModalSource,
-        /selectedTemplate\?\.id === template\.id \? "bg-card shadow-xs"/,
+        /aria-pressed=\{selectedTemplate\?\.id === template\.id\}[\s\S]{0,120}className="nbm-split-row"/,
         "CanvasTemplateModal marks the selected template with the paper well (spec: selection is never a clay fill)",
     );
     assert.match(

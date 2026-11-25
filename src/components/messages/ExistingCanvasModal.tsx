@@ -49,7 +49,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="wide" showCloseButton={false} className="flex h-[560px] max-h-[85vh] w-[860px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-3xl">
+      <DialogContent size="wide" showCloseButton={false} className="nbm nbm-split flex h-[560px] max-h-[85vh] w-[860px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-3xl">
         <DialogTitle className="sr-only">Copy from another channel</DialogTitle>
         {/* Phones: the list on top, the preview below (side by side leaves ~90px for the preview). */}
         <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
@@ -76,10 +76,10 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
                   onClick={() => setSelectedId(item.channel_id)}
                   aria-pressed={selected?.channel_id === item.channel_id}
                   // Selected = the paper well, never a clay fill (spec).
-                  className={`block w-full rounded-md p-2.5 text-left text-foreground transition-colors duration-[130ms] ${selected?.channel_id === item.channel_id ? "bg-card shadow-xs" : "hover:bg-card"}`}
+                  className="nbm-split-row"
                 >
                   <p className="truncate text-[13px] font-medium">{item.title || "Untitled"}</p>
-                  <p className="nb-meta mt-1 truncate">
+                  <p className="nbm-lrow-meta mt-1 truncate">
                     #{item.channel_name ?? "channel"} · {new Date(item.updated_at).toLocaleDateString()}
                   </p>
                 </button>
@@ -98,7 +98,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
                 <FileText size={16} className="shrink-0 text-muted-foreground" />
                 <h3 className="nb-ui-label truncate text-foreground">{selected?.title || "Note preview"}</h3>
               </div>
-              <button type="button" onClick={() => onOpenChange(false)} aria-label="Close dialog" className="nb-icon-button nb-touch-target size-8">
+              <button type="button" onClick={() => onOpenChange(false)} aria-label="Close dialog" className="nbm-cell nb-touch-target size-8">
                 <X size={16} />
               </button>
             </div>

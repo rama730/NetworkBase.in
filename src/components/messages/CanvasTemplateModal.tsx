@@ -60,7 +60,7 @@ export function CanvasTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="wide" showCloseButton={false} className="flex h-[600px] max-h-[88vh] w-[880px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-4xl">
+      <DialogContent size="wide" showCloseButton={false} className="nbm nbm-split flex h-[600px] max-h-[88vh] w-[880px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-4xl">
         <DialogTitle className="sr-only">Note templates</DialogTitle>
         {/* Phones: the list on top, the preview below. */}
         <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
@@ -81,7 +81,7 @@ export function CanvasTemplateModal({
             <div className="app-scroll app-scroll-y min-h-0 flex-1 space-y-3 p-2">
               {groups.map(({ category, items }) => (
                 <div key={category}>
-                  <p className="nb-micro px-2.5 pb-1 pt-1.5">{category}</p>
+                  <p className="nbm-glabel px-2.5 pb-1 pt-1.5"><span>{category}</span></p>
                   {items.map((template) => (
                     <button
                       key={template.id}
@@ -90,9 +90,7 @@ export function CanvasTemplateModal({
                       onDoubleClick={() => { onSelectTemplate(template); onOpenChange(false); }}
                       aria-pressed={selectedTemplate?.id === template.id}
                       // Selected = the paper well, never a clay fill (spec).
-                      className={`block w-full truncate rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors duration-[130ms] pointer-coarse:min-h-11 ${
-                        selectedTemplate?.id === template.id ? "bg-card shadow-xs" : "hover:bg-card"
-                      }`}
+                      className="nbm-split-row"
                     >
                       {template.name}
                     </button>
@@ -111,12 +109,12 @@ export function CanvasTemplateModal({
                 <h3 className="nb-ui-label truncate text-foreground">{selectedTemplate?.name}</h3>
                 <p className="truncate text-[13px] text-muted-foreground">{selectedTemplate?.description}</p>
               </div>
-              <button type="button" onClick={() => onOpenChange(false)} aria-label="Close dialog" className="nb-icon-button nb-touch-target size-8 flex-none">
+              <button type="button" onClick={() => onOpenChange(false)} aria-label="Close dialog" className="nbm-cell nb-touch-target size-8 flex-none">
                 <X size={16} />
               </button>
             </div>
             <div className="app-scroll app-scroll-y min-h-0 flex-1 space-y-4 p-6 sm:p-8">
-              <h1 className="nb-section-title text-foreground">{generatedDoc.title}</h1>
+              <h1 className="nbm-split-title">{generatedDoc.title}</h1>
               <CanvasPreview markdown={generatedDoc.content} />
             </div>
             <div className="flex h-14 flex-none items-center justify-end gap-2 border-t border-border bg-muted px-6">

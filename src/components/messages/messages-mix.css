@@ -562,3 +562,11 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-lrow-act { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12px; font-weight: 500; color: var(--foreground); transition: background-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-lrow-act:hover { background: var(--card); border-color: var(--foreground); }
 @media (pointer: coarse) { .nbm-lrow-act { height: 44px; } }
+
+/* Templates and Copy from another channel (Phase 7 Task 30) */
+.nbm-split { border-color: var(--nbm-line); border-radius: 6px; box-shadow: var(--nbm-shadow-pop); }
+.nbm-split-row { display: block; width: 100%; min-height: 34px; padding: 8px 10px; overflow: hidden; border-radius: 3px; text-align: left; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--foreground); transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-split-row:hover { background: color-mix(in srgb, var(--card) 70%, transparent); }
+.nbm-split-row[aria-pressed="true"] { background: var(--card); box-shadow: 0 0 0 1px var(--nbm-line); }
+@media (pointer: coarse) { .nbm-split-row { min-height: 44px; } }
+.nbm-split-title { margin: 0; font: 400 30px/1.15 var(--nbm-serif); letter-spacing: -.01em; color: var(--foreground); }

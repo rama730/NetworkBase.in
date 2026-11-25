@@ -24,3 +24,15 @@ test('template tray as cells; the block menu is a Messages menu', () => {
   assert.match(canvas, /className="nbm-tray-cell"/);
   assert.doesNotMatch(editor, /<DropdownMenuContent(?![^>]*nbm-menu)[^>]*>/);
 });
+
+test('templates and copy-from: list + preview split in the mix; selected = card fill, never clay', () => {
+  for (const f of ['src/components/messages/CanvasTemplateModal.tsx', 'src/components/messages/ExistingCanvasModal.tsx']) {
+    const src = readFileSync(f, 'utf8');
+    assert.match(src, /<DialogContent size="wide" showCloseButton=\{false\} className="nbm nbm-split /, f);
+    assert.match(src, /className="nbm-split-row"/, f);
+    assert.match(src, /aria-label="Close dialog" className="nbm-cell nb-touch-target/, f);
+  }
+  assert.match(readFileSync('src/components/messages/CanvasTemplateModal.tsx', 'utf8'), /<p className="nbm-glabel px-2\.5 pb-1 pt-1\.5"><span>\{category\}<\/span>/);
+  assert.match(readFileSync('src/components/messages/CanvasTemplateModal.tsx', 'utf8'), /<h1 className="nbm-split-title">/);
+  assert.match(css, /\.nbm-split-row\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--card\)/);
+});
