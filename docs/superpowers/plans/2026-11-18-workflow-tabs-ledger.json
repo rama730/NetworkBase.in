@@ -1148,9 +1148,9 @@
       "text": "B3.2 S2 Curriculum map and lesson plans (32.3) — Build: course template; Year map view; lesson type (Lesson/Assessment/Activity); Taught per lesson × class; cla",
       "kind": "unit",
       "milestone": "B3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/curriculum.test.ts; tests/db/term-plan.test.ts; tests/db/curriculum-map.test.ts; tests/db/organizations-lifecycle.test.ts; tests/browser/term-plan.spec.ts; tests/browser/year-map.spec.ts; tests/browser/curriculum.spec.ts",
+      "evidence": "B3.2a–d live 2026-11-25 (d25020c25..12ef18488, d962e2870+16cbbe5ab, a5e172ded+debfca5dc, 2df5e2fb8; no migration). Correction: a course is the class org, the team its Department. Live in Chrome: per-class Taught (WT6A/WT6B ticks, lesson Taught when both, class note), Assessment type; Year map (rows by department, holiday shaded, Planned, Taught per class); Teaching settings (CSV import of 2 WT standards, template WT I do/We do/You do applied to a new lesson, standard tag WT6.2, Standards view 1 of 2 covered, curriculum overview on About, unit titles only); Duplicate unit into Cohort 1 (3 lessons Planned, no ticks, under Unit 1 → Week 1). Live fixes: lesson Taught before classes listed counts for every class; Year map ignores Path lessons; standards count copy. Security fixes: only the teacher takes a tick back; a tick already there is kept. Draft notice, Behind-the-map summary and Start next term copying the Term plan are DB-tested. Known: classes copied before 2df5e2fb8 keep their weeks flat (Cohort 1 shows Week 1 as a unit)."
     },
     {
       "key": "B3.3",
