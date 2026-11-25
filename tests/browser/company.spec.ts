@@ -17,6 +17,10 @@ async function open(page: Page, view: string) {
         { kind: 'announcement', id: 'a1', text: 'Office closed Friday', at: '2026-11-24T09:00:00Z', slug: null },
         { kind: 'updated', id: 'travel', text: 'Travel policy', at: '2026-11-23T09:00:00Z', slug: 'travel' }] }),
       readNeedsReviewAction: async () => ({ success: true, total: 2, owners: [{ owner: 'Priya Shah', pages: [{ slug: 'travel', title: 'Travel policy', reviewBy: '2026-11-01' }] }, { owner: 'No owner', pages: [{ slug: 'exp', title: 'Expenses', reviewBy: '2026-10-01' }] }] }),
+      readCompanyWidePagesAction: async () => ({ success: true, pages: [{ id: 'd1', title: 'Shipping', team: 'Engineering', archived: false }, { id: 'd2', title: 'Old guide', team: 'Ops', archived: true }] }),
+      readCompanyWidePageAction: async () => ({ success: true, title: 'Shipping', team: 'Engineering', archived: false, content: '# Shipping\n\nHow we ship.' }),
+      readInCompanyAction: async () => ({ success: true, inCompany: true }),
+      setCompanyWideAction: async (p: string, v: unknown) => { calls.push(['share', p, v]); return { success: true }; },
       saveCompanyAboutAction: async (_o: string, v: unknown) => { calls.push(['save', v]); return { success: true }; },
     };
   });
@@ -55,4 +59,18 @@ test("Overview: What's new (announcements, New/Updated pages) and Needs review b
   await expect(r).toContainText('Priya Shah: Travel policy');
   await expect(r).toContainText('No owner: Expenses');
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('Documents: From teams lists company-wide team pages and opens one; a team page shares with the company', async ({ page }) => {
+  await open(page, 'teams');
+  const f = page.getByTestId('from-teams');
+  await expect(f).toContainText('Engineering');
+  await expect(f).toContainText('From an archived team');
+  expect(await axeViolations(page)).toEqual([]);
+  await f.getByRole('button', { name: /Shipping/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('How we ship.');
+  await expect(page.getByRole('dialog')).toContainText('From Engineering · company-wide');
+  await page.keyboard.press('Escape');
+  await page.getByTestId('company-wide-toggle').click();
+  await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).find((c: unknown[]) => c[0] === 'share')?.[2]).toEqual({ docSlug: 'shipping', on: true });
 });

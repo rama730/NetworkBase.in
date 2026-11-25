@@ -1,5 +1,6 @@
 "use client";
 
+import { CompanyWideToggle } from "@/components/organizations/CompanyParts";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -437,6 +438,8 @@ export function WorkspaceDocViewer({
                             <DocEditButton projectId={project.id} docSlug={normalizedDocSlug} filename={listed?.filename ?? "README.md"} content={readmeContent} fileHref={fileHref} />
                             {listed ? <MoveToSectionMenu projectId={project.id} docSlug={normalizedDocSlug} current={docSectionOf(listed, addedWorkflows)} date={listed.date} /> : null}
                             {siteEnabled && listed ? <DocsSiteToggle projectId={project.id} docSlug={normalizedDocSlug} on={listed.docsSite === true} /> : null}
+                            {/* Report 33.2 call 7 (B4.1e): a team in a company shares a page with the whole company. */}
+                            {listed ? <CompanyWideToggle projectId={project.id} docSlug={normalizedDocSlug} on={listed.companyWide === true} /> : null}
                         </div>
                     ) : null}
                     {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} canEdit={payload.canEdit} /> : null}

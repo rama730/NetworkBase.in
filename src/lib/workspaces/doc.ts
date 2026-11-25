@@ -79,6 +79,8 @@ export type WorkspaceDocSettings = {
     /** Report 38.15 W3 (A6.34): shown on the Docs site, and its place in the menu. */
     docsSite?: boolean;
     docsOrder?: number;
+    /** Report 33.2 call 7 (B4.1e): a team's page marked Company-wide is readable by everyone in its company. */
+    companyWide?: boolean;
     /** Report 21.4, 38.15 W5 (A6.35): a snippet's language, tags and what it's for (kind "snippet"). */
     language?: string;
     tags?: string[];
@@ -154,7 +156,7 @@ export type WorkspaceDocVersion = {
 
 export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string; decisionNumber?: number; decisionStatus?: DecisionStatus; fromDocId?: string;
     supersedes?: string; supersededBy?: string; reverseReason?: string;
-    docsSite?: boolean; docsOrder?: number;
+    docsSite?: boolean; docsOrder?: number; companyWide?: boolean;
     /** A4.1 live check: a meeting's or launch's own title, shown instead of its file name. */
     title?: string };
 
@@ -223,6 +225,7 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(typeof source.period === "string" && /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/.test(source.period) ? { period: source.period } : {}),
         ...(typeof source.closedAt === "string" && Number.isFinite(Date.parse(source.closedAt)) ? { closedAt: source.closedAt } : {}),
         ...(typeof source.docsSite === "boolean" ? { docsSite: source.docsSite } : {}),
+        ...(source.companyWide === true ? { companyWide: true } : {}),
         ...(Number.isFinite(source.docsOrder) ? { docsOrder: source.docsOrder } : {}),
         ...(typeof source.language === "string" && /^[\w#+ -]{1,30}$/.test(source.language) ? { language: source.language } : {}),
         ...(Array.isArray(source.tags) && source.tags.every((t) => typeof t === "string" && /^[a-z0-9-]{1,30}$/.test(t)) ? { tags: (source.tags as string[]).slice(0, 8) } : {}),

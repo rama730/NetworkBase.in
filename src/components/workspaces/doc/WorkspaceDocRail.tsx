@@ -23,6 +23,7 @@ import {
 } from "@/hooks/workspaces/useWorkspaceDocData";
 import { cn } from "@/lib/utils";
 import { FromOrgDocs, OrgDocChips, useOrgDocs } from "@/components/organizations/OrgDocParts";
+import { FromTeamsPages } from "@/components/organizations/CompanyParts";
 import { docTitle } from "@/lib/organizations/doc-rules";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { railSections, type DocSection } from "@/lib/workspaces/doc-sections";
@@ -282,6 +283,7 @@ export function WorkspaceDocRail({
                     )}
                 </nav>
                 {org ? <FromOrgDocs data={org} activeSlug={activeSlug} /> : null}
+                {org?.mode === "org" && org.orgType === "company" ? <FromTeamsPages orgId={org.orgId} /> : null}
                 {/* Live-fix 24: the document's options moved to ⋯ in its header. */}
             </div>
             {!passedRail && canEdit ? rail.dialogs : null}

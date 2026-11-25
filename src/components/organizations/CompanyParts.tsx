@@ -4,13 +4,16 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { readCompanyAboutAction, readNeedsReviewAction, readWhatsNewAction, saveCompanyAboutAction, type CompanyOffice, type CompanyValue } from "@/app/actions/company";
+import { readCompanyAboutAction, readCompanyWidePageAction, readCompanyWidePagesAction, readNeedsReviewAction, readWhatsNewAction, saveCompanyAboutAction, type CompanyOffice, type CompanyValue } from "@/app/actions/company";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import MarkdownPreview from "@/components/workspaces/v2/preview/MarkdownPreview";
 import { RailSection } from "@/components/ui/rail-section";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
+import { WORKSPACE_DOC_LIST_QUERY_KEY } from "@/hooks/workspaces/useWorkspaceDocData";
 
 // Report 33.2 (plan B4.1c): a company's Values, Offices and Our teams on About; Settings → Company edits them.
 const key = (orgId: string) => ["company-about", orgId] as const;
@@ -130,5 +133,59 @@ export function NeedsReviewCard({ orgId, base }: { orgId: string; base: string }
         ))}
       </ul>
     </OrgCard>
+  );
+}
+
+/** From teams (report 33.2 call 7): team pages marked Company-wide, read in place; a team's other pages stay in the team. */
+export function FromTeamsPages({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["company-wide", orgId], queryFn: () => readCompanyWidePagesAction(orgId), staleTime: 60_000 });
+  const [open, setOpen] = useState<string | null>(null);
+  const page = useQuery({ queryKey: ["company-wide-page", orgId, open], queryFn: () => readCompanyWidePageAction(orgId, open!), enabled: Boolean(open), staleTime: 60_000 });
+  const d = q.data?.success ? q.data : null;
+  if (!d?.pages.length) return null;
+  const p = page.data?.success ? page.data : null;
+  return (
+    <div className="space-y-1 pt-3" data-testid="from-teams">
+      <p className="nb-micro pb-1">From teams</p>
+      <ul className="space-y-1">
+        {d.pages.map((x) => (
+          <li key={x.id}>
+            <button type="button" onClick={() => setOpen(x.id)} className="flex w-full flex-col rounded-md border border-border bg-card px-2.5 py-2 text-left text-[13px] hover:bg-muted">
+              <span className="font-medium">{x.title}</span>
+              <span className="text-[12px] text-muted-foreground">{x.archived ? "From an archived team" : x.team}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <Dialog open={Boolean(open)} onOpenChange={(o) => { if (!o) setOpen(null); }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader><DialogTitle>{p?.title ?? "Team page"}</DialogTitle><DialogDescription>{p ? (p.archived ? "From an archived team" : `From ${p.team} · company-wide`) : "Loading…"}</DialogDescription></DialogHeader>
+          {p ? <MarkdownPreview content={p.content} fidelity="app" /> : null}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/** A team's page: share it with the whole company (report 33.2 call 7). Shown to its editors when the team is in a company. */
+export function CompanyWideToggle({ projectId, docSlug, on }: { projectId: string; docSlug: string; on: boolean }) {
+  const client = useQueryClient();
+  const inCompany = useQuery({ queryKey: ["in-company", projectId], queryFn: async () => (await import("@/app/actions/workspace/doc")).readInCompanyAction(projectId), staleTime: 300_000 });
+  const [busy, setBusy] = useState(false);
+  if (!inCompany.data?.inCompany) return null;
+  const flip = async () => {
+    setBusy(true);
+    const { setCompanyWideAction } = await import("@/app/actions/workspace/doc");
+    const r = await setCompanyWideAction(projectId, { docSlug, on: !on });
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error);
+    toast.success(on ? "Only the team reads it now" : "Everyone in the company can read it");
+    void client.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) });
+  };
+  return (
+    <button type="button" aria-pressed={on} disabled={busy} onClick={() => void flip()} data-testid="company-wide-toggle"
+      className={on ? "inline-flex h-8 items-center rounded-[5px] border border-foreground bg-muted/60 px-2.5 text-[12px] font-medium" : "inline-flex h-8 items-center rounded-[5px] border border-border px-2.5 text-[12px] font-medium text-muted-foreground hover:text-foreground"}>
+      {on ? "Company-wide" : "Share with the company"}
+    </button>
   );
 }

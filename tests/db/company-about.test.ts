@@ -17,6 +17,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.234" }) });
 
 let company: typeof import("../../src/app/actions/company");
+let workspaceDoc: typeof import("../../src/app/actions/workspace/doc");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -25,6 +26,7 @@ before(async () => {
     getViewerProfileContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true, profile: null }),
   });
   company = await loadAppModule(() => import("../../src/app/actions/company"));
+  workspaceDoc = await loadAppModule(() => import("../../src/app/actions/workspace/doc"));
 });
 
 const created: string[] = [];
@@ -119,4 +121,47 @@ test("33.2: What's new never names a page the member can't open", async () => {
   const admin = await company.readWhatsNewAction(id);
   assert.ok(admin.success);
   assert.deepEqual(admin.items.map((i) => i.text), ["Salary bands"]);
+});
+
+test("33.2 call 7: a team's pages stay in the team unless marked Company-wide; then everyone in the company reads the published version", async () => {
+  const [owner, lead, member, outsider] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, { visibility: "private" }));
+  created.push(id);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${lead!}, 'member'), (${id}, ${member!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'company', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${id}`;
+  const team = await sql.begin((tx) => createProject(tx, lead!, { visibility: "private" }));
+  await sql`UPDATE workspaces SET parent_id = ${id}, title = 'Engineering' WHERE id = ${team}`;
+  const page = async (slug: string, extra: Record<string, unknown> = {}) => {
+    const [d] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${team}, ${slug}, ${`${slug}.md`}, ${sql.json({ version: 1, editPolicy: "leaders", visibilityOverride: "inherit_workspace", externalImages: false, projectBlocks: true, ...extra })}) RETURNING id`;
+    const [v] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${team}, ${d!.id}, 1, ${`# ${slug}\n\nHow we ship.`}, ${slug}) RETURNING id`;
+    await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${d!.id}`;
+    return d!.id as string;
+  };
+  const shipping = await page("shipping");
+  const secret = await page("salaries", { companyWide: true, visibilityOverride: "leaders_only" });
+  await page("notes");
+
+  viewerId = member!;
+  let listed = await company.readCompanyWidePagesAction(id);
+  assert.ok(listed.success);
+  assert.equal(listed.pages.length, 0, "nothing leaves the team until marked (and never a leaders-only page)");
+  assert.equal((await company.readCompanyWidePageAction(id, shipping)).success, false);
+  assert.equal((await workspaceDoc.setCompanyWideAction(team, { docSlug: "shipping", on: true })).success, false, "only the team's editors share a page");
+  viewerId = lead!;
+  assert.equal((await workspaceDoc.setCompanyWideAction(team, { docSlug: "shipping", on: true })).success, true);
+  viewerId = member!;
+  listed = await company.readCompanyWidePagesAction(id);
+  assert.ok(listed.success);
+  assert.deepEqual(listed.pages.map((p) => [p.title, p.team]), [["shipping", "Engineering"]]);
+  const read = await company.readCompanyWidePageAction(id, shipping);
+  assert.ok(read.success);
+  assert.match(read.content, /How we ship/);
+  assert.equal((await company.readCompanyWidePageAction(id, secret)).success, false);
+  viewerId = outsider!;
+  assert.equal((await company.readCompanyWidePagesAction(id)).success, false, "outside the company: nothing");
+  await sql`UPDATE workspaces SET status = 'archived' WHERE id = ${team}`;
+  viewerId = member!;
+  const archived = await company.readCompanyWidePagesAction(id);
+  assert.ok(archived.success);
+  assert.equal(archived.pages[0]?.archived, true, "From an archived team");
 });

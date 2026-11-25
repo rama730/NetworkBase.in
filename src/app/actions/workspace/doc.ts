@@ -5,6 +5,7 @@ import { linkedFileEditor } from "@/lib/workspaces/doc-linked-editor";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { isLooseUuid } from "@/lib/validations/uuid";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
@@ -267,7 +268,7 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
-            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle, period, offsiteTitle, docsSite, docsOrder, chapter } = normalizeWorkspaceDocSettings(doc.settings);
+            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle, period, offsiteTitle, docsSite, docsOrder, chapter, companyWide } = normalizeWorkspaceDocSettings(doc.settings);
             // A5.1 live check: a goals document shows "Goals · Q4 2026", not its file name. B1.8 live check: a chapter "1. Introduction".
             const chapterName = chapter ? doc.filename.replace(/\.md$/i, "").replace(/^\d+[-_ ]*/, "").replace(/[-_]+/g, " ").trim() : "";
             const title = section === "meetings" ? meetingTitle : section === "launches" ? launchTitle : section === "goals" && period ? `Goals · ${goalPeriodLabel(period)}` : section === "offsite" ? offsiteTitle
@@ -275,7 +276,7 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}), ...(title ? { title } : {}),
                 ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}),
                 ...(supersedes ? { supersedes } : {}), ...(supersededBy ? { supersededBy } : {}), ...(reverseReason ? { reverseReason } : {}),
-                ...(docsSite ? { docsSite } : {}), ...(docsOrder != null ? { docsOrder } : {}) });
+                ...(docsSite ? { docsSite } : {}), ...(docsOrder != null ? { docsOrder } : {}), ...(companyWide ? { companyWide } : {}) });
         }
     }
     return results.sort((a, b) => {
@@ -2930,6 +2931,33 @@ export async function setDocsSiteAction(projectId: string, input: unknown) {
         logger.error("docs.site_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t change the docs site." };
     }
+}
+
+/** Report 33.2 call 7 (B4.1e): a team (a workspace in a company) marks a page Company-wide, for everyone in the company. */
+export async function setCompanyWideAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, on: z.boolean() }).parse(input);
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit this document share it with the company." };
+        const [parent] = context.project.parentId ? await db.select({ orgType: workspaces.orgType }).from(workspaces).where(and(eq(workspaces.id, context.project.parentId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt))).limit(1) : [];
+        if (parent?.orgType !== "company") return { success: false as const, error: "Only a team in a company shares pages company-wide." };
+        await writeLaunchSettings(context.readme.id, { companyWide: data.on });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("docs.company_wide_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t change who can read it." };
+    }
+}
+
+/** Whether this workspace is a team in a company (its pages can be marked Company-wide). */
+export async function readInCompanyAction(projectId: string) {
+    const userId = await requireUserId().catch(() => null);
+    if (!userId || !isLooseUuid(projectId)) return { success: true as const, inCompany: false };
+    const [row] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM workspaces w JOIN workspaces o ON o.id = w.parent_id
+        WHERE w.id = ${projectId}::uuid AND o.kind = 'organization' AND o.org_type = 'company' AND o.deleted_at IS NULL) AS ok`));
+    return { success: true as const, inCompany: Boolean(row?.ok) };
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
