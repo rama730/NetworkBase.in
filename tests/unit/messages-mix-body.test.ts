@@ -44,7 +44,9 @@ test('markdown: headings, tables in a scroll box, task lists, rules, images', ()
   assert.match(html, /<div class="nbm-tw" tabindex="0" role="region" aria-label="Table"><table>/);
   assert.match(html, /class="nbm-task"/);
   assert.match(html, /<hr class="nbm-hr"\/>/);
-  assert.match(html, /<img src="https:\/\/example\.com\/d\.png" alt="diagram" loading="lazy" referrerPolicy="no-referrer" class="nbm-img"\/>/i);
-  // Not https, not shown as an image.
-  assert.doesNotMatch(render('![x](http://example.com/d.png)'), /<img/);
+  // Nothing loads from another host until you ask (no tracking pixels): a click-to-load cell first.
+  assert.doesNotMatch(html, /<img/);
+  assert.match(html, /<button type="button" class="nbm-img-load" title="example\.com">Show image · diagram<\/button>/);
+  // Not https: never offered as an image, only its alt text.
+  assert.doesNotMatch(render('![x](http://example.com/d.png)'), /<img|nbm-img-load/);
 });

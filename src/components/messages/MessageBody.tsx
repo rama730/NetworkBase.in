@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useMemo, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -56,6 +56,12 @@ function inAppPath(href: string) {
   const resource = parseShareResource(href);
   if (resource) return new URL(resource.url).pathname;
   return path && /^\/messages(\/|\?|$)/.test(path) ? path : null;
+}
+
+function MarkdownImage({ src, alt }: { src: string; alt: string }) {
+  const [shown, setShown] = useState(false);
+  if (shown) return <img src={src} alt={alt} referrerPolicy="no-referrer" className="nbm-img" />;
+  return <button type="button" className="nbm-img-load" title={new URL(src).hostname} onClick={() => setShown(true)}>Show image · {alt || "image"}</button>;
 }
 
 export const MessageBody = memo(function MessageBody({ body, nameOf, channelNameOf, meId, suffix, wrapMention }: Props) {
@@ -119,10 +125,10 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
     p({ children }) {
       return <p className="whitespace-pre-wrap">{children}</p>;
     },
-    // Markdown images: https only, lazy, without a referrer; anything else shows its alt text.
+    // Markdown images: https only, and nothing loads until you ask (a sender can't learn who read it); else the alt text.
     img({ src, alt }) {
       const safe = typeof src === "string" && /^https:\/\//i.test(src) ? normalizeSafeExternalUrl(src) : null;
-      return safe ? <img src={safe} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" className="nbm-img" /> : <span>{alt}</span>;
+      return safe ? <MarkdownImage src={safe} alt={alt ?? ""} /> : <span>{alt}</span>;
     },
   }), [meId, wrapMention]);
 

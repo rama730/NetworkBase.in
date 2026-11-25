@@ -353,3 +353,6 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-task input[type="checkbox"]:checked { border-color: var(--nbm-brand); background: var(--nbm-brand) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5l4.5-5' fill='none' stroke='white' stroke-width='1.8'/%3E%3C/svg%3E") center / 10px no-repeat; }
 .nbm-hr { height: 1px; margin: 10px 0; border: 0; background: var(--nbm-line); }
 .nbm-img { display: block; max-width: min(360px, 100%); max-height: 360px; margin: 6px 0; border: 1px solid var(--nbm-line); border-radius: 3px; object-fit: contain; }
+.nbm-img-load { display: inline-flex; align-items: center; height: 28px; margin: 4px 0; padding: 0 10px; border: 1px dashed var(--nbm-line); border-radius: 3px; font: 500 11px/1 var(--nbm-mono); color: var(--nbm-fg2); transition: border-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
+.nbm-img-load:hover { border-color: var(--foreground); color: var(--foreground); }
+@media (pointer: coarse) { .nbm-img-load { min-height: 44px; } }
