@@ -53,7 +53,8 @@ export function Observations({ schoolId, staff }: { schoolId: string; staff: Arr
         </ul>
       ) : null}
       {d.myReports.length ? <ul className="space-y-1" aria-label="Observations of people who report to me">{d.myReports.map((o) => <li key={o.id}><span className="font-mono">{o.day}</span> · {o.observed} · {o.focus}: {o.strengths} · Next step: {o.nextStep}</li>)}</ul> : null}
-      <fieldset className="flex flex-wrap items-center gap-2 rounded-md border border-border p-3" data-testid="book-observation">
+      {!staff.length ? <p className="text-muted-foreground" data-testid="book-observation-empty">Observations are of colleagues: once others join the school’s staff, book one here.</p> : null}
+      {staff.length ? <fieldset className="flex flex-wrap items-center gap-2 rounded-md border border-border p-3" data-testid="book-observation">
         <legend className="px-1 font-medium">Book an observation</legend>
         <select className="nb-select" data-size="sm" aria-label="Who to observe" value={book.observedId} onChange={(e) => setBook({ ...book, observedId: e.target.value })}>
           <option value="">Who…</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
@@ -62,7 +63,7 @@ export function Observations({ schoolId, staff }: { schoolId: string; staff: Arr
         <label className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={book.justBetweenUs} onChange={(e) => setBook({ ...book, justBetweenUs: e.target.checked })} />Just between us (a peer observation)</label>
         <button type="button" className={FORM_PRIMARY_CLASS} disabled={!book.observedId || !book.day || !book.focus.trim()}
           onClick={() => void run(bookObservationAction(schoolId, book), "Observation booked").then(() => setBook({ observedId: "", day: "", focus: "", justBetweenUs: false }))}>Book</button>
-      </fieldset>
+      </fieldset> : null}
     </section>
   );
 }
