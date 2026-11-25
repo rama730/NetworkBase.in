@@ -71,7 +71,7 @@ test("duties: leaders set them; a swap needs the colleague's yes, leaders are to
   assert.ok(asked.success && asked.askedOfMe.length === 1);
   assert.equal((await duty.answerDutySwapAction(school, asked.askedOfMe[0]!.id, true)).success, true);
   assert.equal((await duty.answerDutySwapAction(school, asked.askedOfMe[0]!.id, true)).success, false, "answered once");
-  const told = await sql`SELECT user_id FROM user_notifications WHERE dedupe_key LIKE 'duty-swapped:%'`;
+  const told = await sql`SELECT user_id FROM user_notifications WHERE dedupe_key LIKE ${`duty-swapped:${asked.askedOfMe[0]!.id}:%`}`;
   assert.deepEqual(told.map((r) => r.user_id), [principal], "leaders are told; no approval step");
   tt = await loadAppModule(() => import("../../src/app/actions/school-timetable"));
   const ravisDay = await tt.readTimetableAction(school, today);
@@ -79,5 +79,10 @@ test("duties: leaders set them; a swap needs the colleague's yes, leaders are to
   viewerId = asha!;
   const ashasDay = await tt.readTimetableAction(school, today);
   assert.ok(ashasDay.success && ashasDay.duties.length === 0);
+  // Security review: a Viewer doesn't read the duty grid.
+  const [guest] = await Promise.all([1].map(() => sql.begin((tx) => createUser(tx))));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${school}, ${guest!}, 'viewer')`;
+  viewerId = guest!;
+  assert.equal((await duty.readDutiesAction(school)).success, false);
   void cover;
 });

@@ -25,7 +25,8 @@ async function school(schoolId: string, write = false) {
   if (!userId || (write && auth.tokenKind != null)) return null;
   const a = await getWorkspaceAccessById(schoolId, userId);
   const [w] = Array.from(await db.execute<{ level: string | null; slug: string | null }>(sql`SELECT org_level AS level, slug FROM workspaces WHERE id = ${schoolId}::uuid AND deleted_at IS NULL`));
-  if (w?.level !== "institution" || !a.canRead || !(a.isOwner || a.isMember) || (write && !a.canWrite)) return null;
+  // Security review: duties are for the school's staff — Viewers (guests, outside cover) don't read the grid or the staff list.
+  if (w?.level !== "institution" || !a.canRead || !(a.isOwner || (a.isMember && a.memberRole !== "viewer")) || (write && !a.canWrite)) return null;
   return { userId, leader: a.isOwner || a.memberRole === "admin", slug: w.slug };
 }
 
