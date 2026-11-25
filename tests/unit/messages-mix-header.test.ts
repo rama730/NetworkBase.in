@@ -16,7 +16,7 @@ test('the conversation is a size container and the header is the 64px mix header
 
 test('header cells fold by the column (under 560px), not the window', () => {
   assert.doesNotMatch(view, /hidden sm:inline-flex|className="sm:hidden"/);
-  assert.match(css, /@container conv \(max-width: 559px\)\s*\{\s*\.nbm-fold,[^{]*\{\s*display:\s*none/);
+  assert.match(css, /@container conv \(width < 560px\)\s*\{\s*\.nbm-fold,[^{]*\{\s*display:\s*none/);
   // The ⋯ menu gets what folded: search, notifications and the org link.
   assert.match(view, /const \[convRef, narrow\] = useNarrow\(560\)/);
   assert.match(view, /\{narrow && orgPlace \? <DropdownMenuItem asChild><Link href=\{orgPlace\.href\}>/);

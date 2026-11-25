@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRight, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -560,10 +560,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   };
 
   const backButton = surface === "window" || onBack ? (
-    <button type="button" onClick={onBack ?? (() => router.push("/messages"))} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
+    <button type="button" onClick={onBack ?? (() => router.push("/messages"))} className="nbm-cell nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
   ) : (
     <span className={outside ? "contents" : "contents lg:hidden"}>
-      <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label={outside ? "Back" : "Back to conversations"}><ArrowLeft size={16} /></button>
+      <button type="button" onClick={goBack} className="nbm-cell nb-touch-target" aria-label={outside ? "Back" : "Back to conversations"}><ArrowLeft size={16} /></button>
     </span>
   );
   // A failed refetch keeps the conversation on screen; only a first load that fails says so.
@@ -571,7 +571,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     const missing = ["chat_channel_not_found", "chat_not_member", "chat_invalid_input"].includes(details.error.message);
     return (
       <div className="flex h-full flex-col bg-card">
-        <div className="flex h-14 flex-none items-center gap-2 border-b border-border px-2 sm:px-3">{backButton}<span className="flex-1" />{windowActions}</div>
+        <div className="flex h-16 flex-none items-center gap-2 border-b border-border px-2 sm:px-3">{backButton}<span className="flex-1" />{windowActions}</div>
         <div className="grid flex-1 place-items-center p-6 text-center">
           {missing ? (
             <div className="space-y-2">
@@ -644,11 +644,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 title={`Conversation details (${detailsShortcut})`}
               >
                 {channel.kind === "public" && !other ? <span className="nbm-chead-hash" aria-hidden="true">#</span> : channel.kind !== "dm" && !other ? <ConversationIcon channel={channel} size={16} aria-hidden="true" className="shrink-0" /> : null}
-                <h1 className="nbm-chead-title truncate text-foreground">{title}</h1>
+                <h1 className="nbm-chead-title truncate text-foreground group-hover/title:underline">{title}</h1>
               </button>
               {/* Only a starred conversation shows its star (click to unstar); starring lives in ⋯ and Details, so no empty slot. */}
               {isMember && channel.starred ? (
-                <button type="button" onClick={() => void setState({ starred: false })} className="nb-icon-button nb-touch-target size-7 shrink-0" aria-label={starLabel} title={starLabel}>
+                <button type="button" onClick={() => void setState({ starred: false })} className="nbm-cell nb-touch-target shrink-0" aria-label={starLabel} title={starLabel}>
                   <Star size={14} className="text-primary" fill="currentColor" />
                 </button>
               ) : null}
@@ -753,7 +753,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     <MoreHorizontal size={16} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="nbm nbm-menu w-60">
-                    {narrow && orgPlace ? <DropdownMenuItem asChild><Link href={orgPlace.href}><ExternalLink /> Open {orgPlace.title} →</Link></DropdownMenuItem> : null}
+                    {narrow && orgPlace ? <DropdownMenuItem asChild><Link href={orgPlace.href}><ArrowRight /> Open {orgPlace.title} →</Link></DropdownMenuItem> : null}
                     {isMember ? <DropdownMenuItem onSelect={() => openDetails("about")}><PanelRight /> Conversation details <kbd className="nb-meta ml-auto">{detailsShortcut}</kbd></DropdownMenuItem> : null}
                     {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus /> Add people</DropdownMenuItem> : null}
                     {/* Star and topic live here at every width; on phones search and notifications do too. */}

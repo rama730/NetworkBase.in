@@ -40,7 +40,7 @@ export function ConversationSkeleton({ header, tabs = true }: { header?: React.R
         <Sk className="ml-2 h-5 w-40" />
       </div>
       {tabs ? (
-        <div className="flex h-[38px] flex-none items-end gap-4 border-b border-border px-4 pb-3">
+        <div className="flex h-10 flex-none items-end gap-4 border-b border-border px-4 pb-3 pointer-coarse:h-12">
           <Sk className="h-[9px] w-16" />
           <Sk className="h-[9px] w-12" />
         </div>

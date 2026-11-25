@@ -125,7 +125,7 @@ export function LastItemTracker({
  * A day separator; its button opens the date picker to jump to another day (keyboard too).
  * Without showPicker (older browsers), the date field itself shows up to type into.
  */
-function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => void }) {
+function DayLabel({ label, onPick, float = false }: { label: string; onPick: (date: string) => void; float?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [typing, setTyping] = useState(false);
   const open = () => {
@@ -140,7 +140,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
     requestAnimationFrame(() => input.current?.focus());
   };
   return (
-    <div className="nbm-day">
+    <div className={float ? "nbm-day nbm-day-float" : "nbm-day"}>
       <span aria-hidden="true" className="nbm-day-rule" />
       <span className="relative">
         <button
@@ -458,6 +458,15 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
 
   return (
     <>
+    {!jump && bannerOpen && unreadAtOpen && onMarkRead ? (
+        <div className="nbm-strip">
+          <button type="button" onClick={toFirstUnread} className="nbm-strip-text">
+            {unreadAtOpen.count}{unreadAtOpen.more ? "+" : ""} new message{unreadAtOpen.count === 1 && !unreadAtOpen.more ? "" : "s"} since {formatChatTime(unreadAtOpen.since, "at")}
+          </button>
+          <button type="button" onClick={markRead} className="nbm-strip-btn">Mark as read</button>
+          <button type="button" onClick={() => setBannerOpen(false)} className="nbm-cell nbm-strip-x" aria-label="Dismiss"><X size={16} /></button>
+        </div>
+    ) : null}
     <MessageHistory
       className="relative min-h-0 flex-1"
       role="log"
@@ -473,17 +482,9 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center">
           <span role="status" className="nbm-finding"><PixelBeat />Finding {new Date(jump.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}…</span>
         </div>
-      ) : bannerOpen && unreadAtOpen && onMarkRead ? (
-        <div className="nbm-strip">
-          <button type="button" onClick={toFirstUnread} className="nbm-strip-text">
-            {unreadAtOpen.count}{unreadAtOpen.more ? "+" : ""} new message{unreadAtOpen.count === 1 && !unreadAtOpen.more ? "" : "s"} since {formatChatTime(unreadAtOpen.since, "at")}
-          </button>
-          <button type="button" onClick={markRead} className="nbm-strip-btn">Mark as read</button>
-          <button type="button" onClick={() => setBannerOpen(false)} className="nbm-cell nbm-strip-x" aria-label="Dismiss"><X size={16} /></button>
-        </div>
       ) : topDay ? (
         <div className="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
-          <span className="pointer-events-auto"><DayLabel label={topDay} onPick={pickDate} /></span>
+          <span className="pointer-events-auto"><DayLabel label={topDay} onPick={pickDate} float /></span>
         </div>
       ) : null}
       <Virtuoso<TimelineItem, TimelineContext>

@@ -8,7 +8,7 @@ const composer = readFileSync('src/components/messages/Composer.tsx', 'utf8');
 const css = readFileSync('src/components/messages/messages-mix.css', 'utf8');
 
 test('day rule: hairlines around a square mono chip that still jumps to a date', () => {
-  assert.match(timeline, /className="nbm-day"/);
+  assert.match(timeline, /"nbm-day nbm-day-float" : "nbm-day"/);
   assert.match(timeline, /className="nbm-day-chip/);
   assert.match(timeline, /title="Jump to a date"/);
   assert.match(css, /\.nbm-day-chip\s*\{[^}]*height:\s*22px[^}]*border-radius:\s*3px[^}]*var\(--nbm-mono\)[^}]*text-transform:\s*uppercase/);

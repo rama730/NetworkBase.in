@@ -111,7 +111,8 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
                 onClick={() => onSelectTab(tab.id)}
                 onKeyDown={handleKeyDown}
                 // On touch the × always shows: room for it, so it never covers the name.
-                className={`${tabClass} ${closable ? "pointer-coarse:pr-8" : ""}`}
+                data-closable={closable ? "true" : undefined}
+                className={tabClass}
               >
                 <Icon size={16} className="mr-1.5 shrink-0" aria-hidden="true" />
                 <span className="max-w-[130px] truncate">{tab.title}</span>
@@ -136,7 +137,8 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
                   target="_blank"
                   rel="noopener noreferrer"
                   title={tab.url ? `Open ${tab.url} in a new tab` : undefined}
-                  className={`${tabClass} pointer-coarse:pr-8`}
+                  data-closable="true"
+                  className={tabClass}
                 >
                   <Link2 size={16} className="mr-1.5 shrink-0" aria-hidden="true" />
                   <span className="max-w-[130px] truncate">{tab.title}</span>
