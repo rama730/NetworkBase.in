@@ -145,7 +145,7 @@ test('the stack: shelves are inert until fanned, the overflow row opens Pending 
 
 test('two live regions: polite for most, assertive for errors', () => {
   assert.match(host, /role="status" aria-live="polite"/);
-  assert.match(host, /role="alert"[^>]*>\s*<span key=\{snapshot\.alert\.serial\}>/);
+  assert.match(host, /aria-live="assertive"[^>]*>\s*<span key=\{snapshot\.alert\.serial\}>/);
 });
 
 test('toast CSS: 360 px card, square cells, 8 px shelves at 94 % and 88 %, reduced motion fades only', () => {

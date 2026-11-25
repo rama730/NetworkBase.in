@@ -60,7 +60,7 @@ test('stale queued routine results expire but unresolved errors remain', () => {
   store.put('loading', 'Working'); store.put('loading', 'Uploading'); store.put('loading', 'Moving');
   store.put('success', 'Saved');
   const error = store.put('error', 'Not saved');
-  time = 61000; store.advance(1, true);
+  time = 61000; store.advance(1, false);
   assert.ok(!store.getSnapshot().items.some(item => item.title === 'Saved'));
   assert.ok(store.getSnapshot().items.some(item => item.id === error));
 });

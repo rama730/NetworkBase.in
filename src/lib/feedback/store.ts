@@ -53,6 +53,8 @@ export function createFeedbackStore(now: () => number = Date.now) {
   let snapshot = EMPTY;
   let nextId = 0;
   let generation = 0;
+  /** Items that have been on screen: "gone unseen" never applies to them, even if Show sent them back to wait. */
+  const seen = new Set<FeedbackId>();
   const listeners = new Set<() => void>();
   const publish = (next: FeedbackSnapshot) => { snapshot = next; listeners.forEach(listener => listener()); };
   const words = (item: FeedbackItem) => {
@@ -81,7 +83,11 @@ export function createFeedbackStore(now: () => number = Date.now) {
     if (!item) return;
     const items = snapshot.items.filter(item => item.id !== id);
     const shown = snapshot.shown.filter(shownId => shownId !== id);
-    const promoted = fill(items, shown).at(-1);
+    seen.delete(id);
+    const moved = fill(items, shown);
+    moved.forEach(next => seen.add(next.id));
+    // Warnings and errors were read out when they arrived; moving up doesn't repeat them.
+    const promoted = moved.filter(next => !['warning', 'error'].includes(next.type)).at(-1);
     publish({ ...snapshot, items, shown, currentId: shown.at(-1) ?? null, history: archive(item), ...(promoted ? say(promoted) : {}) });
     if (reason === 'expire') item.options.onAutoClose?.(asToast(item));
     else if (reason === 'dismiss' || reason === 'programmatic' || reason === 'evict') item.options.onDismiss?.(asToast(item));
@@ -120,6 +126,7 @@ export function createFeedbackStore(now: () => number = Date.now) {
     // A new toast joins the stack when there's room; a repeat or an update keeps its place.
     const shown = wasShown || snapshot.shown.length >= FEEDBACK_VISIBLE ? [...snapshot.shown] : [...snapshot.shown, id];
     const visible = shown.includes(id);
+    if (visible) seen.add(id);
     publish({ ...snapshot, items, history, overflow, shown, currentId: shown.at(-1) ?? null, ...(visible || ['warning', 'error'].includes(type) ? say(item) : {}) });
     settledEviction?.options.onDismiss?.(asToast(settledEviction));
     return id;
@@ -134,6 +141,7 @@ export function createFeedbackStore(now: () => number = Date.now) {
       const item = snapshot.items.find(item => item.id === id);
       if (!item) return;
       const shown = [...snapshot.shown.filter(shownId => shownId !== id), id];
+      seen.add(id);
       if (shown.length > FEEDBACK_VISIBLE) {
         const out = shown.find(shownId => shownId !== id && snapshot.items.find(old => old.id === shownId)?.type !== 'error') ?? shown[0]!;
         shown.splice(shown.indexOf(out), 1);
@@ -145,7 +153,7 @@ export function createFeedbackStore(now: () => number = Date.now) {
       for (const item of snapshot.items) {
         if (item.options.deadline !== undefined && time >= item.options.deadline) {
           remove(item.id, 'expire');
-        } else if (!snapshot.shown.includes(item.id) && time - item.updatedAt > STALE_SUCCESS_MS && !item.action && ['success', 'info'].includes(item.type)) {
+        } else if (!paused && !snapshot.shown.includes(item.id) && !seen.has(item.id) && time - item.updatedAt > STALE_SUCCESS_MS && !item.action && ['success', 'info'].includes(item.type)) {
           remove(item.id, 'expire');
         }
       }
@@ -161,6 +169,7 @@ export function createFeedbackStore(now: () => number = Date.now) {
     },
     clear() {
       generation += 1;
+      seen.clear();
       const pending = snapshot.items;
       publish({ ...EMPTY, announcement: { serial: snapshot.announcement.serial + 1, text: '' }, alert: { serial: snapshot.alert.serial + 1, text: '' } });
       pending.forEach(item => item.options.onDismiss?.(asToast(item)));
