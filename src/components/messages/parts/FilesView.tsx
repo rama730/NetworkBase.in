@@ -11,7 +11,7 @@ import { PixelBeat } from "@/components/messages/mix/primitives";
 
 const MediaViewerModal = dynamic(() => import("@/components/ui/media-viewer").then((m) => m.MediaViewerModal), { ssr: false });
 import Link from "next/link";
-import { FileText, Image as ImageIcon, Paperclip, Video } from "lucide-react";
+import { FileText, Image as ImageIcon, Video } from "lucide-react";
 
 import { listFiles } from "@/app/actions/chat/messages";
 import { RowsSkeleton } from "@/components/messages/parts/RowsSkeleton";
@@ -69,7 +69,7 @@ function PhotosGrid({ channelId }: { channelId: string }) {
   const files = media.data?.pages.flatMap((page) => page.files) ?? [];
   if (media.isLoading) return <RowsSkeleton label="Loading photos…" />;
   if (media.isError && !files.length) return <ErrorNotice what="Photos" onRetry={() => void media.refetch()} className="m-4" />;
-  if (!files.length) return <EmptyState compact icon={ImageIcon} title="No photos or videos yet" description="Photos and videos shared here show up in this view." className="m-4" />;
+  if (!files.length) return <EmptyState compact figure="person" title="No photos or videos yet" description="Photos and videos shared here show up in this view." className="m-4" />;
   const items: MediaItem[] = files.map((file) => {
     const url = `/api/v1/chat/attachments/${file.asset_id}`;
     return { id: file.asset_id, url, filename: file.name, type: file.mime.startsWith("video/") ? "video" : "image", thumbnailUrl: file.mime.startsWith("image/") ? url : undefined };
@@ -117,7 +117,7 @@ function FilesList({ channelId }: { channelId: string }) {
   if (files.isLoading) return <RowsSkeleton label="Loading files…" />;
   // An error is not "no files yet".
   if (files.isError) return <ErrorNotice what="Files" onRetry={() => void files.refetch()} className="m-4" />;
-  if (!files.data?.length) return <EmptyState compact icon={Paperclip} title="No files yet" description="Files shared here show up in this tab." className="m-4" />;
+  if (!files.data?.length) return <EmptyState compact figure="person" title="No files yet" description="Files shared here show up in this tab." className="m-4" />;
   return (
     <ul className="app-scroll app-scroll-y min-h-0 flex-1 divide-y divide-border" aria-label="Files">
       {files.data.map((file) => {

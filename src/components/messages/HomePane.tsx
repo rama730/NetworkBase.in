@@ -1,8 +1,9 @@
 "use client";
 
+import { padCount } from "@/lib/messaging/mix-format";
 import { useState } from "react";
 import Link from "next/link";
-import { AlarmClock, CheckCheck, Compass, Dot, Inbox, SquarePen } from "lucide-react";
+import { AlarmClock, Compass, Dot, Inbox, SquarePen } from "lucide-react";
 
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { useWide } from "@/components/messages/useWide";
@@ -26,25 +27,26 @@ import { ConversationIcon } from "@/components/messages/ConversationIcon";
 function ConversationLink({ channel, meId }: { channel: ChatChannelSummary; meId: string | null }) {
   const count = rowCount(channel);
   return (
-    <Link href={conversationHref(channel.id)} className="flex min-h-11 items-center gap-2.5 rounded-md px-2 hover:bg-muted">
+    <Link href={conversationHref(channel.id)} className="nbm-mrow">
       {channel.kind === "dm" || counterpart(channel) ? <UserAvatar identity={channel.dm_user ?? counterpart(channel)} size={26} /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="mx-[5px] text-muted-foreground" />}
       <span className="min-w-0 flex-1">
         {/* The icon already says # or 🔒: the name goes without a "#". */}
         <span className={`block truncate text-[13px] ${needsAttention(channel) ? "font-semibold" : "font-medium"}`}>{channelTitle(channel, meId)}</span>
         {channel.last_preview ? <span className="block truncate text-[13px] text-muted-foreground">{channel.last_author_id === meId ? "You: " : ""}{channel.last_preview}</span> : null}
       </span>
-      {channel.last_message_at ? <span className="nb-meta flex-none" title={fullTime(channel.last_message_at)}>{formatChatTime(channel.last_message_at)}</span> : null}
-      {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}<span className="sr-only"> unread</span></span> : needsAttention(channel) ? <span className="sr-only">, unread</span> : null}
+      {channel.last_message_at ? <span className="nbm-lrow-meta flex-none" title={fullTime(channel.last_message_at)}>{formatChatTime(channel.last_message_at)}</span> : null}
+      {count ? <span className="nbm-count hot"><span aria-hidden="true">{padCount(count)}</span><span className="sr-only">{count} unread</span></span> : needsAttention(channel) ? <span className="sr-only">, unread</span> : null}
     </Link>
   );
 }
 
 function Card({ title, icon, action, children }: { title: string; icon: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-3" aria-label={title}>
-      <div className="mb-1.5 flex items-center gap-2 px-2">
-        <span className="text-muted-foreground" aria-hidden="true">{icon}</span>
-        <h2 className="nb-micro flex-1">{title}</h2>
+    <section className="nbm-home-list" aria-label={title}>
+      <div className="nbm-glabel">
+        <span aria-hidden="true">{icon}</span>
+        <h2 className="m-0 font-[inherit] text-[length:inherit]">{title}</h2>
+        <span className="nbm-glabel-rule" aria-hidden="true" />
         {action}
       </div>
       {children}
@@ -83,9 +85,9 @@ export function HomePane() {
   // The same frame as every other Messages screen: a 56px header bar on the card surface.
   return (
     <section className="flex h-full min-h-0 flex-col bg-card" aria-label={project ? project.title : "Home"}>
-      <header className="flex h-14 flex-none items-center gap-2 border-b border-border px-4">
+      <header className="nbm-lhead">
         {project ? <WorkspaceBadge project={project} size="sm" /> : null}
-        <h1 className="nb-card-title min-w-0 flex-1 truncate">{project ? project.title : "Home"}</h1>
+        <h1 className="nbm-lhead-title">{project ? project.title : "Home"}</h1>
         {project ? (
           <Button asChild variant="outline" size="sm"><Link href={`/messages/w/${project.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button>
         ) : null}
@@ -94,8 +96,7 @@ export function HomePane() {
       <div className="app-scroll app-scroll-y min-h-0 flex-1">
       {caughtUp ? (
         <div className="grid min-h-full place-items-center p-6">
-          <EmptyState
-            icon={CheckCheck}
+          <EmptyState figure="person"
             title="You’re all caught up"
             description="New messages, mentions and thread replies show up here."
             className="w-full max-w-md"
@@ -110,7 +111,7 @@ export function HomePane() {
       ) : (
       <div className="flex max-w-3xl flex-col gap-4 px-4 py-6">
         {needing.length > 0 && !loadError ? (
-          <p className="nb-compact text-muted-foreground">{`${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new`}</p>
+          <p className="nbm-home-line">{`${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new`}</p>
         ) : null}
 
         {/* One failure, one message. */}
@@ -119,18 +120,22 @@ export function HomePane() {
         ) : !data ? (
           <ListSkeleton label="Loading conversations" header={false} />
         ) : firstRun ? (
-          <section className="rounded-lg border border-border bg-card p-5" aria-labelledby="home-start">
-            <h2 id="home-start" className="nb-card-title">Start a conversation</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">Message a teammate directly, or join a channel in one of your workspaces.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> Message someone</Link></Button>
-              <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/w/${browseProject.id}/browse` : "/workspaces"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a workspace"}</Link></Button>
-            </div>
-          </section>
+          // EmptyState v2: pixel figure, serif line, one sentence, the two ways to start.
+          <EmptyState
+            figure="person"
+            title="Start a conversation"
+            description="Message a teammate directly, or join a channel in one of your workspaces."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> Message someone</Link></Button>
+                <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/w/${browseProject.id}/browse` : "/workspaces"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a workspace"}</Link></Button>
+              </div>
+            }
+          />
         ) : (
           <>
             {inboxUnread ? (
-              <Link href="/messages/inbox" className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted">
+              <Link href="/messages/inbox" className="nbm-checkrow">
                 <Inbox size={18} aria-hidden="true" className="text-primary" />
                 <span className="flex-1 text-[15px]"><strong className="font-semibold">{inboxUnread}</strong> unread in your Inbox: mentions and thread replies</span>
                 <span className="text-[13px] font-medium text-primary">Open</span>
@@ -138,7 +143,7 @@ export function HomePane() {
             ) : null}
             {/* Reminders whose time has come: caught up on messages doesn't mean nothing's waiting. */}
             {savedDue ? (
-              <Link href="/messages/saved" className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted">
+              <Link href="/messages/saved" className="nbm-checkrow">
                 <AlarmClock size={18} aria-hidden="true" className="text-primary" />
                 <span className="flex-1 text-[15px]"><strong className="font-semibold">{savedDue}</strong> reminder{savedDue === 1 ? "" : "s"} due</span>
                 <span className="text-[13px] font-medium text-primary">Open</span>

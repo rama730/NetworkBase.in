@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Archive, Ban, BellOff, Flag, LogOut, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Archive, Ban, BellOff, Flag, LogOut, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
@@ -327,8 +327,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
   if (!channel.is_member) {
     return (
       <EmptyState
-        compact
-        icon={Users}
+        compact figure="person"
         title={`${channel.member_count} members`}
         description={`Join #${channel.name} to see who’s here.`}
         action={channel.kind === "public" && !channel.channel_archived_at ? <Button type="button" size="sm" onClick={() => void onJoin()} className="pointer-coarse:h-11">Join channel</Button> : undefined}
@@ -360,7 +359,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
           itemContent={(_index, member) => <MemberRow member={member} channel={channel} meId={meId} onRemove={setRemoving} blocking={blocking} />}
         />
       ) : null}
-      {members.data && !list.length ? <EmptyState compact icon={Search} title="No members match" description={`Nobody here matches "${filter}".`} /> : null}
+      {members.data && !list.length ? <EmptyState compact figure="person" title="No members match" description={`Nobody here matches "${filter}".`} /> : null}
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}

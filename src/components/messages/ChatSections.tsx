@@ -832,7 +832,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       ) : null}
 
       {unreadsOnly && !starred.length && !others.length && !applications.length && (open ? !sections.channels.some(keep) : !anyProjectRows) ? (
-        <EmptyState compact icon={CheckCheck} title="You’re all caught up" description="Nothing unread here." className="px-3 py-6" />
+        <EmptyState compact figure="person" title="You’re all caught up" description="Nothing unread here." className="px-3 py-6" />
       ) : null}
 
       {starred.length ? (

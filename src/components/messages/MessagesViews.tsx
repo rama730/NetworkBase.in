@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlarmClock, AtSign, BellOff, Bookmark, CalendarClock, Check, CheckCheck, ChevronDown, Clock, Hash, Inbox, MailOpen, MoreHorizontal, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2, X, type LucideIcon } from "lucide-react";
+import { AlarmClock, AtSign, BellOff, CalendarClock, Check, CheckCheck, ChevronDown, Clock, Hash, MailOpen, MoreHorizontal, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2, X } from "lucide-react";
 import { toast, feedbackDate } from "@/lib/feedback";
 
 import { listInbox, listThreads, markInboxRead, markInboxUnread, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
@@ -54,8 +54,8 @@ const Composer = dynamic(() => import("@/components/messages/Composer").then((m)
 const when = (value: string | null) => (value ? formatChatTime(value) : "");
 
 /** An empty list: the app's empty state (icon, what goes here, and how). */
-function Empty({ icon = Inbox, title, children }: { icon?: LucideIcon; title: string; children?: React.ReactNode }) {
-  return <EmptyState compact icon={icon} title={title} description={children} className="m-4" />;
+function Empty({ title, children }: { title: string; children?: React.ReactNode }) {
+  return <EmptyState compact figure="person" title={title} description={children} className="m-4" />;
 }
 
 /** An error is not an empty list: say so, with Retry (a failed later page retries that page). */
@@ -360,8 +360,8 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
         ))}
       </ul>
       {nothingYet ? (
-        <EmptyState compact icon={Hash} title="No public channels yet" description="Start one for a topic your workspace talks about." action={<Button type="button" size="sm" onClick={() => setCreateFor(projectId)}><Plus size={16} /> Create channel</Button>} className="m-4" />
-      ) : channels.data && !visible.length ? <Empty icon={Hash} title={show === "archived" ? "No archived channels" : "No channels match"} /> : null}
+        <EmptyState compact figure="person" title="No public channels yet" description="Start one for a topic your workspace talks about." action={<Button type="button" size="sm" onClick={() => setCreateFor(projectId)}><Plus size={16} /> Create channel</Button>} className="m-4" />
+      ) : channels.data && !visible.length ? <Empty title={show === "archived" ? "No archived channels" : "No channels match"} /> : null}
     </ViewScreen>
   );
 }
@@ -706,7 +706,7 @@ export function InboxView() {
         <>
           {threadPages.isLoading ? <ListSkeleton header={false} label="Loading threads" rows={4} /> : null}
           {threadPages.isError && !threads ? <ListError what="Threads" query={threadPages} /> : null}
-          {threads && !threads.length ? <Empty icon={MessageSquareText} title="No threads yet">Threads you start, reply to or follow show up here.</Empty> : null}
+          {threads && !threads.length ? <Empty title="No threads yet">Threads you start, reply to or follow show up here.</Empty> : null}
           <ul aria-label="Threads" onKeyDown={rowKeys}>
             {(threads ?? []).map((t, index) => {
               const key = `${t.channel_id}:${t.root_seq}`;
@@ -720,7 +720,7 @@ export function InboxView() {
         <>
           {feed.isLoading ? <ListSkeleton header={false} label="Loading your Inbox" rows={5} /> : null}
           {feed.isError && !feed.data ? <ListError what="Inbox" query={feed} /> : null}
-          {feed.data && !items.length ? <Empty icon={filter === "reactions" ? SmilePlus : filter === "mentions" ? AtSign : Inbox} title={EMPTY_TEXT[filter].title}>{EMPTY_TEXT[filter].text}</Empty> : null}
+          {feed.data && !items.length ? <Empty title={EMPTY_TEXT[filter].title}>{EMPTY_TEXT[filter].text}</Empty> : null}
           {/* Keyed by place and oldest item: a new item at the top doesn't snap a group open or shut. */}
           <ul aria-label="Inbox" onKeyDown={rowKeys}>
             {groups.map((group, index) => {
@@ -777,7 +777,7 @@ export function SavedView() {
     <ViewScreen title="Saved">
       {savedPages.isLoading ? <ListSkeleton header={false} label="Loading saved messages" rows={4} /> : null}
       {savedPages.isError && !saved ? <ListError what="Saved messages" query={savedPages} /> : null}
-      {saved && !saved.length ? <Empty icon={Bookmark} title="Nothing saved yet">Save messages to come back to them: open a message’s menu (long-press on a phone) and choose Save, or press S on a selected message.</Empty> : null}
+      {saved && !saved.length ? <Empty title="Nothing saved yet">Save messages to come back to them: open a message’s menu (long-press on a phone) and choose Save, or press S on a selected message.</Empty> : null}
       <ul aria-label="Saved messages" onKeyDown={rowKeys}>
         {(saved ?? []).map((item, index) => {
           const due = item.remind_at && !item.reminded_at && Date.parse(item.remind_at) <= now + 60_000;
@@ -1169,10 +1169,10 @@ export function SearchView() {
           ) : null}
         </div>
       </form>
-      {tooShort && !active ? <Empty icon={Search} title="Type at least 2 characters" /> : !active ? <Empty icon={Search} title="Search your messages">Words in every conversation you’re in. Narrow it down with In, From, Has file and dates.</Empty> : null}
+      {tooShort && !active ? <Empty title="Type at least 2 characters" /> : !active ? <Empty title="Search your messages">Words in every conversation you’re in. Narrow it down with In, From, Has file and dates.</Empty> : null}
       {resultPages.isLoading ? <ListSkeleton header={false} label="Searching" rows={4} /> : null}
       {resultPages.isError && !results ? <ListError what="Search results" detail={chatErrorMessage(resultPages.error.message)} query={resultPages} /> : null}
-      {results && !results.length ? <Empty icon={Search} title="No messages match">{filtered ? "Try fewer filters." : "Try other words."}</Empty> : null}
+      {results && !results.length ? <Empty title="No messages match">{filtered ? "Try fewer filters." : "Try other words."}</Empty> : null}
       {results?.length ? <p className="nbm-lgroup nbm-lrow-meta">{resultPages.hasNextPage ? `Newest ${results.length} results` : `${results.length} result${results.length === 1 ? "" : "s"}`}</p> : null}
       <ul aria-label="Search results" onKeyDown={rowKeys}>
         {(results ?? []).map((hit: SearchHit, index) => {

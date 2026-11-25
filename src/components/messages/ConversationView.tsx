@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, ArrowRight, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRight, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -207,7 +207,7 @@ export function Pins({ channelId }: { channelId: string }) {
   if (pins.isLoading) return <RowsSkeleton label="Loading pins…" />;
   // An error is not "nothing pinned".
   if (pins.isError) return <ErrorNotice what="Pins" onRetry={() => void pins.refetch()} className="m-4" />;
-  if (!pins.data?.length) return <EmptyState compact icon={Pin} title="Nothing pinned yet" description="Pin important messages from their actions menu." className="m-4" />;
+  if (!pins.data?.length) return <EmptyState compact figure="person" title="Nothing pinned yet" description="Pin important messages from their actions menu." className="m-4" />;
   return <ul aria-label="Pins" className="app-scroll app-scroll-y min-h-0 flex-1">{pins.data.map((m) => <PinRow key={m.seq} message={m} channelId={channelId} />)}</ul>;
 }
 

@@ -625,3 +625,15 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 /* Phase 7 review fixes */
 .nbm-note-bar .nbm-tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .nbm-note-conflict { flex-wrap: wrap; }
+
+/* Home and EmptyState v2 (Phase 8 Task 35) */
+.nbm-home-line { margin: 0; font: 11px/1.4 var(--nbm-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm-checkrow { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; border: 1px solid var(--nbm-line); border-radius: 6px; background: var(--card); font-size: 14px; transition: border-color var(--nbm-m1) var(--nbm-ease), background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-checkrow:hover { border-color: var(--foreground); }
+.nbm-checkrow > span:last-child { font-size: 13px; font-weight: 500; color: var(--nbm-brand); }
+.nbm-home-list { display: grid; gap: 2px; }
+.nbm-home-list > .nbm-glabel { margin-bottom: 4px; }
+.nbm .nb-empty-state .nb-card-title { font: 400 24px/1.15 var(--nbm-serif); letter-spacing: -.01em; }
+.nbm .nb-empty-state .nb-compact { max-width: 40ch; margin-left: auto; margin-right: auto; font-size: 13.5px; color: var(--nbm-fg2); }
+.nbm .nb-empty-state .nb-empty-figure { display: inline-grid; width: 48px; height: 48px; place-items: center; margin-bottom: 10px; }
+.nbm .nb-empty-state { animation: nbm-fade var(--nbm-m3) var(--nbm-ease) backwards; }
