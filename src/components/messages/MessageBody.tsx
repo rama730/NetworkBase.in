@@ -122,7 +122,6 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
     // Markdown images: https only, lazy, without a referrer; anything else shows its alt text.
     img({ src, alt }) {
       const safe = typeof src === "string" && /^https:\/\//i.test(src) ? normalizeSafeExternalUrl(src) : null;
-      // eslint-disable-next-line @next/next/no-img-element -- user content from any host; next/image needs known hosts
       return safe ? <img src={safe} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" className="nbm-img" /> : <span>{alt}</span>;
     },
   }), [meId, wrapMention]);
