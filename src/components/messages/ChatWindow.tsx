@@ -8,6 +8,7 @@ import { channelTitle } from "@/lib/messaging/channel-view";
 import { ArrowLeft, ExternalLink, Minus, X } from "lucide-react";
 
 import { useChatWindow } from "@/components/messages/chat-window-store";
+import { recentInput } from "@/components/messages/recent-input";
 import { useMessageTarget } from "@/components/messages/useConversation";
 import { ConversationSkeleton } from "@/components/messages/ConversationSkeleton";
 import { ConversationView } from "@/components/messages/ConversationView";
@@ -27,6 +28,8 @@ import { conversationHref } from "@/lib/messaging/routes";
  * a conversation, then a thread, each with Back. Non-modal; Esc minimizes.
  */
 export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => void; onClose: () => void }) {
+  // Rises from the launcher when a click or key opened it (interaction only).
+  const [rise] = useState(recentInput);
   const stack = useChatWindow((state) => state.stack);
   const push = useChatWindow((state) => state.push);
   const back = useChatWindow((state) => state.back);
@@ -71,13 +74,13 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
   // Minimize and Close everywhere; "Open in Messages" here, or in the conversation's ⋯.
   const controls = (
     <>
-      <button type="button" onClick={onMinimize} className="nb-icon-button nb-touch-target" aria-label="Minimize"><Minus size={16} /></button>
-      <button type="button" onClick={onClose} className="nb-icon-button nb-touch-target" aria-label="Close"><X size={16} /></button>
+      <button type="button" onClick={onMinimize} className="nbm-cell nb-touch-target" aria-label="Minimize"><Minus size={16} /></button>
+      <button type="button" onClick={onClose} className="nbm-cell nb-touch-target" aria-label="Close"><X size={16} /></button>
     </>
   );
   const actions = (
     <>
-      <Link href={fullHref} onClick={onClose} className="nb-icon-button nb-touch-target" aria-label="Open in Messages" title="Open in Messages"><ExternalLink size={16} /></Link>
+      <Link href={fullHref} onClick={onClose} className="nbm-cell nb-touch-target" aria-label="Open in Messages" title="Open in Messages"><ExternalLink size={16} /></Link>
       {controls}
     </>
   );
@@ -90,13 +93,13 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
       aria-label="Messages window"
       data-messages-surface
       data-testid="chat-window"
-      className="nbm fixed bottom-[5.5rem] right-6 z-30 flex outline-none h-[min(640px,calc(100dvh-5.5rem))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-md"
+      className={`nbm nbm-window${rise ? " nbm-window-rise" : ""} fixed bottom-[5.5rem] right-6 z-30 flex outline-none h-[min(640px,calc(100dvh-5.5rem))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden`}
     >
       {/* The list, Inbox and conversation screens carry their own header (one header, not two). */}
       {screen.type === "list" || screen.type === "inbox" || screen.type === "channel" ? null : (
-        <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2">
-          {stack.length > 1 ? <button type="button" onClick={back} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button> : null}
-          <h2 className="nb-card-title min-w-0 flex-1 truncate px-1">{title}</h2>
+        <header className="nbm-lhead">
+          {stack.length > 1 ? <button type="button" onClick={back} className="nbm-cell nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button> : null}
+          <h2 className="nbm-lhead-title">{title}</h2>
           {screen.type === "thread" ? <div ref={setSlot} className="flex flex-none items-center gap-1" /> : null}
           {actions}
         </header>

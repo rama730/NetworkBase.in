@@ -1,5 +1,6 @@
 "use client";
 
+import { padCount } from "@/lib/messaging/mix-format";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -45,13 +46,14 @@ export default function ChatLauncher() {
         onClick={() => setOpen(!open)}
         aria-label={label}
         aria-expanded={open}
+        aria-pressed={open}
         aria-controls="chat-window"
         data-testid="chat-launcher"
-        className="fixed bottom-6 right-6 z-20 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-md"
+        className="nbm nbm-launcher fixed bottom-6 right-6 z-20"
       >
         <MessageSquare size={24} aria-hidden="true" />
-        {/* The nav's neutral count, readable on the clay button (never clay on clay). */}
-        {badge ? <span className="nb-chat-count absolute -right-1 -top-1 m-0 border border-card text-secondary-foreground" aria-hidden="true">{badge > 99 ? "99+" : badge}</span> : null}
+        {/* A mono clay count chip on the ink-or-card cell. */}
+        {badge ? <span className="nbm-count hot nbm-launcher-count" aria-hidden="true">{padCount(badge)}</span> : null}
       </button>
       {open ? <ChatWindow onMinimize={() => { setOpen(false); button.current?.focus(); }} onClose={() => { close(); button.current?.focus(); }} /> : null}
     </>

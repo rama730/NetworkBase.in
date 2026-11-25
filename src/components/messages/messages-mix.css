@@ -674,3 +674,13 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-sw-row.is-active { background: var(--nbm-soft); }
 .nbm-sw-row:disabled { opacity: .55; cursor: default; }
 .nbm-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; padding: 8px 12px; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--nbm-soft); font-size: 13px; }
+
+/* Floating window and the square launcher (Phase 9 Task 39) */
+.nbm-launcher { display: grid; width: 56px; height: 56px; place-items: center; border: 1px solid var(--nbm-line); border-radius: 6px; background: var(--card); color: var(--foreground); box-shadow: var(--nbm-shadow-pop); transition: background-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
+.nbm-launcher:hover { background: var(--nbm-soft); }
+.nbm-launcher[aria-pressed="true"] { border-color: var(--nbm-ink); background: var(--nbm-ink); color: var(--nbm-on-ink); }
+.nbm-launcher:active { transform: translateY(1px); transition-duration: 60ms; }
+.nbm-launcher-count { position: absolute; top: -6px; right: -6px; box-shadow: 0 0 0 2px var(--card); }
+.nbm-window { border: 1px solid var(--nbm-line); border-radius: 8px; background: var(--card); box-shadow: var(--nbm-shadow-pop); }
+@keyframes nbm-window-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.nbm-window-rise { animation: nbm-window-rise 220ms var(--nbm-ease) backwards; }

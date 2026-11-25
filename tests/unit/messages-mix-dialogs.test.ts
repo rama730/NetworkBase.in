@@ -58,3 +58,23 @@ test('new message: square To chips, a mono group label, the existing-conversatio
   assert.match(nm, /<p className="nbm-notice">/);
   assert.match(css, /\.nbm-to-chip\s*\{[^}]*border-radius:\s*3px/);
 });
+
+test('launcher: a 56px square cell, mono count chip, open = ink fill (pressed); it carries .nbm itself', () => {
+  const l = readFileSync('src/components/messages/ChatLauncher.tsx', 'utf8');
+  assert.match(l, /className="nbm nbm-launcher fixed bottom-6 right-6 z-20"/);
+  assert.match(l, /aria-pressed=\{open\}/);
+  assert.match(l, /<span className="nbm-count hot nbm-launcher-count" aria-hidden="true">\{padCount\(badge\)\}<\/span>/);
+  assert.match(css, /\.nbm-launcher\s*\{[^}]*width:\s*56px[^}]*height:\s*56px[^}]*border-radius:\s*6px/);
+  assert.match(css, /\.nbm-launcher\[aria-pressed="true"\]\s*\{[^}]*var\(--nbm-ink\)/);
+});
+
+test('window: 8px corners, header cells, rises 12px in 220ms only after an interaction', () => {
+  const w = readFileSync('src/components/messages/ChatWindow.tsx', 'utf8');
+  assert.match(w, /nbm-window/);
+  assert.match(w, /const \[rise\] = useState\(recentInput\)/);
+  assert.match(w, /rise \? " nbm-window-rise" : ""/);
+  assert.doesNotMatch(w, /nb-icon-button/);
+  assert.match(css, /\.nbm-window\s*\{[^}]*border-radius:\s*8px/);
+  assert.match(css, /@keyframes nbm-window-rise \{ from \{ opacity: 0; transform: translateY\(12px\); \}/);
+  assert.match(css, /\.nbm-window-rise\s*\{[^}]*animation:\s*nbm-window-rise 220ms/);
+});

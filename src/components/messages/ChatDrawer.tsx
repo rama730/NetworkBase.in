@@ -9,6 +9,7 @@ import { ArrowLeft, X } from "lucide-react";
 
 import { usePanes } from "@/components/messages/usePanes";
 import { useChatUi } from "@/components/messages/chat-ui-store";
+import { recentInput } from "@/components/messages/recent-input";
 import { ThreadSkeleton } from "@/components/messages/ConversationSkeleton";
 import { useChannelDetails } from "@/components/messages/useConversation";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,16 +29,9 @@ type View = "thread" | "details";
  * window to 560px so replies have room), a full screen with Back below. With both open they are tabs, and both
  * stay mounted, so checking members never loses the thread's scroll, count or focus.
  */
-// Motion on interaction only: the drawer slides in when a click or key opened it, not on a page load or a refresh.
-let lastInputAt = 0;
-if (typeof window !== "undefined") {
-  const mark = () => { lastInputAt = Date.now(); };
-  window.addEventListener("pointerdown", mark, true);
-  window.addEventListener("keydown", mark, true);
-}
-
 export function ChatDrawer({ channelId }: { channelId: string }) {
-  const [slide] = useState(() => Date.now() - lastInputAt < 1000);
+  // Motion on interaction only: it slides in when a click or key opened it, not on a page load.
+  const [slide] = useState(recentInput);
   const panes = usePanes(channelId);
   const router = useRouter();
   const search = useSearchParams()?.toString() ?? "";

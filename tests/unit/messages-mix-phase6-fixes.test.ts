@@ -20,7 +20,7 @@ test('the notification cells stay their own size (no stretched box)', () => {
 test('links keep their colour; motion only after an interaction; touch tabs 44px; no doubled last line', () => {
   assert.match(css, /\.nbm-drow-side:is\(a\)\s*\{[^}]*color:\s*var\(--nbm-brand\)/);
   assert.match(css, /\.nbm-dhead-where:is\(a\):hover\s*\{[^}]*color:\s*var\(--foreground\)/);
-  assert.match(drawer, /const \[slide\] = useState\(\(\) => Date\.now\(\) - lastInputAt < 1000\)/);
+  assert.match(drawer, /const \[slide\] = useState\(recentInput\)/);
   assert.match(css, /@media \(pointer: coarse\) \{ \.nbm-tab \{ min-height: 44px; \} \}/);
   assert.match(css, /\.nbm-drow:last-child\s*\{\s*border-bottom:\s*0/);
   assert.match(css, /\.nbm-qa > :focus-visible, \.nbm-seg > button:focus-visible\s*\{[^}]*outline-offset:\s*-2px/);
