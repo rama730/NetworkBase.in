@@ -490,9 +490,9 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
                 if (row.type === "loading") return <RepliesSkeleton />;
                 if (row.type === "new") {
                   return (
-                    <div className="flex items-center gap-3 px-4 py-1" role="separator" aria-label="New replies">
-                      <span className="h-px flex-1 bg-primary" />
-                      <span className="nb-micro rounded-sm bg-card px-1 text-primary">New replies</span>
+                    <div className="nbm-newline" role="separator" aria-label="New replies">
+                      <span className="nbm-newline-rule" />
+                      <span className="nbm-tag hot" aria-hidden="true">New</span>
                     </div>
                   );
                 }

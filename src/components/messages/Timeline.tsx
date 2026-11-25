@@ -140,14 +140,14 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
     requestAnimationFrame(() => input.current?.focus());
   };
   return (
-    <div className="flex items-center gap-3 px-4 py-2">
-      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+    <div className="nbm-day">
+      <span aria-hidden="true" className="nbm-day-rule" />
       <span className="relative">
         <button
           type="button"
           onClick={open}
           aria-label={`${label}. Jump to a date`}
-          className="nb-touch-target pointer-coarse:min-h-[44px] pointer-coarse:px-3 inline-flex items-center justify-center rounded-[4px] border border-border bg-card px-2.5 py-0.5 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="nbm-day-chip nb-touch-target"
           title="Jump to a date"
         >
           {label}
@@ -169,7 +169,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
             : "pointer-events-none absolute inset-0 opacity-0"}
         />
       </span>
-      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+      <span aria-hidden="true" className="nbm-day-rule" />
     </div>
   );
 }
@@ -443,9 +443,9 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     if (item.type === "day") return <DayLabel label={item.label} onPick={pickDate} />;
     if (item.type === "new") {
       return (
-        <div className="flex items-center gap-3 px-4 py-1" role="separator" aria-label="New messages">
-          <span className="h-px flex-1 bg-primary" />
-          <span className="nb-micro rounded-sm bg-card px-1 text-primary">New messages</span>
+        <div className="nbm-newline" role="separator" aria-label="New messages">
+          <span className="nbm-newline-rule" />
+          <span className="nbm-tag hot" aria-hidden="true">New</span>
         </div>
       );
     }
@@ -471,15 +471,15 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     >
       {jump ? (
         <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center">
-          <span role="status" className="nb-tag shadow-sm">Finding {new Date(jump.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}…</span>
+          <span role="status" className="nbm-finding"><PixelBeat />Finding {new Date(jump.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}…</span>
         </div>
       ) : bannerOpen && unreadAtOpen && onMarkRead ? (
-        <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-1 rounded-md border border-[var(--status-info)]/30 bg-[var(--status-info-soft)] py-1 pl-3 pr-1 text-[13px] text-foreground shadow-sm">
-          <button type="button" onClick={toFirstUnread} className="min-w-0 flex-1 truncate text-left font-medium hover:underline">
+        <div className="nbm-strip">
+          <button type="button" onClick={toFirstUnread} className="nbm-strip-text">
             {unreadAtOpen.count}{unreadAtOpen.more ? "+" : ""} new message{unreadAtOpen.count === 1 && !unreadAtOpen.more ? "" : "s"} since {formatChatTime(unreadAtOpen.since, "at")}
           </button>
-          <Button type="button" variant="ghost" size="sm" onClick={markRead} className="flex-none pointer-coarse:h-11">Mark as read</Button>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setBannerOpen(false)} className="flex-none pointer-coarse:size-11" aria-label="Dismiss"><X size={16} /></Button>
+          <button type="button" onClick={markRead} className="nbm-strip-btn">Mark as read</button>
+          <button type="button" onClick={() => setBannerOpen(false)} className="nbm-cell nbm-strip-x" aria-label="Dismiss"><X size={16} /></button>
         </div>
       ) : topDay ? (
         <div className="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">

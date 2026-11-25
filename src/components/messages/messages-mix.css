@@ -193,3 +193,33 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-menu [data-variant="destructive"] { color: var(--nbm-bad); }
 @media (pointer: coarse) { .nbm-menu [data-slot$="item"], .nbm-menu [data-slot="dropdown-menu-sub-trigger"] { min-height: 44px; } }
 @media (pointer: coarse) { .nbm-seg > button { min-height: 44px; } }
+
+/* ================= Conversation chrome (Phase 3) ================= */
+/* Day rule: hairline, a square mono chip (a button: Jump to a date), hairline. */
+.nbm-day { display: flex; align-items: center; gap: 12px; padding: 14px 20px 6px; }
+.nbm-day-rule { flex: 1; height: 1px; background: var(--nbm-line); }
+.nbm-day-chip { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 22px; padding: 0 8px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--card); font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); transition: border-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
+.nbm-day-chip:hover { border-color: var(--foreground); color: var(--foreground); }
+.nbm-day-chip:active { transform: translateY(1px); transition-duration: 60ms; }
+@media (pointer: coarse) { .nbm-day-chip { min-height: 44px; padding: 0 12px; } }
+/* NEW line: clay hairline + clay square tag. */
+.nbm-newline { display: flex; align-items: center; gap: 10px; padding: 8px 20px; }
+.nbm-newline-rule { flex: 1; height: 1px; background: var(--nbm-brand); }
+/* Finding a far date: the chip with the pixel beat. */
+.nbm-finding { display: inline-flex; align-items: center; gap: 8px; height: 22px; padding: 0 8px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--card); box-shadow: var(--nbm-shadow-pop); font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
+/* Open banner: a hairline strip across the timeline's top. */
+.nbm-strip { position: absolute; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px 0 20px; border-bottom: 1px solid var(--nbm-line); background: var(--card); animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font: 11.5px/1 var(--nbm-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--foreground); text-decoration: underline transparent; text-underline-offset: 3px; transition: color var(--nbm-m1) var(--nbm-ease), text-decoration-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-strip-text:hover { color: var(--nbm-brand); text-decoration-color: currentColor; }
+.nbm-strip-btn { flex: none; height: 28px; padding: 0 10px; border-radius: 5px; font-size: 13px; font-weight: 500; color: var(--foreground); }
+.nbm-strip-btn:hover { background: var(--nbm-soft); }
+.nbm-strip-x { flex: none; }
+@media (pointer: coarse) { .nbm-strip { height: 48px; } .nbm-strip-btn, .nbm-strip-x { min-height: 44px; min-width: 44px; } }
+/* Jump to latest: a strip cell above the composer. */
+.nbm-latest { display: flex; flex: none; justify-content: center; padding: 4px 12px; border-top: 1px solid var(--nbm-line); background: var(--card); animation: nbm-rise var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm-latest > button { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border-radius: 4px; color: var(--nbm-brand); font-size: 13px; font-weight: 500; transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-latest > button:hover { background: var(--nbm-soft); }
+.nbm-latest > button svg { transition: transform var(--nbm-m1) var(--nbm-ease); }
+.nbm-latest > button:hover svg { transform: translateY(2px); }
+.nbm-latest > button:active { transform: translateY(1px); transition-duration: 60ms; }
+@media (pointer: coarse) { .nbm-latest > button { min-height: 44px; } }

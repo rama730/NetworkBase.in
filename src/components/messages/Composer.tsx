@@ -1,5 +1,6 @@
 "use client";
 import { UploadBar } from "@/components/ui/UploadBar";
+import { PixelBeat } from "@/components/messages/mix/primitives";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -141,7 +142,7 @@ function TypingIndicator({ names }: { names: string[] }) {
       aria-hidden={!visible}
       className="pointer-events-none absolute inset-x-3 bottom-[calc(100%+1px)] flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground transition-[opacity,transform] duration-[180ms] ease-out data-[visible=false]:translate-y-1 data-[visible=false]:opacity-0 motion-reduce:transition-none sm:inset-x-4"
     >
-      <span className="nb-typing-dots" aria-hidden="true"><span /><span /><span /></span>
+      <PixelBeat />
       <span className="truncate">
         {label.names.map((name, index) => (
           <span key={index}>{index ? " and " : ""}<strong className="font-semibold text-foreground">{name}</strong></span>

@@ -240,7 +240,7 @@ test("both virtualized histories keep their scroll, drop, draft and live-region 
     assert.match(source, /className="app-scroll app-scroll-y h-full"/);
     assert.match(source, /computeItemKey=/);
     assert.match(source, /aria-live="off"/);
-    assert.match(source, /bg-card px-1 text-primary/);
+    assert.match(source, /className="nbm-newline" role="separator"/);
   }
   const row = read("src/components/messages/MessageRow.tsx");
   assert.match(row, /highlighted \? "bg-accent" : mentioned \? "bg-muted" : "nb-message-row-soft"/);
