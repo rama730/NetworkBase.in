@@ -316,10 +316,13 @@ export async function addChannelTab(input: { channelId: string; kind: ChannelTab
   if (input.kind === "link" && (!url || !/^https?:\/\//i.test(url) || url.length > 2000)) return invalidInput;
   try {
     // A 21st tab and a tab that is already here each get their own words (they shared "channel name taken").
-    const [existing] = await chatRows<{ n: number }>(sql`
-      SELECT count(*)::int AS n FROM chat_channel_tabs WHERE channel_id = ${input.channelId}::uuid
+    // Membership first, so someone outside the channel never learns its tab count.
+    const [existing] = await chatRows<{ member: boolean; n: number }>(sql`
+      SELECT app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid) AS member,
+             (SELECT count(*)::int FROM chat_channel_tabs WHERE channel_id = ${input.channelId}::uuid) AS n
     `);
-    if ((existing?.n ?? 0) >= 20) return { success: false as const, error: "chat_tab_limit" };
+    if (!existing?.member) return { success: false as const, error: "chat_not_member" };
+    if (existing.n >= 20) return { success: false as const, error: "chat_tab_limit" };
     const [tab] = await chatRows<ChannelTab>(sql`
       INSERT INTO chat_channel_tabs (channel_id, kind, title, url, position, created_by)
       SELECT ${input.channelId}::uuid, ${input.kind}, ${title}, ${url},

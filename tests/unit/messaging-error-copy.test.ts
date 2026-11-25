@@ -44,6 +44,8 @@ test('the three wrong-words cases return their own codes', () => {
   assert.match(tab, /chat_tab_limit/);
   assert.match(tab, /chat_tab_duplicate/);
   assert.doesNotMatch(tab, /chat_duplicate"/);
+  // Someone outside the channel must not learn its tab count: membership comes first.
+  assert.match(tab, /chat_is_member[\s\S]*chat_not_member[\s\S]*chat_tab_limit/);
   const later = readFileSync('src/app/actions/chat/later.ts', 'utf8');
   assert.match(later, /scheduleWindow/);
   assert.match(later, /chat_schedule_too_far/);
