@@ -198,3 +198,32 @@ test("B3.2a: one plan, several classes — Taught per class (two at once keep bo
   assert.deepEqual([pupil.groups, pupil.behind, lessonsOf(pupil)[0]!.ticks, lessonsOf(pupil)[0]!.classNotes], [[], [], {}, undefined], "ticks, class notes and pacing stay with staff");
   assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6A", false)).success, false, "students can't tick");
 });
+
+test("B3.2d: Duplicate a unit into another of my courses; Lesson still Draft once, within 3 school days of its class", async () => {
+  const t = await setup();
+  const other = await setup();
+  await sql`UPDATE workspaces SET owner_id = ${t.teacher} WHERE id = ${other.klass}`;
+  await sql`UPDATE workspace_members SET user_id = ${t.teacher} WHERE workspace_id = ${other.klass} AND role = 'owner'`;
+  viewerId = t.teacher;
+  const a = await plan.addTermLessonAction(t.klass, { weekId: t.week, title: "Arrays", lessonType: "activity" });
+  assert.ok(a.success);
+  await sql`UPDATE tasks SET type_fields = type_fields || ${sql.json({ taught: { "6A": { on: "2027-01-12", by: t.teacher } }, classNotes: { "6A": "x" } })} WHERE id = ${a.id}`;
+  const view = await plan.readTermPlanAction(t.klass);
+  assert.ok(view.success && view.otherCourses.some((c) => c.id === other.klass));
+  const dup = await plan.duplicateUnitAction(t.klass, t.unit, other.klass);
+  assert.deepEqual(dup, { success: true, lessons: 1 });
+  const copied = await sql`SELECT t.stage, t.type_fields, w.name AS week, u.name AS unit FROM tasks t JOIN workspace_sprints w ON w.id = t.sprint_id JOIN workspace_sprints u ON u.id = w.parent_sprint_id
+    WHERE t.workspace_id = ${other.klass} AND t.item_type = 'class_lesson'`;
+  assert.deepEqual(copied.map((c) => [c.stage, c.week, c.unit, c.type_fields.lessonType, c.type_fields.taught, c.type_fields.classNotes]), [["draft", "Week 1", "Unit 1 Arrays", "activity", undefined, undefined]]);
+  viewerId = t.ta;
+  assert.equal((await plan.duplicateUnitAction(t.klass, t.unit, other.klass)).success, false, "the teacher only");
+
+  // Arrays is Draft and taught Tue 2027-01-12: on Fri 2027-01-08 that's within 3 school days (Fri, Mon); on Tue 2027-01-05 it isn't.
+  const { notifyDraftLessonsSoon } = await loadAppModule(() => import("../../src/lib/organizations/term-plan-server"));
+  await notifyDraftLessonsSoon(new Date("2027-01-05T12:00:00Z"));
+  assert.equal((await sql`SELECT 1 FROM user_notifications WHERE dedupe_key = ${`draft-soon:${a.id}`}`).length, 0, "not yet");
+  await notifyDraftLessonsSoon(new Date("2027-01-08T12:00:00Z"));
+  await notifyDraftLessonsSoon(new Date("2027-01-08T13:00:00Z"));
+  const sent = await sql`SELECT user_id, title FROM user_notifications WHERE dedupe_key = ${`draft-soon:${a.id}`}`;
+  assert.deepEqual(sent.map((n) => [n.user_id, n.title]), [[t.teacher, "Arrays is still Draft · taught 2027-01-12"]], "once, to the teacher");
+});

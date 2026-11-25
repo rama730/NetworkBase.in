@@ -765,4 +765,6 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Keep at least one section.": {"title": "Keep at least one section.", "type": "warning"},
   "Check the teaching settings.": {"title": "Check the teaching settings.", "type": "warning"},
   "Couldn’t load the standards.": {"title": "Couldn’t load the standards."},
+  "Pick one of your own courses.": {"title": "Pick one of your own courses.", "type": "warning"},
+  "That unit isn’t in this course.": {"title": "That unit isn’t in this course.", "type": "warning"},
 };

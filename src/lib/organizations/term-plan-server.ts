@@ -108,3 +108,51 @@ export async function sessionLessons(classId: string, orgSettings: unknown, sess
   }
   return out;
 }
+
+/**
+ * B3.2d (report 32.3 layer 15): "Lesson still Draft" to the class's teacher once, when its session is within the
+ * next 3 school days (Normal, never to the whole team). One notice per lesson.
+ */
+export async function notifyDraftLessonsSoon(now = new Date()) {
+  const { draftSoon } = await import("@/lib/organizations/curriculum");
+  const rows = Array.from(await db.execute<{ id: string; slug: string | null; owner_id: string; zone: string | null; settings: unknown; term_start: string | null; term_end: string | null }>(sql`
+    SELECT DISTINCT w.id, w.slug, w.owner_id, w.time_zone AS zone, w.org_settings AS settings, w.term_start::date::text AS term_start, w.term_end::date::text AS term_end FROM workspaces w JOIN tasks t ON t.workspace_id = w.id
+    WHERE w.kind = 'organization' AND w.deleted_at IS NULL AND w.status <> 'archived' AND t.item_type = 'class_lesson' AND t.deleted_at IS NULL AND t.stage = 'draft' LIMIT 2000`));
+  let sent = 0;
+  for (const r of rows) {
+    const details = readClassDetails(r.settings);
+    if (!details) continue;
+    const today = todayInZone(r.zone, now);
+    const sessions = termSessions(details, { start: r.term_start, end: r.term_end }, readSessionChanges(r.settings));
+    const lessons = await sessionLessons(r.id, r.settings, sessions, true);
+    for (const [key, lesson] of lessons) {
+      if (!draftSoon(lesson.stage, key.slice(0, 10), today)) continue;
+      await createNotification({
+        recipientUserId: r.owner_id, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "more",
+        title: `${lesson.title} is still Draft · taught ${key.slice(0, 10)}`, href: `/org/${encodeURIComponent(r.slug || r.id)}?tab=sprints`,
+        entityRefs: { projectId: r.id, projectSlug: r.slug }, dedupeKey: `draft-soon:${lesson.id}`,
+      }).then(() => { sent += 1; }).catch((error) => logger.error("term_plan.draft_notice_failed", { error: error instanceof Error ? error.message : String(error) }));
+    }
+  }
+  return { sent };
+}
+
+/**
+ * B3.2d (report 32.3 call 10, Duplicate): copy Term plan lessons into other weeks — back to Planned (Cancelled stays
+ * Cancelled), without Taught ticks, class notes or teacher notes. `sprintMap` maps old weeks to new ones.
+ */
+export async function copyPlanLessons(sourceId: string, targetId: string, sprintMap: Map<string, string>, actorId: string) {
+  if (!sprintMap.size) return 0;
+  const { insertTask } = await import("@/lib/organizations/assignments");
+  const { eq } = await import("drizzle-orm");
+  const lessons = await db.select({ title: tasks.title, description: tasks.description, sprintId: tasks.sprintId, stage: tasks.stage, fields: tasks.typeFields }).from(tasks)
+    .where(and(sql`${tasks.projectId} = ${sourceId}::uuid`, sql`${tasks.itemType} = 'class_lesson'`, isNull(tasks.deletedAt), inArray(tasks.sprintId, [...sprintMap.keys()])));
+  for (const l of lessons) {
+    const id = await insertTask(db, { projectId: targetId, title: l.title, description: l.description, dueDate: null, sprintId: sprintMap.get(l.sprintId!) ?? null, assigneeId: null,
+      creatorId: actorId, kind: "task", assignmentId: null, assignmentSettings: null, teamName: null });
+    const { taught: _t, classNotes: _n, ...fields } = (l.fields ?? {}) as Record<string, unknown>;
+    const cancelled = l.stage === "cancelled";
+    await db.update(tasks).set({ itemType: "class_lesson", stage: cancelled ? "cancelled" : "draft", status: cancelled ? "done" : "todo", typeFields: fields, onBoard: false }).where(eq(tasks.id, id));
+  }
+  return lessons.length;
+}

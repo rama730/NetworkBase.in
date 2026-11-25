@@ -316,6 +316,15 @@ async function fillDuplicate(sourceId: string, newId: string, actorId: string, o
       }).returning({ id: workspaceSprints.id });
       sprintMap.set(sprint.id, s!.id);
     }
+    // B3.2d (report 32.3 call 10): the Term plan comes along — weeks keep their unit, Path steps their place, and
+    // lessons go back to Planned without Taught ticks, class notes or teacher notes (those stay with the old course).
+    for (const sprint of sprints) {
+      if (!sprint.parentSprintId && sprint.pathPosition == null) continue;
+      await db.update(workspaceSprints).set({ parentSprintId: sprint.parentSprintId ? sprintMap.get(sprint.parentSprintId) ?? null : null, pathPosition: sprint.pathPosition })
+        .where(eq(workspaceSprints.id, sprintMap.get(sprint.id)!));
+    }
+    const { copyPlanLessons } = await import("@/lib/organizations/term-plan-server");
+    await copyPlanLessons(sourceId, newId, sprintMap, actorId);
   }
   if (options.copy.assignments) {
     const masters = await db.select().from(tasks).where(and(eq(tasks.projectId, sourceId), eq(tasks.kind, "assignment"), isNull(tasks.deletedAt)));

@@ -23,10 +23,11 @@ async function open(page: Page, view: string, role = 'teacher', groups: string[]
             { id: 'w2', unitId: 'u1', name: 'Week 2', goal: null, start: '2027-01-18T00:00:00Z', end: '2027-01-24T00:00:00Z', status: 'active', sessions: 1, assessments: [],
               lessons: staff ? [{ ...(window as any).__l2 }, { ...(window as any).__l3 }] : [] },
           ] }],
-        groups: (window as any).__groups ?? [], schoolStandards: (window as any).__groups ? [{ code: 'SC6.3', text: 'Forces' }] : [], planned: { ready: 2, total: 3, percent: 67 },
+        groups: (window as any).__groups ?? [], schoolStandards: (window as any).__groups ? [{ code: 'SC6.3', text: 'Forces' }] : [], otherCourses: (window as any).__groups ? [{ id: 'c9', title: 'Grade 7 Science' }] : [], planned: { ready: 2, total: 3, percent: 67 },
         behind: ((window as any).__groups ?? []).map((g: string, i: number) => ({ group: g, due: 3, taught: 3 - i * 2, behind: i * 2, warn: i > 0 })),
         unplaced: [] }),
       markClassTaughtAction: async (_o: string, id: string, g: string, on: boolean) => { calls.push(['tick', id, g, on]); return { success: true, lessonTaught: false }; },
+      duplicateUnitAction: async (_o: string, u: string, to: string) => { calls.push(['dupUnit', u, to]); return { success: true, lessons: 3 }; },
       saveClassNoteAction: async (_o: string, id: string, g: string, n: string) => { calls.push(['classNote', id, g, n]); return { success: true }; },
       addTermLessonAction: async (_o: string, input: unknown) => { calls.push(['add', input]); return { success: true, id: 'n' }; },
       setLessonStageAction: async (_o: string, id: string, stage: string) => { calls.push(['stage', id, stage]); return { success: true }; },
@@ -140,5 +141,7 @@ test('B3.2a: a course that teaches 6A and 6B ticks Taught per class, keeps class
   await page.getByLabel('Lesson type for Week 2').selectOption('assessment');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect.poll(() => calls(page)).toContainEqual(['add', { weekId: 'w2', title: 'Stacks quiz', lessonType: 'assessment' }]);
+  await page.getByLabel('Duplicate Unit 1 · Arrays into another course').selectOption('c9');
+  await expect.poll(() => calls(page)).toContainEqual(['dupUnit', 'u1', 'c9']);
   expect(await axeViolations(page)).toEqual([]);
 });

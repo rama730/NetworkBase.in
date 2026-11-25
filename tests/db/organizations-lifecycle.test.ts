@@ -195,3 +195,20 @@ test("decision 52: with no term start, Duplicate moves dates from the first spri
   const [s] = await sql`SELECT start_date::date::text AS start FROM workspace_sprints WHERE workspace_id = ${newId}`;
   assert.equal(s!.start, "2027-01-04");
 });
+
+test("B3.2d: Start next term/year brings the Term plan — weeks under their unit, lessons back to Planned without ticks or class notes", async () => {
+  const o = await org();
+  const [unit] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status) VALUES (${o.id}, 1, 'Forces', '2026-07-06', '2026-07-31', 'completed') RETURNING id`;
+  const [week] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.id}, 2, 'Week 1', '2026-07-06', '2026-07-12', 'completed', ${unit!.id}) RETURNING id`;
+  await sql`INSERT INTO tasks (workspace_id, title, status, priority, item_type, stage, sprint_id, on_board, type_fields, creator_id)
+    VALUES (${o.id}, 'Balanced forces', 'done', 'medium', 'class_lesson', 'taught', ${week!.id}, false, ${sql.json({ lessonType: "activity", during: "## Main", taught: { "6A": { on: "2026-07-07", by: o.owner } }, classNotes: { "6A": "two parts" } })}, ${o.owner}),
+           (${o.id}, 'Dropped', 'done', 'medium', 'class_lesson', 'cancelled', ${week!.id}, false, '{}'::jsonb, ${o.owner})`;
+  const newId = await lifecycle.duplicateOrg(o.id, o.owner, { title: "CSE-3A next year", handle: `dup3-${o.id.slice(0, 8)}`, termStart: "2027-07-05",
+    copy: { about: true, docs: false, files: false, sprints: true, assignments: false, channels: false, admins: false } });
+  created.push(newId);
+  const sprints = await sql`SELECT s.name, p.name AS parent FROM workspace_sprints s LEFT JOIN workspace_sprints p ON p.id = s.parent_sprint_id WHERE s.workspace_id = ${newId} ORDER BY s.sprint_number`;
+  assert.deepEqual(sprints.map((s) => [s.name, s.parent]), [["Forces", null], ["Week 1", "Forces"]]);
+  const lessons = await sql`SELECT t.title, t.stage, t.on_board, t.type_fields, s.name AS week FROM tasks t JOIN workspace_sprints s ON s.id = t.sprint_id WHERE t.workspace_id = ${newId} AND t.item_type = 'class_lesson' ORDER BY t.title`;
+  assert.deepEqual(lessons.map((l) => [l.title, l.stage, l.on_board, l.week]), [["Balanced forces", "draft", false, "Week 1"], ["Dropped", "cancelled", false, "Week 1"]]);
+  assert.deepEqual(lessons[0]!.type_fields, { lessonType: "activity", during: "## Main" }, "no ticks or class notes");
+});

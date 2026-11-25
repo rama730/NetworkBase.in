@@ -77,6 +77,8 @@ export const chatDue = inngest.createFunction(
       await step.run("goals-closing", async () => (await import("@/lib/workflows/goals-notify")).notifyGoalsClosingSoon());
       // B1.2b (report 30.3 layer 15): "Mark 2 lessons taught" to each class's teacher, Summary, once a day.
       await step.run("lessons-to-mark", async () => (await import("@/lib/organizations/term-plan-server")).notifyLessonsToMarkTaught());
+      // B3.2d (report 32.3 layer 15): "Lesson still Draft" to the teacher, once, within 3 school days of its session.
+      await step.run("lessons-draft-soon", async () => (await import("@/lib/organizations/term-plan-server")).notifyDraftLessonsSoon());
       // B1.8c (report 30.6 layer 15): "No supervision in 30 days", Normal, once per gap, to the student and supervisor.
       await step.run("thesis-no-supervision", async () => (await import("@/lib/workflows/thesis-server")).notifyNoSupervision());
       // B2.3b (report 31.5 layer 15): Prep the day before; Off rhythm once per spell to the pair.

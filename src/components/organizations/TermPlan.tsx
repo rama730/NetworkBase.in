@@ -6,7 +6,7 @@ import { EventsView } from "@/components/organizations/SchoolEvents";
 import { Fragment, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { addTermLessonAction, duplicateLessonAction, markClassTaughtAction, moveLessonAction, readTermPlanAction, saveClassNoteAction, saveLessonNotesAction, saveTermPlanSettingsAction, setLessonStageAction, setWeekTopicsAction, updateLessonAction, type TermPlanLesson, type TermPlanWeek } from "@/app/actions/term-plan";
+import { addTermLessonAction, duplicateLessonAction, duplicateUnitAction, markClassTaughtAction, moveLessonAction, readTermPlanAction, saveClassNoteAction, saveLessonNotesAction, saveTermPlanSettingsAction, setLessonStageAction, setWeekTopicsAction, updateLessonAction, type TermPlanLesson, type TermPlanWeek } from "@/app/actions/term-plan";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -118,6 +118,13 @@ export function TermPlanView({ orgId }: { orgId: string }) {
                         <span className="font-mono text-[12px]">{u.progress.percent}%, {u.progress.taught} of {u.progress.planned} taught</span>
                       </span>
                       {u.outcomes.map((o) => <span key={o} className="nb-tag font-mono text-[11px]">{o}</span>)}
+                      {teacher && data.otherCourses.length ? (
+                        <select aria-label={`Duplicate ${u.name} into another course`} className="nb-select h-7 w-[200px] text-[12px] font-normal" value=""
+                          onChange={(e) => { const to = data.otherCourses.find((c) => c.id === e.target.value); if (to) void run(duplicateUnitAction(orgId, u.id, to.id), `${u.name} duplicated into ${to.title}`); }}>
+                          <option value="">Duplicate unit to…</option>
+                          {data.otherCourses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        </select>
+                      ) : null}
                     </span>
                   </th>
                 </tr>

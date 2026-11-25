@@ -99,6 +99,15 @@ test("Year map: units as spans per course; Taught per class only for leaders and
   viewerId = outsider!;
   assert.equal((await map.readYearMapAction(school)).success, false);
   assert.equal((await map.readYearMapAction(science)).success, false, "a class isn't a school");
+
+  // B3.2d (layer 15): 3 or more behind reaches leaders and that department's head in Friday's Summary, never teachers.
+  await sql`INSERT INTO tasks (workspace_id, title, status, priority, item_type, stage, sprint_id, type_fields, creator_id) VALUES (${science}, 'Third', 'todo', 'medium', 'class_lesson', 'ready', ${week!.id}, '{}'::jsonb, ${teacher!})`;
+  const { notifySchoolWeek } = await loadAppModule(() => import("../../src/lib/organizations/school-events-server"));
+  await notifySchoolWeek(new Date("2026-10-23T16:00:00Z"));
+  const sent = new Map((await sql`SELECT user_id, title FROM user_notifications WHERE dedupe_key LIKE ${`school-week:${school}:%`}`).map((n) => [n.user_id, n.title as string]));
+  assert.match(sent.get(principal!) ?? "", /1 class Behind the map/);
+  assert.match(sent.get(head!) ?? "", /1 class Behind the map/);
+  assert.equal((sent.get(teacher!) ?? "").includes("Behind the map"), false, "no ranking of teachers");
 });
 
 test("B3.2c: Settings → Teaching (leaders), standards on lessons, coverage, retired standards kept, the template, the opt-in overview", async () => {

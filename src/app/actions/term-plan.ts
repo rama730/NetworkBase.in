@@ -115,7 +115,11 @@ export async function readTermPlanAction(orgId: string) {
         outcomes: [...new Set(all.filter((l) => l.stage !== "cancelled" && weeks.some((w) => w.unitId === u.id && w.id === l.weekId)).flatMap((l) => l.outcomes))],
         weeks: shaped.filter((w) => w.unitId === u.id) })),
       // B3.2a: the classes this course teaches; Planned; Behind the map per class (staff only, never a ranking of teachers).
-      groups: staff ? groups : [], planned: plannedPercent(all), schoolStandards: staff ? (await schoolCurriculum(c.institutionId)).standards : [],
+      groups: staff ? groups : [], planned: plannedPercent(all),
+      // B3.2d: the teacher's other courses (same school), to duplicate a unit into.
+      otherCourses: teacher ? Array.from(await db.execute<{ id: string; title: string }>(sql`
+        SELECT id, title FROM workspaces WHERE owner_id = ${ctx.userId}::uuid AND kind = 'organization' AND org_level IS NULL AND deleted_at IS NULL AND id <> ${orgId}::uuid
+          AND institution_id IS NOT DISTINCT FROM ${c.institutionId}::uuid ORDER BY title LIMIT 50`)) : [], schoolStandards: staff ? (await schoolCurriculum(c.institutionId)).standards : [],
       behind: staff ? groups.map((g) => ({ group: g, ...behind(shaped.flatMap((w) => w.lessons.map((l) => ({ stage: l.stage, day: lessonDay(l.session, w), ticks: l.ticks }))), g, today) })) : [],
       unplaced: staff ? lessons.filter((l) => !l.weekId || !weeks.some((w) => w.id === l.weekId)).map((l) => ({ id: l.id, title: l.title, stage: l.stage })) : [],
     };
@@ -318,4 +322,33 @@ export async function saveClassNoteAction(orgId: string, taskId: string, group: 
       ELSE coalesce(type_fields->'classNotes', '{}'::jsonb) || jsonb_build_object(${group}::text, ${text}::text) END), updated_at = now()
     WHERE id = ${taskId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'class_lesson' AND deleted_at IS NULL RETURNING id`));
   return done.length ? { success: true } : { success: false, error: "That lesson isn’t in this class." };
+}
+
+/**
+ * B3.2d (report 32.3 Share across courses): Duplicate a unit into another of the teacher's courses — the unit and its
+ * weeks on the same dates, lessons back to Planned without ticks or notes. The teacher of both courses.
+ */
+export async function duplicateUnitAction(orgId: string, unitId: string, targetId: string): Promise<{ success: true; lessons: number } | Failure> {
+  const ctx = await classAccess(orgId);
+  if (!ctx?.teacher || !ctx.canWrite || !isLooseUuid(unitId) || !isLooseUuid(targetId) || targetId === orgId) return DENIED;
+  const target = await classAccess(targetId);
+  if (!target?.teacher || !target.canWrite || target.userId !== ctx.userId) return { success: false, error: "Pick one of your own courses." };
+  const [unit] = await db.select().from(workspaceSprints).where(and(eq(workspaceSprints.id, unitId), eq(workspaceSprints.projectId, orgId), isNull(workspaceSprints.parentSprintId), isNull(workspaceSprints.pathPosition))).limit(1);
+  if (!unit) return { success: false, error: "That unit isn’t in this course." };
+  const weeks = await db.select().from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), eq(workspaceSprints.parentSprintId, unitId))).orderBy(asc(workspaceSprints.startDate));
+  const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`coalesce(max(${workspaceSprints.sprintNumber}), 0)::int` }).from(workspaceSprints).where(eq(workspaceSprints.projectId, targetId));
+  const map = new Map<string, string>();
+  let next = n;
+  const insert = async (s: typeof unit, parent: string | null) => {
+    next += 1;
+    const [row] = await db.insert(workspaceSprints).values({ projectId: targetId, sprintNumber: next, name: s.name, goal: s.goal, description: s.description, startDate: s.startDate,
+      endDate: s.endDate, status: "planning", autoStart: s.autoStart, showInChildren: s.showInChildren, creatorId: ctx.userId, parentSprintId: parent }).returning({ id: workspaceSprints.id });
+    map.set(s.id, row!.id);
+    return row!.id;
+  };
+  const newUnit = await insert(unit, null);
+  for (const w of weeks) await insert(w, newUnit);
+  const { copyPlanLessons } = await import("@/lib/organizations/term-plan-server");
+  const lessons = await copyPlanLessons(orgId, targetId, new Map([...map].filter(([k]) => k !== unit.id)), ctx.userId);
+  return { success: true, lessons };
 }

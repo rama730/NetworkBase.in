@@ -102,11 +102,20 @@ export async function notifySchoolWeek(now = new Date()) {
       SELECT owner_id AS user_id FROM workspaces WHERE (id = ${s.id}::uuid OR institution_id = ${s.id}::uuid) AND deleted_at IS NULL
       UNION SELECT m.user_id FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id AND w.deleted_at IS NULL
       WHERE (w.id = ${s.id}::uuid OR w.institution_id = ${s.id}::uuid) AND m.role <> 'viewer' LIMIT 2000`));
+    // B3.2d (report 32.3 layer 15): classes 3 or more lessons Behind the map, for leaders (all) and heads (their department).
+    const { behindBy, schoolCourses } = await import("@/lib/organizations/curriculum-server");
+    const behindNow = behindBy(await schoolCourses(s.id), today);
+    const leaders = new Set(Array.from(await db.execute<{ user_id: string }>(sql`
+      SELECT owner_id AS user_id FROM workspaces WHERE id = ${s.id}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${s.id}::uuid AND role = 'admin'`)).map((r) => r.user_id));
+    const depts = ((s.settings as { departments?: unknown } | null)?.departments ?? []) as Array<{ id?: string; heads?: unknown }>;
+    const headOf = (u: string) => new Set((Array.isArray(depts) ? depts : []).filter((d) => Array.isArray(d.heads) && d.heads.includes(u)).map((d) => d.id));
     for (const p of people) {
       const mine = (await personalSchoolEvents(p.user_id, next, nextEnd)).length;
-      if (!mine && !days.length) continue;
+      const heads = headOf(p.user_id);
+      const late = behindNow.filter((c) => leaders.has(p.user_id) || (c.department && heads.has(c.department))).length;
+      if (!mine && !days.length && !late) continue;
       const kinds = [...new Set(days)].map((k) => DAY_WORDS[k]).join(", ");
-      const title = `Next week at school: ${mine} ${mine === 1 ? "event" : "events"}${kinds ? ` · ${kinds}` : ""}`;
+      const title = `Next week at school: ${mine} ${mine === 1 ? "event" : "events"}${kinds ? ` · ${kinds}` : ""}${late ? ` · ${late} ${late === 1 ? "class" : "classes"} Behind the map` : ""}`;
       await createNotification({ recipientUserId: p.user_id, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "more", title,
         href: `/org/${encodeURIComponent(s.slug || s.id)}?tab=sprints`, entityRefs: { projectId: s.id, projectSlug: s.slug }, dedupeKey: `school-week:${s.id}:${p.user_id}:${next}` })
         .then(() => { sent += 1; }).catch((error) => logger.error("school_events.week_summary_failed", { error: error instanceof Error ? error.message : String(error) }));
