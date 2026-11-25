@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Ban, Bell, BellOff, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Ban, BellOff, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
@@ -24,7 +24,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -71,11 +70,11 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
   };
   const Field = multiline ? "textarea" : "input";
   return (
-    <div className="p-4">
+    <div className="nbm-drow" data-multiline={multiline ? "true" : undefined}>
       <div className="flex items-center justify-between">
-        <span className="nb-ui-label text-foreground">{label}</span>
+        <span className="nbm-drow-label">{label}</span>
         {/* Out of the tab order: the value below is the same button for keyboards and screen readers. */}
-        {editable && draft === null ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={start} className="text-[13px] font-medium text-primary hover:underline">Edit</button> : null}
+        {editable && draft === null ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={start} className="nbm-drow-edit">Edit</button> : null}
       </div>
       {draft !== null ? (
         <div className="mt-1.5 space-y-1">
@@ -107,13 +106,13 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
           type="button"
           aria-label={`Edit ${label.toLowerCase()}${value ? `: ${value}` : ""}`}
           onClick={start}
-          className={`mt-1 block w-full cursor-text whitespace-pre-wrap rounded-sm text-left text-[13px] leading-relaxed hover:bg-muted ${value ? "text-foreground" : "text-muted-foreground"}`}
+          className={`nbm-drow-value cursor-text ${value ? "" : "is-empty"}`}
         >
           {value ? `${prefix ?? ""}${value}` : placeholder}
         </button>
       ) : (
         // Not yours to edit: plain text, not a dimmed button.
-        <p className={`mt-1 whitespace-pre-wrap text-[13px] leading-relaxed ${value ? "text-foreground" : "text-muted-foreground"}`}>{value ? `${prefix ?? ""}${value}` : "None"}</p>
+        <p className={`nbm-drow-value ${value ? "" : "is-empty"}`}>{value ? `${prefix ?? ""}${value}` : "None"}</p>
       )}
     </div>
   );
@@ -122,36 +121,53 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
 /** Star and Copy link, at the top of About (and a DM's details). */
 function QuickActions({ channel, onStar }: { channel: ChannelDetails; onStar?: () => void }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="nbm-qa">
       {onStar ? (
-        <Button type="button" variant="outline" size="sm" onClick={onStar} aria-pressed={channel.starred} className="pointer-coarse:h-11">
+        <button type="button" onClick={onStar} aria-pressed={channel.starred}>
           <Star size={16} className={channel.starred ? "text-primary" : ""} fill={channel.starred ? "currentColor" : "none"} aria-hidden="true" />
           {channel.starred ? "Starred" : "Star"}
-        </Button>
+        </button>
       ) : null}
-      <Button type="button" variant="outline" size="sm" onClick={() => { void copyWithToast(`${window.location.origin}${conversationHref(channel.id)}`, "Link copied"); }} className="pointer-coarse:h-11">
+      <button type="button" onClick={() => { void copyWithToast(`${window.location.origin}${conversationHref(channel.id)}`, "Link copied"); }}>
         <Link2 size={16} aria-hidden="true" /> Copy link
-      </Button>
+      </button>
     </div>
   );
 }
 
+/** Notifications as segmented cells (the same choices the select had), the help line under them. */
 function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (notify: ChatNotify) => void }) {
   const id = `notify-${channel.id}`;
+  const choices = notifyChoices(channel);
+  const current = notifyChoice(channel, channel.notify);
+  const index = Math.max(0, choices.findIndex((choice) => choice.value === current));
   return (
-    <div className="flex items-start gap-3 p-4">
-      <Bell size={16} aria-hidden="true" className="mt-0.5 text-muted-foreground" />
-      <span className="flex-1">
-        <span id={id} className="nb-ui-label block">Notifications</span>
-        {/* What the choice actually does. */}
-        <span className="block text-[13px] text-muted-foreground">{notifyHelp(channel, channel.notify)}</span>
-      </span>
-      <Select value={notifyChoice(channel, channel.notify)} onValueChange={(value) => onChange(value as ChatNotify)}>
-        <SelectTrigger aria-labelledby={id} className="w-auto min-w-[120px] text-[13px] pointer-coarse:h-11"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {notifyChoices(channel).map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
+    <div className="nbm-drow">
+      <span id={id} className="nbm-drow-label">Notifications</span>
+      <div
+        role="radiogroup" aria-labelledby={id} className="nbm-seg nbm-seg-wrap"
+        onKeyDown={(event) => {
+          const next = rovingTabKey(event, index, choices.length);
+          if (next === null) return;
+          onChange(choices[next]!.value as ChatNotify);
+          (event.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+        }}
+      >
+        {choices.map((choice) => (
+          <button
+            key={choice.value}
+            type="button"
+            role="radio"
+            aria-checked={current === choice.value}
+            tabIndex={current === choice.value ? 0 : -1}
+            onClick={() => onChange(choice.value as ChatNotify)}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
+      {/* What the choice actually does. */}
+      <p className="nbm-drow-help">{notifyHelp(channel, channel.notify)}</p>
     </div>
   );
 }

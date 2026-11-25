@@ -37,3 +37,16 @@ test('thread content: mix skeleton, quiet load buttons, mono replies label with 
   assert.match(thread, /<div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">\s*\{details\.data\.channel_archived_at/);
   assert.match(css, /\.nbm-thr-label\s*\{[^}]*var\(--nbm-mono\)[^}]*text-transform:\s*uppercase/);
 });
+
+const details = readFileSync('src/components/messages/DetailsPane.tsx', 'utf8');
+
+test('About: settings rows, a two-cell quick strip, notifications as segmented radio cells (no select)', () => {
+  assert.match(details, /className="nbm-drow"/);
+  assert.match(details, /className="nbm-drow-edit"/);
+  assert.match(details, /<div className="nbm-qa">/);
+  assert.doesNotMatch(details, /<Select\b/);
+  assert.match(details, /role="radiogroup" aria-labelledby=\{id\} className="nbm-seg nbm-seg-wrap"/);
+  assert.match(details, /role="radio"\s+aria-checked=\{current === choice\.value\}/);
+  assert.match(css, /\.nbm-drow-edit\s*\{[^}]*opacity:\s*0/);
+  assert.match(css, /\.nbm-drow:hover \.nbm-drow-edit, \.nbm-drow:focus-within \.nbm-drow-edit\s*\{[^}]*opacity:\s*1/);
+});
