@@ -10,6 +10,7 @@ import { OrgOnDiscover, OrgVerifiedBadge, OrgWebAddress } from "@/components/org
 import { useRefreshSidebar } from "@/hooks/useRefreshSidebar";
 import { OrgSchoolCard } from "@/components/organizations/OrgSchoolCard";
 import { HandbookSettings } from "@/components/organizations/OrgDocParts";
+import { CompanySettingsCard } from "@/components/organizations/CompanyParts";
 import { ClassDetailsSettings } from "@/components/organizations/ClassHomeParts";
 import { TermPlanSettings } from "@/components/organizations/TermPlan";
 import { SectionSettingsCard } from "@/components/organizations/Sections";
@@ -1455,6 +1456,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <CompanySettingsCard orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /><AttendanceSettingsCard orgId={projectId} /><MentoringSettingsCard orgId={projectId} /><MarkingSettingsCard orgId={projectId} /><ExamSettingsCard orgId={projectId} /></> : null}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">

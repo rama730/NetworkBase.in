@@ -31,6 +31,8 @@ export type OrgTypeProfile = {
   verifyFirst: "institution" | "proof";
   /** Report 29.2: classes can be part of a school, and an empty one can become a school. */
   schools: boolean;
+  /** Report 33.2 call 5: a company relabels About's two fields as Mission and How we work; other types keep theirs. */
+  about?: { problem: string; solution: string; problemHint: string; solutionHint: string };
 };
 
 const WORK: Omit<OrgTypeProfile, "roleNames" | "joinMode" | "visibility" | "starterFolders"> = {
@@ -46,7 +48,8 @@ export const ORG_TYPE_PROFILES: Record<OrgType, OrgTypeProfile> = {
     generalNotify: "mentions", reviewRequired: true, lateRule: "until", storyPoints: "hidden",
     starterFolders: ["Course materials", "Docs", "Templates", "Staff"], showCompensation: false, planLabel: "Plan your term", verifyFirst: "institution", schools: true,
   },
-  company: { ...WORK, roleNames: { owner: "Owner", admin: "Manager", member: "Member", viewer: "Viewer" }, joinMode: "approval", visibility: "private", starterFolders: ["Shared", "Docs", "Templates", "Managers"] },
+  company: { ...WORK, roleNames: { owner: "Owner", admin: "Manager", member: "Member", viewer: "Viewer" }, joinMode: "approval", visibility: "private", starterFolders: ["Shared", "Docs", "Templates", "Managers"],
+    about: { problem: "Mission", solution: "How we work", problemHint: "Why the company exists, in a sentence or two.", solutionHint: "How people work together here." } },
   research: { ...WORK, roleNames: { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" }, joinMode: "approval", visibility: "private", starterFolders: ADMINS },
   community: { ...WORK, roleNames: { owner: "Owner", admin: "Admin", member: "Member", viewer: "Viewer" }, joinMode: "instant", visibility: "public", starterFolders: ADMINS },
   club: { ...WORK, roleNames: { owner: "President", admin: "Coordinator", member: "Member", viewer: "Viewer" }, joinMode: "instant", visibility: "public", starterFolders: ADMINS },

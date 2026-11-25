@@ -1,4 +1,5 @@
 "use client";
+import { typeProfile } from "@/lib/organizations/type-profile";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
@@ -118,6 +119,8 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
 export default function EditWorkspaceModal({ project, isOpen, onClose, onSaved }: EditProjectModalProps) {
     // Organizations keep the same columns under their own words (report §34.11).
     const isOrg = (project as { kind?: string }).kind === "organization";
+    // Report 33.2 call 5: a company's two About fields are Mission and How we work.
+    const typeAbout = isOrg ? typeProfile((project as { organization?: { type?: string | null } | null }).organization?.type).about : undefined;
     const [activeTab, setActiveTab] = useState("essentials");
     const [isPending, startTransition] = useTransition();
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -383,23 +386,23 @@ export default function EditWorkspaceModal({ project, isOpen, onClose, onSaved }
                                             </div>
                                             <div className="grid gap-6">
                                                 <div>
-                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it’s for" : "Problem"}</label>
+                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{typeAbout?.problem ?? (isOrg ? "Who it’s for" : "Problem")}</label>
                                                     <textarea
                                                         id="edit-project-problem"
                                                         {...register("problemStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
                                                         className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
-                                                        placeholder={isOrg ? "Who joins this organization?" : "What problem are you solving?"}
+                                                        placeholder={typeAbout?.problemHint ?? (isOrg ? "Who joins this organization?" : "What problem are you solving?")}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label htmlFor="edit-project-solution" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "What members do here" : "Approach"}</label>
+                                                    <label htmlFor="edit-project-solution" className="block text-sm font-medium mb-2 text-foreground">{typeAbout?.solution ?? (isOrg ? "What members do here" : "Approach")}</label>
                                                     <textarea
                                                         id="edit-project-solution"
                                                         {...register("solutionStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
                                                         className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
-                                                        placeholder={isOrg ? "What do members do here?" : "How does your workspace solve it?"}
+                                                        placeholder={typeAbout?.solutionHint ?? (isOrg ? "What do members do here?" : "How does your workspace solve it?")}
                                                     />
                                                 </div>
                                             </div>

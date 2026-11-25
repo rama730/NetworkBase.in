@@ -822,4 +822,10 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "You don’t have permission to do this.": {"title": "You don’t have permission to do this.", "type": "warning"},
   "Use 1 to 20 groups with names up to 40 characters.": {"title": "Use 1 to 20 groups with names up to 40 characters.", "type": "warning"},
   "This process has no Steps to run yet.": {"title": "This process has no Steps to run yet.", "type": "warning"},
+  "Name each value.": {"title": "Name each value.", "type": "warning"},
+  "Up to 8 values.": {"title": "Up to 8 values.", "type": "warning"},
+  "Name each office.": {"title": "Name each office.", "type": "warning"},
+  "Up to 20 offices.": {"title": "Up to 20 offices.", "type": "warning"},
+  "Check the values and offices.": {"title": "Check the values and offices.", "type": "warning"},
+  "Use a time zone like Europe/London.": {"title": "Use a time zone like Europe/London.", "type": "warning"},
 };

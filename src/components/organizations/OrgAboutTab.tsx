@@ -17,6 +17,7 @@ import JourneyTimeline from '@/components/workspaces/dashboard/JourneyTimeline'
 import ProjectOverviewCard from '@/components/workspaces/dashboard/WorkspaceOverviewCard'
 import { RailSection } from '@/components/ui/rail-section'
 import { SchoolAboutSections } from '@/components/organizations/SchoolParts'
+import { CompanyAboutSections } from '@/components/organizations/CompanyParts'
 import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
 import { messageUserInWindow } from '@/components/messages/message-user'
@@ -46,6 +47,9 @@ function zoneName(zone: string) {
 
 export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, visitorActions }: { project: Workspace; isCreator: boolean; onEdit: () => void; memberRole?: 'owner' | 'admin' | 'member' | 'viewer' | null; visitorActions?: ReactNode }) {
     const org = project.organization
+    // Report 33.2 call 5: a company's About reads About · Mission · How we work.
+    const typeAbout = typeProfile(org?.type).about
+    const aboutLabels = typeAbout ? { ...ORG_LABELS, problem: typeAbout.problem, solution: typeAbout.solution } : ORG_LABELS
     const about = useQuery({ queryKey: ['org-about', project.id], queryFn: () => readOrgAboutAction(project.id), staleTime: 30_000 })
     const data = about.data?.success ? about.data : null
     const stickyRail = useBottomStickyRail({ topInset: 'calc(var(--workspace-tabs-height, 0px) + 24px)' })
@@ -80,7 +84,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 ) : !org?.welcomeNote && viewer === 'admin' ? (
                     <Link href={`${base}?tab=settings`} className="nb-link inline-block text-[13px]">Add a welcome note</Link>
                 ) : null}
-                <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} editLabel="Edit details" />
+                <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={aboutLabels} editLabel="Edit details" />
                 {isClass ? <YourSectionCard orgId={project.id} /> : null}
                 {isClass ? <SyllabusAndTerm orgId={project.id} base={base} /> : null}
                 {isClass ? <ShowcaseSection classId={project.id} /> : null}
@@ -89,8 +93,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {/* Empty-state prompts for admins (report §22.3). */}
                 {isCreator && (!statements.problemStatement || !statements.solutionStatement) ? (
                     <p className="flex flex-wrap gap-4 text-[13px]">
-                        {!statements.problemStatement ? <button type="button" onClick={onEdit} className="nb-link">Add who {project.title} is for</button> : null}
-                        {!statements.solutionStatement ? <button type="button" onClick={onEdit} className="nb-link">Add what members do here</button> : null}
+                        {!statements.problemStatement ? <button type="button" onClick={onEdit} className="nb-link">{typeAbout ? `Add your ${typeAbout.problem.toLowerCase()}` : `Add who ${project.title} is for`}</button> : null}
+                        {!statements.solutionStatement ? <button type="button" onClick={onEdit} className="nb-link">{typeAbout ? `Add ${typeAbout.solution.toLowerCase()}` : 'Add what members do here'}</button> : null}
                     </p>
                 ) : null}
                 {data?.projects.length ? (
@@ -101,6 +105,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                     </RailSection>
                 ) : null}
                 {org?.isSchool ? <SchoolAboutSections orgId={project.id} /> : null}
+                {org?.type === 'company' ? <CompanyAboutSections orgId={project.id} /> : null}
             </div>
             <aside {...stickyRail} aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
                 {isClass ? <ClassDetailsRail orgId={project.id} settingsHref={`${base}?tab=settings&section=org-profile`} /> : null}
