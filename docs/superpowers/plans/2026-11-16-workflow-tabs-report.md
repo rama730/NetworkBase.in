@@ -8528,6 +8528,15 @@ MY WORK drawer (W3) · Learning
 11. No streaks, points or leaderboards.
 12. AI agents can't mark steps done.
 
+**B2.2 build calls (2026-11-25):**
+- **Split:** B2.2a Pacing, the class Path with Modules, the learner's header, Progress with pace, Stuck and the drop-off line; B2.2b assignments in modules, copies on opening, the path's completion, Coaching starting Self-paced.
+- The class reuses A7.6–A7.7's Path (undated sprints with a path position, `lesson_progress`); a module is one sprint level for now. Phases (the second level) wait for the Path to need them. **[call]**
+- A class starts Scheduled; the Teacher builds the path; TAs see Progress and never edit it; only learners tick, see Up next and see step counts. **[call]**
+- Opening a module is **Start** on it, or marking one of its lessons done. It makes copies only of work set for every learner (as late joiners get); work for named people, sections or teams keeps its own copies and counts for the learners who hold one. **[call]**
+- An assignment already published before it's put in a module keeps the copies it has. **[call]**
+- A self-paced class completes by its path (every counted step done), without attendance. **[call]**
+- Coaching or bootcamp classes start Self-paced when they arrive with no learners yet. **[call]**
+
 ### 31.4 C3 · Mock tests and skills (agreed 2026-11-17)
 **References** (22 searches found 163 templates, 79 of them rated; 8 studied from their screenshots; personal planners left to W3):
 
