@@ -1,4 +1,5 @@
 "use client";
+import { makeMediaExtras } from "@/lib/messaging/media-make";
 import { PixelBeat, PixelProgress } from "@/components/messages/mix/primitives";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -57,6 +58,8 @@ type Upload = {
   reason?: string;
   /** The server refused the file itself: Retry can't help, only Remove. */
   refused?: boolean;
+  /** Made on the device at upload (thumb/poster asset, pixel preview, length, waveform); optional. */
+  extras?: { thumbAssetId?: string; preview?: string; durationMs?: number; peaks?: number[] };
   previewUrl?: string | null;
   isImage?: boolean;
   /** Read on the device, so your own photo lands at its real shape (no square-to-shape jump). */
@@ -534,6 +537,12 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         });
       }
       startUpload(id, file);
+      // The tile's thumbnail, pixel preview, length and waveform: made here, sent with the file, never blocking it.
+      void makeMediaExtras(file).then(async (made) => {
+        const thumbAssetId = made.thumb ? await uploadChatFile(channelId, new File([made.thumb], `${file.name}.thumb.webp`, { type: "image/webp" })).catch(() => undefined) : undefined;
+        const extras = { thumbAssetId, preview: made.preview, durationMs: made.durationMs, peaks: made.peaks };
+        setUploads((list) => list.map((u) => (u.id === id ? { ...u, extras } : u)));
+      });
     }
   };
 
@@ -694,7 +703,9 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     const localAttachments = ready.map((u, idx) => ({
       idx, asset_id: u.assetId!, name: u.name, mime: u.file?.type || "application/octet-stream", size: u.file?.size ?? 0,
       width: u.width ?? null, height: u.height ?? null, local_url: u.previewUrl ?? undefined,
+      preview: u.extras?.preview ?? null, duration_ms: u.extras?.durationMs ?? null, peaks: u.extras?.peaks ?? null,
     }));
+    const media = Object.fromEntries(ready.filter((u) => u.extras).map((u) => [u.assetId!, u.extras!]));
     const optimistic: ChatMessageView = {
       channel_id: channelId, seq: -clock(), author_id: user?.id ?? null,
       author: user ? { id: user.id, username: profile?.username ?? null, full_name: profile?.fullName ?? null, avatar_url: profile?.avatarUrl ?? null } : null,
@@ -714,7 +725,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (threadKey) putInThread((replies) => [...replies, optimistic]);
     else update((pages) => upsertMessage(pages, optimistic));
     onSent?.();
-    const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds, alsoToChannel: sentAlso })
+    const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds, media, alsoToChannel: sentAlso })
       .catch(() => ({ success: false as const, error: "chat_network" }));
     if (!result.success) {
       const shown = failSend(queryClient, clientId, { channelId, threadRootSeq, body, assetIds, alsoToChannel: sentAlso });
