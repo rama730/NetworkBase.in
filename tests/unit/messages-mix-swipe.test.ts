@@ -18,3 +18,7 @@ test('list rows with a preview are 60px with a mono time', () => {
   assert.match(css, /\.nbm \.nb-chat-row-preview\s*\{[^}]*min-height:\s*60px/);
   assert.match(css, /\.nbm \.nb-chat-row-preview \.nb-meta\s*\{[^}]*var\(--nbm-mono\)/);
 });
+
+test('Drafts and scheduled shows a quiet mono count chip (not a hot one)', () => {
+  assert.match(sections, /draftCount \? <span className="nbm-count">\{padCount\(draftCount\)\}<span className="sr-only"> waiting<\/span><\/span>/);
+});

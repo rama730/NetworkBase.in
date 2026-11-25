@@ -6,6 +6,13 @@ import { PanelLeft } from "lucide-react";
 import { ChatSections } from "@/components/messages/ChatSections";
 import { useChatUi } from "@/components/messages/chat-ui-store";
 import { useWide } from "@/components/messages/useWide";
+import { escapeTaken } from "@/components/messages/keys";
+
+const SHEET_RANGE = "(min-width: 1024px) and (max-width: 1279px)";
+const closeSheet = () => {
+  useChatUi.getState().setSidebarSheet(false);
+  document.querySelector<HTMLElement>(".nbm-sheet-toggle")?.focus();
+};
 
 // ponytail: tablets (768–1023px) use the single-pane pattern (L-22).
 // upgrade: show this sidebar from ~900px if tablet data shows wasted space.
@@ -26,17 +33,25 @@ export function MessagesSidebar() {
   useEffect(() => useChatUi.getState().setSidebarSheet(false), [pathname]);
   useEffect(() => {
     if (!sheet) return;
+    // The sheet exists only in its width range: leaving it (a resize) closes it.
+    const range = window.matchMedia(SHEET_RANGE);
+    if (!range.matches) return void useChatUi.getState().setSidebarSheet(false);
+    const onRange = () => useChatUi.getState().setSidebarSheet(false);
+    range.addEventListener("change", onRange);
     ref.current?.querySelector<HTMLElement>("a[href], button:not([disabled])")?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      // First in line: Esc closes the sheet, not the drawer behind it.
+      // An open menu or dialog takes Esc first; Shift+Esc stays "mark read".
+      if (event.key !== "Escape" || event.shiftKey || escapeTaken(event)) return;
+      // Then the sheet, before the drawer behind it.
       event.preventDefault();
       event.stopPropagation();
-      useChatUi.getState().setSidebarSheet(false);
-      document.querySelector<HTMLElement>(".nbm-sheet-toggle")?.focus();
+      closeSheet();
     };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    return () => {
+      range.removeEventListener("change", onRange);
+      window.removeEventListener("keydown", onKey, true);
+    };
   }, [sheet]);
   return (
     <>
@@ -46,7 +61,7 @@ export function MessagesSidebar() {
           {wide === false ? null : <ChatSections variant="sidebar" />}
         </div>
       </aside>
-      {sheet ? <div className="nbm-sheet-scrim" aria-hidden="true" onClick={() => useChatUi.getState().setSidebarSheet(false)} /> : null}
+      {sheet ? <div className="nbm-sheet-scrim" aria-hidden="true" onClick={closeSheet} /> : null}
     </>
   );
 }

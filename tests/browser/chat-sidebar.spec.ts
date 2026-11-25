@@ -142,7 +142,9 @@ test('mix: the workspace cell names the workspace with a mono sub line', async (
   const cell = page.getByTestId('chat-project-switcher');
   await expect(cell).toContainText('Network for builders');
   await expect(cell.locator('.nbm-ws-sub')).toHaveText(/^Workspace · 3 people$/);
-  expect(await cell.evaluate((el) => el.getBoundingClientRect().height)).toBe(56);
+  expect(await cell.evaluate((el) => el.getBoundingClientRect().height)).toBe(64);
+  // One hairline under the whole header row (cell and ⋯), not just the cell.
+  expect(await cell.evaluate((el) => getComputedStyle(el.parentElement!).borderBottomWidth)).toBe('1px');
   await open(page);
   await expect(page.getByTestId('chat-project-switcher').locator('.nbm-ws-sub')).toHaveText(/^\d+ workspaces$/);
 });
@@ -207,4 +209,78 @@ test('mix: 1024–1279 with a drawer open, "Show conversations" brings the sideb
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(toggle).toBeHidden();
   await expect(sidebar).toBeVisible();
+});
+
+test('mix fix: Jump to… stays on one line beside All | Unread', async ({ page }) => {
+  await open(page);
+  const label = page.getByRole('button', { name: /Jump to…/ }).getByText('Jump to…');
+  expect(await label.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThan(24);
+});
+
+test('mix fix: section labels are mono capitals; header actions are 24px cells that do not squeeze the name', async ({ page }) => {
+  await open(page);
+  expect(await page.getByRole('button', { name: /^Direct messages/ }).evaluate((el) => getComputedStyle(el).textTransform)).toBe('uppercase');
+  const create = page.getByRole('button', { name: 'Create channel' }).first();
+  expect(await create.evaluate((el) => [el.getBoundingClientRect().width, el.getBoundingClientRect().height])).toEqual([24, 24]);
+  // A workspace name keeps its room: the actions sit over the rule, out of the flow.
+  const name = page.getByRole('button', { name: /^Big Studio/ });
+  expect(await name.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+});
+
+test('mix fix: menus here are Messages menus (32px rows, square radio mark, mono label)', async ({ page }) => {
+  await open(page, '?w=nfb');
+  await page.getByTestId('chat-project-switcher').click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toHaveClass(/nbm-menu/);
+  const item = menu.getByRole('menuitemradio', { name: /All workspaces/ });
+  expect(await item.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(32);
+  expect(await item.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await menu.getByText('Switch workspace').evaluate((el) => getComputedStyle(el).textTransform)).toBe('uppercase');
+});
+
+
+test('review fix: Esc with a menu open inside the sheet closes the menu, not the sheet', async ({ page }) => {
+  await open(page, '?sheet=1');
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await page.getByRole('button', { name: 'Show conversations' }).click();
+  await page.getByTestId('chat-project-switcher').click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(page.getByRole('complementary', { name: 'Conversations' })).toBeVisible();
+});
+
+test('review fix: the scrim returns focus to the toggle; leaving the range closes the sheet', async ({ page }) => {
+  await open(page, '?sheet=1');
+  await page.setViewportSize({ width: 1180, height: 900 });
+  const toggle = page.getByRole('button', { name: 'Show conversations' });
+  await toggle.click();
+  await page.mouse.click(900, 600);
+  await expect(toggle).toBeFocused();
+  await toggle.click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // Hidden at this width, so not in the accessibility tree: find it by class.
+  await expect(page.locator('.nbm-sheet-toggle')).toHaveAttribute('aria-pressed', 'false');
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await expect(page.getByRole('complementary', { name: 'Conversations' })).toBeHidden();
+});
+
+test('review fix: the open conversation stays in a capped list', async ({ page }) => {
+  await open(page, '?w=big');
+  await page.goto(`${origin}/messages/big-17?w=big`);
+  await expect(page.getByRole('link', { name: /^ch-18/ })).toHaveAttribute('aria-current', 'page');
+});
+
+test('review fix: muted rows keep readable text (no extra fade)', async ({ page }) => {
+  await open(page);
+  // ponytail: rule-level check; a muted fixture row would need another channel.
+  const css = await page.evaluate(() => [...document.styleSheets].flatMap((s) => [...s.cssRules]).map((r) => r.cssText).filter((t) => t.includes('data-muted') && t.includes('.nbm')).join(' '));
+  expect(css).not.toContain('opacity');
+});
+
+test('review fix: counts read as numbers, not "zero one"', async ({ page }) => {
+  await open(page);
+  const chip = page.locator('.nb-chat-count:not([aria-hidden])').first();
+  await expect(chip.locator('[aria-hidden="true"]')).toHaveText(/^\d{2}$/);
+  await expect(chip.locator('.sr-only')).toHaveText(/^\d+ /);
 });

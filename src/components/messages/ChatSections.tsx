@@ -83,7 +83,8 @@ function DmStatus({ userId }: { userId: string }) {
 /** Mix count: a square mono chip, two digits, "99+" above; clay because it needs you. */
 function Count({ value, noun = "unread", hidden = false }: { value: number; noun?: string; hidden?: boolean }) {
   if (!value) return null;
-  return <span className="nb-chat-count nbm-count hot" aria-hidden={hidden || undefined}>{padCount(value)}{hidden ? null : <span className="sr-only"> {noun}</span>}</span>;
+  // The padded digits are for the eye; screen readers hear the plain number ("3 unread", not "zero three").
+  return <span className="nb-chat-count nbm-count hot" aria-hidden={hidden || undefined}><span aria-hidden="true">{padCount(value)}</span>{hidden ? null : <span className="sr-only">{value > 99 ? "99+" : value} {noun}</span>}</span>;
 }
 
 function Row({ channel, meId, variant, onSelect, draft, team }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; draft: boolean; team?: TeamWorkspace | null }) {
@@ -268,7 +269,7 @@ function HoverMenu({ channel, meId, children }: { channel: ChatChannelSummary; m
         >
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="nbm nbm-menu w-48">
           <RowMenuItems channel={channel} actions={actions} />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -382,7 +383,7 @@ function SwipeActions({ channel, meId, children }: { channel: ChatChannelSummary
         <DropdownMenuTrigger className="nb-icon-button sr-only size-11 flex-none focus:not-sr-only pointer-fine:not-sr-only pointer-fine:size-8 pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100" aria-label={`Actions for ${channelTitle(channel, meId)}`}>
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="nbm nbm-menu">
           <RowMenuItems channel={channel} actions={actions} />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -417,7 +418,7 @@ function Section({ id, title, count, size, noun = "unread", collapsed, onToggle,
         {size ? <b aria-hidden="true">{padCount(size)}</b> : null}
         <span className="nbm-glabel-rule" aria-hidden="true" />
         <Count value={count ?? 0} hidden />
-        {action}
+        {action ? <span className="nb-chat-section-acts">{action}</span> : null}
       </div>
       {/* Collapsed sections still show rows that need attention, like Slack. */}
       {collapsed ? (attention ? <div className="space-y-0.5">{attention}</div> : null) : <div className="space-y-0.5">{children}</div>}
@@ -427,7 +428,7 @@ function Section({ id, title, count, size, noun = "unread", collapsed, onToggle,
 
 /** Small icon button in a section header (+, mark read). Always visible on touch, on hover with a mouse. */
 function HeaderButton({ label, onClick, children, href }: { label: string; onClick?: () => void; children: ReactNode; href?: string }) {
-  const className = "nb-icon-button size-7 flex-none pointer-coarse:size-11 focus-visible:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/section:opacity-100 pointer-fine:group-focus-within/section:opacity-100";
+  const className = "nb-icon-button size-6 flex-none pointer-coarse:size-11 focus-visible:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/section:opacity-100 pointer-fine:group-focus-within/section:opacity-100";
   if (href) return <Link href={href} className={className} aria-label={label} title={label}>{children}</Link>;
   return <button type="button" onClick={onClick} className={className} aria-label={label} title={label}>{children}</button>;
 }
@@ -471,7 +472,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
 
   return (
     <div>
-    <div className="flex items-center gap-0.5">
+    <div className={inPage ? "nbm-ws-row flex items-center gap-0.5" : "flex items-center gap-0.5"}>
       <DropdownMenu>
         {inPage ? (
           // The page: the workspace cell (square tile, name, mono sub line).
@@ -498,7 +499,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
           <ChevronDown size={14} aria-hidden="true" className="flex-none text-muted-foreground" />
         </DropdownMenuTrigger>
         )}
-        <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuContent align="start" className="nbm nbm-menu w-64">
           <DropdownMenuLabel>Switch workspace</DropdownMenuLabel>
           {/* A radio group: screen readers hear which project is selected. */}
           <DropdownMenuRadioGroup value={open?.id ?? "all"} onValueChange={(value) => pick(value === "all" ? null : value)}>
@@ -529,7 +530,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
           <DropdownMenuTrigger className={`nb-icon-button size-7 flex-none pointer-coarse:size-11 ${open ? "" : "pointer-coarse:hidden"}`} aria-label={open ? `Options for ${open.title}` : "Messages options"}>
             <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="nbm nbm-menu w-56">
             {open && canManage ? <DropdownMenuItem onSelect={() => setInviteFor(open.id)}><UserPlus /> Invite people</DropdownMenuItem> : null}
             {open ? <DropdownMenuItem asChild><Link href={projectHref}><FolderOpen /> View workspace</Link></DropdownMenuItem> : null}
             {open && canManage ? <DropdownMenuItem asChild><Link href={`${projectHref}?tab=settings`}><Settings /> Workspace settings</Link></DropdownMenuItem> : null}
@@ -549,7 +550,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
     {inPage ? (
       <div className="flex items-center gap-1.5 px-3 pb-1.5 pt-2.5">
         <button type="button" className="nb-chat-jump" onClick={() => useChatUi.getState().setSwitcherOpen(true)} aria-keyshortcuts="Meta+K Control+K">
-          <Search size={14} aria-hidden="true" /><span className="flex-1 text-left">Jump to…</span>
+          <Search size={14} aria-hidden="true" /><span className="min-w-0 flex-1 truncate text-left">Jump to…</span>
           <kbd className="nbm-mono pointer-coarse:hidden">{searchHint}</kbd>
         </button>
         {seg}
@@ -717,8 +718,10 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const projectRows = (id: string, channelRows: ChatChannelSummary[]) => {
     const empty = !(byProject.get(id) ?? []).length;
     // Long lists stop at unread + 12 read rows (the sidebar only); "N more channels" opens the rest in place.
-    const capped = variant === "sidebar" && !allChannels[id] ? capChannels(channelRows, needsAttention) : { shown: channelRows, hidden: 0 };
-    const expandable = capped.hidden > 0 || Boolean(allChannels[id]) && capChannels(channelRows, needsAttention).hidden > 0;
+    // The open conversation always stays, like rows that need you.
+    const keepRow = (c: ChatChannelSummary) => needsAttention(c) || pathname === conversationHref(c.id) || pathname.startsWith(`${conversationHref(c.id)}/`);
+    const capped = variant === "sidebar" && !allChannels[id] ? capChannels(channelRows, keepRow) : { shown: channelRows, hidden: 0 };
+    const expandable = capped.hidden > 0 || Boolean(allChannels[id]) && capChannels(channelRows, keepRow).hidden > 0;
     return (
       <>
         {capped.shown.map(row)}
@@ -799,7 +802,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           {/* Waiting drafts aren't unread: a plain number, not a badge. */}
           <Link href="/messages/drafts" className="nb-chat-row" aria-current={here("/messages/drafts")}>
             <Pencil size={16} aria-hidden="true" /><span className="flex-1">Drafts and scheduled</span>
-            {draftCount ? <span className="nb-meta">{draftCount > 99 ? "99+" : draftCount}<span className="sr-only"> waiting</span></span> : null}
+            {draftCount ? <span className="nbm-count">{padCount(draftCount)}<span className="sr-only"> waiting</span></span> : null}
           </Link>
         </div>
       ) : (
