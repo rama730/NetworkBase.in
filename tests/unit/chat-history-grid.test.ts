@@ -243,7 +243,7 @@ test("both virtualized histories keep their scroll, drop, draft and live-region 
     assert.match(source, /className="nbm-newline" role="separator"/);
   }
   const row = read("src/components/messages/MessageRow.tsx");
-  assert.match(row, /highlighted \? "bg-accent" : mentioned \? "bg-muted" : "nb-message-row-soft"/);
+  assert.match(row, /nbm-msg group\/msg relative outline-none \[-webkit-touch-callout:none\]\$\{highlighted \? " nbm-flash" : ""\}/);
   assert.match(read("src/components/messages/Composer.tsx"), /nb-message-composer relative border-t border-border bg-card/);
   assert.doesNotMatch(read("src/components/messages/MessageHistory.tsx"), /localStorage|fetch\(|setInterval|overflow|tabIndex/);
   assert.doesNotMatch(read("src/lib/messaging/history-grid.ts"), /localStorage|wallpaper|preference|fetch\(/);

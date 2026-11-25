@@ -1,5 +1,6 @@
 "use client";
 
+import { PixelBeat } from "@/components/messages/mix/primitives";
 import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -515,7 +516,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       onFocus={placeBar}
       // Mention: a neutral well (status colours mean status, and the spec has no side bar);
       // a jump target: the accent tint, so the two never look alike.
-      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted focus-within:bg-muted [-webkit-touch-callout:none] ${highlighted ? "bg-accent" : mentioned ? "bg-muted" : "nb-message-row-soft"}`}
+      className={`nbm-msg group/msg relative outline-none [-webkit-touch-callout:none]${highlighted ? " nbm-flash" : ""}`}
+      data-grouped={grouped ? "true" : undefined}
+      data-mention={mentioned ? "true" : undefined}
       onContextMenu={(e) => {
         // Touch: long-press opens our sheet, not the browser's callout.
         if (actions && window.matchMedia("(pointer: coarse)").matches) e.preventDefault();
@@ -531,18 +534,18 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     >
       <span id={`${rowId}-who`} className="sr-only">{authorName}{authorStatus ? ` (${authorStatus})` : ""}, {fullTime}{pending && !message.failed ? ", sending" : ""}</span>
       {message.pinned || saved ? (
-        <p className="flex items-center gap-3 pb-0.5 pl-11 text-[12px] text-muted-foreground">
-          {message.pinned ? <span className="inline-flex items-center gap-1"><Pin size={14} aria-hidden="true" /> Pinned</span> : null}
-          {saved ? <span className="inline-flex items-center gap-1 text-primary"><Bookmark size={14} aria-hidden="true" fill="currentColor" /> Saved</span> : null}
+        <p className="nbm-flags">
+          {message.pinned ? <span>Pinned</span> : null}
+          {saved ? <span className="nbm-flags-saved">Saved</span> : null}
         </p>
       ) : null}
-      <div className="flex gap-2.5">
-        <div className="w-[34px] flex-none">
+      <div className="flex gap-3">
+        <div className="nbm-msg-gutter">
           {grouped ? (
-            <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="nb-meta hidden pt-1 hover:underline group-hover/msg:block group-focus-within/msg:block">{formatChatTime(message.created_at, "clock")}</button>
+            <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="nbm-gutter-time">{formatChatTime(message.created_at, "clock")}</button>
           ) : (
             <PersonHoverCard person={message.author}>
-              <UserAvatar identity={message.author} size={34} />
+              <UserAvatar identity={message.author} size={36} />
             </PersonHoverCard>
           )}
         </div>
@@ -550,11 +553,11 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           {grouped ? null : (
             <div className="flex items-baseline gap-2" aria-hidden="true">
               <PersonHoverCard person={message.author}>
-                <span className="text-[13px] font-medium hover:underline">{authorName}</span>
+                <span className="nbm-msg-name hover:underline">{authorName}</span>
               </PersonHoverCard>
               {authorStatus ? <span title={authorStatus} className="font-[system-ui] text-[13px] leading-none">{authorPresence.status?.emoji || "💬"}</span> : null}
-              <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="nb-meta hover:underline">{formatChatTime(message.created_at, "clock")}</button>
-              {pending && !message.failed ? <span className="nb-meta" aria-hidden="true">Sending…</span> : null}
+              <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="nbm-msg-time hover:underline">{formatChatTime(message.created_at, "clock")}</button>
+              {pending && !message.failed ? <span className="nbm-msg-sending" aria-hidden="true"><PixelBeat />Sending…</span> : null}
             </div>
           )}
           {deleted ? (
@@ -579,9 +582,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                   channelNameOf={ctx.channelNameOf}
                   meId={ctx.meId}
                   wrapMention={wrapMention}
-                  suffix={message.edited_at ? <span className="ml-1 text-[12px] text-muted-foreground" title={`Edited ${new Date(message.edited_at).toLocaleString()}`}>(edited)</span> : undefined}
+                  suffix={message.edited_at ? <span className="nbm-edited ml-1" title={`Edited ${new Date(message.edited_at).toLocaleString()}`}>(edited)</span> : undefined}
                 />
-              ) : message.edited_at ? <span className="text-[12px] text-muted-foreground">(edited)</span> : null}
+              ) : message.edited_at ? <span className="nbm-edited">(edited)</span> : null}
               {message.attachments.length ? (
                 <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
               ) : null}
@@ -604,7 +607,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               </div>
             </TooltipProvider>
           ) : null}
-          {pending && !message.failed && grouped ? <p className="nb-meta" aria-hidden="true">Sending…</p> : null}
+          {pending && !message.failed && grouped ? <p className="nbm-msg-sending" aria-hidden="true"><PixelBeat />Sending…</p> : null}
           {message.failed ? (
             <p role="alert" className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[var(--status-danger)]">
               <span>Not sent{failed?.assetIds.length ? ` · ${failed.assetIds.length} file${failed.assetIds.length === 1 ? "" : "s"}` : ""}</span>

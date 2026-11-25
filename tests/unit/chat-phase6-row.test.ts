@@ -43,7 +43,7 @@ test("message row: keyboard, time button, grouped icons, delete with replies, fa
   assert.match(row, /tabIndex=\{tabStop \? 0 : -1\}/);
   assert.match(read("src/components/messages/Timeline.tsx"), /onKeyDown=\{onListKeyDown\}/);
   // Round 2 #145: pinned and saved read as a small label line above the message.
-  assert.match(row, /<Pin size=\{14\} aria-hidden="true" \/> Pinned/);
+  assert.match(row, /<p className="nbm-flags">\s*\{message\.pinned \? <span>Pinned<\/span>/);
   assert.match(row, /own && !message\.reply_count \? removeWithUndo\(\) : setConfirmDelete\(true\)/);
   assert.match(row, /Not sent[\s\S]*Retry[\s\S]*Delete/);
   assert.match(row, /if \(ctx\.share && hasContent\)/);

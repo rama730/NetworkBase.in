@@ -265,3 +265,21 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-sk { display: block; background: var(--nbm-soft); border-radius: 2px; animation: nbm-breathe 1.6s var(--nbm-ease) infinite; }
 .nbm-warn { display: flex; flex: none; align-items: center; gap: 10px; min-height: 36px; margin: 0; padding: 6px 16px; border-bottom: 1px solid var(--nbm-line); background: color-mix(in srgb, var(--nbm-warn) 11%, var(--card)); font-size: 13px; color: var(--foreground); animation: nbm-drop var(--nbm-m3) var(--nbm-ease) backwards; }
 .nbm-warn > svg { flex: none; color: var(--nbm-warn); }
+
+/* ================= Message row (Phase 4) ================= */
+/* Shell: 36px gutter + body; hover = the card fill; a mention of you keeps its warm paper fill; the jump target flashes clay. */
+.nbm-msg { position: relative; padding: 8px 20px 4px; transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-msg[data-grouped="true"] { padding-top: 1px; }
+.nbm-msg:hover, .nbm-msg:focus-within { background-color: var(--card); }
+.nbm-msg[data-mention="true"], .nbm-msg[data-mention="true"]:hover, .nbm-msg[data-mention="true"]:focus-within { background-color: var(--nbm-hl); }
+.nbm-msg-gutter { flex: none; width: 36px; }
+.nbm-gutter-time { display: block; width: 100%; padding-top: 3px; text-align: right; font: 10.5px/1.4 var(--nbm-mono); color: transparent; transition: color var(--nbm-m1) var(--nbm-ease); }
+.nbm-msg:hover .nbm-gutter-time, .nbm-msg:focus-within .nbm-gutter-time { color: var(--nbm-fg2); }
+.nbm-gutter-time:hover { text-decoration: underline; }
+.nbm-msg-name { font-size: 14px; font-weight: 600; color: var(--foreground); }
+.nbm-msg-time { font: 11px/1 var(--nbm-mono); color: var(--nbm-fg2); }
+.nbm-msg-sending { display: inline-flex; align-items: center; gap: 6px; font: 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm-edited { font: 11px/1 var(--nbm-mono); color: var(--nbm-fg2); }
+.nbm-flags { display: flex; gap: 10px; margin: 0 0 2px; padding-left: 48px; font: 500 10px/1.4 var(--nbm-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm-flags-saved { color: var(--nbm-brand); }
+.nbm-msg.nbm-flash { animation-fill-mode: backwards; }
