@@ -165,8 +165,13 @@ export async function markLessonAction(projectId: string, input: { taskId: strin
     if (input.done) {
       const mine = new Set((await db.select({ taskId: lessonProgress.taskId }).from(lessonProgress).where(eq(lessonProgress.userId, userId))).map((r) => r.taskId));
       if (isLocked(steps, index, mine, settings.lockInOrder)) throw new Error(`Finish ${steps[index - 1]?.name ?? "the step before"} first.`);
+      // Security review: in a class the lock counts assignments too, the same rule the Path and Start use.
+      if (isClass) {
+        const path = await readPathAction(projectId);
+        if (path.success && path.steps[index]?.locked) throw new Error(`Finish ${steps[index - 1]?.name ?? "the module before"} first.`);
+      }
       await db.insert(lessonProgress).values({ taskId: input.taskId, userId }).onConflictDoNothing();
-      if (isClass && access.memberRole === "member") await db.transaction((tx) => openModuleFor(tx, projectId, steps[index]!.id, userId));
+      if (isClass && settings.pacing === "self" && access.memberRole === "member") await db.transaction((tx) => openModuleFor(tx, projectId, steps[index]!.id, userId));
     } else {
       await db.delete(lessonProgress).where(and(eq(lessonProgress.taskId, input.taskId), eq(lessonProgress.userId, userId)));
     }

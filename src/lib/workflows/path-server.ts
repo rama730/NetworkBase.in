@@ -40,8 +40,10 @@ export async function moduleAssignments(projectId: string, moduleIds: string[], 
     .orderBy(asc(tasks.createdAt));
   return rows.map((r) => {
     const s = (r.settings ?? {}) as AssignmentSettings & { dueAfterDays?: number | null };
-    return { id: r.id, title: r.title, sprintId: r.sprintId!, dueAfterDays: s.dueAfterDays ?? null, published: Boolean(s.publishedAt) };
-  }).filter((a) => !publishedOnly || a.published);
+    const forEveryLearner = s.target?.mode === "everyone" || (s.target?.mode === "role" && s.target.role === "member");
+    return { id: r.id, title: r.title, sprintId: r.sprintId!, dueAfterDays: s.dueAfterDays ?? null, published: Boolean(s.publishedAt), forEveryLearner };
+  // Learners' steps are the published work set for every learner (what opening a module makes); staff see all.
+  }).filter((a) => !publishedOnly || (a.published && a.forEveryLearner));
 }
 
 /** Each learner's done steps (lessons and Done copies, by master id) and excused assignments (master ids). */
@@ -87,9 +89,13 @@ export async function openModuleFor(executor: Executor, projectId: string, modul
   for (const m of masters) {
     const s = (m.settings ?? {}) as AssignmentSettings & { dueAfterDays?: number | null };
     if (!s.publishedAt || s.closedAt) continue;
+    // Security review: only work set for every learner, the rule late joiners follow; teams, sections and named
+    // people keep their own copies.
+    if (!(s.target?.mode === "everyone" || (s.target?.mode === "role" && s.target.role === "member"))) continue;
     // One per learner: a lock on the master keeps two opens at once from making two.
     await executor.execute(sql`SELECT 1 FROM tasks WHERE id = ${m.id}::uuid FOR UPDATE`);
-    const [existing] = await executor.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, m.id), eq(tasks.assigneeId, userId), isNull(tasks.deletedAt))).limit(1);
+    const [existing] = await executor.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, m.id), isNull(tasks.deletedAt),
+      sql`(${tasks.assigneeId} = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`)).limit(1);
     if (existing) continue;
     await createCopies(executor, m.id, [{ projectId, assigneeId: userId }], m.creatorId ?? userId);
     const due = s.dueAfterDays ? new Date(Date.now() + s.dueAfterDays * 86_400_000) : null;

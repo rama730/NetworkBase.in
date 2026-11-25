@@ -58,6 +58,9 @@ test("copies wait for the module to open, are due from then, and the path decide
   const [hw] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, sprint_id, assignment_settings) VALUES (${klass}, 'Exercise 1', 'todo', 'medium', ${teacher!}, 'assignment', ${m2.id}, ${sql.json(settings as never)}) RETURNING id`;
   assert.equal((await path.placeAssignmentAction(klass, { assignmentId: hw!.id, stepId: m2.id, dueAfterDays: 7 })).success, true);
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${klass}, ${learner!}, 'member')`;
+  // Security review: work for named people never reaches a learner by opening the module.
+  const [named] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, sprint_id, assignment_settings) VALUES (${klass}, 'Only for Asha', 'todo', 'medium', ${teacher!}, 'assignment', ${m2.id},
+    ${sql.json({ ...settings, target: { mode: "people", userIds: [teacher!] }, publishedAt: new Date().toISOString() } as never)}) RETURNING id`;
 
   await publish.publishMaster(hw!.id, teacher!);
   const copiesOf = async () => sql`SELECT id, due_date, status FROM tasks WHERE assignment_id = ${hw!.id} AND assignee_id = ${learner!} AND deleted_at IS NULL`;
@@ -71,6 +74,7 @@ test("copies wait for the module to open, are due from then, and the path decide
   assert.equal((await path.openModuleAction(klass, m2.id)).success, true, "opening twice makes one copy");
   const [copy] = await copiesOf();
   assert.equal((await copiesOf()).length, 1);
+  assert.equal((await sql`SELECT 1 FROM tasks WHERE assignment_id = ${named!.id} AND assignee_id = ${learner!}`).length, 0, "named-people work isn't made by opening");
   const days = (new Date(copy!.due_date as string).getTime() - Date.now()) / 86_400_000;
   assert.ok(days > 6.9 && days < 7.1, "due 7 days after opening");
 
