@@ -69,7 +69,7 @@ export function CapstoneOverviewCard({ projectId }: { projectId: string }) {
           <span className="flex flex-wrap gap-3">
             {d.canEdit ? (c.showcase.readyAt
               ? <button type="button" className={LINK} onClick={() => run(setShowcaseReadyAction(projectId, false), "Back to Draft")}>Back to Draft</button>
-              : <button type="button" className={LINK} title={d.readyBlock ?? undefined} onClick={() => run(setShowcaseReadyAction(projectId, true), "Ready for the Showcase")}>Mark Ready</button>) : null}
+              : <button type="button" className={LINK} onClick={() => run(setShowcaseReadyAction(projectId, true), "Ready for the Showcase")}>Mark Ready</button>) : null}
             {d.members.some((m) => m.id === d.me) ? <label className="flex items-center gap-2"><input className="nb-check" type="checkbox" checked={mine}
               onChange={(e) => run(consentShowcaseAction(projectId, e.target.checked), e.target.checked ? "You agreed to show it publicly" : "You took back your agreement")} />I agree to show it publicly</label> : null}
           </span>
