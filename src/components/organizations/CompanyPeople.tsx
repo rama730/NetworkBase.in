@@ -171,7 +171,7 @@ function Counts({ orgId }: { orgId: string }) {
   );
   return (
     <div className="grid gap-6 text-[13px] sm:grid-cols-3" data-testid="people-counts">
-      <p className="sm:col-span-3 text-muted-foreground"><span className="font-mono text-foreground">{d.total}</span> people · counts never name anyone</p>
+      <p className="sm:col-span-3 text-muted-foreground"><span className="font-mono text-foreground">{d.total}</span> {d.total === 1 ? "person" : "people"} · counts never name anyone</p>
       {table("By team", d.teams)}
       {table("By office", d.offices)}
       {table("Joined per month", d.joined.map((j) => ({ name: j.month, n: j.n })))}
