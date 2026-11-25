@@ -2,12 +2,19 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, X, ChevronLeft, ChevronRight, Image as ImageIcon, Video } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight, Download, Image as ImageIcon, ImageOff, Info, Link2, Minus, Plus, RotateCw, SquareArrowOutUpRight, X } from 'lucide-react';
 import ResolvedVideoPlayer from '@/components/messages/parts/resolved-video-player';
 import { MixPlayerBar } from '@/components/messages/parts/MixPlayerBar';
-import { PdfViewerV2 } from '@/components/messages/parts/message-attachments'; 
+import { PdfViewerV2 } from '@/components/messages/parts/message-attachments';
+import { PixelBeat } from '@/components/messages/mix/primitives';
 import { cn } from '@/lib/utils';
 import { DownloadLink } from '@/components/ui/download-link';
+import { copyWithToast } from '@/lib/clipboard';
+import { formatFileSize } from '@/lib/messaging/channel-view';
+import { formatDuration, parsePreview } from '@/lib/messaging/media-kind';
+import { clampZoom, viewerLabel, viewerMeta } from '@/lib/messaging/viewer';
+import { prefersReducedMotionFromAttributes } from '@/lib/theme/appearance';
 
 export interface MediaItem {
     id: string;
@@ -16,6 +23,14 @@ export interface MediaItem {
     thumbnailUrl?: string;
     filename: string;
     type: 'image' | 'video' | 'file' | 'audio' | string;
+    /** Optional details for the mono meta line and the Info panel. */
+    sizeBytes?: number | null;
+    width?: number | null;
+    height?: number | null;
+    durationMs?: number | null;
+    preview?: string | null;
+    /** Chat only: who sent it, when, and the message (Copy link, Jump to message). Hidden elsewhere. */
+    context?: { sender?: string; at?: string; href?: string };
 }
 
 interface MediaViewerProps {
@@ -26,6 +41,13 @@ interface MediaViewerProps {
     onClose: (returnedState?: { id: string; time: number }) => void;
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * One viewer for chat, Discover, updates and files (the mix, §7.2): a real dialog on the ink stage; chrome as cells with
+ * hairlines; the sender and time (chat); the file name with a mono meta line; zoom cells (− · 100 % · + · Fit · 1:1),
+ * wheel / double-click zoom and drag to pan; the mix player for video; a filmstrip; an Info panel; keys.
+ */
 export function MediaViewerModal({
     attachments,
     initialAttachmentId,
@@ -40,17 +62,28 @@ export function MediaViewerModal({
 
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [zoomLevel, setZoomLevel] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
     // Opened by a click: the video starts with sound (a click is consent).
     const [viewerMuted, setViewerMuted] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isEntering, setIsEntering] = useState(true);
     const [isExiting, setIsExiting] = useState(false);
     const [isMediaLoaded, setIsMediaLoaded] = useState(false);
+    const [slow, setSlow] = useState(false);
+    const [failed, setFailed] = useState(false);
+    const [attempt, setAttempt] = useState(0);
+    const [infoOpen, setInfoOpen] = useState(false);
+    const [reduced, setReduced] = useState(false);
     const viewerVideoRef = useRef<HTMLVideoElement>(null);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const closeRef = useRef<HTMLButtonElement>(null);
+    const opener = useRef<HTMLElement | null>(null);
+    const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
 
     const currentAttachment = attachments[currentIndex] ?? null;
     const currentAttachmentId = currentAttachment?.id ?? null;
     const hasMultiple = attachments.length > 1;
+    const isImage = currentAttachment?.type === 'image';
 
     // Swipe gesture refs
     const touchStartX = useRef(0);
@@ -68,14 +101,23 @@ export function MediaViewerModal({
                 returnedState = { id: currentAttachment.id, time: video.currentTime };
             }
         }
-        setTimeout(() => onClose(returnedState), 250); // Match transiton duration
+        setTimeout(() => {
+            onClose(returnedState);
+            opener.current?.focus?.();
+        }, 250);
     }, [onClose, currentAttachment]);
 
     useEffect(() => {
+        opener.current = document.activeElement as HTMLElement | null;
+        setReduced(prefersReducedMotionFromAttributes(document.documentElement));
         setMounted(true);
         const timer = setTimeout(() => setIsEntering(false), 50);
         return () => clearTimeout(timer);
     }, []);
+    // Focus goes to the close cell when the dialog opens.
+    useEffect(() => {
+        if (mounted) closeRef.current?.focus();
+    }, [mounted]);
 
     useEffect(() => {
         setCurrentIndex(initialIndex);
@@ -83,10 +125,18 @@ export function MediaViewerModal({
     }, [initialIndex]);
 
     useEffect(() => {
-        setViewerMuted(true);
         setZoomLevel(1);
+        setPan({ x: 0, y: 0 });
         setIsMediaLoaded(false);
+        setFailed(false);
+        setSlow(false);
     }, [currentAttachmentId]);
+    // A long load says so (pixel beat) after 2 s.
+    useEffect(() => {
+        if (isMediaLoaded || failed) return;
+        const timer = window.setTimeout(() => setSlow(true), 2000);
+        return () => window.clearTimeout(timer);
+    }, [isMediaLoaded, failed, currentAttachmentId, attempt]);
 
     const moveNext = useCallback(() => {
         if (attachments.length === 0) return;
@@ -98,9 +148,26 @@ export function MediaViewerModal({
         setCurrentIndex((previous) => (previous - 1 + attachments.length) % attachments.length);
     }, [attachments.length]);
 
+    const zoomTo = useCallback((next: number) => {
+        const z = clampZoom(next);
+        setZoomLevel(z);
+        if (z === 1) setPan({ x: 0, y: 0 });
+    }, []);
+
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') handleClose();
+            if (event.key === 'Tab') {
+                // Keep focus inside the dialog.
+                const items = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.offsetParent !== null);
+                if (!items.length) return;
+                const first = items[0]!, last = items[items.length - 1]!;
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+                return;
+            }
+            const target = event.target as HTMLElement | null;
+            if (target?.closest('input, textarea, [role="slider"]')) return;
             if (event.key === ' ') {
                 event.preventDefault();
                 const video = viewerVideoRef.current;
@@ -109,9 +176,10 @@ export function MediaViewerModal({
                     else video.pause();
                 }
             }
-            if (event.key.toLowerCase() === 'm') {
-                setViewerMuted((prev) => !prev);
-            }
+            if (event.key === 'i') setInfoOpen((open) => !open);
+            if (isImage && (event.key === '+' || event.key === '=')) zoomTo(zoomLevel + 0.25);
+            if (isImage && event.key === '-') zoomTo(zoomLevel - 0.25);
+            if (isImage && event.key === '0') zoomTo(1);
             if (!hasMultiple) return;
             if (event.key === 'ArrowRight') moveNext();
             if (event.key === 'ArrowLeft') movePrevious();
@@ -119,11 +187,11 @@ export function MediaViewerModal({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [hasMultiple, moveNext, movePrevious, handleClose]);
+    }, [hasMultiple, moveNext, movePrevious, handleClose, isImage, zoomLevel, zoomTo]);
 
     if (!currentAttachment || !mounted) return null;
 
-    // FLIP animation coordinates calculation
+    // FLIP from the tile, unless motion is reduced (then a fade only).
     const originX = originRect ? originRect.left + originRect.width / 2 : window.innerWidth / 2;
     const originY = originRect ? originRect.top + originRect.height / 2 : window.innerHeight / 2;
     const transX = originX - window.innerWidth / 2;
@@ -132,7 +200,7 @@ export function MediaViewerModal({
 
     const animationStyle: CSSProperties = (isEntering || isExiting)
         ? {
-            transform: `translate3d(${transX}px, ${transY}px, 0) scale(${initScale})`,
+            transform: reduced ? 'none' : `translate3d(${transX}px, ${transY}px, 0) scale(${initScale})`,
             opacity: 0,
             transition: 'transform 260ms cubic-bezier(.2,.8,.3,1), opacity 180ms cubic-bezier(.2,.8,.3,1)',
         }
@@ -148,9 +216,9 @@ export function MediaViewerModal({
                 transition: 'transform 260ms cubic-bezier(.2,.8,.3,1), opacity 260ms cubic-bezier(.2,.8,.3,1)',
             };
 
-    // Swipe gesture handlers
+    // Swipe gesture handlers (phones): sideways moves, down closes; not while zoomed in.
     const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.targetTouches[0]) {
+        if (e.targetTouches[0] && zoomLevel === 1) {
             touchStartX.current = e.targetTouches[0].clientX;
             touchEndX.current = e.targetTouches[0].clientX;
             touchStartY.current = e.targetTouches[0].clientY;
@@ -159,13 +227,14 @@ export function MediaViewerModal({
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (e.targetTouches[0]) {
+        if (e.targetTouches[0] && isDragging) {
             touchEndX.current = e.targetTouches[0].clientX;
             setDragY(e.targetTouches[0].clientY - touchStartY.current);
         }
     };
 
     const handleTouchEnd = () => {
+        if (!isDragging) return;
         setIsDragging(false);
         const deltaX = touchStartX.current - touchEndX.current;
         if (Math.abs(dragY) > 100) {
@@ -179,191 +248,179 @@ export function MediaViewerModal({
         }
     };
 
+    const colors = parsePreview(currentAttachment.preview);
     const placeholderUrl = currentAttachment.type === 'image'
         ? currentAttachment.localUrl || currentAttachment.thumbnailUrl
         : currentAttachment.thumbnailUrl;
+    const meta = viewerMeta({ index: currentIndex, count: attachments.length, name: currentAttachment.filename, size: currentAttachment.sizeBytes, width: currentAttachment.width, height: currentAttachment.height, formatSize: formatFileSize });
+    const context = currentAttachment.context;
+    const when = context?.at ? new Date(context.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
 
     return createPortal(
         <div
-            className={cn(
-                "fixed inset-0 z-[9999] flex flex-col items-center justify-between bg-black/90 p-4 backdrop-blur-none transition-opacity duration-[260ms]",
-                (isEntering || isExiting) ? "opacity-0" : "opacity-100"
-            )}
-            style={isDragging || dragY !== 0 ? { backgroundColor: `rgba(0,0,0,${Math.max(0, 0.9 - Math.abs(dragY) / 400)})` } : undefined}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={viewerLabel(currentAttachment.filename, currentIndex, attachments.length)}
+            className={cn('nbm nbm-viewer', (isEntering || isExiting) ? 'opacity-0' : 'opacity-100')}
+            style={isDragging || dragY !== 0 ? { opacity: Math.max(0.3, 1 - Math.abs(dragY) / 400) } : undefined}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
         >
-            <button type="button" onClick={handleClose} aria-label="Close media viewer" className="absolute inset-0" />
-
-            <div
-                style={animationStyle}
-                className="relative z-10 flex max-h-[85vh] w-full max-w-6xl flex-1 flex-col justify-center"
-            >
-                <div className="mb-3 flex w-full items-center justify-between px-1 text-white">
-                    <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{currentAttachment.filename}</p>
-                        {hasMultiple ? (
-                            <p className="text-xs text-white/60">
-                                {currentIndex + 1} / {attachments.length}
-                            </p>
-                        ) : null}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <DownloadLink
-                            href={currentAttachment.url}
-                            filename={currentAttachment.filename}
-                            className="rounded-full bg-white/10 p-2 transition-colors hover:bg-white/20"
-                            aria-label="Download media"
-                        >
-                            <Download className="h-5 w-5" />
-                        </DownloadLink>
-                        {currentAttachment.type === 'image' ? (
-                            <div className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1">
-                                <button
-                                    type="button"
-                                    onClick={() => setZoomLevel((previous) => Math.max(1, previous - 0.25))}
-                                    className="px-1 text-xs hover:text-white"
-                                >
-                                    -
-                                </button>
-                                <span className="w-10 text-center text-xs">{Math.round(zoomLevel * 100)}%</span>
-                                <button
-                                    type="button"
-                                    onClick={() => setZoomLevel((previous) => Math.min(3, previous + 0.25))}
-                                    className="px-1 text-xs hover:text-white"
-                                >
-                                    +
-                                </button>
-                            </div>
-                        ) : null}
-                        {/* Sound and speed live in the mix player's bar under the video. */}
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            className="rounded-full bg-white/10 p-2 transition-colors hover:bg-white/20"
-                            aria-label="Close"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                    </div>
+            {/* Top bar: who and when (chat), the file and its mono line, then the cells. */}
+            <div className="nbm-viewer-bar">
+                <div className="nbm-viewer-who">
+                    {context?.sender ? <span className="block truncate text-[13px] font-medium">{context.sender}</span> : null}
+                    {when ? <span className="nbm-viewer-mono block truncate">{when}</span> : null}
                 </div>
+                <div className="nbm-viewer-file">
+                    <span className="block truncate text-[13px] font-medium">{currentAttachment.filename}</span>
+                    {meta ? <span className="nbm-viewer-mono block truncate">{meta}</span> : null}
+                </div>
+                <div className="nbm-viewer-cells">
+                    {isImage ? (
+                        <>
+                            <button type="button" className="nbm-viewer-cell" onClick={() => zoomTo(zoomLevel - 0.25)} aria-label="Zoom out"><Minus className="h-4 w-4" /></button>
+                            <span className="nbm-viewer-mono w-12 text-center">{Math.round(zoomLevel * 100)}%</span>
+                            <button type="button" className="nbm-viewer-cell" onClick={() => zoomTo(zoomLevel + 0.25)} aria-label="Zoom in"><Plus className="h-4 w-4" /></button>
+                            <button type="button" className="nbm-viewer-cell is-text" onClick={() => zoomTo(1)} aria-pressed={zoomLevel === 1}>Fit</button>
+                            <button type="button" className="nbm-viewer-cell is-text" onClick={() => zoomTo(currentAttachment.width && currentAttachment.width > window.innerWidth ? currentAttachment.width / window.innerWidth : 2)}>1:1</button>
+                        </>
+                    ) : null}
+                    <DownloadLink href={currentAttachment.url} filename={currentAttachment.filename} className="nbm-viewer-cell" aria-label="Download">
+                        <Download className="h-4 w-4" />
+                    </DownloadLink>
+                    {context?.href ? (
+                        <>
+                            <button type="button" className="nbm-viewer-cell" onClick={() => void copyWithToast(`${window.location.origin}${context.href}`, 'Link copied')} aria-label="Copy link"><Link2 className="h-4 w-4" /></button>
+                            <Link href={context.href} className="nbm-viewer-cell" onClick={handleClose} aria-label="Jump to message"><SquareArrowOutUpRight className="h-4 w-4" /></Link>
+                        </>
+                    ) : null}
+                    <button type="button" className="nbm-viewer-cell" onClick={() => setInfoOpen(!infoOpen)} aria-pressed={infoOpen} aria-label="Info"><Info className="h-4 w-4" /></button>
+                    <button ref={closeRef} type="button" className="nbm-viewer-cell" onClick={handleClose} aria-label="Close"><X className="h-4 w-4" /></button>
+                </div>
+            </div>
 
-                <div className="relative flex min-h-[50vh] w-full flex-1 items-center justify-center overflow-hidden">
-                    {/* CSS Blur-up placeholder while loading */}
-                    {!isMediaLoaded && currentAttachment.type !== 'file' && placeholderUrl && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                            <img
-                                src={placeholderUrl}
-                                alt=""
-                                className="absolute inset-0 h-full w-full select-none object-contain blur-xl scale-105 opacity-50 transition-opacity duration-[260ms]"
-                            />
-                        </div>
-                    )}
+            <div className="nbm-viewer-body">
+                {/* A click on the ink around the media closes, as before. */}
+                <div style={animationStyle} className="nbm-viewer-stage" onClick={(event) => { if (event.target === event.currentTarget) handleClose(); }}>
+                    {/* Loading: the pixel preview scaled up, else a soft blur of the thumbnail. */}
+                    {!isMediaLoaded && !failed && currentAttachment.type !== 'file' ? (
+                        colors ? (
+                            <canvas aria-hidden="true" width={12} height={12} className="nbm-viewer-pixels" ref={(canvas) => {
+                                const ctx = canvas?.getContext('2d');
+                                colors.forEach((color, i) => { if (ctx) { ctx.fillStyle = color; ctx.fillRect(i % 12, Math.floor(i / 12), 1, 1); } });
+                            }} />
+                        ) : placeholderUrl ? (
+                            <img src={placeholderUrl} alt="" aria-hidden="true" className="nbm-viewer-blur" />
+                        ) : null
+                    ) : null}
+                    {slow && !isMediaLoaded && !failed ? <span className="nbm-viewer-loading"><PixelBeat />Loading</span> : null}
 
                     {currentAttachment.type === 'video' ? (
-                        <div data-player-host className="nbm relative flex max-h-[82vh] max-w-full flex-col items-center">
-                        <ResolvedVideoPlayer
-                            key={currentAttachment.id}
-                            url={currentAttachment.localUrl || currentAttachment.url}
-                            controls={false}
-                            autoPlay={true}
-                            muted={viewerMuted}
-                            playsInline={true}
-                            preload="auto"
-                            elementRef={viewerVideoRef}
-                            initialTime={currentIndex === initialIndex ? initialVideoTime : undefined}
-                            onVolumeChange={() => setViewerMuted(viewerVideoRef.current?.muted ?? true)}
-                            onCanPlay={() => {
-                                setIsMediaLoaded(true);
-                            }}
-                            onError={() => {
-                                setIsMediaLoaded(true);
-                            }}
-                            className="lightbox-video h-auto max-h-[74vh] w-auto max-w-full bg-black object-contain"
-                        />
-                        <MixPlayerBar videoRef={viewerVideoRef} keys />
+                        <div data-player-host className="relative flex max-h-full max-w-full flex-col items-center">
+                            <ResolvedVideoPlayer
+                                key={currentAttachment.id}
+                                url={currentAttachment.localUrl || currentAttachment.url}
+                                controls={false}
+                                autoPlay={true}
+                                muted={viewerMuted}
+                                playsInline={true}
+                                preload="auto"
+                                elementRef={viewerVideoRef}
+                                initialTime={currentIndex === initialIndex ? initialVideoTime : undefined}
+                                onVolumeChange={() => setViewerMuted(viewerVideoRef.current?.muted ?? true)}
+                                onCanPlay={() => setIsMediaLoaded(true)}
+                                onError={() => setIsMediaLoaded(true)}
+                                className="lightbox-video h-auto max-h-[70vh] w-auto max-w-full object-contain"
+                            />
+                            <MixPlayerBar videoRef={viewerVideoRef} keys onNext={hasMultiple ? moveNext : undefined} />
                         </div>
                     ) : currentAttachment.filename.toLowerCase().endsWith('.pdf') ? (
-                        <div className="relative h-[82vh] w-full overflow-hidden rounded-lg bg-white">
-                            <PdfViewerV2
-                                key={currentAttachment.id}
-                                attachment={currentAttachment}
-                            />
+                        <div className="nbm-viewer-sheet">
+                            <PdfViewerV2 key={currentAttachment.id} attachment={currentAttachment} />
+                        </div>
+                    ) : failed ? (
+                        <div className="nbm-viewer-error" role="alert">
+                            <ImageOff className="h-6 w-6" aria-hidden="true" />
+                            <p>This image didn’t load.</p>
+                            <div className="flex gap-2">
+                                <button type="button" className="nbm-viewer-cell is-text" onClick={() => { setFailed(false); setIsMediaLoaded(false); setAttempt((n) => n + 1); }}><RotateCw className="h-4 w-4" aria-hidden="true" /> Retry</button>
+                                <DownloadLink href={currentAttachment.url} filename={currentAttachment.filename} className="nbm-viewer-cell is-text"><Download className="h-4 w-4" aria-hidden="true" /> Download</DownloadLink>
+                            </div>
                         </div>
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-12">
+                        <div
+                            className={cn('nbm-viewer-imgbox', zoomLevel > 1 ? 'is-zoomed' : '')}
+                            onWheel={(event) => { if (event.ctrlKey || event.metaKey || zoomLevel > 1 || Math.abs(event.deltaY) > 0) zoomTo(zoomLevel - event.deltaY / 400); }}
+                            onDoubleClick={() => zoomTo(zoomLevel > 1 ? 1 : 2)}
+                            onPointerDown={(event) => { if (zoomLevel > 1) { panStart.current = { x: event.clientX, y: event.clientY, px: pan.x, py: pan.y }; event.currentTarget.setPointerCapture(event.pointerId); } }}
+                            onPointerMove={(event) => { const start = panStart.current; if (start) setPan({ x: start.px + event.clientX - start.x, y: start.py + event.clientY - start.y }); }}
+                            onPointerUp={() => { panStart.current = null; }}
+                        >
                             <img
-                                key={currentAttachment.id}
+                                key={`${currentAttachment.id}:${attempt}`}
                                 src={currentAttachment.localUrl || currentAttachment.url || undefined}
                                 alt={currentAttachment.filename || ''}
                                 onLoad={() => setIsMediaLoaded(true)}
+                                onError={() => setFailed(true)}
+                                draggable={false}
                                 className="h-full w-full select-none object-contain"
-                                style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }}
+                                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomLevel})`, transformOrigin: 'center center' }}
                             />
                         </div>
                     )}
 
                     {hasMultiple ? (
                         <>
-                            <button
-                                type="button"
-                                onClick={movePrevious}
-                                className="absolute left-2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 md:left-4"
-                                aria-label="Previous media"
-                            >
-                                <ChevronLeft className="h-6 w-6" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={moveNext}
-                                className="absolute right-2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 md:right-4"
-                                aria-label="Next media"
-                            >
-                                <ChevronRight className="h-6 w-6" />
-                            </button>
+                            <button type="button" onClick={movePrevious} className="nbm-viewer-nav is-prev" aria-label="Previous media"><ChevronLeft className="h-5 w-5" /></button>
+                            <button type="button" onClick={moveNext} className="nbm-viewer-nav is-next" aria-label="Next media"><ChevronRight className="h-5 w-5" /></button>
                         </>
                     ) : null}
                 </div>
+
+                {infoOpen ? (
+                    <aside className="nbm-viewer-info" aria-label="Info">
+                        <dl>
+                            {context?.sender ? <><dt>Sent by</dt><dd>{context.sender}</dd></> : null}
+                            {when ? <><dt>When</dt><dd>{when}</dd></> : null}
+                            <dt>File</dt><dd className="break-all">{currentAttachment.filename}</dd>
+                            {currentAttachment.sizeBytes ? <><dt>Size</dt><dd>{formatFileSize(currentAttachment.sizeBytes)}</dd></> : null}
+                            {currentAttachment.width && currentAttachment.height ? <><dt>Dimensions</dt><dd>{currentAttachment.width} × {currentAttachment.height}</dd></> : null}
+                            {currentAttachment.durationMs ? <><dt>Length</dt><dd>{formatDuration(currentAttachment.durationMs)}</dd></> : null}
+                        </dl>
+                        <div className="mt-3 grid gap-1.5">
+                            {context?.href ? <Link href={context.href} onClick={handleClose} className="nbm-viewer-cell is-text">Open in conversation</Link> : null}
+                            <DownloadLink href={currentAttachment.url} filename={currentAttachment.filename} className="nbm-viewer-cell is-text">Download</DownloadLink>
+                        </div>
+                    </aside>
+                ) : null}
             </div>
 
-            {/* Scrollable Horizontal Thumbnail Strip */}
-            {hasMultiple && (
-                <div className="relative z-10 flex w-full justify-center overflow-hidden py-2 select-none">
-                    <div className="flex gap-2 overflow-x-auto px-4 py-1 max-w-full no-scrollbar">
-                        {attachments.map((att, idx) => (
-                            <button
-                                key={att.id}
-                                type="button"
-                                onClick={() => setCurrentIndex(idx)}
-                                aria-label={`View ${att.filename}`}
-                                aria-current={currentIndex === idx ? 'true' : undefined}
-                                className={cn(
-                                    "relative h-12 w-12 shrink-0 overflow-hidden rounded-md border-2 bg-zinc-900/50 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms] hover:scale-100",
-                                    currentIndex === idx ? "border-primary scale-110 opacity-100 ring-2 ring-primary/20" : "border-transparent opacity-50 hover:opacity-100"
-                                )}
-                            >
-                                {att.type === 'video' ? (
-                                    <div className="relative flex h-full w-full items-center justify-center bg-zinc-800 text-white">
-                                        <Video className="h-4 w-4" />
-                                    </div>
-                                ) : att.localUrl || att.thumbnailUrl ? (
-                                    <img
-                                        src={att.localUrl || att.thumbnailUrl || undefined}
-                                        alt=""
-                                        className="h-full w-full object-cover block"
-                                    />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-zinc-800 text-white">
-                                        <ImageIcon className="h-4 w-4" aria-hidden="true" />
-                                    </div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
+            {/* Filmstrip: square thumbs; the current one at full strength with its mono index; no ring. */}
+            {hasMultiple ? (
+                <div className="nbm-viewer-strip">
+                    {attachments.map((att, idx) => (
+                        <button
+                            key={att.id}
+                            type="button"
+                            onClick={() => setCurrentIndex(idx)}
+                            aria-label={`View ${att.filename}`}
+                            aria-current={currentIndex === idx ? 'true' : undefined}
+                            className="nbm-viewer-thumb"
+                        >
+                            {att.localUrl || att.thumbnailUrl ? (
+                                <img src={att.localUrl || att.thumbnailUrl || undefined} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                                <span className="grid h-full w-full place-items-center"><ImageIcon className="h-4 w-4" aria-hidden="true" /></span>
+                            )}
+                            {att.type === 'video' && att.durationMs ? <span className="nbm-viewer-thumb-dur">{formatDuration(att.durationMs)}</span> : null}
+                            {currentIndex === idx ? <span className="nbm-viewer-thumb-idx">{idx + 1}</span> : null}
+                        </button>
+                    ))}
                 </div>
-            )}
-
+            ) : null}
         </div>,
         document.body,
     );

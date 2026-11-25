@@ -683,7 +683,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                 </FoldBody>
               ) : message.edited_at ? <span className="nbm-edited">(edited)</span> : null}
               {message.attachments.length ? (
-                <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
+                <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} context={{ sender: authorName, at: message.created_at, href: message.seq > 0 ? messageHref(ctx.channelId, message.seq, message.thread_root_seq) : undefined }} /></div>
               ) : null}
               {message.card ? <MessageCard card={message.card} /> : null}
               {message.body && !message.link_preview_hidden && message.card?.kind !== "application" ? <MessageLinkPreview body={message.body} onRemove={own && actions ? onRemovePreview : undefined} /> : null}

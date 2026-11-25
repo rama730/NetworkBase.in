@@ -53,9 +53,12 @@ export interface ChatAttachmentV2 {
 export function MessageAttachmentsV2({
     attachments,
     onContentLoad,
+    context,
 }: {
     attachments: ChatAttachmentV2[];
     onContentLoad?: () => void;
+    /** Who sent it, when, and the message link: the viewer's top bar and Info (chat only). */
+    context?: MediaItem['context'];
     isOwn?: boolean;
     hasReactions?: boolean;
 }) {
@@ -88,6 +91,7 @@ export function MessageAttachmentsV2({
                     type: att.type,
                     localUrl: att.localUrl || undefined,
                     thumbnailUrl: att.thumbnailUrl || undefined,
+                    sizeBytes: att.sizeBytes, width: att.width, height: att.height, durationMs: att.durationMs, preview: att.preview, context,
                 });
             } else {
                 files.push(att);
@@ -105,7 +109,7 @@ export function MessageAttachmentsV2({
         }
 
         return { mediaAttachments: media, fileAttachments: files, viewerAttachments: viewer, audioAttachments: sounds };
-    }, [attachments]);
+    }, [attachments, context]);
 
     const [activeAttachmentId, setActiveAttachmentId] = useState<string | null>(null);
     // Back or swipe closes the viewer first (unified back A3).
