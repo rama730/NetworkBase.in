@@ -108,7 +108,9 @@ export function MentionDropdown({ query, participants, onSelect, onClose, getInp
     if (filtered.length === 0) return null;
 
     return (
-        <div id={listId} role="listbox" aria-label="People to mention" className="absolute bottom-full left-0 z-30 mb-1 w-64 rounded-lg border border-border bg-popover p-1 shadow-md">
+        <div className="nbm nbm-popover absolute bottom-full left-0 z-30 mb-1 w-64">
+        <p className="nbm-popover-head" aria-hidden="true"><span>People to mention</span><span className="nbm-popover-keys">↑↓ move · ↵ pick · esc</span></p>
+        <div id={listId} role="listbox" aria-label="People to mention">
             {filtered.map((participant, index) => {
                 const identity = buildIdentityPresentation(participant);
                 return (
@@ -121,22 +123,21 @@ export function MentionDropdown({ query, participants, onSelect, onClose, getInp
                             e.preventDefault();
                             onSelect(participant);
                         }}
-                        className={`flex min-h-[34px] w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] pointer-coarse:min-h-11 ${
-                            index === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                        }`}
+                        className="nbm-popover-row"
                     >
                         {participant.hint ? (
-                            <span className="grid size-[26px] flex-none place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden="true"><Megaphone size={14} /></span>
+                            <span className="nbm-popover-glyph" aria-hidden="true"><Megaphone size={14} /></span>
                         ) : (
                             <UserAvatar identity={participant} size={26} unoptimized fallbackClassName="text-[11px] font-medium" />
                         )}
                         <div className="min-w-0">
                             <div className="truncate font-medium text-foreground">{participant.hint ? `@${participant.id}` : identity.displayName}</div>
-                            {participant.hint || identity.usernameLabel ? <div className="truncate text-[12px] text-muted-foreground">{participant.hint ?? identity.usernameLabel}</div> : null}
+                            {participant.hint || identity.usernameLabel ? <div className="nbm-popover-hint">{participant.hint ?? identity.usernameLabel}</div> : null}
                         </div>
                     </div>
                 );
             })}
+        </div>
         </div>
     );
 }

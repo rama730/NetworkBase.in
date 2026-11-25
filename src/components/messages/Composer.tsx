@@ -872,15 +872,15 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       {slashHint ? <p className="nb-meta mb-1 px-1">e.g. {slashHint}</p> : null}
       <div className="nbm-comp">
         {matchingSlash.length > 0 ? (
-          <div className="absolute bottom-full left-0 z-30 mb-1 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md">
-            <div className="flex items-center justify-between px-2 py-1" aria-hidden="true">
-              <span className="nb-micro">Slash commands</span>
-              <span className="nb-meta pointer-coarse:hidden">↑↓ move · ↵ pick · esc</span>
-            </div>
+          <div className="nbm-popover absolute bottom-full left-0 z-30 mb-1 w-[min(20rem,calc(100vw-2rem))]">
+            <p className="nbm-popover-head" aria-hidden="true">
+              <span>Slash commands</span>
+              <span className="nbm-popover-keys">↑↓ move · ↵ pick · esc</span>
+            </p>
             <div id={`${draftKey}-slash`} role="listbox" aria-label="Slash commands">
             {[...new Set(matchingSlash.map((cmd) => cmd.group))].map((group) => (
               <div key={group} role="group" aria-label={group}>
-              <p className="nb-micro px-2 pb-0.5 pt-1.5" aria-hidden="true">{group}</p>
+              <p className="nbm-popover-group" aria-hidden="true">{group}</p>
               {matchingSlash.map((cmd, index) => cmd.group !== group ? null : (
               <button
                 key={cmd.command}
@@ -894,10 +894,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                   e.preventDefault();
                   pickSlash(cmd.command);
                 }}
-                className={`flex min-h-[34px] w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-[13px] pointer-coarse:min-h-11 ${index === activeSlash ? "bg-accent text-accent-foreground" : ""}`}
+                className="nbm-popover-row nbm-popover-row-stack"
               >
-                <span><span className="font-mono font-medium text-primary">{cmd.command}</span> <span className="text-muted-foreground">{cmd.description}</span></span>
-                <span className="nb-meta">{cmd.example}</span>
+                <span><span className="nbm-popover-cmd">{cmd.command}</span> <span className="text-muted-foreground">{cmd.description}</span></span>
+                <span className="nbm-popover-hint">{cmd.example}</span>
               </button>
               ))}
               </div>

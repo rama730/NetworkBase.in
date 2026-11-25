@@ -17,8 +17,8 @@ export function SuggestList({ id, label, items, active, onPick, onHover }: {
 }) {
   if (!items.length) return null;
   return (
-    <div className="absolute bottom-full left-0 z-30 mb-1 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md">
-      <p className="nb-micro px-2 py-1" aria-hidden="true">{label}</p>
+    <div className="nbm-popover absolute bottom-full left-0 z-30 mb-1 w-[min(20rem,calc(100vw-2rem))]">
+      <p className="nbm-popover-head" aria-hidden="true"><span>{label}</span><span className="nbm-popover-keys">↑↓ move · ↵ pick · esc</span></p>
       <div id={id} role="listbox" aria-label={label}>
         {items.map((item, index) => (
           <div
@@ -31,11 +31,11 @@ export function SuggestList({ id, label, items, active, onPick, onHover }: {
               event.preventDefault();
               onPick(item);
             }}
-            className={`flex min-h-[34px] cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] pointer-coarse:min-h-11 ${index === active ? "bg-accent text-accent-foreground" : "hover:bg-muted"}`}
+            className="nbm-popover-row"
           >
-            {item.icon ? <span aria-hidden="true" className="grid w-5 place-items-center text-[17px] leading-none">{item.icon}</span> : null}
+            {item.icon ? <span aria-hidden="true" className="nbm-popover-glyph">{item.icon}</span> : null}
             <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
-            {item.hint ? <span className="nb-meta truncate">{item.hint}</span> : null}
+            {item.hint ? <span className="nbm-popover-hint">{item.hint}</span> : null}
           </div>
         ))}
       </div>

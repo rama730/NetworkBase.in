@@ -59,7 +59,7 @@ export function ComposerMenu({ title, trigger, items, side = "top", align = "sta
       <DropdownMenuTrigger {...triggerProps} aria-disabled={disabled || undefined} onPointerDown={(e) => disabled && e.preventDefault()} onKeyDown={(e) => disabled && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") && e.preventDefault()}>
         {trigger}
       </DropdownMenuTrigger>
-      <DropdownMenuContent side={side} align={align} className="w-56">
+      <DropdownMenuContent side={side} align={align} className="nbm nbm-menu w-56">
         <DropdownMenuLabel>{title}</DropdownMenuLabel>
         {items.map((item) => (
           <span key={item.label} className="contents">
