@@ -1098,9 +1098,9 @@
       "text": "B2.2 C2 Learning path (31.3) — Build: Pacing per class (never mixed); undated sprints (shared with A7.6); progress = the same lessonprogress table as O3 (Correc",
       "kind": "unit",
       "milestone": "B2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/path-pace.test.ts; tests/unit/learning-path-rules.test.ts; tests/db/class-path.test.ts; tests/db/class-path-assignments.test.ts; tests/db/learning-path.test.ts; tests/browser/class-path.spec.ts; tests/browser/learning-path.spec.ts",
+      "evidence": "B2.2a–b live 2026-11-25 (95f934552, d983e015d batch). Live in Chrome on wt-test-b0-class-cohort-1: Settings → Pacing switched to Self-paced (no learners yet), Sprints shows Path with \"WT Module 1 · Basics\" and lesson NB-1, Suggested pace 2 weeks a module, Members → Progress; live fixes d72a7e83a: the Teacher no longer ticks or sees Up next, Pacing only in Settings, \"No learners yet\". Assignments in modules (copies on Start, due N days), completion by path, the learner header, Stuck and drop-off are DB/browser-tested (one test account). Security reviews: only work for every learner is made on opening, targeted work counts for holders, public visitors see only every-learner work."
     },
     {
       "key": "B2.3",
@@ -1108,9 +1108,9 @@
       "text": "B2.3 C5 Mentors (31.5) — Build: Mentor group section kind; Check-in meeting type (one running doc per pair); objectives ≤ 3; time slots + .ics; Useful answers (",
       "kind": "unit",
       "milestone": "B2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/mentoring.test.ts; tests/db/mentoring.test.ts; tests/db/mentoring-plan.test.ts; tests/db/sections.test.ts; tests/browser/mentoring.spec.ts",
+      "evidence": "B2.3a–b live 2026-11-25 (0137 class_mentoring, 0138 mentoring_plan; d983e015d, 842b1e2cc). Live in Chrome on wt-test-b0-class-cohort-1: Settings → Mentoring saved, Sections offers \"Mentor group\", Members → Mentors card \"No mentor · 0 learners · on rhythm 0 · Objectives: on track 0 · at risk 0 · Useful shows after 5 answers\"; live fix 1fc6243dd (Mentors reads afresh). Matching, private check-ins, Share, Useful, objectives, booking with .ics, concerns, the mentor's note and hourly reminders are DB/browser-tested (one account). Security reviews: mentor must still be a TA, pairing starts at the later membership, shared entries reach the Teacher only, no self-pick into mentor groups. Mentor-only access for outside mentors is parked (needs a scoped role)."
     },
     {
       "key": "B2.4",
