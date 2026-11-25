@@ -1,4 +1,5 @@
 "use client";
+import { MentoringSettingsCard } from "@/components/organizations/Mentoring";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { ChildOrgSection, ChildVisibilityPicker } from "@/components/organizations/ChildOrgSection";
@@ -1453,7 +1454,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
-                {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /><AttendanceSettingsCard orgId={projectId} /><MarkingSettingsCard orgId={projectId} /><ExamSettingsCard orgId={projectId} /></> : null}
+                {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /><AttendanceSettingsCard orgId={projectId} /><MentoringSettingsCard orgId={projectId} /><MarkingSettingsCard orgId={projectId} /><ExamSettingsCard orgId={projectId} /></> : null}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">

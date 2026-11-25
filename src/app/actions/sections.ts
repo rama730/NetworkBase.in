@@ -35,7 +35,7 @@ async function classAccess(orgId: string) {
 const name = (p: { fullName: string | null; username: string | null }) => p.fullName || p.username || "Someone";
 
 export type SectionRow = {
-  id: string; name: string; kind: "lab" | "tutorial" | "lecture"; meets: Array<{ day: number; start: string; end: string }>; room: string | null;
+  id: string; name: string; kind: "lab" | "tutorial" | "lecture" | "mentor"; meets: Array<{ day: number; start: string; end: string }>; room: string | null;
   officeHours: { days: number[]; start: string; end: string; place: string | null } | null; seatLimit: number | null; seatsLeft: number | null;
   tas: Array<{ id: string; name: string }>; students: Array<{ id: string; name: string }>; mine: boolean;
 };
@@ -75,7 +75,7 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const sectionInput = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1, "Name the section.").max(60),
-  kind: z.enum(["lab", "tutorial", "lecture"]),
+  kind: z.enum(["lab", "tutorial", "lecture", "mentor"]),
   meets: z.array(z.object({ day: z.number().int().min(0).max(6), start: time, end: time }).refine((m) => m.end > m.start, "A session ends after it starts.")).max(14),
   room: z.string().trim().max(80).nullable(),
   officeHours: z.object({ days: z.array(z.number().int().min(0).max(6)).max(7), start: time, end: time, place: z.string().trim().max(80).nullable() }).nullable(),
@@ -147,10 +147,10 @@ export async function moveStudentAction(orgId: string, userId: string, sectionId
 }
 
 /** Split students… : a preview (apply = false) or the change (apply = true), over the students not yet in this kind. */
-export async function splitStudentsAction(orgId: string, input: { kind: "lab" | "tutorial" | "lecture"; method: SplitMethod; everyone: boolean; apply: boolean; seed?: string }) {
+export async function splitStudentsAction(orgId: string, input: { kind: "lab" | "tutorial" | "lecture" | "mentor"; method: SplitMethod; everyone: boolean; apply: boolean; seed?: string }) {
   const ctx = await classAccess(orgId);
   if (!ctx?.teacher || !ctx.canWrite) return DENIED;
-  if (!["lab", "tutorial", "lecture"].includes(input.kind) || !["even", "random", "surname"].includes(input.method)) return { success: false as const, error: "Pick a kind and a way to split." };
+  if (!["lab", "tutorial", "lecture", "mentor"].includes(input.kind) || !["even", "random", "surname"].includes(input.method)) return { success: false as const, error: "Pick a kind and a way to split." };
   const sections = await db.select({ id: classSections.id, name: classSections.name, seatLimit: classSections.seatLimit }).from(classSections)
     .where(and(eq(classSections.projectId, orgId), eq(classSections.kind, input.kind))).orderBy(asc(classSections.position));
   if (!sections.length) return { success: false as const, error: "Make a section of this kind first." };

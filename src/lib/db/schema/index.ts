@@ -1213,7 +1213,7 @@ export const classSections = pgTable("class_sections", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  kind: text("kind", { enum: ["lab", "tutorial", "lecture"] }).notNull().default("lab"),
+  kind: text("kind", { enum: ["lab", "tutorial", "lecture", "mentor"] }).notNull().default("lab"),
   meets: jsonb("meets").$type<Array<{ day: number; start: string; end: string }>>().notNull().default([]),
   room: text("room"),
   officeHours: jsonb("office_hours").$type<{ days: number[]; start: string; end: string; place: string | null } | null>(),
@@ -1293,6 +1293,30 @@ export const programs = pgTable("programs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("programs_institution_idx").on(t.institutionId)]);
+
+/** B2.3a (0137, report 31.5): a pair's check-ins, private to the learner and their mentors; shared entries reach staff. */
+export const mentorCheckins = pgTable("mentor_checkins", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  learnerId: uuid("learner_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  onDate: date("on_date").notNull(),
+  prep: jsonb("prep").$type<{ since: string; stuck: string; asks: string }>(),
+  prepDoneAt: timestamp("prep_done_at", { withTimezone: true }),
+  notes: text("notes"),
+  sharedAt: timestamp("shared_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [unique("mentor_checkins_one_per_day").on(t.projectId, t.learnerId, t.onDate), index("mentor_checkins_learner_idx").on(t.projectId, t.learnerId, t.onDate)]);
+/** Was this useful? — one per check-in, shown only as totals from 5 (0137). */
+export const mentorUseful = pgTable("mentor_useful", {
+  checkinId: uuid("checkin_id").primaryKey().references(() => mentorCheckins.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  mentorId: uuid("mentor_id").references(() => profiles.id, { onDelete: "set null" }),
+  answer: text("answer", { enum: ["very", "somewhat", "not_really"] }).notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("mentor_useful_mentor_idx").on(t.projectId, t.mentorId)]);
 
 /** B2.1b (0136, report 31.2 calls 5–6): a cohort's completion per learner; an override keeps its reason. Server only. */
 export const cohortCompletions = pgTable("cohort_completions", {
