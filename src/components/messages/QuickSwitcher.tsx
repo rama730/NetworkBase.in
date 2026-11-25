@@ -1,5 +1,7 @@
 "use client";
 
+import { padCount } from "@/lib/messaging/mix-format";
+import { PixelBeat } from "@/components/messages/mix/primitives";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -165,7 +167,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         id={optionId(index)}
         role="option"
         aria-selected={index === active}
-        className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-[15px] ${index === active ? "bg-accent text-accent-foreground" : ""}`}
+        className="nbm-popover-row nbm-sw-row"
         onMouseEnter={() => setActive(index)}
         onClick={() => void choose(result)}
       >
@@ -173,12 +175,12 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         <span className={`min-w-0 flex-1 truncate ${result.type === "channel" && result.unread ? "font-semibold" : ""}`}>
           {result.type === "search" ? (result.title ? <>Search messages for &ldquo;{result.title}&rdquo;</> : "Search messages…") : result.title}
         </span>
-        {result.type === "channel" && result.project ? <span className="nb-tag max-w-[40%] flex-none truncate">{result.project}</span> : null}
-        {result.type === "channel" && !result.joined ? <span className="nb-meta flex-none">Not joined</span> : null}
-        {result.type === "channel" && result.count ? <span className="nb-chat-count">{result.count > 99 ? "99+" : result.count}<span className="sr-only"> unread</span></span> : result.type === "channel" && result.unread ? <span className="sr-only">, unread</span> : null}
-        {result.type === "person" && !result.canDm ? <span className="text-[13px] text-muted-foreground">Can’t message</span> : null}
-        {result.type === "person" && opening === result.id ? <span role="status" className="nb-meta">Opening…</span> : null}
-        {result.type === "search" ? <kbd className="nb-meta flex-none">{keyLabel("mod+enter")}</kbd> : null}
+        {result.type === "channel" && result.project ? <span className="nbm-lrow-meta max-w-[40%] flex-none truncate">{result.project}</span> : null}
+        {result.type === "channel" && !result.joined ? <span className="nbm-tag flex-none">Not joined</span> : null}
+        {result.type === "channel" && result.count ? <span className="nbm-count hot"><span aria-hidden="true">{padCount(result.count)}</span><span className="sr-only">{result.count} unread</span></span> : result.type === "channel" && result.unread ? <span className="sr-only">, unread</span> : null}
+        {result.type === "person" && !result.canDm ? <span className="nbm-tag flex-none">Can’t message</span> : null}
+        {result.type === "person" && opening === result.id ? <span role="status" className="nbm-lrow-meta inline-flex items-center gap-1.5"><PixelBeat />Opening…</span> : null}
+        {result.type === "search" ? <kbd className="nbm-lrow-meta flex-none">{keyLabel("mod+enter")}</kbd> : null}
       </li>
     );
   };
@@ -187,7 +189,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
   const group = (id: string, label: string, items: Result[]) => (items.length ? (
     <li role="presentation">
       <ul role="group" aria-labelledby={`chat-switcher-group-${id}`}>
-        <li role="presentation" id={`chat-switcher-group-${id}`} className="nb-micro px-3 py-1.5 text-muted-foreground">{label}</li>
+        <li role="presentation" id={`chat-switcher-group-${id}`} className="nbm-glabel nbm-sw-group">{label}</li>
         {items.map(renderOption)}
       </ul>
     </li>
@@ -198,7 +200,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
       <DialogContent showCloseButton={false} className="nbm nbm-dialog top-[15%] translate-y-0 gap-0 rounded-xl p-0">
         {/* The same words as the sidebar row that opens it. */}
         <DialogTitle className="sr-only">Jump to a conversation</DialogTitle>
-        <div className="flex items-center gap-2 border-b border-border px-4">
+        <div className="nbm-sw-find">
           <Search size={16} aria-hidden="true" className="text-muted-foreground" />
           <input
             autoFocus
@@ -210,7 +212,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
             aria-expanded={results.length > 0}
             aria-controls="chat-switcher-results"
             aria-activedescendant={results.length ? optionId(active) : undefined}
-            className="h-14 flex-1 bg-transparent text-[15px] outline-none pointer-coarse:text-[17px]"
+            className="flex-1 bg-transparent text-[16px] outline-none pointer-coarse:text-[17px]"
           />
         </div>
         <ul id="chat-switcher-results" role="listbox" aria-label="Conversations and people" className="max-h-[50dvh] overflow-y-auto p-2">

@@ -30,3 +30,13 @@ test('grammar: 8px corners, serif title, fg2 help line, paper footer strip', () 
   assert.match(css, /\.nbm-dialog \[data-slot="dialog-title"\]\s*\{[^}]*var\(--nbm-serif\)/);
   assert.match(css, /\.nbm-dialog \[data-slot="dialog-footer"\]\s*\{[^}]*background:\s*var\(--nbm-soft\)[^}]*border-top:\s*1px solid var\(--nbm-line\)/);
 });
+
+test('quick switcher: the find field is the head; mono group labels; square tags; soft active rows', () => {
+  const sw = readFileSync('src/components/messages/QuickSwitcher.tsx', 'utf8');
+  assert.match(sw, /<div className="nbm-sw-find">/);
+  assert.match(sw, /className="nbm-glabel nbm-sw-group"/);
+  assert.match(sw, /<span className="nbm-tag flex-none">Not joined<\/span>/);
+  assert.match(sw, /<span className="nbm-tag flex-none">Can’t message<\/span>/);
+  assert.match(sw, /className="nbm-popover-row nbm-sw-row" aria-selected|className="nbm-popover-row nbm-sw-row"/);
+  assert.match(css, /\.nbm-sw-find\s*\{[^}]*height:\s*52px/);
+});
