@@ -46,10 +46,10 @@ export const LinkPreviewCard = memo(function LinkPreviewCard({ preview, loading 
             target="_blank"
             rel="noopener noreferrer nofollow ugc"
             aria-busy={loading || undefined}
-            className="msg-rich-content mt-2 flex min-h-[80px] w-full min-w-0 max-w-[480px] flex-row items-center overflow-hidden rounded-lg border border-border bg-muted transition-colors duration-[180ms] hover:bg-secondary"
+            className="nbm-lp msg-rich-content"
         >
             {(preview.image || loading) && (
-                <div className="h-[80px] w-[80px] shrink-0 overflow-hidden bg-secondary">
+                <div className="nbm-lp-img">
                     {preview.image ? (
                         <Image
                             src={preview.image}
@@ -67,19 +67,19 @@ export const LinkPreviewCard = memo(function LinkPreviewCard({ preview, loading 
                     )}
                 </div>
             )}
-            <div className="flex min-w-0 flex-1 flex-col p-3">
-                <div className="nb-meta truncate">{preview.domain}</div>
+            <div className="nbm-lp-text">
+                <div className="nbm-lp-domain">{preview.domain}</div>
                 {loading && !preview.title ? (
                     <div aria-hidden="true" className="nb-skeleton mt-1 h-3.5 w-4/5 rounded-sm" />
                 ) : preview.title ? (
-                    <div className="mt-0.5 line-clamp-1 break-words text-[13px] font-semibold leading-snug text-foreground">
+                    <div className="nbm-lp-title">
                         {preview.title}
                     </div>
                 ) : null}
                 {loading && !preview.description ? (
                     <div aria-hidden="true" className="nb-skeleton mt-1 h-3 w-2/3 rounded-sm" />
                 ) : preview.description ? (
-                    <div className="mt-0.5 line-clamp-1 break-words text-[12px] leading-tight text-muted-foreground">
+                    <div className="nbm-lp-desc">
                         {preview.description}
                     </div>
                 ) : null}
@@ -95,7 +95,7 @@ export const LinkPreviewCard = memo(function LinkPreviewCard({ preview, loading 
                 onClick={onRemove}
                 aria-label="Remove link preview"
                 title="Remove preview"
-                className="nb-icon-button absolute right-1.5 top-3.5 size-7 bg-card pointer-fine:opacity-0 pointer-fine:group-hover/preview:opacity-100 focus-visible:opacity-100 pointer-coarse:size-11"
+                className="nbm-cell nbm-lp-x absolute right-1.5 top-3.5 pointer-fine:opacity-0 pointer-fine:group-hover/preview:opacity-100 focus-visible:opacity-100"
             >
                 <X size={14} />
             </button>

@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlarmClock, Archive, Ban, BellOff, Bookmark, BookmarkCheck, Bug, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
-  MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
+  ListChecks, MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
 } from "lucide-react";
 import { toast, feedbackError, deferredFeedback } from "@/lib/feedback";
 
@@ -41,7 +41,7 @@ import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeline";
 import { laterTimes } from "@/lib/messaging/reminders";
 import { encodeMentions, parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
-import { pollOptions } from "@/lib/messaging/poll";
+import { pollOptions, pollParts, pollStats } from "@/lib/messaging/poll";
 import { bugFromMessage } from "@/lib/workflows/bugs";
 import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -213,6 +213,36 @@ function SystemRow({
       {/* A decision note can be long: it wraps instead of being cut off. */}
       <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{who ? <><b>{who}</b> </> : null}{body}</span>
       <span className="nbm-msg-time" title={new Date(at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}>{formatChatTime(at, "clock")}</span>
+    </div>
+  );
+}
+
+/** A /poll message as a card: one button per option with its bar (votes ÷ all votes), "Pick any" (each option is a reaction). */
+function PollCard({ poll, reactions, canVote, onVote }: { poll: NonNullable<ReturnType<typeof pollParts>>; reactions: ChatMessageView["reactions"]; canVote: boolean; onVote: (emoji: string) => void }) {
+  const stats = pollStats(poll.options, reactions);
+  return (
+    <div className="nbm-poll" role="group" aria-label={`Poll: ${poll.question}`}>
+      <div className="nbm-poll-head"><span className="nbm-tag"><ListChecks size={12} aria-hidden="true" />Poll</span></div>
+      <p className="nbm-poll-q">{poll.question}</p>
+      {stats.options.map((option) => (
+        <button
+          key={option.emoji}
+          type="button"
+          className="nbm-poll-opt"
+          aria-pressed={option.me}
+          aria-disabled={canVote ? undefined : true}
+          onClick={canVote ? () => onVote(option.emoji) : undefined}
+          aria-label={`${option.label}, ${option.count} vote${option.count === 1 ? "" : "s"}${option.me ? ", your vote" : ""}`}
+        >
+          <span className="nbm-poll-num" aria-hidden="true">{option.emoji}</span>
+          <span className="nbm-poll-main" aria-hidden="true">
+            <span className="nbm-poll-label">{option.label}</span>
+            <span className="nbm-poll-track"><span className="nbm-poll-bar" style={{ width: `${option.share}%` }} /></span>
+          </span>
+          <span className="nbm-poll-count" aria-hidden="true">{option.count} <i>{option.share}%</i></span>
+        </button>
+      ))}
+      <div className="nbm-poll-foot"><span>{stats.votes ? `${stats.votes} vote${stats.votes === 1 ? "" : "s"}` : "No votes yet"}</span><span>Pick any</span></div>
     </div>
   );
 }
@@ -510,9 +540,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const remind = (at: () => Date) => ctx.setSaved?.(message.seq, true, at().toISOString());
   // A poll shows a chip for every option from the start (0 votes too); other reactions follow.
   const options = pollOptions(message.body);
-  const chips = options.length
-    ? [...options.map((emoji) => message.reactions.find((r) => r.emoji === emoji) ?? { emoji, count: 0, me: false }), ...message.reactions.filter((r) => !options.includes(r.emoji))]
-    : message.reactions;
+  // A poll's options are its card's buttons; only other reactions stay chips under it.
+  const poll = options.length ? pollParts(message.body) : null;
+  const chips = options.length ? message.reactions.filter((r) => !options.includes(r.emoji)) : message.reactions;
   const fullTime = new Date(message.created_at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   const rowId = `msg-${ctx.channelId}-${ctx.inThread ? "t" : "c"}-${message.seq}`;
   const placeBar = () => {
@@ -596,7 +626,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             />
           ) : (
             <>
-              {message.body ? (
+              {poll ? (
+                <PollCard poll={poll} reactions={message.reactions} canVote={ctx.isMember !== false && !pending} onVote={(emoji) => void toggleReaction(emoji)} />
+              ) : message.body ? (
                 <FoldBody length={message.body.length}>
                 <MessageBody
                   body={message.body}

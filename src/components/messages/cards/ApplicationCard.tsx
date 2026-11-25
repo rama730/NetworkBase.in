@@ -183,10 +183,11 @@ export function ApplicationCard({ view }: { view: ApplicationCardView }) {
           ) : null}
         </ul>
       ) : null}
-      <ol className="mt-3 space-y-1 border-l border-border pl-3 text-xs text-muted-foreground">
-        <li>Submitted · {when(view.created_at)}</li>
-        {outcome ? <li className="text-foreground">{outcome}</li> : null}
-        {view.status === "rejected" && view.decision_reason_text ? <li>{view.decision_reason_text}</li> : null}
+      {/* A mini log: mono date column, then what happened (no edge bar). */}
+      <ol className="nbm-log">
+        <li><span className="nbm-log-at">{when(view.created_at)}</span><span>Submitted</span></li>
+        {outcome ? <li className="text-foreground"><span className="nbm-log-at">{view.decision_at ? when(view.decision_at) : ""}</span><span>{outcome.split(" · ")[0]}</span></li> : null}
+        {view.status === "rejected" && view.decision_reason_text ? <li><span className="nbm-log-at" /><span>{view.decision_reason_text}</span></li> : null}
       </ol>
       <ApplicationLinks view={view} />
     </Shell>
@@ -205,9 +206,9 @@ export function ApplicationStatusBar({ applicationId }: { applicationId: string 
   const outcome = applicationOutcome(view);
   const role = view.role_removed ? "Role removed" : view.role_title ?? "Role";
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-muted/30 px-3 py-2 sm:px-4" role="group" aria-label={`Application status: ${APPLICATION_STATUS_LABEL[view.status] ?? view.status}`}>
+    <div className="nbm-appbar" role="group" aria-label={`Application status: ${APPLICATION_STATUS_LABEL[view.status] ?? view.status}`}>
       <span className="nb-status" data-status={STATUS_TONE[view.status] ?? "archived"} aria-live="polite">{APPLICATION_STATUS_LABEL[view.status] ?? view.status}</span>
-      <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+      <p className="nbm-appbar-text">
         <Link href={`/workspaces/${view.project_slug ?? view.project_id}`} className="hover:text-foreground hover:underline">{role} · {view.project_title}</Link>
         {outcome ? <span> · {outcome}</span> : null}
       </p>

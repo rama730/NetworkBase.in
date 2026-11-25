@@ -23,3 +23,28 @@ export function pollOptions(body: string) {
   const choices = [...POLL_NUMBERS, ...POLL_DEFAULT];
   return body.split("\n").map((line) => choices.find((emoji) => line.startsWith(`${emoji} `))).filter((emoji): emoji is string => Boolean(emoji));
 }
+
+/** The poll's question and options with their labels, for the poll card; null for any other message. */
+export function pollParts(body: string): { question: string; options: { emoji: string; label: string }[] } | null {
+  if (!body.startsWith(HEADER)) return null;
+  const question = body.slice(HEADER.length, body.indexOf("**", HEADER.length));
+  const choices = [...POLL_NUMBERS, ...POLL_DEFAULT];
+  const options = body.split("\n").flatMap((line) => {
+    const emoji = choices.find((e) => line.startsWith(`${e} `));
+    return emoji ? [{ emoji, label: line.slice(emoji.length + 1).trim() }] : [];
+  });
+  return { question, options };
+}
+
+/**
+ * Votes per option (each option is a reaction, so several picks work: "Pick any"). Each option's share is its
+ * part of all votes; reactions carry counts, not voters, so "people" can't be counted here.
+ */
+export function pollStats(options: { emoji: string; label: string }[], reactions: { emoji: string; count: number; me: boolean }[]) {
+  const rows = options.map((option) => {
+    const r = reactions.find((x) => x.emoji === option.emoji);
+    return { ...option, count: r?.count ?? 0, me: r?.me ?? false };
+  });
+  const votes = rows.reduce((sum, r) => sum + r.count, 0);
+  return { votes, options: rows.map((r) => ({ ...r, share: votes ? Math.round((r.count / votes) * 100) : 0 })) };
+}
