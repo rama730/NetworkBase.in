@@ -1328,6 +1328,22 @@ export const prepProfiles = pgTable("prep_profiles", {
   suggested: jsonb("suggested").$type<Record<string, number>>(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.projectId, t.userId] })]);
+/** B2.5b (0141, report 31.6): judges' feedback per team (never marks) and their award picks. Server only. */
+export const demoFeedback = pgTable("demo_feedback", {
+  teamId: uuid("team_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  judgeId: uuid("judge_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  scores: jsonb("scores").$type<Record<string, number | null>>().default({}).notNull(),
+  note: text("note"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.teamId, t.judgeId] }), index("demo_feedback_workspace_idx").on(t.projectId)]);
+export const demoPicks = pgTable("demo_picks", {
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  award: text("award").notNull(),
+  judgeId: uuid("judge_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  teamId: uuid("team_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.projectId, t.award, t.judgeId] })]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -18,6 +18,7 @@ async function open(page: Page, view: string) {
       saveCapstoneAction: async (_p: string, input: unknown) => { calls.push(['save', input]); return { success: true }; },
       setShowcaseReadyAction: async (_p: string, ready: boolean) => { calls.push(['ready', ready]); return { success: false, error: 'It’s Ready once every milestone, the Final one too, is done.' }; },
       consentShowcaseAction: async (_p: string, agree: boolean) => { calls.push(['consent', agree]); return { success: true }; },
+      readTeamFeedbackAction: async () => ({ success: true, feedback: [{ scores: { problem: 5, demo: 4 }, note: 'Great live demo' }] }),
       readShowcaseAction: async () => ({ success: true, tracks: ['Data', 'Health'], cards: [
         { id: 'w1', slug: 'kite', title: 'Bus delay predictor', line: 'Know before you wait', track: 'Data', links: { demo: 'https://example.com/demo', code: '', video: '' }, cover: null, team: ['A. Rao', 'K. Shah'] },
         { id: 'w2', slug: 'lumen', title: 'Clinic queue app', line: '', track: 'Health', links: { demo: '', code: '', video: '' }, cover: null, team: null }] }),
@@ -35,6 +36,7 @@ test('the team card: brief, roles, milestones in words, the Showcase card with R
   await expect(card).toContainText('K. Shah — Front-end');
   await expect(card).toContainText('Mentor Arjun');
   await expect(card).toContainText(/MVP\s*Done/);
+  await expect(card.getByTestId('team-feedback')).toContainText('Problem 5 · Demo 4 — Great live demo');
   await expect(card.getByTestId('showcase-card')).toContainText('Public only when every member agrees (1 of 2)');
   await card.getByRole('button', { name: 'Mark Ready' }).click();
   await expect(page.getByText('It’s Ready once every milestone, the Final one too, is done.').first()).toBeVisible();

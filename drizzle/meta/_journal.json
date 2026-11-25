@@ -981,6 +981,13 @@
       "when": 1795570114175,
       "tag": "0140_prep_syllabus",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1795573341260,
+      "tag": "0141_demo_day",
+      "breakpoints": true
     }
   ]
 }

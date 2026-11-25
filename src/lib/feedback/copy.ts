@@ -734,4 +734,9 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "It’s Ready once every milestone, the Final one too, is done.": {"title": "It’s Ready once every milestone, the Final one too, is done.", "type": "warning"},
   "Say why they completed without meeting the rule.": {"title": "Say why they completed without meeting the rule.", "type": "warning"},
   "Say why they didn’t complete.": {"title": "Say why they didn’t complete.", "type": "warning"},
+  "Check the demo day details.": {"title": "Check the demo day details.", "type": "warning"},
+  "Judges join the class first (outside judges as Viewers).": {"title": "Judges join the class first (outside judges as Viewers).", "type": "warning"},
+  "Pick one of this demo day’s teams.": {"title": "Pick one of this demo day’s teams.", "type": "warning"},
+  "Mentors don’t judge their own teams.": {"title": "Mentors don’t judge their own teams.", "type": "warning"},
+  "Scores are 1 to 5.": {"title": "Scores are 1 to 5.", "type": "warning"},
 };

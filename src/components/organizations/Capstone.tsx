@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { consentShowcaseAction, readCapstoneAction, readCapstoneTeamsAction, readShowcaseAction, saveCapstoneAction, setShowcaseReadyAction } from "@/app/actions/capstone";
+import { TeamFeedback } from "@/components/organizations/DemoDay";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -59,6 +60,7 @@ export function CapstoneOverviewCard({ projectId }: { projectId: string }) {
             ) : <p className="text-muted-foreground">Milestones show here when the class sets them.</p>}
           </>
         )}
+        <TeamFeedback projectId={projectId} />
         <div className="space-y-1.5 rounded-md border border-border p-2.5" data-testid="showcase-card">
           <p className="flex flex-wrap items-center gap-2"><span className="font-medium">{c.showcase.title || "Showcase card"}</span>
             {c.showcase.readyAt ? <StatusBadge state="done">Ready</StatusBadge> : <StatusBadge state="new">Draft</StatusBadge>}
