@@ -1,5 +1,6 @@
 "use client";
 
+import { CompanyRequestsSwitch } from "@/components/organizations/CompanyRequests";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Inbox, MoreHorizontal, Timer } from "lucide-react";
 import Link from "next/link";
@@ -160,6 +161,8 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
         {data?.canManage && view === "inbox" ? (
           <p className="text-xs text-muted-foreground" data-testid="hours-note">Response times follow working hours: {hoursLine(data.hours, data.timeZone)}. <button type="button" className="text-primary hover:underline" onClick={() => setEditingHours(true)}>Change</button></p>
         ) : null}
+        {/* Report 33.6 (B4.5): a team in a company can take requests from everyone in the company. */}
+        {data?.canManage && view === "inbox" ? <CompanyRequestsSwitch projectId={projectId} /> : null}
         {data && view === "inbox" ? (
           !all.length ? (
             <div className="nb-empty-state rounded-[8px] border border-border bg-card px-4 py-8 text-center" data-testid="requests-empty">

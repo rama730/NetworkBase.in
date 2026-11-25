@@ -3,6 +3,7 @@
 import { NeedsReviewCard, WhatsNewCard } from '@/components/organizations/CompanyParts'
 import { CompanyGoalsCard } from '@/components/organizations/CompanyGoals'
 import { StartHere } from '@/components/organizations/CompanyOnboarding'
+import { AskTeamCard } from '@/components/organizations/CompanyRequests'
 import { SchoolAttentionCard } from '@/components/organizations/SchoolParts'
 import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
@@ -314,6 +315,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'company' ? <WhatsNewCard orgId={orgId} base={base} /> : null}
                 {orgType === 'company' ? <NeedsReviewCard orgId={orgId} base={base} /> : null}
                 {orgType === 'company' ? <CompanyGoalsCard orgId={orgId} base={base} /> : null}
+                {orgType === 'company' ? <AskTeamCard orgId={orgId} base={base} /> : null}
                 {data.getStarted.length ? (
                     // Report §7.2, decision 7: three cards while the organization is empty, each opening the real form.
                     <OrgCard title="Get started" action={<Link href="/help/running-a-class" className="nb-link text-[13px]">Running a class on NetworkBase</Link>}>
