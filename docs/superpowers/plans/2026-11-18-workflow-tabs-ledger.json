@@ -1118,9 +1118,9 @@
       "text": "B2.4 C3 Mock tests and skills (31.4) — Build: Score layouts (sections, maxima, scheme, conversion, overall rule); series label; per-section marks with W7 mark; ",
       "kind": "unit",
       "milestone": "B2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/mocks.test.ts; tests/unit/prep.test.ts; tests/db/mocks.test.ts; tests/db/prep.test.ts; tests/browser/mock-scores.spec.ts",
+      "evidence": "B2.4a–b live 2026-11-25 (0139 mock_scores, 0140 prep_syllabus; 62a9b65ac, e2f4d01d3). Live in Chrome on wt-test-b0-class-cohort-1: a draft exam \"WT Mock 1\" made in the assignment form, Members → Scores appeared, Set up a mock (IELTS layout, series \"WT IELTS mocks\"), \"Enter marks: WT Mock 1 (held)\", live fix 62fabb8d7 (Edit layout with raw-to-band tables — saved \"39:9, 30:7, 23:6, 0:4\" for Listening; bands only once there are marks; \"No learners yet\"), staff Syllabus saved a topic with stage counts. Marks entry by learner, My prep, mistakes and sharing with a mentor are DB/browser-tested (one account). Found here: error toasts hid every Part B message (fixed for all of B in e788f049f)."
     },
     {
       "key": "B2.5",
