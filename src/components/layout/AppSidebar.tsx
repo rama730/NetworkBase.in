@@ -285,7 +285,6 @@ export function AppSidebar() {
             </div>
             <div className="nb-sidebar-body">
                 <SidebarNav />
-                <div id="navigation-feedback-slot" />
                 <nav
                     aria-label="Settings and sidebar controls"
                     className="nb-sidebar-footer"

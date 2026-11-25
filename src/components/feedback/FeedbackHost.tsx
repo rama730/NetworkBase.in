@@ -6,6 +6,7 @@ import { Check, X } from 'lucide-react';
 import { PixelBeat } from '@/components/ui/PixelBeat';
 import { feedbackStore, feedbackLabel } from '@/lib/feedback';
 import { feedbackText, type FeedbackItem } from '@/lib/feedback/store';
+import { cornerOffsets, toastPlace, type ToastPlace } from '@/lib/feedback/placement';
 import { countdownCells, overflowLabel, overflowName, stackRows, undoLabel, type StackRow } from '@/lib/feedback/stack';
 import './feedback.css';
 
@@ -17,7 +18,7 @@ function Glyph({ item }: { item: FeedbackItem }) {
 }
 
 function useFeedbackOwner() {
-  const [owner, setOwner] = useState<{ element: HTMLElement; kind: 'navigation' | 'fallback' | 'modal'; mobile: boolean } | null>(null);
+  const [owner, setOwner] = useState<{ element: HTMLElement; kind: 'fallback' | 'modal'; place: ToastPlace; mobile: boolean } | null>(null);
   useEffect(() => {
     const fallback = document.createElement('div');
     fallback.className = 'nb-feedback-fallback';
@@ -25,28 +26,56 @@ function useFeedbackOwner() {
     document.body.append(fallback);
     const modalSlots = new Set<HTMLElement>();
     let scheduled = 0;
+    // The chat pane you last acted in; a toast about it shows over that pane (the drawer, else the conversation).
+    let acted: HTMLElement | null = null;
+    const openPane = (el: Element | null | undefined) => el instanceof HTMLElement && el.isConnected && !el.closest('.nbm-window') && el.getClientRects().length > 0 ? el : null;
     const sync = () => {
       scheduled = 0;
       const mobile = window.innerWidth < 768;
       const modals = [...document.querySelectorAll<HTMLElement>('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], dialog[open]')].filter(el => el.getClientRects().length > 0);
       const modal = modals.at(-1);
-      const navigation = document.getElementById('navigation-feedback-slot');
-      let element: HTMLElement = fallback, kind: 'navigation' | 'fallback' | 'modal' = 'fallback';
+      const pane = openPane(acted?.dataset.chatPane === 'drawer' ? acted : null)
+        ?? [...document.querySelectorAll<HTMLElement>('[data-chat-pane="conversation"]')].map(openPane).find(Boolean) ?? null;
+      const place = toastPlace({ dialog: Boolean(modal), mobile, pane: Boolean(pane), window: Boolean(document.querySelector('.nbm-window')) });
+      let element: HTMLElement = fallback, kind: 'fallback' | 'modal' = 'fallback';
       if (modal) {
         let slot = modal.querySelector<HTMLElement>(':scope > [data-feedback-portal="modal"]');
         if (!slot) { slot = document.createElement('div'); slot.dataset.feedbackPortal = 'modal'; slot.className = 'nb-feedback-modal'; modal.append(slot); modalSlots.add(slot); }
         element = slot; kind = 'modal';
-      } else if (!mobile && navigation && navigation.closest('#application-sidebar')?.getClientRects().length) { element = navigation; kind = 'navigation'; }
-      setOwner(previous => previous?.element === element && previous.kind === kind && previous.mobile === mobile ? previous : { element, kind, mobile });
-      const viewport = window.visualViewport;
-      const visibleBottom = viewport ? viewport.height + viewport.offsetTop : window.innerHeight;
-      let bottom = Math.max(16, window.innerHeight - visibleBottom + 16);
-      for (const control of document.querySelectorAll<HTMLElement>('.nb-message-composer, .nb-wizard-footer, [data-feedback-obstacle]')) {
-        const rect = control.getBoundingClientRect();
-        if (rect.height && rect.top > visibleBottom * .45 && rect.top < visibleBottom && rect.bottom >= visibleBottom - 120) bottom = Math.max(bottom, window.innerHeight - rect.top + 16);
       }
-      fallback.style.setProperty('--feedback-bottom', `${bottom}px`);
+      setOwner(previous => previous?.element === element && previous.kind === kind && previous.place === place && previous.mobile === mobile ? previous : { element, kind, place, mobile });
+      const box = { left: '', right: '', bottom: '', width: '' };
+      if (place === 'phone') {
+        // Full width less 16 px a side, 8 px above the composer (or any footer the page marks) and the keyboard.
+        const viewport = window.visualViewport;
+        const visibleBottom = viewport ? viewport.height + viewport.offsetTop : window.innerHeight;
+        let bottom = Math.max(16, window.innerHeight - visibleBottom + 16);
+        for (const control of document.querySelectorAll<HTMLElement>('.nb-message-composer, .nb-wizard-footer, [data-feedback-obstacle]')) {
+          const rect = control.getBoundingClientRect();
+          if (rect.height && rect.top > visibleBottom * .45 && rect.top < visibleBottom && rect.bottom >= visibleBottom - 120) bottom = Math.max(bottom, window.innerHeight - rect.top + 8);
+        }
+        Object.assign(box, { left: '16px', right: '16px', bottom: `${bottom}px`, width: 'auto' });
+      } else if (place === 'pane' && pane) {
+        // Bottom-centre of the pane, 8 px above its composer.
+        const rect = pane.getBoundingClientRect();
+        const edge = pane.querySelector<HTMLElement>('.nb-message-composer')?.getBoundingClientRect().top ?? rect.bottom - 16;
+        const width = Math.max(200, Math.min(360, rect.width - 32));
+        Object.assign(box, { left: `${rect.left + (rect.width - width) / 2}px`, right: 'auto', bottom: `${window.innerHeight - edge + 8}px`, width: `${width}px` });
+      } else {
+        const { right, bottom } = cornerOffsets({ window: place === 'window', launcher: Boolean(document.querySelector('.nbm-launcher')) });
+        Object.assign(box, { right: `${right}px`, bottom: `${bottom}px` });
+      }
+      Object.assign(fallback.style, box);
+      fallback.dataset.place = place;
     };
+    const act = (event: Event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-feedback-portal]')) return;
+      acted = target?.closest<HTMLElement>('[data-chat-pane]') ?? null;
+      schedule();
+    };
+    document.addEventListener('pointerdown', act, true);
+    document.addEventListener('keydown', act, true);
     const schedule = () => { if (!scheduled) scheduled = requestAnimationFrame(sync); };
     const observer = new MutationObserver(schedule);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state', 'open', 'data-collapsed'] });
@@ -61,7 +90,7 @@ function useFeedbackOwner() {
     const controlObserver = new MutationObserver(observeControls);
     controlObserver.observe(document.body, { childList: true, subtree: true });
     observeControls(); sync();
-    return () => { observer.disconnect(); controlObserver.disconnect(); controls.disconnect(); resize.disconnect(); window.removeEventListener('resize', schedule); window.visualViewport?.removeEventListener('resize', schedule); window.visualViewport?.removeEventListener('scroll', schedule); cancelAnimationFrame(scheduled); fallback.remove(); modalSlots.forEach(slot => slot.remove()); };
+    return () => { document.removeEventListener('pointerdown', act, true); document.removeEventListener('keydown', act, true); observer.disconnect(); controlObserver.disconnect(); controls.disconnect(); resize.disconnect(); window.removeEventListener('resize', schedule); window.visualViewport?.removeEventListener('resize', schedule); window.visualViewport?.removeEventListener('scroll', schedule); cancelAnimationFrame(scheduled); fallback.remove(); modalSlots.forEach(slot => slot.remove()); };
   }, []);
   return owner;
 }
@@ -157,7 +186,7 @@ export function FeedbackHost() {
   const list = recent ? [...snapshot.history].reverse() : snapshot.items;
   const live = rows.filter(row => !row.leaving).length;
   let after = live;
-  return createPortal(<div ref={region} className="nb-feedback-system" data-empty={!rows.length && !snapshot.items.length} data-owner={owner.kind} data-mobile={owner.mobile} data-fanned={fanned}
+  return createPortal(<div ref={region} className="nb-feedback-system" data-empty={!rows.length && !snapshot.items.length} data-owner={owner.kind} data-place={owner.place} data-mobile={owner.mobile} data-fanned={fanned}
     onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}
     onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
     <div className="sr-only" role="status" aria-live="polite" aria-atomic="true"><span key={snapshot.announcement.serial}>{snapshot.announcement.text}</span></div>

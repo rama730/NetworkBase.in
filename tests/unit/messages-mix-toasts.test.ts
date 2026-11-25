@@ -155,3 +155,29 @@ test('toast CSS: 360 px card, square cells, 8 px shelves at 94 % and 88 %, reduc
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /border-radius:\s*(?:12px|9999px|50%)/);
 });
+
+import { cornerOffsets, toastPlace } from '../../src/lib/feedback/placement';
+
+test('placement priority: a dialog, then a phone, then the pane you acted in, then beside the window, then the corner', () => {
+  const base = { dialog: false, mobile: false, pane: false, window: false };
+  assert.equal(toastPlace({ ...base, dialog: true, mobile: true, pane: true }), 'modal');
+  assert.equal(toastPlace({ ...base, mobile: true, pane: true }), 'phone');
+  assert.equal(toastPlace({ ...base, pane: true, window: true }), 'pane');
+  assert.equal(toastPlace({ ...base, window: true }), 'window');
+  assert.equal(toastPlace(base), 'corner');
+});
+
+test('corner offsets: above the launcher (24 + 56 + 12), left of the window (24 + 400 + 12), else 24', () => {
+  assert.deepEqual(cornerOffsets({ window: true, launcher: true }), { right: 436, bottom: 24 });
+  assert.deepEqual(cornerOffsets({ window: false, launcher: true }), { right: 24, bottom: 92 });
+  assert.deepEqual(cornerOffsets({ window: false, launcher: false }), { right: 24, bottom: 24 });
+});
+
+test('the app sidebar no longer holds toasts; the host follows the chat panes', () => {
+  const sidebar = readFileSync('src/components/layout/AppSidebar.tsx', 'utf8');
+  assert.doesNotMatch(sidebar, /navigation-feedback-slot/);
+  assert.doesNotMatch(host, /navigation-feedback-slot|'navigation'/);
+  assert.match(host, /closest<HTMLElement>\('\[data-chat-pane\]'\)/);
+  assert.match(host, /\.nb-message-composer/);
+  assert.doesNotMatch(css, /navigation-feedback-slot/);
+});
