@@ -90,6 +90,17 @@ test("capstone card, Ready with milestones, public with every member's agreement
   const pub = await act.readShowcaseAction(klass);
   assert.ok(pub.success);
   assert.deepEqual(pub.cards.map((c) => [c.title, c.team]), [["Bus delay predictor", null]], "public, without the team's names");
+  // Security review: changing the card after everyone agreed asks the others again.
+  viewerId = a!;
+  assert.equal((await act.saveCapstoneAction(ws, { showcase: { line: "Something new" } })).success, true);
+  viewerId = outsider!;
+  assert.equal(((await act.readShowcaseAction(klass)) as { cards: unknown[] }).cards.length, 0, "not public until B agrees to the new words");
+  viewerId = a!;
+  assert.equal((await act.saveCapstoneAction(ws, { problem: "Buses are very late" })).success, true);
+  const still = await act.readCapstoneAction(ws);
+  assert.ok(still.success && Boolean(still.capstone.showcase.consents[a!]), "the brief isn't the card: A's agreement stays");
+  viewerId = b!;
+  assert.equal((await act.consentShowcaseAction(ws, true)).success, true);
 
   // Staff table: counts and states, never the team's work.
   viewerId = a!;

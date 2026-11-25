@@ -73,9 +73,13 @@ export async function saveCapstoneAction(projectId: string, input: unknown): Pro
   if (!t) return DENIED;
   const p = parsed.data;
   if (p.roles && Object.keys(p.roles).some((id) => !t.members.some((m) => m.id === id))) return { success: false, error: "Roles are for this team’s members." };
+  const card = { ...t.capstone.showcase, ...(p.showcase ?? {}), links: { ...t.capstone.showcase.links, ...(p.showcase?.links ?? {}) } };
+  // Security review: everyone agreed to the card as it was; changing what it says asks them again (the editor's own
+  // agreement stays if they'd given it).
+  const words = (s: typeof card) => JSON.stringify([s.title, s.line, s.track, s.links]);
+  const consents = words(card) === words(t.capstone.showcase) ? card.consents : (card.consents[userId] ? { [userId]: new Date().toISOString() } : {});
   const next: Capstone = { ...t.capstone, ...(p.problem !== undefined ? { problem: p.problem } : {}), ...(p.audience !== undefined ? { audience: p.audience } : {}),
-    ...(p.metrics ? { metrics: p.metrics } : {}), ...(p.roles ? { roles: p.roles } : {}),
-    showcase: { ...t.capstone.showcase, ...(p.showcase ?? {}), links: { ...t.capstone.showcase.links, ...(p.showcase?.links ?? {}) } } };
+    ...(p.metrics ? { metrics: p.metrics } : {}), ...(p.roles ? { roles: p.roles } : {}), showcase: { ...card, consents } };
   await db.execute(sql`UPDATE workspaces SET workflow_settings = coalesce(workflow_settings, '{}'::jsonb) || jsonb_build_object('capstone', ${JSON.stringify(next)}::jsonb) WHERE id = ${projectId}::uuid`);
   return { success: true };
 }
