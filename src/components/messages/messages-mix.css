@@ -550,3 +550,15 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-tray-cell { display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12.5px; font-weight: 500; transition: background-color var(--nbm-m1) var(--nbm-ease), border-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-tray-cell:hover { border-color: var(--foreground); background: var(--nbm-soft); }
 @media (pointer: coarse) { .nbm-tray-cell { height: 44px; } }
+
+/* Pins and Files list cells (Phase 7 Task 29) */
+.nbm-lrow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 20px; border-bottom: 1px solid var(--nbm-line); transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-lrow:hover { background: var(--nbm-soft); }
+.nbm-lrow-top { align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
+.nbm-lrow-thumb { flex: none; width: 34px; height: 34px; border-radius: 3px; background: var(--nbm-soft); object-fit: cover; }
+.nbm-lrow-glyph { display: grid; place-items: center; color: var(--nbm-fg2); }
+.nbm-lrow-meta { font: 11px/1.4 var(--nbm-mono); color: var(--nbm-fg2); }
+.nbm-lrow-acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.nbm-lrow-act { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12px; font-weight: 500; color: var(--foreground); transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-lrow-act:hover { background: var(--card); border-color: var(--foreground); }
+@media (pointer: coarse) { .nbm-lrow-act { height: 44px; } }

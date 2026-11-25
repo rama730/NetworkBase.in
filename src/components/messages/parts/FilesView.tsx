@@ -13,6 +13,7 @@ import { messageHref } from "@/lib/messaging/routes";
 import { queryKeys } from "@/lib/query-keys";
 import { Download } from "lucide-react";
 import { DownloadLink } from "@/components/ui/download-link";
+import { middleCut } from "@/lib/messaging/mix-format";
 
 /** Every file shared in the conversation, newest first, each linking to its message. */
 export function FilesView({ channelId }: { channelId: string }) {
@@ -34,19 +35,19 @@ export function FilesView({ channelId }: { channelId: string }) {
       {files.data.map((file) => {
         const Icon = file.mime.startsWith("image/") ? ImageIcon : file.mime.startsWith("video/") ? Video : FileText;
         return (
-          <li key={`${file.seq}:${file.asset_id}`} className="flex min-h-14 items-center gap-3 px-4 py-2">
+          <li key={`${file.seq}:${file.asset_id}`} className="nbm-lrow">
             {/* Images show themselves; other files their kind. */}
             {file.mime.startsWith("image/") ? (
-              <img src={`/api/v1/chat/attachments/${file.asset_id}`} alt="" loading="lazy" className="size-[34px] flex-none rounded-md bg-muted object-cover" />
+              <img src={`/api/v1/chat/attachments/${file.asset_id}`} alt="" loading="lazy" className="nbm-lrow-thumb" />
             ) : (
-              <span className="grid size-[34px] flex-none place-items-center rounded-md bg-muted text-muted-foreground"><Icon size={18} aria-hidden="true" /></span>
+              <span className="nbm-lrow-thumb nbm-lrow-glyph"><Icon size={18} aria-hidden="true" /></span>
             )}
             <span className="min-w-0 flex-1">
-              <a href={`/api/v1/chat/attachments/${file.asset_id}`} target="_blank" rel="noopener noreferrer" className="block truncate text-[13px] font-medium hover:underline">{file.name || "File"}</a>
-              <span className="nb-meta block truncate" title={fullTime(file.created_at)}>{formatFileSize(file.size)} · {file.author ?? "Someone"} · {formatChatTime(file.created_at)}</span>
+              <a href={`/api/v1/chat/attachments/${file.asset_id}`} target="_blank" rel="noopener noreferrer" className="block truncate text-[13px] font-medium hover:underline" title={file.name}>{middleCut(file.name || "File")}</a>
+              <span className="nbm-lrow-meta block truncate" title={fullTime(file.created_at)}>{formatFileSize(file.size)} · {file.author ?? "Someone"} · {formatChatTime(file.created_at)}</span>
             </span>
-            <DownloadLink href={`/api/v1/chat/attachments/${file.asset_id}`} filename={file.name} aria-label={`Download ${file.name}`} title="Download" className="nb-icon-button size-8 flex-none pointer-coarse:size-11"><Download size={15} aria-hidden="true" /></DownloadLink>
-            <Link href={messageHref(channelId, file.seq, file.thread_root_seq)} className="flex-none text-[13px] font-medium text-primary hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">View message</Link>
+            <DownloadLink href={`/api/v1/chat/attachments/${file.asset_id}`} filename={file.name} aria-label={`Download ${file.name}`} title="Download" className="nbm-cell flex-none"><Download size={15} aria-hidden="true" /></DownloadLink>
+            <Link href={messageHref(channelId, file.seq, file.thread_root_seq)} className="nbm-lrow-act flex-none">View message</Link>
           </li>
         );
       })}

@@ -176,19 +176,19 @@ function PinRow({ message, channelId }: { message: ChatMessageView; channelId: s
   };
   const when = new Date(message.created_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   return (
-    <li className="flex gap-3 border-b border-border px-4 py-3">
+    <li className="nbm-lrow nbm-lrow-top">
       <UserAvatar identity={message.author} size={34} />
       <div className="min-w-0 flex-1">
         <p className="flex items-baseline gap-2 text-[13px]">
           <span className="font-medium">{personName(message.author)}</span>
-          <time dateTime={message.created_at} className="nb-meta" title={new Date(message.created_at).toLocaleString()}>{when}</time>
+          <time dateTime={message.created_at} className="nbm-lrow-meta" title={new Date(message.created_at).toLocaleString()}>{when}</time>
         </p>
         {message.body ? <MessageBody body={message.body} nameOf={ctx.nameOf} channelNameOf={ctx.channelNameOf} meId={ctx.meId} /> : null}
         {message.attachments.length ? <p className="text-[13px] text-muted-foreground">{message.attachments.map((a) => a.name || "Attachment").join(", ")}</p> : null}
-        <div className="mt-1 flex gap-1">
+        <div className="nbm-lrow-acts">
           {/* A pinned thread reply opens its thread (replies aren't in the main timeline). */}
-          <Button type="button" variant="ghost" size="sm" onClick={() => router.replace(messageHref(channelId, message.seq, message.thread_root_seq), { scroll: false })} className="-ml-2.5 pointer-coarse:h-11">Jump to message</Button>
-          <Button type="button" variant="ghost" size="sm" onClick={() => void unpin()} className="text-muted-foreground pointer-coarse:h-11">Unpin</Button>
+          <button type="button" className="nbm-lrow-act" onClick={() => router.replace(messageHref(channelId, message.seq, message.thread_root_seq), { scroll: false })}>Jump to message</button>
+          <button type="button" className="nbm-lrow-act" onClick={() => void unpin()}>Unpin</button>
         </div>
       </div>
     </li>
