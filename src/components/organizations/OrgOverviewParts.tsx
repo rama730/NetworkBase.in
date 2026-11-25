@@ -4,6 +4,7 @@ import { NeedsReviewCard, WhatsNewCard } from '@/components/organizations/Compan
 import { CompanyGoalsCard } from '@/components/organizations/CompanyGoals'
 import { StartHere } from '@/components/organizations/CompanyOnboarding'
 import { AskTeamCard } from '@/components/organizations/CompanyRequests'
+import { CommunityFrontDoor } from '@/components/organizations/CommunityFrontDoor'
 import { SchoolAttentionCard } from '@/components/organizations/SchoolParts'
 import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
@@ -274,6 +275,8 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {data.restricted ? <Notice tone="warning">This organization is restricted for now.</Notice> : null}
                 {/* Report 33.5 (B4.4): a new person's Start here comes before anything else. */}
                 {orgType === 'company' ? <StartHere orgId={orgId} /> : null}
+                {/* Report 34.2 (B5.1): a community's I agree and Getting started come first for members. */}
+                {orgType === 'community' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
                 {isClass ? <ClassNextLine orgId={orgId} /> : null}
                 {isClass ? <ThisWeekAtSchool orgId={orgId} /> : null}

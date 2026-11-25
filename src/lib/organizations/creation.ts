@@ -108,10 +108,13 @@ export function orgInviteMessage(input: { title: string; joinCode: string; signe
 const STARTER_SECTIONS: Record<string, string[]> = {
   Syllabus: ["What this course covers", "Schedule", "How work is submitted and reviewed", "Late work", "Where to ask questions"],
   "Team handbook": ["What the team does", "How we work week to week", "Where things live", "Who to ask"],
-  "Code of conduct": ["What this group is for", "How we treat each other", "Reporting a problem"],
+  // Report 34.2 (B5.1): the Code of conduct in four parts; Rules is a numbered list that reports and moderators name.
+  "Code of conduct": ["Values", "Rules", "How we keep it safe", "Contact"],
   "Lab guide": ["Research focus", "Weekly rhythm", "Data and code", "Writing and authorship"],
   Blank: ["About"],
 };
+
+const STARTER_RULES = ["1. Be kind and assume good intent.", "2. No harassment, hate or personal attacks.", "3. No spam or self-promotion without asking.", "4. Keep private things private: don’t share others’ messages or details.", "5. Stay on topic in each channel."];
 
 /** The starter doc's text for an organization (report §34.5): the type's template with the org's own words. */
 export function orgStarterDoc(type: OrgType, input: { title: string; description?: string | null; audience?: string | null; activities?: string | null }) {
@@ -120,6 +123,8 @@ export function orgStarterDoc(type: OrgType, input: { title: string; description
   if (input.description?.trim()) lines.push(input.description.trim(), "");
   if (input.audience?.trim()) lines.push(`**Who it’s for:** ${input.audience.trim()}`, "");
   if (input.activities?.trim()) lines.push(`**What members do here:** ${input.activities.trim()}`, "");
-  for (const heading of STARTER_SECTIONS[name] ?? STARTER_SECTIONS.Blank!) lines.push(`## ${heading}`, "", "_Add details here._", "");
+  for (const heading of STARTER_SECTIONS[name] ?? STARTER_SECTIONS.Blank!) {
+    lines.push(`## ${heading}`, "", ...(name === "Code of conduct" && heading === "Rules" ? STARTER_RULES : ["_Add details here._"]), "");
+  }
   return lines.join("\n").trimEnd() + "\n";
 }

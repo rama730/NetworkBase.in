@@ -18,6 +18,7 @@ import ProjectOverviewCard from '@/components/workspaces/dashboard/WorkspaceOver
 import { RailSection } from '@/components/ui/rail-section'
 import { SchoolAboutSections } from '@/components/organizations/SchoolParts'
 import { CompanyAboutSections } from '@/components/organizations/CompanyParts'
+import { RulesSummary } from '@/components/organizations/CommunityFrontDoor'
 import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
 import { messageUserInWindow } from '@/components/messages/message-user'
@@ -106,6 +107,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 ) : null}
                 {org?.isSchool ? <SchoolAboutSections orgId={project.id} /> : null}
                 {org?.type === 'company' ? <CompanyAboutSections orgId={project.id} /> : null}
+                {org?.type === 'community' ? <RulesSummary orgId={project.id} base={base} /> : null}
             </div>
             <aside {...stickyRail} aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
                 {isClass ? <ClassDetailsRail orgId={project.id} settingsHref={`${base}?tab=settings&section=org-profile`} /> : null}
