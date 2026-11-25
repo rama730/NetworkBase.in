@@ -1412,6 +1412,19 @@ export const schoolSlotChanges = pgTable("school_slot_changes", {
   createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [unique("school_slot_changes_one_per_day").on(t.slotId, t.day), index("school_slot_changes_workspace_day_idx").on(t.projectId, t.day)]);
+/** B3.5b (0146, report 32.6 calls 4, 5, 8): a person's goals, year review and development log at a school. Server only. */
+export const staffGrowth = pgTable("staff_growth", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  year: text("year").notNull(),
+  title: text("title").notNull(),
+  body: jsonb("body").default({}).notNull(),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("staff_growth_person_idx").on(t.projectId, t.userId, t.year), uniqueIndex("staff_growth_one_review").on(t.projectId, t.userId, t.year).where(sql`kind = 'review'`)]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),

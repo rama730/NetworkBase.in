@@ -800,4 +800,13 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "You have no lessons for this course on the school’s timetable.": {"title": "You have no lessons for this course on the school’s timetable.", "type": "warning"},
   "Keep each part of the cover info to 2,000 characters.": {"title": "Keep each part of the cover info to 2,000 characters.", "type": "warning"},
   "Cover only is for Viewers (outside supply staff).": {"title": "Cover only is for Viewers (outside supply staff).", "type": "warning"},
+  "Keep at least one heading.": {"title": "Keep at least one heading.", "type": "warning"},
+  "Check the staff growth settings.": {"title": "Check the staff growth settings.", "type": "warning"},
+  "Reports to is someone else on the staff.": {"title": "Reports to is someone else on the staff.", "type": "warning"},
+  "Give it a title.": {"title": "Give it a title.", "type": "warning"},
+  "Check the entry.": {"title": "Check the entry.", "type": "warning"},
+  "Goals are the person’s own.": {"title": "Goals are the person’s own.", "type": "warning"},
+  "Up to 3 goals a year.": {"title": "Up to 3 goals a year.", "type": "warning"},
+  "Your line manager writes their part.": {"title": "Your line manager writes their part.", "type": "warning"},
+  "The person writes their own reflection and plan.": {"title": "The person writes their own reflection and plan.", "type": "warning"},
 };

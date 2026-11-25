@@ -148,7 +148,8 @@
     "drizzle/0142_school_timetable.sql",
     "drizzle/0143_school_cover.sql",
     "drizzle/0144_school_duties.sql",
-    "drizzle/0145_school_slot_changes.sql"
+    "drizzle/0145_school_slot_changes.sql",
+    "drizzle/0146_staff_growth.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
