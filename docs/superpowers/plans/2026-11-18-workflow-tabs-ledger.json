@@ -1238,9 +1238,9 @@
       "text": "B5.1 M1 Community home, Code of conduct, joining (34.2)",
       "kind": "unit",
       "milestone": "B5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/community-front-door.test.ts; tests/db/community-front-door.test.ts; tests/browser/community-front-door.spec.ts",
+      "evidence": "Pushed 2026-11-26 (81c6fe5b8, a7ebd139e, b0a6582b6, c15d9e6e3, 3734b6046, 80c43f00b): CoC four parts + numbered rules, rules summary on About, I agree (again on a new version), Getting started 14 days, Settings → Joining, agree + join questions in both join paths, Updates post/edit/comment wait for agreement. Live check blocked: the test account owns 5 organizations (limit) — needs a slot. Not built: posting gate in chat, first-day DM limit (Messages is being rebuilt by another session), report names a rule, welcome post."
     },
     {
       "key": "B5.2",
