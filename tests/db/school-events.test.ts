@@ -84,6 +84,16 @@ test("school events reach classes, repeats skip holidays, For me follows the aud
   assert.equal(briefings.length, 4);
   assert.ok(seen.items.every((e) => (e.title === "Science fair prep") !== e.fromSchool), "school events are Set by the school");
   assert.equal(seen.items.some((e) => e.title === "Leaders meeting"), false, "an admins-only school event doesn't show to a teacher");
+  // Review: the general task reads follow the same rule — a school member who isn't an admin sees no school event there.
+  const [hidden] = await sql`SELECT app_private.nb_org_task_visible_to(t.id, ${teacher!}::uuid) AS visible FROM tasks t WHERE t.workspace_id = ${school} AND t.title = 'Leaders meeting'`;
+  assert.equal(hidden!.visible, false);
+  const { orgTaskReadFilter } = await loadAppModule(() => import("../../src/lib/organizations/assignments"));
+  const { getWorkspaceAccessById } = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
+  const { db } = await loadAppModule(() => import("../../src/lib/db"));
+  const { tasks } = await loadAppModule(() => import("../../src/lib/db/schema"));
+  const { and, eq } = await import("drizzle-orm");
+  const listed = await db.select({ title: tasks.title }).from(tasks).where(and(eq(tasks.projectId, school), orgTaskReadFilter(await getWorkspaceAccessById(school, teacher!), teacher!)));
+  assert.equal(listed.some((t: { title: string }) => t.title === "Leaders meeting"), false, "the Tasks list doesn't show it either");
   assert.equal(seen.items.find((e) => e.title === "Open evening")?.forMe, true);
   assert.equal((await act.setEventStatusAction(school, brief.id, "cancelled")).success, false, "a class's staff can't change school events");
 
