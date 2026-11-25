@@ -55,12 +55,12 @@ async function groups(orgId: string) {
 
 /**
  * When `userId` mentors `learnerId` here, the start of their pairing (else null). Security review: the mentor must
- * still be an admin (TA) of the class and the learner still a member; a mentor reads only entries made since the
- * pair was matched, so a new match never opens earlier check-ins.
+ * still be an admin (TA) of the class and the learner still a member; a mentor reads only entries made since both
+ * were in the group (the later of the two), so a new match or a newly added mentor never opens earlier check-ins.
  */
 async function pairedSince(orgId: string, userId: string, learnerId: string): Promise<Date | null> {
   const [r] = await db.execute<{ since: string | null }>(sql`
-    SELECT max(l.created_at)::text AS since FROM class_section_members t JOIN class_section_members l ON l.section_id = t.section_id
+    SELECT max(greatest(l.created_at, t.created_at))::text AS since FROM class_section_members t JOIN class_section_members l ON l.section_id = t.section_id
       JOIN class_sections s ON s.id = t.section_id AND s.kind = 'mentor'
       JOIN workspace_members tw ON tw.workspace_id = t.workspace_id AND tw.user_id = t.user_id AND tw.role = 'admin'
       JOIN workspace_members lw ON lw.workspace_id = l.workspace_id AND lw.user_id = l.user_id AND lw.role = 'member'

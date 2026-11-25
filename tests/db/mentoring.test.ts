@@ -140,6 +140,18 @@ test("mentoring: match, private check-ins, sharing, Prep and Was this useful?", 
   assert.equal((await act.saveCheckinAction(klass, learner!, { date: yesterday, notes: "overwrite" })).success, false, "nor edits it");
   viewerId = mentor!;
   assert.equal((await act.readCheckinsAction(klass, learner!)).success, false, "the old mentor is out of the pair");
+  // A TA added to the learner's group after the match starts from when they joined.
+  const [late] = await Promise.all([1].map(() => sql.begin((tx) => createUser(tx))));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${klass}, ${late!}, 'admin')`;
+  viewerId = other!;
+  const now1 = await act.saveCheckinAction(klass, learner!, { date: new Date().toISOString().slice(0, 10), notes: "Today with the new mentor" });
+  assert.ok(now1.success);
+  await new Promise((r) => setTimeout(r, 20));
+  await sql`INSERT INTO class_section_members (section_id, workspace_id, user_id, role, kind) VALUES (${group2!.id}, ${klass}, ${late!}, 'ta', 'mentor')`;
+  viewerId = late!;
+  const lateView = await act.readCheckinsAction(klass, learner!);
+  assert.ok(lateView.success);
+  assert.equal(lateView.entries.length, 0, "a mentor added later sees nothing from before they joined");
   await sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${klass} AND user_id = ${other!}`;
   viewerId = other!;
   assert.equal((await act.readCheckinsAction(klass, learner!)).success, false, "no longer a TA, no longer a mentor");
