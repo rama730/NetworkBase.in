@@ -76,6 +76,14 @@ test("a School's hand-in: Each course → its teachers; two approval steps in or
   assert.ok(queue.success && /approved step 1 · .+ decides, step 2 of 2/.test(queue.rows.find((r) => r.copyId === copy)?.twoStep ?? ""));
   viewerId = principal!;
   assert.match((await assignments.approveAllSubmittedAction(made.success ? made.masterId : "") as { error: string }).error, /one at a time/);
+  // Security review: a new version (taken back and handed in again) needs step 1 again.
+  viewerId = teacher!;
+  assert.equal((await assignments.unsubmitAssignmentAction(copy)).success, true);
+  assert.equal((await assignments.submitAssignmentAction(copy, { link: "https://example.com/unit3-v2" })).success, true);
+  viewerId = deputy!;
+  assert.match((await assignments.reviewAssignmentCopyAction(copy, "approve") as { error: string }).error, /first approval/, "step 1 approved the old version");
+  viewerId = head!;
+  assert.equal((await assignments.reviewAssignmentCopyAction(copy, "approve")).success, true);
   viewerId = deputy!;
   assert.equal((await assignments.reviewAssignmentCopyAction(copy, "approve")).success, true);
   assert.deepEqual(Object.values((await sql`SELECT status, completion_source FROM tasks WHERE id = ${copy}`)[0]!), ["done", "review"], "approved at step 2");

@@ -959,12 +959,16 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     // second approver, who only decides after it; a Return at either step goes back to the person and clears step 1.
     const second = loaded.master.settings.thenApprovedBy ?? null;
     if (second && decision === 'approve' && !approved) {
-        const first = (loaded.copy.typeFields as { firstApproval?: { by: string } } | null)?.firstApproval ?? null;
+        // Security review: step 1 approved one version; a new version (taken back and handed in again) needs step 1 again.
+        const version = String((loaded.copy.submission as { version?: number } | null)?.version ?? '')
+        const recorded = (loaded.copy.typeFields as { firstApproval?: { by: string; version?: string } } | null)?.firstApproval ?? null;
+        const first = recorded && recorded.version === version ? recorded : null;
         if (viewer.userId === second && !first) return { success: false, error: 'This waits for the first approval.' };
         if (viewer.userId !== second) {
             if (first) return { success: false, error: 'Step 1 is approved; the second approver decides now.' };
-            const stepped = await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || jsonb_build_object('firstApproval', jsonb_build_object('by', ${viewer.userId}::text, 'at', now()))`, updatedAt: new Date() })
-                .where(and(eq(tasks.id, copyId), eq(tasks.reviewStatus, 'pending'), sql`NOT (coalesce(${tasks.typeFields}, '{}'::jsonb) ? 'firstApproval')`)).returning({ id: tasks.id });
+            const stepped = await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || jsonb_build_object('firstApproval', jsonb_build_object('by', ${viewer.userId}::text, 'at', now(), 'version', ${version}::text))`, updatedAt: new Date() })
+                .where(and(eq(tasks.id, copyId), eq(tasks.reviewStatus, 'pending'), sql`(${tasks.submission}->>'version') IS NOT DISTINCT FROM ${version || null}`,
+                    sql`coalesce(${tasks.typeFields}->'firstApproval'->>'version', '') <> ${version}`)).returning({ id: tasks.id });
             if (!stepped.length) return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
             const { createNotification } = await import('@/lib/notifications/service');
             await createNotification({ recipientUserId: second, actorUserId: viewer.userId, kind: 'project_task_activity', category: 'tasks', importance: 'more',
