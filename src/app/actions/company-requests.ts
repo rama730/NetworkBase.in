@@ -5,7 +5,6 @@ import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
-import { logger } from "@/lib/logger";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { activeTypes } from "@/lib/workflows/requests";
@@ -17,7 +16,7 @@ import { statusForStage } from "@/lib/workflows/rules";
  * requests from the company (call 1); anyone in the company but Viewers asks with the team's types and questions
  * (call 2), with matching handbook pages shown first and nothing blocked (call 3); the team triages by hand (call 5);
  * the asker follows it in My asks and never sees the team's board (call 6); Did this solve it? is Yes or No, and No
- * reopens it (call 7). No requests from email or outside people (call 8). Never a token.
+ * goes back to the team's handler to reopen (call 7). No requests from email or outside people (call 8). Never a token.
  * ponytail: private request types (call 4) wait for a task read rule across the team's board; not built yet.
  */
 type Failure = { success: false; error: string };
@@ -118,10 +117,10 @@ export async function answerMyAskAction(orgId: string, taskId: string, input: { 
   if (!ctx || !isLooseUuid(taskId) || !["yes", "no"].includes(input?.solved)) return DENIED;
   const [r] = Array.from(await db.execute<{ stage: string | null; creator_id: string; fields: Record<string, unknown> | null }>(sql`
     SELECT t.stage, t.creator_id, t.type_fields AS fields FROM tasks t JOIN workspaces w ON w.id = t.workspace_id
-    WHERE t.id = ${taskId}::uuid AND w.parent_id = ${orgId}::uuid AND t.item_type = 'request' AND t.deleted_at IS NULL`));
+    WHERE t.id = ${taskId}::uuid AND w.parent_id = ${orgId}::uuid AND t.item_type = 'request' AND t.deleted_at IS NULL AND t.type_fields->>'fromCompany' = ${orgId}`));
   if (!r || r.creator_id !== ctx.userId) return DENIED;
   if (r.stage !== "delivered") return { success: false, error: "Answer once it’s delivered." };
-  const { mergeRequestFields, reopenForAsker } = await import("@/lib/workflows/request-flow");
+  const { mergeRequestFields } = await import("@/lib/workflows/request-flow");
   if (input.solved === "yes") { await mergeRequestFields(taskId, { solved: "yes" }); return { success: true }; }
   const note = String(input.note ?? "").trim().slice(0, 2000);
   if (!note) return { success: false, error: "Say what’s still missing" };
@@ -129,10 +128,8 @@ export async function answerMyAskAction(orgId: string, taskId: string, input: { 
   await mergeRequestFields(taskId, { solved: "no", reopenCount, notSolvedNote: note });
   const { notifyRequestPerson } = await import("@/lib/workflows/request-notify");
   await notifyRequestPerson(taskId, ctx.userId, "handler", `Answered No: ${note.slice(0, 120)}`).catch(() => undefined);
-  // The asker isn't in the team's workspace, so the team's owner moves it back to In progress on their behalf.
-  const [team] = Array.from(await db.execute<{ owner: string }>(sql`SELECT w.owner_id AS owner FROM tasks t JOIN workspaces w ON w.id = t.workspace_id WHERE t.id = ${taskId}::uuid`));
-  const reopened = await reopenForAsker(taskId, { id: team!.owner }).then(() => true, (error) => { logger.error("company_requests.reopen_failed", { taskId, error: error instanceof Error ? error.message : String(error) }); return false; });
-  if (!reopened) return { success: false, error: "Couldn’t send it back to the team. Try again." };
+  // Security review (B4.5): the asker isn't in the team's workspace and can't move its work, so — as T4 does for a
+  // Viewer who asked — the handler is told "Answered No" with what's missing and reopens it; nobody acts as someone else.
   return { success: true };
 }
 

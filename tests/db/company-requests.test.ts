@@ -88,6 +88,7 @@ test("33.6: a team takes requests from the company; members ask, follow them in 
   viewerId = asker!;
   assert.match((await req.answerMyAskAction(id, asked.id, { solved: "no" }) as { error: string }).error, /still missing/);
   assert.equal((await req.answerMyAskAction(id, asked.id, { solved: "no", note: "It has no charger" })).success, true);
-  const [after] = await sql`SELECT stage, type_fields->>'reopenCount' AS reopens, type_fields->>'notSolvedNote' AS note FROM tasks WHERE id = ${asked.id}`;
-  assert.deepEqual([after!.stage, after!.reopens, after!.note], ["in_progress", "1", "It has no charger"], "No reopens it, with what's missing");
+  // Security review: nobody acts as someone else — the handler is told "Answered No" with what's missing and reopens it.
+  const [after] = await sql`SELECT stage, type_fields->>'solved' AS solved, type_fields->>'notSolvedNote' AS note FROM tasks WHERE id = ${asked.id}`;
+  assert.deepEqual([after!.stage, after!.solved, after!.note], ["delivered", "no", "It has no charger"]);
 });

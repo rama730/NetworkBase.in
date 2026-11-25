@@ -68,7 +68,7 @@ function MyAsks({ orgId }: { orgId: string }) {
   const answer = async (id: string, solved: "yes" | "no") => {
     const r = await answerMyAskAction(orgId, id, { solved, note: missing[id] });
     if (!r.success) return void toast.error(r.error);
-    toast.success(solved === "yes" ? "Thanks — marked solved" : "Sent back to the team");
+    toast.success(solved === "yes" ? "Thanks — marked solved" : "Sent back — the team will pick it up again");
     void client.invalidateQueries({ queryKey: ["my-asks", orgId] });
   };
   return (
