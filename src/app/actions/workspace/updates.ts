@@ -1628,6 +1628,12 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
 
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canCreate || !access.project) return { success: false as const, error: "You don’t have access to post updates here." };
+        // Report 34.2 call 4 (B5.1c): in a community, posting waits until the member agrees to the current Code of conduct.
+        if (access.org?.kind === "org" && !access.canManage) {
+            const { communityPostBlock } = await import("@/lib/organizations/community-server");
+            const block = await communityPostBlock(access.project.id, viewer.userId);
+            if (block) return { success: false as const, error: block };
+        }
 
         // Decision 155: in an organization the server sets the type by role: admins announce, members discuss.
         const requestedType = normalizeWorkspaceUpdateType(input.updateType);

@@ -109,3 +109,18 @@ test("34.2 calls 1–2 (B5.1b): joining a community needs I agree; approval need
   const [req] = await sql`SELECT message FROM role_applications WHERE workspace_id = ${id} AND applicant_id = ${b!}`;
   assert.match(String(req!.message), /What brings you here\? Learning Go/);
 });
+
+test("34.2 call 4 (B5.1c): a member behind the current Code of conduct reads on but can't post until they agree", async () => {
+  const { communityPostBlock } = await loadAppModule(() => import("../../src/lib/organizations/community-server"));
+  const [owner, m] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public" }));
+  created.push(id);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, view_prefs) VALUES (${id}, ${owner!}, 'owner', '{}'::jsonb), (${id}, ${m!}, 'member', ${sql.json({ community: { agreed: { version: 0, at: "2026-11-01T00:00:00Z" } } })})`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'community', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${id}`;
+  const [d] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'coc', 'Code of conduct.md', ${sql.json({ org: { lifecycle: "published", readVersion: 0 } })}) RETURNING id`;
+  const [v] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${id}, ${d!.id}, 1, '## Rules\n1. Be kind', 'k') RETURNING id`;
+  await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${d!.id}`;
+  assert.equal(await communityPostBlock(id, m!), null);
+  await sql`UPDATE workspace_documents SET settings = jsonb_set(settings, '{org,readVersion}', '1') WHERE id = ${d!.id}`;
+  assert.match(String(await communityPostBlock(id, m!)), /Agree to the Code of conduct/);
+});
