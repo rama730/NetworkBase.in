@@ -10132,6 +10132,12 @@ TEACHER · Overview → Your day (Tue)
 11. Notices only when your day changes; Important for cover given to you.
 12. Cover counts are never shown as a ranking.
 
+**B3.4 build calls (2026-11-25):**
+- **Split:** B3.4a day patterns, periods, rooms and timetable slots (CSV or typed); B3.4b absences by period and the cover board; B3.4c duties and swaps; B3.4d today-only changes, cover info, Cover only and class times from the timetable.
+- An imported teacher matches only when the name hits exactly one person on the staff; anything else is left for a person to pick. **[call]**
+- Cover suggestions never offer someone teaching or on duty that period; Viewers see cover only when listed as Cover only. **[call]**
+- A today-only change (cancelled or another room) needs write access on the staff and never comes from a token. **[call]**
+
 ### 32.6 S5 · Staff meetings and growth (agreed 2026-11-17)
 **References** (13 more searches on meetings, reviews and development found 124 templates; 4 studied from their screenshots, plus 2 from earlier rounds):
 
@@ -10309,6 +10315,12 @@ SCHOOL · Members → Growth (leaders, counts only)
 8. Growth records are seen by the person and their line manager; leaders see counts.
 9. Formal appraisal, capability and pay are parked; learning walks are counts only.
 
+
+**B3.5 build calls (2026-11-25):**
+- **Split:** B3.5a school meeting types (Department, Leadership, Line management, Training session); B3.5b Reports to, goals (up to 3 a year), the year review in words and the development log; B3.5c observations.
+- Reports to lives in Settings → Staff growth; a line manager reads a record only while the person is still on the staff (a stale Reports to opens nothing). **[call]**
+- Observations need 2 school days' notice; the observer writes after the lesson and before it's read; reading it adds "Observed: …" to the development log; "Just between us" never reaches the line manager. **[call]**
+- Found live: a "use server" file exported an array, so every action in it failed; a unit test now keeps those files to async exports. **[call]**
 
 ### 32.7 School (K–12): the whole picture (complete 2026-11-17)
 
@@ -10635,6 +10647,14 @@ PROCESS (SOP) · Release process        Owner: Dev (Engineering) · Department: 
 7. A team's About is company-wide; its documents only when marked Company-wide.
 8. Announcements can be pinned to What's new for up to 7 days.
 
+**B4.1 build calls (2026-11-25):**
+- **Split:** B4.1a handbook sections, owner, Review by and the review cycle; B4.1b Handbook page and Process templates with Run this process; B4.1c About labels, Values, Offices and Our teams; B4.1d What's new, Needs review and 7-day pins; B4.1e company-wide team pages.
+- The handbook's sections are the company's document groups (Overview · How we work · People · Policies), so no new structure. **[call]**
+- Run this process runs only pages made from the Process template, from the published version; a draft runs only for its owner or an admin. **[call]**
+- What's new lists only pages the viewer can open; the live pinned post sits just above it and isn't repeated. **[call]**
+- A team page is shared by the team's owner or admins only, and the share is tied to that company (a team that moves stops sharing); a leaders-only page never leaves the team. Company members read the published version in place. **[call]**
+- The owner's weekly Summary of pages to review is a step in the hourly job (Monday morning, the company's time zone). **[call]**
+
 ### 33.3 K2 · People directory and org chart (agreed 2026-11-17)
 **References** (13 more searches on directories, org charts and time off found 99 templates; 6 studied from their screenshots):
 
@@ -10818,6 +10838,13 @@ ORG CHART                      WHO'S OUT · next 2 weeks
 7. No leave balances, approvals or birthdays; HR systems keep those.
 8. Counts are for admins and never name anyone.
 
+**B4.2 build calls (2026-11-25):**
+- **Split:** B4.2a the Directory and my card fields; B4.2b the org chart and Reports to; B4.2c Who's out with time-off types; B4.2d Counts and Import people.
+- Time zone, working hours and office live on the person's company membership (its per-person settings), so no migration. **[call]**
+- Reports to is the same record the school's staff growth uses; changing it tells the person and both line managers; loops are refused with names. **[call]**
+- Import people sends the existing email invites, grouped by title and team; Reports to is set once people join. **[call]**
+- B4.2c waits for a migration (the Away type), queued behind another session's migrations that aren't live yet. **[call]**
+
 ### 33.4 K3 · Company goals and projects (agreed 2026-11-17)
 **References** (from the 33.1 sort; 5 screens studied, plus 11.4's two):
 
@@ -10995,6 +11022,12 @@ PROJECT WORKSPACE · header       Supports ◎ Sales APAC: 40 new logos  ·  Sta
 6. Progress comes from key results only; links show alignment.
 7. Every member sees company and team goals; a private project shows only as "Private project" with its status to others.
 8. "Not linked to a goal" is a list for admins, never a warning to teams.
+
+**B4.3 build calls (2026-11-25):**
+- A company writes its goals in its own quarterly goals document with no workflow to add; teams use their Quarterly goals as before. **[call]**
+- Supports, project dates and the latest status live in the project's workflow settings; Post status also posts an Update in the project (type Progress, "Status: At risk — …"). **[call]**
+- Contributes to is a field on the team goal; progress comes only from key results. **[call]**
+- A private team's goals and projects stay with its people and the company's admins; others see "Private project" with its status. A draft company goals document shows only to admins. **[call]**
 
 ### 33.5 K4 · New hire onboarding (agreed 2026-11-17)
 **References** (10 more searches on onboarding found 71 templates; 5 studied from their screenshots):
