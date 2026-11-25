@@ -36,6 +36,8 @@ export type AssignmentSettings = {
   instructionsUpdatedAt?: string | null;
   /** Reviewers (report §33.5): the admins who review it; none means everyone. The queue's Mine follows this. */
   reviewers?: string[];
+  /** B3.3a (report 32.4 call 3): an optional second step — this admin approves after the first Approve. */
+  thenApprovedBy?: string | null;
   /** AI agents on this assignment (CLI report A8.2, D20); unset follows the organization's default. */
   aiPolicy?: AiPolicy;
   /** A line to students about AI use ("You may use AI for research, not for writing"). */

@@ -274,6 +274,7 @@ export function CopyReview({ copyId, orgId, masterId, onReviewed }: { copyId: st
     return (
         <section aria-label="Review this hand-in" className="space-y-2 rounded-md border border-border p-3">
             <h3 className={reviewLabel}>Review</h3>
+            {row.twoStep ? <p className="text-[13px] text-muted-foreground" data-testid="two-step">{row.twoStep}</p> : null}
             {held ? <p role="status" className="text-[13px] text-muted-foreground">Sending in a few seconds. Undo is in the notice.</p> : (
                 <ReviewDecision who={row.who} dueDate={row.dueDate} recentReasons={data.reasons} pending={held}
                     onApprove={(note) => decide('approve', undefined, null, note)} onReturn={(reason, fixBy) => decide('return', reason, fixBy)} />

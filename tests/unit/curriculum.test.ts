@@ -56,3 +56,11 @@ test("B3.2c standards: CSV import, coverage, template", async () => {
   assert.deepEqual(readCurriculumSettings({}).template, ["Objective", "Starter", "Main", "Plenary", "Support and stretch"]);
   assert.equal(templateMarkdown(["I do", "We do"]), "## I do\n\n## We do\n\n");
 });
+
+test("B3.3a staff words: Overdue replaces Missing and Late in a staff-only School", async () => {
+  const { copyStateWords } = await import("@/lib/copy/terms");
+  assert.equal(copyStateWords("missing", false, true), "Overdue");
+  assert.equal(copyStateWords("submitted", true, true), "In review · Overdue");
+  assert.equal(copyStateWords("missing", false), "Missing");
+  assert.equal(copyStateWords("done", true), "Done · Late");
+});

@@ -767,4 +767,9 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Couldn’t load the standards.": {"title": "Couldn’t load the standards."},
   "Pick one of your own courses.": {"title": "Pick one of your own courses.", "type": "warning"},
   "That unit isn’t in this course.": {"title": "That unit isn’t in this course.", "type": "warning"},
+  "Then approved by is one of the organization’s admins.": {"title": "Then approved by is one of the organization’s admins.", "type": "warning"},
+  "This waits for the first approval.": {"title": "This waits for the first approval.", "type": "warning"},
+  "Step 1 is approved; the second approver decides now.": {"title": "Step 1 is approved; the second approver decides now.", "type": "warning"},
+  "This hand-in has two approval steps. Approve them one at a time.": {"title": "This hand-in has two approval steps. Approve them one at a time.", "type": "warning"},
+  "The courses’ teachers need to be on the school’s staff first.": {"title": "The courses’ teachers need to be on the school’s staff first.", "type": "warning"},
 };

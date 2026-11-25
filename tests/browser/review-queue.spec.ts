@@ -18,7 +18,7 @@ const row = (i: number, extra = '') => `{kind:'copy',mine:true,copyId:'c${i}',ma
   steps:[{title:'Read the brief',done:true},{title:'Write the tests',done:false}],comments:2,left:false,
   dueDate:${i === 1 ? 'new Date(Date.now()-(100-1)*36e5-2*36e5).toISOString()' : 'null'},
   people:${i === 3 ? "[{id:'p3',name:'Asha',avatarUrl:null},{id:'p4',name:'Kiran',avatarUrl:null},{id:'p5',name:'Ravi',avatarUrl:null}]" : `[{id:'p${i}',name:'Student ${i}',avatarUrl:null}]`},
-  newMessages:${i === 2 ? 1 : 0},lastAsk:${i === 1 ? "'Cite your sources.'" : 'null'},
+  twoStep:${i === 1 ? "'Asha approved step 1 · Raj decides, step 2 of 2'" : 'null'},newMessages:${i === 2 ? 1 : 0},lastAsk:${i === 1 ? "'Cite your sources.'" : 'null'},
   events:${i === 1 ? "[{id:'e1',at:new Date(Date.now()-6*864e5).toISOString(),text:'Version 1 handed in by Student 1'},{id:'e2',at:new Date(Date.now()-5*864e5).toISOString(),text:'Returned by Ms. Rao: Cite your sources. · fix by Nov 13'},{id:'e3',at:new Date(Date.now()-99*36e5).toISOString(),text:'Version 2 handed in by Student 1'}]" : '[]'}${extra}}`;
 
 async function bundle(rows: string) {
@@ -86,6 +86,7 @@ test('review queue §1–§3: who is waiting on the left, the work with the deci
     expect(Math.abs((await decision.boundingBox())!.y - (await name.boundingBox())!.y)).toBeLessThan(16);
     expect((await decision.boundingBox())!.y).toBeLessThan((await work.getByTestId('file-viewer').first().boundingBox())!.y);
     await expect(work).toContainText('Their note: “I used the second dataset.”');
+    await expect(work.getByTestId('two-step')).toHaveText('Asha approved step 1 · Raj decides, step 2 of 2');
     await expect(work).toContainText('Asked last time: Cite your sources.');
     await work.getByRole('button', { name: /Steps 1 of 2/ }).click();
     await expect(work.getByRole('list', { name: 'Steps' })).toContainText('Write the tests');

@@ -213,6 +213,19 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
     )
 }
 
+/** B3.3a (report 32.4 call 3): an optional second step — an admin who approves after the first Approve. */
+export function ThenApprovedByPicker({ admins, value, onChange, className }: { admins: Array<{ id: string; name: string }>; value: string | null; onChange: (id: string | null) => void; className?: string }) {
+    if (admins.length < 2) return null
+    return (
+        <label className={`block space-y-1 ${className ?? ''}`}><span className="font-medium">Then approved by <span className="font-normal text-muted-foreground">(optional second step)</span></span>
+            <select className="nb-select" value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
+                <option value="">No second step</option>
+                {admins.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+        </label>
+    )
+}
+
 /** Reviewers (report §33.5): pick who reviews; nobody picked means every admin's queue has it. Only with 2+ admins. */
 export function ReviewersPicker({ admins, value, onChange, className }: { admins: Array<{ id: string; name: string }>; value: string[]; onChange: (ids: string[]) => void; className?: string }) {
     if (admins.length < 2) return null

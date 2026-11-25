@@ -103,6 +103,7 @@ const createSchema = z.object({
     repeatWeeklyUntil: z.string().datetime({ offset: true }).nullable().optional(),
     /** Reviewers (report §33.5): the admins who review it; none means every admin's queue has it. */
     reviewers: z.array(z.string().uuid()).max(20).optional(),
+    thenApprovedBy: z.string().uuid().nullable().optional(),
     /** AI agents (CLI report A8.2): unset follows the organization's default. */
     aiPolicy: z.enum(['allowed', 'labelled', 'not_allowed']).optional(),
     aiNote: z.string().trim().max(300, 'Keep the note to 300 characters.').nullable().optional(),
@@ -184,6 +185,11 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
         if ('error' in checked) return { success: false, error: checked.error };
         reviewers = checked.reviewers;
     }
+    // B3.3a: "Then approved by" is one of the organization's admins.
+    if (data.thenApprovedBy) {
+        if (!orgCan(orgRoleOf(viewer.role), 'set_reviewers')) return DENIED;
+        if ('error' in await checkReviewers(data.projectId, [data.thenApprovedBy])) return { success: false, error: 'Then approved by is one of the organization’s admins.' };
+    }
     if (data.publish) {
         const [org] = await db.select({ reviewDefault: workspaces.taskReviewRequired }).from(workspaces).where(eq(workspaces.id, data.projectId)).limit(1);
         const deadlock = reviewDeadlock(data.target, data.reviewRequired ?? org?.reviewDefault ?? false, await reviewerRolesOf(db, data.projectId));
@@ -208,7 +214,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 publishedAt: data.publish ? new Date().toISOString() : null,
                 closedAt: null,
                 lateAfterMinutes: data.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES,
-                ...(reviewers ? { reviewers } : {}),
+                ...(reviewers ? { reviewers } : {}), ...(data.thenApprovedBy ? { thenApprovedBy: data.thenApprovedBy } : {}),
                 ...(data.aiPolicy ? { aiPolicy: data.aiPolicy } : {}),
                 ...(data.aiNote ? { aiNote: data.aiNote } : {}),
                 ...(marking ? { marking } : {}),
@@ -461,6 +467,7 @@ const updateSchema = z.object({
     tellEveryone: z.boolean().optional(),
     /** Reviewers (report §33.5): admins of the organization; an empty list means everyone reviews. */
     reviewers: z.array(z.string().uuid()).max(20).optional(),
+    thenApprovedBy: z.string().uuid().nullable().optional(),
     aiPolicy: z.enum(['allowed', 'labelled', 'not_allowed']).optional(),
     aiNote: z.string().trim().max(300).nullable().optional(),
 }).strict();
@@ -493,9 +500,14 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
         if ('error' in checked) return { success: false, error: checked.error };
         reviewers = checked.reviewers;
     }
+    if (parsed.data.thenApprovedBy) {
+        if (!orgCan(orgRoleOf(ctx.viewer.role), 'set_reviewers')) return DENIED;
+        if ('error' in await checkReviewers(ctx.master.projectId, [parsed.data.thenApprovedBy])) return { success: false, error: 'Then approved by is one of the organization’s admins.' };
+    }
     const nextSettings: AssignmentSettings = {
         ...settings,
         ...(reviewers ? { reviewers } : {}),
+        ...(parsed.data.thenApprovedBy !== undefined ? { thenApprovedBy: parsed.data.thenApprovedBy } : {}),
         ...(parsed.data.lateRule ? { lateRule: parsed.data.lateRule, lateUntil: parsed.data.lateRule === 'until' ? parsed.data.lateUntil ?? settings.lateUntil ?? null : null } : {}),
         ...(parsed.data.lateAfterMinutes !== undefined ? { lateAfterMinutes: parsed.data.lateAfterMinutes } : {}),
         ...(parsed.data.submissionType ? { submissionType: parsed.data.submissionType } : {}),
@@ -943,11 +955,31 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
         const [row] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT ${gate} AS ok FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE c.id = ${copyId}::uuid`));
         if (row && !row.ok) return { success: false, error: "This hand-in is for another section’s TA." };
     }
+    // B3.3a (report 32.4 call 3): "Then approved by" — the first Approve is step 1 of 2 and the copy keeps waiting for the
+    // second approver, who only decides after it; a Return at either step goes back to the person and clears step 1.
+    const second = loaded.master.settings.thenApprovedBy ?? null;
+    if (second && decision === 'approve' && !approved) {
+        const first = (loaded.copy.typeFields as { firstApproval?: { by: string } } | null)?.firstApproval ?? null;
+        if (viewer.userId === second && !first) return { success: false, error: 'This waits for the first approval.' };
+        if (viewer.userId !== second) {
+            if (first) return { success: false, error: 'Step 1 is approved; the second approver decides now.' };
+            const stepped = await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || jsonb_build_object('firstApproval', jsonb_build_object('by', ${viewer.userId}::text, 'at', now()))`, updatedAt: new Date() })
+                .where(and(eq(tasks.id, copyId), eq(tasks.reviewStatus, 'pending'), sql`NOT (coalesce(${tasks.typeFields}, '{}'::jsonb) ? 'firstApproval')`)).returning({ id: tasks.id });
+            if (!stepped.length) return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
+            const { createNotification } = await import('@/lib/notifications/service');
+            await createNotification({ recipientUserId: second, actorUserId: viewer.userId, kind: 'project_task_activity', category: 'tasks', importance: 'more',
+                title: `Your step is next: ${loaded.master.title}`, href: `${orgHref({ slug: viewer.slug, id: loaded.master.projectId })}?tab=tasks&taskScope=review`,
+                entityRefs: { projectId: loaded.master.projectId, projectSlug: viewer.slug }, dedupeKey: `second-step:${copyId}:${Date.now()}` }).catch(() => undefined);
+            touch(viewer.slug, loaded.master.projectId);
+            return { success: true };
+        }
+    }
     const reviewed = await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000), fixBy, Boolean(options.change && approved)).catch((error: Error) => error);
     if (reviewed instanceof Error) return { success: false, error: reviewed.message };
     if (!reviewed) {
         return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
     }
+    if (second && decision === 'return') await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) - 'firstApproval'` }).where(eq(tasks.id, copyId));
     touch(viewer.slug, loaded.master.projectId);
     return { success: true };
 }
@@ -959,6 +991,8 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
 export async function approveAllSubmittedAction(masterId: string, copyIds?: string[]): Promise<{ success: true; approved: number; failed: Array<{ copyId: string; reason: string }> } | Failure> {
     const ctx = await adminOfMaster(masterId, 'approve_return');
     if (!ctx) return DENIED;
+    // B3.3a: two approval steps are decided one hand-in at a time.
+    if (ctx.master.settings.thenApprovedBy) return { success: false, error: 'This hand-in has two approval steps. Approve them one at a time.' };
     const [master] = await db.select({ projectId: tasks.projectId }).from(tasks).where(eq(tasks.id, masterId)).limit(1);
     const gate = master ? await sectionGate(master.projectId, ctx.viewer) : null;
     const pending = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNull(tasks.deletedAt), isNull(tasks.excusedAt),
@@ -1044,7 +1078,7 @@ export type AssignmentRow = {
 const emptyCounts = (): AssignmentRow['counts'] => ({ not_started: 0, in_progress: 0, submitted: 0, returned: 0, done: 0, missing: 0, excused: 0, total: 0 });
 
 /** The Assignments view (report §16.5): admins and guests get counts per master; members get their own copy. */
-export async function listAssignmentsAction(orgId: string, options: { masterId?: string } = {}): Promise<{ success: true; isAdmin: boolean; rows: AssignmentRow[]; timeZone: string | null } | Failure> {
+export async function listAssignmentsAction(orgId: string, options: { masterId?: string } = {}): Promise<{ success: true; isAdmin: boolean; rows: AssignmentRow[]; timeZone: string | null; staffWords?: boolean } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer) return DENIED;
     // Review UX 1.13: one assignment's panel reads only that assignment.
@@ -1066,7 +1100,7 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
     const now = new Date();
     // Decision 98: nothing depends on the person who made it; "From" falls back to the organization.
     const creatorIds = [...new Set(visible.map((m) => m.creatorId).filter((id): id is string => Boolean(id)))];
-    const [org] = await db.select({ title: workspaces.title, ownerId: workspaces.ownerId, timeZone: workspaces.timeZone }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const [org] = await db.select({ title: workspaces.title, ownerId: workspaces.ownerId, timeZone: workspaces.timeZone, level: workspaces.orgLevel, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     const admins = new Set(creatorIds.length ? (await db.select({ id: workspaceMembers.userId }).from(workspaceMembers)
         .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, creatorIds), eq(workspaceMembers.role, 'admin')))).map((r) => r.id) : []);
     if (org) admins.add(org.ownerId);
@@ -1111,7 +1145,10 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
         const byCopy = new Map(reasons.map((r) => [r.task_id, r.reason]));
         for (const row of rows) if (row.mine && byCopy.has(row.mine.copyId)) row.mine.returnedReason = byCopy.get(row.mine.copyId) ?? null;
     }
-    return { success: true, isAdmin: viewer.isAdmin, rows: viewer.isAdmin || viewer.role === 'viewer' ? rows : rows.filter((r) => r.mine), timeZone: org?.timeZone ?? null };
+    // B3.3a (report 32.4 call 9): in a staff-only School, "Overdue" replaces Missing and Late.
+    const { readSchoolKind } = await import('@/lib/organizations/school-kind');
+    const staffWords = org?.level === 'institution' && readSchoolKind(org.settings) === 'school';
+    return { success: true, isAdmin: viewer.isAdmin, rows: viewer.isAdmin || viewer.role === 'viewer' ? rows : rows.filter((r) => r.mine), timeZone: org?.timeZone ?? null, staffWords };
 }
 
 export type RosterRow = {
@@ -1131,7 +1168,7 @@ export type RosterRow = {
 };
 
 /** The roster for one assignment (report §16.5): admins see names; guests see counts without names. */
-export async function readAssignmentRosterAction(masterId: string): Promise<{ success: true; rows: RosterRow[]; counts: AssignmentRow['counts']; withoutCopy: Array<{ userId: string; name: string }>; closed: boolean } | Failure> {
+export async function readAssignmentRosterAction(masterId: string): Promise<{ success: true; rows: RosterRow[]; counts: AssignmentRow['counts']; withoutCopy: Array<{ userId: string; name: string }>; closed: boolean; staffWords?: boolean } | Failure> {
     const master = await loadMaster(masterId);
     if (!master) return DENIED;
     const viewer = await orgRole(master.projectId, 'read');
@@ -1192,7 +1229,9 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     // Give to (decision 88): members with no copy, late joiners included.
     const holders = new Set([...copies.map((c) => c.assigneeId), ...people.map((p) => p.userId)]);
     const withoutCopy = (await memberRows).filter((m) => !holders.has(m.userId)).slice(0, 500);
-    return { success: true, rows, counts, withoutCopy, closed };
+    const [org] = await db.select({ level: workspaces.orgLevel, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
+    const { readSchoolKind } = await import('@/lib/organizations/school-kind');
+    return { success: true, rows, counts, withoutCopy, closed, staffWords: org?.level === 'institution' && readSchoolKind(org.settings) === 'school' };
 }
 
 /** Composer pickers: the org's child projects and its planned or active sprints. */
@@ -1200,7 +1239,8 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments')) return { success: false as const, error: DENIED.error };
     const [children, sprints, teamAssignments, [org]] = await Promise.all([
-        db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).orderBy(asc(workspaces.title)),
+        // B3.3a: a school's "workspaces" for Each course are its classes.
+        db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(sql`(${workspaces.parentId} = ${orgId}::uuid OR ${workspaces.institutionId} = ${orgId}::uuid)`, isNull(workspaces.deletedAt))).orderBy(asc(workspaces.title)),
         // Board/review report §6, D4: an assignment can go to a CO or to a sprint inside it ("CO1 · Week 1").
         db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, parentSprintId: workspaceSprints.parentSprintId, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints)
             .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(asc(workspaceSprints.startDate))
@@ -1393,6 +1433,8 @@ export type ReviewQueueRow = {
     /** Reviewers (report §33.5): the viewer is one of them, or none are set. Drives the queue's Mine. */
     mine: boolean;
     copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string;
+    /** B3.3a (report 32.4 layer 6): the step line, as text ("Ana approved step 1 · Raj decides, step 2 of 2"). */
+    twoStep?: string | null;
     /** The review panel (report §23.2): what was handed in, its version, steps and the private conversation. */
     projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null;
     /** Mockup task 2: the files to preview and download, and the versions before this one, newest first. */
@@ -1428,8 +1470,10 @@ export async function readReviewQueueAction(orgId: string, cursor?: string | nul
     const after = decodeQueueCursor(cursor);
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
         updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: Array<{ nodeId: string; name: string; size: number | null }> | null; versions: ReviewQueueRow['versions'] | null; steps: ReviewQueueRow['steps']; comments: number; left_org: boolean; late_after: number | null; mine: boolean;
-        people: ReviewQueueRow['people'] | null; new_messages: number; sort_at: string }>(sql`
+        people: ReviewQueueRow['people'] | null; new_messages: number; sort_at: string; step1_by: string | null; second_name: string | null }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
+               (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.type_fields->'firstApproval'->>'by')::uuid) AS step1_by,
+               (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (m.assignment_settings->>'thenApprovedBy')::uuid) AS second_name,
                coalesce(c.review_submitted_at, c.updated_at)::text AS sort_at,
                (SELECT jsonb_agg(jsonb_build_object('id', p.id, 'name', coalesce(p.full_name, p.username, 'Member'), 'avatarUrl', p.avatar_url) ORDER BY p.full_name) FROM profiles p
                   WHERE p.id = c.assignee_id OR p.id IN (SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id)) AS people,
@@ -1509,6 +1553,7 @@ export async function readReviewQueueAction(orgId: string, cursor?: string | nul
     return { success: true, nextCursor: more && last ? encodeQueueCursor(last.sort_at, last.copy_id) : null, rows: [...page.map((r): ReviewQueueRow => ({
         ...aiOf(r.files),
         kind: 'copy', mine: r.mine, copyId: r.copy_id, masterId: r.master_id, title: r.title,
+        twoStep: r.second_name ? (r.step1_by ? `${r.step1_by} approved step 1 · ${r.second_name} decides, step 2 of 2` : `Step 1 of 2 · then ${r.second_name}`) : null,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at).getTime() > new Date(r.due_date).getTime() + (r.late_after ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000),
         // Group work opens in its own workspace (report §42.14 problem 35, decision 133).

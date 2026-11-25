@@ -54,8 +54,8 @@ import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
-import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
-import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog, ReviewersPicker } from '@/components/organizations/AssignmentDialogs'
+import { ASSIGNMENT_STATE_LABELS, copyStateWords } from '@/lib/copy/terms'
+import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog, ReviewersPicker, ThenApprovedByPicker } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AssignmentRoster } from '@/components/organizations/AssignmentRoster'
@@ -218,6 +218,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [reviewRequired, setReviewRequired] = useState(true)
     const [admins, setAdmins] = useState<Array<{ id: string; name: string }>>([])
     const [reviewers, setReviewers] = useState<string[]>([])
+    const [thenApprovedBy, setThenApprovedBy] = useState<string | null>(null)
     const [lateRule, setLateRule] = useState<'none' | 'until' | 'always'>('always')
     // Late work until: a number of days after the due date (it moves with it), or a date of its own (null).
     const [lateOffset, setLateOffset] = useState<number | null>(7)
@@ -378,6 +379,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             submissionType, reviewRequired: reviewOff ? false : reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntil ? at(lateUntil) : null,
             target: target(), steps, shareToGeneral, lateAfterMinutes: isExam ? 0 : lateAfter, materials: materials.map((m) => m.id),
             ...(reviewRequired && !reviewOff && reviewers.length ? { reviewers } : {}),
+            ...(reviewRequired && !reviewOff && thenApprovedBy ? { thenApprovedBy } : {}),
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
             ...(peerReview && peerOk ? { peerReview: true } : {}),
             ...(isExam && dueLocal ? { exam: { format: examFormat, opensAt: at(dueLocal), closesAt: new Date(Date.parse(at(dueLocal)) + Math.max(5, Number(examLength) || 0) * 60_000).toISOString(),
@@ -828,6 +830,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             <span className="font-normal text-muted-foreground">minutes past the due time</span>
                         </label>
                         {reviewRequired ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className={small} /> : null}
+                        {reviewRequired ? <ThenApprovedByPicker admins={admins} value={thenApprovedBy} onChange={setThenApprovedBy} className={small} /> : null}
                         <label className={cn('block font-medium', small)}>AI agents
                             <select className="nb-select mt-1.5 w-full" value={aiPolicy} onChange={(e) => setAiPolicy(e.target.value as typeof aiPolicy)}>
                                 <option value="labelled">Allowed, labelled for reviewers</option>
@@ -877,7 +880,8 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
     const [picked, setPicked] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
-    const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) { setRows(r.rows); setWithoutCopy(r.withoutCopy); setClosed(r.closed) } }), [row.masterId])
+    const [staffWords, setStaffWords] = useState(false)
+    const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) { setRows(r.rows); setWithoutCopy(r.withoutCopy); setClosed(r.closed); setStaffWords(Boolean(r.staffWords)) } }), [row.masterId])
     useEffect(() => { if (open) load() }, [open, load])
     useReloadOnNotice(() => { if (open) load() })
     const run = (action: () => Promise<{ success: boolean; error?: string }>) => startTransition(async () => {
@@ -938,7 +942,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
                                     {r.people?.length ? <span className="text-muted-foreground">· {r.people.map((p) => `${p.name}${p.lead ? ' (team lead)' : ''}`).join(' · ')}</span>
                                         : r.members.length ? <span className="text-muted-foreground">· {r.members.join(' · ')}</span> : null}
                                     {r.submittedBy ? <span className="text-muted-foreground">· Submitted by {r.submittedBy}</span> : null}
-                                    <Status text={STATE_LABEL[r.state] + (r.late ? ' · Late' : '')} tone={r.state === 'done' ? 'completed' : r.state === 'missing' ? 'archived' : r.state === 'submitted' ? 'active' : 'draft'} />
+                                    <Status text={copyStateWords(r.state, r.late, staffWords)} tone={r.state === 'done' ? 'completed' : r.state === 'missing' ? 'archived' : r.state === 'submitted' ? 'active' : 'draft'} />
                                 </div>
                                 {webLink(submission?.link) ? <a href={webLink(submission?.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{submission!.link}</a> : submission?.link ? <span className="break-all">{submission.link}</span> : null}
                                 {submission?.text ? <p className="whitespace-pre-line rounded-md bg-muted px-2 py-1">{submission.text}</p> : null}

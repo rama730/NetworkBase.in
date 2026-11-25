@@ -428,9 +428,11 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
 function NoteStrip({ row }: { row: ReviewQueueRow }) {
     const [open, setOpen] = useState(false)
     const done = row.steps.filter((s) => s.done).length
-    if (!row.note && !row.lastAsk && !row.steps.length) return null
+    if (!row.note && !row.lastAsk && !row.steps.length && !row.twoStep) return null
     return (
         <div className="space-y-2 rounded-lg bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+            {/* B3.3a (report 32.4 layer 6): the step line, in words. */}
+            {row.twoStep ? <p className="font-medium text-foreground" data-testid="two-step">{row.twoStep}</p> : null}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 {row.note ? <span className="min-w-0 flex-1 truncate" title={row.note}>Their note: “{row.note}”</span> : null}
                 {row.lastAsk ? <span className="min-w-0 flex-1 truncate" title={row.lastAsk}>Asked last time: {row.lastAsk}</span> : null}

@@ -264,6 +264,17 @@ export async function resolveRecipients(executor: Executor, orgId: string, targe
       ...target.individuals.map((assigneeId) => ({ projectId: orgId, assigneeId })),
     ];
   }
+  // B3.3a (report 32.4 call 1): in a school, each child is each course (its classes): the hand-in goes to each course's
+  // teacher, in the school, one per teacher who is on its staff (a teacher with two courses hands in once).
+  const [org] = await executor.select({ level: workspaces.orgLevel }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+  if (org?.level === "institution") {
+    const courses = await executor.select({ id: workspaces.id, ownerId: workspaces.ownerId }).from(workspaces)
+      .where(and(eq(workspaces.institutionId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived")));
+    const picked = target.mode === "children" ? courses.filter((c) => target.projectIds.includes(c.id)) : courses;
+    const staff = [...new Set(picked.map((c) => c.ownerId))].filter((id) => assignable(id));
+    if (staff.length === 0) throw new Error("The courses’ teachers need to be on the school’s staff first.");
+    return staff.map((assigneeId) => ({ projectId: orgId, assigneeId }));
+  }
   const children = await executor
     .select({ id: workspaces.id, ownerId: workspaces.ownerId })
     .from(workspaces)

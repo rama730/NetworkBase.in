@@ -22,6 +22,11 @@ export const TASK_STATUS_LABELS = { todo: 'To do', in_progress: 'In progress', i
 /** Report §5.7, §34.2, decision 84: one set of words for an assignment copy's state, plus a Late mark. */
 export const ASSIGNMENT_STATE_LABELS = { not_started: 'Not started', in_progress: 'In progress', submitted: 'In review', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused' } as const;
 export const LATE_MARK = 'Late';
+/** B3.3a (report 32.4 call 9): a copy's state in words; in a staff-only School "Overdue" replaces Missing and Late. */
+export function copyStateWords(state: keyof typeof ASSIGNMENT_STATE_LABELS, late: boolean, staff = false): string {
+  if (staff && state === 'missing') return 'Overdue';
+  return ASSIGNMENT_STATE_LABELS[state] + (late ? (staff ? ' · Overdue' : ` · ${LATE_MARK}`) : '');
+}
 
 // Sprint redesign §4: one word per phase everywhere (an active sprint past its end reads Ended on the Sprints tab).
 export const SPRINT_STATUS_LABELS = { planning: 'Upcoming', active: 'Running', completed: 'Closed', archived: 'Archived', cancelled: 'Canceled' } as const;
