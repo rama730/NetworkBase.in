@@ -37,14 +37,18 @@ export function pollParts(body: string): { question: string; options: { emoji: s
 }
 
 /**
- * Votes per option (each option is a reaction, so several picks work: "Pick any"). Each option's share is its
- * part of all votes; reactions carry counts, not voters, so "people" can't be counted here.
+ * Votes per option (each option is a reaction, so several picks work: "Pick any"). With voters known (poll reactions
+ * carry `user_ids`), "people" is everyone who voted and each share is votes ÷ people (the board: 75 % of people picked
+ * A); without them, a share is its part of all votes and people is null.
  */
-export function pollStats(options: { emoji: string; label: string }[], reactions: { emoji: string; count: number; me: boolean }[]) {
+export function pollStats(options: { emoji: string; label: string }[], reactions: { emoji: string; count: number; me: boolean; user_ids?: string[] }[]) {
   const rows = options.map((option) => {
     const r = reactions.find((x) => x.emoji === option.emoji);
-    return { ...option, count: r?.count ?? 0, me: r?.me ?? false };
+    return { ...option, count: r?.count ?? 0, me: r?.me ?? false, voters: r?.user_ids ?? [] };
   });
   const votes = rows.reduce((sum, r) => sum + r.count, 0);
-  return { votes, options: rows.map((r) => ({ ...r, share: votes ? Math.round((r.count / votes) * 100) : 0 })) };
+  const known = reactions.some((r) => Array.isArray(r.user_ids));
+  const people = known ? new Set(rows.flatMap((r) => r.voters)).size : null;
+  const base = people || votes;
+  return { votes, people, options: rows.map((r) => ({ ...r, share: base ? Math.min(100, Math.round((r.count / base) * 100)) : 0 })) };
 }

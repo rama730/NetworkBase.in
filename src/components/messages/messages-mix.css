@@ -302,6 +302,11 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-rc-add { color: var(--nbm-fg2); }
 @media (pointer: coarse) { .nbm-rc { height: 36px; padding: 0 10px; } }
 .nbm-thr { display: inline-flex; align-items: center; gap: 8px; height: 28px; margin-top: 4px; padding: 0 8px 0 4px; border: 1px solid transparent; border-radius: 5px; font-size: 13px; transition: border-color var(--nbm-m1) var(--nbm-ease), background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-thr-faces { display: inline-flex; }
+.nbm-thr-faces > * + * { margin-left: -4px; box-shadow: 0 0 0 1.5px var(--card); }
+.nbm-poll-faces { display: inline-flex; align-items: center; flex: none; }
+.nbm-poll-faces > * + * { margin-left: -4px; box-shadow: 0 0 0 1.5px var(--card); }
+.nbm-poll-faces i { margin-left: 4px; font: 500 10.5px/1 var(--nbm-mono); font-style: normal; color: var(--nbm-fg2); }
 .nbm-thr:hover { border-color: var(--nbm-line); background: var(--card); }
 .nbm-thr b { font-weight: 600; color: var(--nbm-brand); }
 .nbm-thr-meta { font: 11px/1 var(--nbm-mono); color: var(--nbm-fg2); }

@@ -15,6 +15,15 @@ export async function selectMessages(viewerId: string, channelId: string, filter
     SELECT m.channel_id, m.channel_seq::int AS seq, m.author_id, m.kind, m.body, m.thread_root_seq::int AS thread_root_seq,
            m.reply_count, m.last_reply_seq::int AS last_reply_seq, m.last_reply_at, m.edited_at, m.deleted_at, m.link_preview_hidden,
            m.created_at, m.client_message_id,
+           -- The thread link's faces: up to 3 people who replied most recently (the thread index serves it).
+           CASE WHEN m.reply_count > 0 THEN (
+             SELECT jsonb_agg(x.author_id ORDER BY x.last_seq DESC) FROM (
+               SELECT r.author_id, max(r.channel_seq) AS last_seq FROM chat_messages r
+               WHERE r.channel_id = m.channel_id AND r.thread_root_seq = m.channel_seq AND r.deleted_at IS NULL AND r.author_id IS NOT NULL
+                 AND NOT app_private.chat_is_blocked(${viewerId}::uuid, r.author_id)
+               GROUP BY r.author_id ORDER BY last_seq DESC LIMIT 3
+             ) x
+           ) END AS last_repliers,
            CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
              'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url,
              'project_membership_role', pm.role,
@@ -27,7 +36,16 @@ export async function selectMessages(viewerId: string, channelId: string, filter
              FROM chat_attachments a WHERE a.channel_id = m.channel_id AND a.message_seq = m.channel_seq
            ), '[]'::jsonb) AS attachments,
            coalesce((
-             SELECT jsonb_agg(jsonb_build_object('emoji', r.emoji, 'count', r.n, 'me', r.me) ORDER BY r.first_at)
+             SELECT jsonb_agg(jsonb_build_object('emoji', r.emoji, 'count', r.n, 'me', r.me,
+                    -- Poll votes carry their voters (newest first, never someone blocked), so the card can count people.
+                    'user_ids', CASE WHEN m.body LIKE '📊 **Poll: %' THEN (
+                      SELECT jsonb_agg(w.user_id) FROM (
+                        SELECT v.user_id FROM chat_reactions v
+                        WHERE v.channel_id = m.channel_id AND v.message_seq = m.channel_seq AND v.emoji = r.emoji
+                          AND NOT app_private.chat_is_blocked(${viewerId}::uuid, v.user_id)
+                        ORDER BY v.created_at DESC LIMIT 200
+                      ) w
+                    ) END) ORDER BY r.first_at)
              FROM (
                SELECT emoji, count(*)::int AS n, bool_or(user_id = ${viewerId}::uuid) AS me, min(created_at) AS first_at
                FROM chat_reactions WHERE channel_id = m.channel_id AND message_seq = m.channel_seq

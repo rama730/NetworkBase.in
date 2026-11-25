@@ -101,7 +101,8 @@ export type ChatAttachmentView = {
   local_url?: string;
 };
 
-export type ChatReactionView = { emoji: string; count: number; me: boolean };
+/** `user_ids` comes only with poll messages (newest first, never someone blocked), so a poll can count people. */
+export type ChatReactionView = { emoji: string; count: number; me: boolean; user_ids?: string[] };
 
 export type ChatCardKind = "application" | "task" | "invite" | "announcement" | "assignment";
 export type ChatCardRef = { kind: ChatCardKind; ref_id: string };
@@ -117,6 +118,8 @@ export type ChatMessageView = {
   reply_count: number;
   last_reply_seq: number | null;
   last_reply_at: string | null;
+  /** Up to 3 people who replied most recently, newest first (the thread link's faces). */
+  last_repliers?: string[];
   edited_at: string | null;
   deleted_at: string | null;
   created_at: string;

@@ -98,7 +98,11 @@ export function upsertMessage(pages: MessagePages, message: ChatMessageView): Me
     return patchPages(pages, message.thread_root_seq, (root) =>
       root.last_reply_seq !== null && root.last_reply_seq >= message.seq
         ? root
-        : { ...root, reply_count: root.reply_count + 1, last_reply_seq: message.seq, last_reply_at: message.created_at },
+        : {
+            ...root, reply_count: root.reply_count + 1, last_reply_seq: message.seq, last_reply_at: message.created_at,
+            // The thread link's faces: this reply's author first, no repeats, three at most.
+            last_repliers: message.author_id ? [message.author_id, ...(root.last_repliers ?? []).filter((id) => id !== message.author_id)].slice(0, 3) : root.last_repliers,
+          },
     );
   }
   const [newest = [], ...older] = pages;
@@ -112,15 +116,18 @@ export function upsertMessage(pages: MessagePages, message: ChatMessageView): Me
   return [[...newest, message], ...older];
 }
 
-export function applyReaction(reactions: ChatReactionView[], emoji: string, on: boolean, mine: boolean): ChatReactionView[] {
+/** `userId` keeps a poll's voter list in step when the message has one (never made up for one that doesn't). */
+export function applyReaction(reactions: ChatReactionView[], emoji: string, on: boolean, mine: boolean, userId?: string): ChatReactionView[] {
   const existing = reactions.find((r) => r.emoji === emoji);
+  const voters = (r: ChatReactionView) => (r.user_ids && userId ? { user_ids: on ? [userId, ...r.user_ids.filter((id) => id !== userId)] : r.user_ids.filter((id) => id !== userId) } : {});
+  const tracked = reactions.some((r) => Array.isArray(r.user_ids));
   if (on) {
-    if (existing) return reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count + 1, me: r.me || mine } : r));
-    return [...reactions, { emoji, count: 1, me: mine }];
+    if (existing) return reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count + 1, me: r.me || mine, ...voters(r) } : r));
+    return [...reactions, { emoji, count: 1, me: mine, ...(tracked && userId ? { user_ids: [userId] } : {}) }];
   }
   if (!existing) return reactions;
   if (existing.count <= 1) return reactions.filter((r) => r.emoji !== emoji);
-  return reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, me: mine ? false : r.me } : r));
+  return reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, me: mine ? false : r.me, ...voters(r) } : r));
 }
 
 /** "N new" on the jump pill: messages newer than `seq` from someone else (older pages don't count). */

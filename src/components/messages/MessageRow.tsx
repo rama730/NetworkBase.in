@@ -229,15 +229,18 @@ function PollOption({ option, seq, canVote, onVote, label }: {
   const [open, setOpen] = useState(false);
   const reactors = useQuery({
     queryKey: queryKeys.chat.reactors(ctx.channelId, seq),
-    enabled: open && option.count > 0,
+    enabled: open && option.count > 0 && !option.voters.length,
     queryFn: async () => {
       const result = await listReactors({ channelId: ctx.channelId, seq });
       return result.success ? result.reactors : {};
     },
     staleTime: 15_000,
   });
-  const names = reactors.data?.[option.emoji] ?? [];
+  // Voters come with the poll now (names from the conversation's people); older copies still ask the server.
+  const known = option.voters.length ? option.voters.map((id) => ctx.nameOf(id) ?? "Someone") : null;
+  const names = known ?? reactors.data?.[option.emoji] ?? [];
   const who = joinPeople(names, 3);
+  const faces = option.voters.slice(0, 3).map((id) => ctx.people.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger asChild>
@@ -254,17 +257,18 @@ function PollOption({ option, seq, canVote, onVote, label }: {
             <span className="nbm-poll-label">{label}</span>
             <span className="nbm-poll-track"><span className="nbm-poll-bar" style={{ width: `${option.share}%` }} /></span>
           </span>
+          {faces.length ? <span className="nbm-poll-faces" aria-hidden="true">{faces.map((p) => <UserAvatar key={p.id} identity={p} size={18} />)}{option.voters.length > 3 ? <i>+{option.voters.length - 3}</i> : null}</span> : null}
           <span className="nbm-poll-count" aria-hidden="true">{option.count} <i>{option.share}%</i></span>
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[240px] text-center">
-        {who ? `${who} reacted with ${option.emoji}` : option.count ? "Loading…" : "No votes yet"}
+        {who ? `${who} voted ${label}` : option.count ? "Loading…" : "No votes yet"}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-/** A /poll message as a card: one button per option with its bar (votes ÷ all votes), "Pick any" (each option is a reaction). */
+/** A /poll message as a card: one button per option with its bar (votes ÷ people who voted), "Pick any" (each option is a reaction). */
 function PollCard({ poll, seq, reactions, canVote, onVote, suffix }: { poll: NonNullable<ReturnType<typeof pollParts>>; seq: number; reactions: ChatMessageView["reactions"]; canVote: boolean; onVote: (emoji: string) => void; suffix?: React.ReactNode }) {
   const ctx = useConversationContext();
   // The /poll text keeps its tokens (encode() in the Composer): names, not <@id>, here too.
@@ -277,7 +281,7 @@ function PollCard({ poll, seq, reactions, canVote, onVote, suffix }: { poll: Non
       <TooltipProvider delayDuration={250}>
         {stats.options.map((option) => <PollOption key={option.emoji} option={option} seq={seq} canVote={canVote} onVote={onVote} label={plain(option.label)} />)}
       </TooltipProvider>
-      <div className="nbm-poll-foot"><span>{stats.votes ? `${stats.votes} vote${stats.votes === 1 ? "" : "s"}` : "No votes yet"}</span><span>Pick any</span></div>
+      <div className="nbm-poll-foot"><span>{stats.votes ? `${stats.votes} vote${stats.votes === 1 ? "" : "s"}${stats.people ? ` · ${stats.people} ${stats.people === 1 ? "person" : "people"}` : ""}` : "No votes yet"}</span><span>Pick any</span></div>
     </div>
   );
 }
@@ -364,10 +368,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (pending) return;
     const on = !message.reactions.some((r) => r.emoji === emoji && r.me);
     if (on) noteReaction(emoji);
-    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, on, true) })));
+    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, on, true, ctx.meId ?? undefined) })));
     const result = await react({ channelId: ctx.channelId, seq: message.seq, emoji, on });
     if (!result.success) {
-      update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, !on, true) })));
+      update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, !on, true, ctx.meId ?? undefined) })));
       toast.error(chatErrorMessage(result.error));
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.reactors(ctx.channelId, message.seq) });
@@ -716,6 +720,11 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           ) : null}
           {!ctx.inThread && message.reply_count > 0 ? (
             <button type="button" onClick={() => ctx.openThread(message.seq)} className="nbm-thr">
+              {message.last_repliers?.length ? (
+                <span className="nbm-thr-faces" aria-hidden="true">
+                  {message.last_repliers.map((id) => ctx.people.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p)).map((p) => <UserAvatar key={p.id} identity={p} size={18} />)}
+                </span>
+              ) : null}
               <b>{message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}</b>
               {message.last_reply_at ? <span className="nbm-thr-meta">last reply {formatChatTime(message.last_reply_at, "ago")}</span> : null}
             </button>

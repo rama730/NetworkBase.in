@@ -211,7 +211,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
         // This tab already shows its own reaction; one made on another device still needs applying.
         patch((m) => (mine && Boolean(m.reactions.find((r) => r.emoji === payload.emoji)?.me) === on
           ? null
-          : { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine) }), seq);
+          : { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine, typeof payload.user_id === "string" ? payload.user_id : undefined) }), seq);
       }
     });
     return subscription.unsubscribe;
