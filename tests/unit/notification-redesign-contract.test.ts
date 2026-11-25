@@ -70,7 +70,8 @@ test("Notification polish enhancements: compact timestamps, drafting chip excerp
 
     // Idea 1: Compact drafting timestamps & chip excerpts
     assert.match(rowSource, /formatRelativeTimestamp/);
-    assert.match(rowSource, /rounded-\[4px\] border border-border\/70 bg-muted\/30 px-2 py-0\.5 font-mono text-\[11px\] text-foreground\/80 not-italic/);
+    // Messages mix (Notify board): the message excerpt is a paper cell, no longer a mono bordered chip.
+    assert.match(rowSource, /className="nb-notif-body"/);
 
     // Idea 2: Unread paper wash, RotateCcw icon, list pb-3 gutter
     assert.match(rowSource, /bg-primary\/\[0\.04\] hover:bg-primary\/\[0\.07\] dark:bg-primary\/\[0\.08\] dark:hover:bg-primary\/\[0\.12\]/);

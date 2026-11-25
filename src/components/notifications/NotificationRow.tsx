@@ -158,7 +158,7 @@ export function NotificationRow(props: {
                         <span
                             aria-label={isImportant ? "Needs attention" : "Unread"}
                             className={cn(
-                                "absolute -right-0.5 -top-0.5 size-2 rounded-full ring-2 ring-card",
+                                "absolute -right-0.5 -top-0.5 size-2 rounded-[2px] ring-2 ring-card",
                                 isImportant ? "bg-destructive" : "bg-primary",
                             )}
                         />
@@ -168,13 +168,14 @@ export function NotificationRow(props: {
                 <div className="min-w-0 flex-1">
                     <p className={cn("nb-compact line-clamp-2 text-foreground", isNew ? "font-semibold" : "font-medium")}>{item.title}</p>
                     {bodyText ? (
-                        <p className="mt-1 line-clamp-1 rounded-[4px] border border-border/70 bg-muted/30 px-2 py-0.5 font-mono text-[11px] text-foreground/80 not-italic">{bodyText}</p>
+                        <p className="nb-notif-body">{bodyText}</p>
                     ) : null}
                     <div className="nb-meta mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                         {metadata.map((value, index) => (
                             <span key={`${value}:${index}`} className="inline-flex items-center gap-1.5">
                                 {index > 0 ? <span aria-hidden="true" className="text-muted-foreground/40 font-bold">·</span> : null}
-                                <span title={value === relativeTime ? absoluteTime ?? undefined : undefined}>{value}</span>
+                                {value === preview?.contextLabel ? <span className="nb-state-tag">{value}</span>
+                                    : <span className={value === relativeTime ? "nb-notif-time" : undefined} title={value === relativeTime ? absoluteTime ?? undefined : undefined}>{value}</span>}
                             </span>
                         ))}
                     </div>

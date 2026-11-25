@@ -8,6 +8,7 @@ import { sendAs } from "@/lib/messaging/send";
 import { chatFailure, chatRows, neutralChatCode } from "@/lib/messaging/server";
 import { previewText } from "@/lib/messaging/tokens";
 import { messageHref } from "@/lib/messaging/routes";
+import { reminderPlace } from "@/lib/messaging/reminder-place";
 
 type DueMessage = { id: string; channel_id: string; user_id: string; body: string; thread_root_seq: number | null };
 
@@ -56,11 +57,6 @@ type DueReminder = {
   channel_name: string | null; channel_title: string | null; partner: string | null; author: string | null; eligible: boolean;
 };
 
-/** Where a reminder's message lives: "#design", a group's name, or the DM partner. */
-export function reminderPlace(row: Pick<DueReminder, "channel_name" | "channel_title" | "partner">) {
-  if (row.channel_name) return `#${row.channel_name}`;
-  return row.channel_title || row.partner || null;
-}
 
 /**
  * What falls due before the next hourly sweep, as whole minutes: the sweep starts a run for each, because Inngest

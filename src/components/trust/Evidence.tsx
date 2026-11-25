@@ -142,7 +142,7 @@ function Thread({ caseId, s, targetSeq }: { caseId: string; s: Snap; targetSeq: 
         setOlder((prev) => [...rows, ...prev])
     }
     const line = (m: Msg, key: string, marked = false) => (
-        <li key={key} className={`px-3 py-2 ${marked ? 'border-l-2 border-primary bg-[var(--status-warning-soft)]' : ''}`}>
+        <li key={key} className={`px-3 py-2 ${marked ? 'bg-[var(--status-warning-soft)]' : ''}`}>
             <p className="text-[13px]"><span className="font-semibold">{m.author ?? 'Someone'}</span>{m.at ? <span className="text-[12px] text-muted-foreground"> · {istDateTime(m.at)}</span> : null}{marked ? <span className="text-[12px] text-muted-foreground"> · reported</span> : null}</p>
             <p className="whitespace-pre-wrap break-words text-[14px]">{m.deleted ? <span className="text-muted-foreground">Deleted</span> : m.body}</p>
         </li>
