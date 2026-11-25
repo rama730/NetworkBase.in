@@ -637,3 +637,12 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm .nb-empty-state .nb-compact { max-width: 40ch; margin-left: auto; margin-right: auto; font-size: 13.5px; color: var(--nbm-fg2); }
 .nbm .nb-empty-state .nb-empty-figure { display: inline-grid; width: 48px; height: 48px; place-items: center; margin-bottom: 10px; }
 .nbm .nb-empty-state { animation: nbm-fade var(--nbm-m3) var(--nbm-ease) backwards; }
+
+/* ================= Dialogs (Phase 9 Task 36): one grammar ================= */
+.nbm-dialog { border-color: var(--nbm-line); border-radius: 8px; box-shadow: var(--nbm-shadow-pop); }
+/* No transform here: Radix centres dialogs with a translate; the open fade stays the app's. */
+.nbm-dialog [data-slot="dialog-title"] { font: 400 26px/1.2 var(--nbm-serif); letter-spacing: -.01em; color: var(--foreground); }
+.nbm-dialog [data-slot="dialog-description"] { font-size: 13.5px; line-height: 1.5; color: var(--nbm-fg2); }
+.nbm-dialog label { color: var(--foreground); }
+.nbm-dialog [data-slot="dialog-footer"] { background: var(--nbm-soft); border-top: 1px solid var(--nbm-line); }
+.nbm-eyebrow-line { margin: 0 0 4px; font: 500 10.5px/1.3 var(--nbm-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbm-fg2); }

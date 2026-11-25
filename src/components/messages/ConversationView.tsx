@@ -981,6 +981,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       {dialog === "people" ? <AddPeopleDialog channelId={channelId} title={displayName} onClose={() => setDialog(null)} /> : null}
       {shareSeq !== null ? <ShareDialog channelId={channelId} seq={shareSeq} onClose={() => setShareSeq(null)} /> : null}
       <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
         title={confirm === "replace" ? "Replace the note?" : confirm === "canvas" ? "Delete this note?" : confirm === "archive" ? `Archive ${displayName}?` : `Leave ${isChannel ? displayName : "this conversation"}?`}

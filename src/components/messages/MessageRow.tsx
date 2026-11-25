@@ -789,7 +789,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       ) : null}
 
       <Dialog open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
-        <DialogContent presentation="bottom-sheet" showCloseButton={false}>
+        <DialogContent presentation="bottom-sheet" showCloseButton={false} className="nbm">
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
           {sheet === "remind" ? (
             <>
@@ -840,6 +840,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       </Dialog>
 
       <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={own ? "Delete your message?" : `Delete ${authorName}'s message?`}

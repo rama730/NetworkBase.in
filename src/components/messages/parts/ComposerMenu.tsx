@@ -29,7 +29,7 @@ export function ComposerMenu({ title, trigger, items, side = "top", align = "sta
       <>
         <button type="button" {...triggerProps} aria-haspopup="dialog" aria-disabled={disabled || undefined} onClick={() => !disabled && setSheet(true)}>{trigger}</button>
         <Dialog open={sheet} onOpenChange={setSheet}>
-          <DialogContent presentation="bottom-sheet" className="px-2 pb-2">
+          <DialogContent presentation="bottom-sheet" className="nbm px-2 pb-2">
             <DialogTitle className="nb-micro px-3 pb-1 pt-4">{title}</DialogTitle>
             <ul>
               {items.map((item) => (

@@ -30,7 +30,7 @@ export function TimePickerDialog({ initial, title, label, confirmLabel, onPick, 
 }) {
   return (
     <Dialog open={initial !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="nbm nbm-dialog">
         <DialogTitle>{title}</DialogTitle>
         {/* Keyed on the opening time so each open starts from its own default. */}
         {initial ? <PickerForm key={initial.getTime()} initial={initial} label={label} confirmLabel={confirmLabel} onPick={onPick} onClose={onClose} /> : null}

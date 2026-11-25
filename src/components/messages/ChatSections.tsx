@@ -199,6 +199,7 @@ function useRowActions(channel: ChatChannelSummary) {
   };
   const leaveDialog = (
     <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
       open={confirmLeave}
       onOpenChange={setConfirmLeave}
       title={`Leave #${channel.name}?`}

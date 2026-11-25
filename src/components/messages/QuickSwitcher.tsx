@@ -195,7 +195,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent showCloseButton={false} className="top-[15%] translate-y-0 gap-0 rounded-xl p-0">
+      <DialogContent showCloseButton={false} className="nbm nbm-dialog top-[15%] translate-y-0 gap-0 rounded-xl p-0">
         {/* The same words as the sidebar row that opens it. */}
         <DialogTitle className="sr-only">Jump to a conversation</DialogTitle>
         <div className="flex items-center gap-2 border-b border-border px-4">

@@ -140,7 +140,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
         };
         return (
             <Dialog open onOpenChange={(open) => !open && close()}>
-                <DialogContent presentation="bottom-sheet" className="px-3 pb-3">
+                <DialogContent presentation="bottom-sheet" className="nbm px-3 pb-3">
                     <DialogTitle className="nb-micro px-1 pb-1 pt-4">{verb === 'Insert' ? 'Emoji' : 'Add reaction'}</DialogTitle>
                     <div className="pb-2">{search}</div>
                     {found && !found.length ? <p className="px-1 py-3 text-[13px] text-muted-foreground">No emoji match.</p> : null}

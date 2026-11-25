@@ -56,7 +56,7 @@ export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="nbm nbm-dialog">
         <DialogHeader>
           <DialogTitle>Create channel</DialogTitle>
           <DialogDescription>{projectTitle ? <>In <span className="font-medium text-foreground">{projectTitle}</span>. </> : null}Channels are where your workspace talks about a topic.</DialogDescription>

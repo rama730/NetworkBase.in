@@ -38,7 +38,7 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="nbm nbm-dialog">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">

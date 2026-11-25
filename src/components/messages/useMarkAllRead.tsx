@@ -35,6 +35,7 @@ export function useMarkAllRead() {
 
   const dialog = (
     <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
       open={Boolean(pending)}
       onOpenChange={(open) => !open && setPending(null)}
       title={`${pending?.label ?? MARK_ALL_LABEL}?`}

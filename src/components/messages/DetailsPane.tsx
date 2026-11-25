@@ -361,6 +361,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
       ) : null}
       {members.data && !list.length ? <EmptyState compact figure="person" title="No members match" description={`Nobody here matches "${filter}".`} /> : null}
       <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
         title={`Remove ${removing ? personName(removing) : ""}?`}
@@ -639,6 +640,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         )}
       </div>
       <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
         title={confirm === "archive" ? `Archive #${channel.name}?` : `Leave ${isGroup ? "this conversation" : `#${channel.name}`}?`}
@@ -648,6 +650,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         onConfirm={() => leaveOrArchive(confirm ?? "leave")}
       />
       <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
         open={confirmPrivacy}
         onOpenChange={setConfirmPrivacy}
         title={channel.kind === "private" ? `Make #${channel.name} public?` : `Make #${channel.name} private?`}

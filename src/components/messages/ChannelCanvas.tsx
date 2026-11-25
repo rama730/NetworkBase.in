@@ -321,6 +321,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
         projectName={channel.project_title ?? null}
       />
       <ConfirmDialog
+        contentClassName="nbm nbm-dialog"
         open={pendingReplace !== null}
         onOpenChange={(open) => !open && setPendingReplace(null)}
         title={pendingReplace?.kind === "clear" ? "Clear the note for everyone?" : "Replace the note?"}
