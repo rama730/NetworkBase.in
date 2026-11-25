@@ -1,6 +1,6 @@
 "use client";
 import { TabMarker } from "@/components/ui/TabMarker";
-import { padCount } from "@/lib/ui/tab-marker";
+import { padCount } from "@/lib/messaging/mix-format";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
