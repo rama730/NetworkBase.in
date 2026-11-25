@@ -51,3 +51,9 @@ test('the server sends last repliers and poll voters (never someone blocked); th
   assert.doesNotMatch(row, /reacted with \$\{option\.emoji\}/);
   assert.match(row, /stats\.people \? ` · \$\{stats\.people\} \$\{stats\.people === 1 \? "person" : "people"\}`/);
 });
+
+test('live votes add only your own face; others come from the server, which leaves out anyone blocked', () => {
+  for (const file of ['src/components/messages/useConversation.ts', 'src/components/messages/ThreadPane.tsx']) {
+    assert.match(read(file), /mine && typeof payload\.user_id === "string" \? payload\.user_id : undefined/, file);
+  }
+});

@@ -275,7 +275,30 @@ export async function getChannel(input: { channelId: string }) {
   }
 }
 
-export type ChannelMember = ChatPerson & { role: string; joined_at: string };
+export type ChannelMember = ChatPerson & { role: string; joined_at: string; /** A deleted account (its mentions read "@deleted user"). */ deleted?: boolean };
+
+/**
+ * Which of these mentioned people are deleted accounts (no profile, or deleted): mentions of them read
+ * "@deleted user". Only for members of the conversation, and it returns ids only, never names.
+ */
+export async function findDeletedPeople(input: { channelId: string; userIds: string[] }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId)) return invalidInput;
+  const ids = [...new Set(Array.isArray(input?.userIds) ? input.userIds.filter(isUuid) : [])].slice(0, 50);
+  if (!ids.length) return { success: true as const, deleted: [] as string[] };
+  try {
+    const rows = await chatRows<{ id: string }>(sql`
+      SELECT t.id FROM unnest(${uuidArray(ids)}) AS t(id)
+      LEFT JOIN profiles pr ON pr.id = t.id
+      WHERE app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+        AND (pr.id IS NULL OR pr.deleted_at IS NOT NULL)
+    `);
+    return { success: true as const, deleted: rows.map((row) => row.id) };
+  } catch (error) {
+    return chatFailure(error, "find_deleted_people");
+  }
+}
 
 export async function listMembers(input: { channelId: string }) {
   const user = await requireChatUser();
@@ -284,6 +307,7 @@ export async function listMembers(input: { channelId: string }) {
   try {
     const members = await chatRows<ChannelMember>(sql`
       SELECT pr.id, pr.username, pr.full_name, pr.avatar_url, m.role, m.joined_at,
+             pr.deleted_at IS NOT NULL AS deleted,
              pm.role AS project_membership_role,
              (
                SELECT coalesce(nullif(ra.accepted_role_title, ''), nullif(por.title, ''), nullif(por.role, ''))

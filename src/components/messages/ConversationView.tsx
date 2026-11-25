@@ -1,5 +1,6 @@
 "use client";
 
+import { DELETED_USER, unknownMentionIds } from "@/lib/messaging/deleted-user";
 import { postingFooter } from "@/lib/messaging/posting";
 import { SidebarSheetToggle } from "@/components/messages/MessagesSidebar";
 import { useBugsAdded } from "@/components/messages/useBugsAdded";
@@ -12,7 +13,7 @@ import { Archive, ArchiveRestore, ArrowLeft, ArrowRight, Ban, Bell, BellDot, Bel
 import { toast } from "@/lib/feedback";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
-import { addChannelTab, joinChannel, removeChannelTab, saveChannelTabs } from "@/app/actions/chat/channels";
+import { addChannelTab, findDeletedPeople, joinChannel, removeChannelTab, saveChannelTabs } from "@/app/actions/chat/channels";
 import { setMemberState } from "@/app/actions/chat/members";
 import { listPins, pinMessage } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
@@ -480,15 +481,32 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   }, [openDetails, panes, surface]);
 
   // Mentions of people who left (or while previewing) still show a name: anyone the sidebar knows.
-  const names = useMemo(() => {
+  const knownNames = useMemo(() => {
     const known = new Map<string, string>();
     for (const c of shell.data?.channels ?? []) {
       if (c.dm_user) known.set(c.dm_user.id, personName(c.dm_user));
       for (const p of c.members_preview ?? []) known.set(p.id, personName(p));
     }
-    for (const p of people) known.set(p.id, personName(p));
+    for (const p of people) known.set(p.id, p.deleted ? DELETED_USER : personName(p));
     return known;
   }, [people, shell.data?.channels]);
+  // Mentions of people nobody here has named: ask once whether they are deleted accounts ("@deleted user").
+  const unknownMentions = useMemo(() => unknownMentionIds(conversation.messages, (id) => knownNames.get(id)), [conversation.messages, knownNames]);
+  const deletedPeople = useQuery({
+    queryKey: ["chat-v3", "deleted-people", channelId, unknownMentions.join(",")],
+    enabled: unknownMentions.length > 0,
+    queryFn: async () => {
+      const result = await findDeletedPeople({ channelId, userIds: unknownMentions });
+      return result.success ? result.deleted : [];
+    },
+    staleTime: 5 * 60_000,
+  });
+  const names = useMemo(() => {
+    if (!deletedPeople.data?.length) return knownNames;
+    const next = new Map(knownNames);
+    for (const id of deletedPeople.data) next.set(id, DELETED_USER);
+    return next;
+  }, [deletedPeople.data, knownNames]);
   const channelNames = useMemo(() => new Map((shell.data?.channels ?? []).filter((c) => c.name).map((c) => [c.id, c.name!])), [shell.data?.channels]);
   const nameOf = useCallback((id: string) => names.get(id), [names]);
   const channelNameOf = useCallback((id: string) => channelNames.get(id), [channelNames]);

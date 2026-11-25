@@ -1,5 +1,6 @@
 "use client";
 
+import { DELETED_USER } from "@/lib/messaging/deleted-user";
 import Link from "next/link";
 import { memo, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
@@ -34,6 +35,8 @@ export function tokensToMarkdown(body: string, nameOf: Props["nameOf"], channelN
       // Someone this client doesn't know: a quiet "@someone", never a live-looking chip.
       if (segment.type === "user") {
         const name = nameOf(segment.id);
+        // A deleted account reads "@deleted user", quiet like "@someone".
+        if (name === DELETED_USER) return `[@${DELETED_USER}](mention-gone:)`;
         return name ? `[@${escapeLabel(name)}](mention:${segment.id})` : "[@someone](mention-gone:)";
       }
       if (segment.type === "channel") return `[#${escapeLabel(channelNameOf(segment.id) ?? "channel")}](channel:${segment.id})`;
