@@ -45,5 +45,6 @@ test('a Process page: Run this process adds a task with its steps to My work', a
   await page.getByTestId('run-process').click();
   await expect(page.getByTestId('toast').getByText('Added to My work with 3 steps')).toBeVisible();
   await expect.poll(async () => (await calls(page))[0]?.[0]).toBe('run');
+  await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
