@@ -1157,6 +1157,11 @@ async function isEducationOrg(projectId: string) {
   return row?.kind === "organization" && typeProfile(row.orgType as Parameters<typeof typeProfile>[0]).schools;
 }
 
+async function isCompanyOrg(projectId: string) {
+  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  return row?.kind === "organization" && row.orgType === "company";
+}
+
 async function checkNewItemType(projectId: string, userId: string, type: string, stage: string | null, fields: Record<string, unknown>) {
   const t = WORKFLOW_TYPES[type];
   if (!t) return { error: `There’s no “${type}” type. Use one of: ${Object.keys(WORKFLOW_TYPES).join(", ")}` } as const;
@@ -1167,7 +1172,9 @@ async function checkNewItemType(projectId: string, userId: string, type: string,
   const classLesson = type === "class_lesson" && await isEducationClass(projectId);
   // B3.1b (report 32.2 call 3): every Education school and class has a calendar, so its events need no workflow.
   const schoolEvent = type === "event" && await isEducationOrg(projectId);
-  if (!classLesson && !schoolEvent && (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id))) {
+  // B4.3 (report 33.4 call 1): a company writes its goals with no workflow to add.
+  const companyGoal = (type === "objective" || type === "key_result") && await isCompanyOrg(projectId);
+  if (!classLesson && !schoolEvent && !companyGoal && (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id))) {
     const [hidden] = entry ? await db.select({ id: workspaceWorkflows.id }).from(workspaceWorkflows)
       .where(and(eq(workspaceWorkflows.workspaceId, projectId), eq(workspaceWorkflows.workflow, entry.id), isNotNull(workspaceWorkflows.hiddenAt))).limit(1) : [];
     return hidden ? { error: `${name} was removed from this workspace`, code: "type_removed" } as const : { error: `${name} isn’t in this workspace` } as const;
@@ -1297,7 +1304,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     // Report 38.12 (A5.1): a key result is always Part of an objective, and only key results are.
     if (itemType === "key_result" && !validated.partOfId) return { success: false, error: "A key result is Part of an objective" };
     if (validated.partOfId) {
-      if (access.project.kind === "organization") return { success: false, error: "Projects aren’t available in organizations" };
+      // B4.3: a company's key results sit under its objectives; otherwise Part of stays out of organizations.
+      if (access.project.kind === "organization" && !(itemType === "key_result" && await isCompanyOrg(validated.projectId))) return { success: false, error: "Projects aren’t available in organizations" };
       if (!canBePartOf(itemType)) return { success: false, error: "A project can’t be Part of another project" };
       const [parent] = await db.select({ itemType: tasks.itemType }).from(tasks)
         .where(and(eq(tasks.id, validated.partOfId), eq(tasks.projectId, validated.projectId), isNull(tasks.deletedAt))).limit(1);

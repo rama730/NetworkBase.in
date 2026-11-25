@@ -18,6 +18,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.236" }) });
 
 let goals: typeof import("../../src/app/actions/company-goals");
+let docActions: typeof import("../../src/app/actions/workspace/doc");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -26,6 +27,7 @@ before(async () => {
     getViewerProfileContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true, profile: null }),
   });
   goals = await loadAppModule(() => import("../../src/app/actions/company-goals"));
+  docActions = await loadAppModule(() => import("../../src/app/actions/workspace/doc"));
 });
 
 const created: string[] = [];
@@ -101,4 +103,24 @@ test("33.4: goals cascade from company to team to project; progress only from ke
   assert.ok(admin.success);
   assert.ok(admin.projects.some((p) => p.title === "Acquisition"), "admins see every project");
   assert.ok(admin.goals.some((x) => x.title === "Buy a rival"), "and every goal");
+});
+
+test("33.4 call 1 (live check): a company adds objectives and key results to its goals document with no workflow", async () => {
+  const [owner] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  const id = await sql.begin((tx) => createProject(tx, owner!, { visibility: "private" }));
+  created.push(id);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'company', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${id}`;
+  const period = (await import("../../src/lib/workflows/goals")).periodOf(new Date().toISOString().slice(0, 10), {});
+  const [d] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'goals-q', 'goals-q.md', ${sql.json({ version: 1, editPolicy: "leaders", visibilityOverride: "members_only", externalImages: false, projectBlocks: true, section: "goals", period })}) RETURNING id`;
+  const [v] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${id}, ${d!.id}, 1, '# Goals', 'g') RETURNING id`;
+  await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${d!.id}`;
+  viewerId = owner!;
+  const o = await docActions.addObjectiveAction(id, { docSlug: "goals-q", title: "Grow revenue" });
+  assert.ok(o.success, JSON.stringify(o));
+  const kr = await docActions.addKeyResultAction(id, { docSlug: "goals-q", objectiveId: (o as { id: string }).id, title: "Bookings", direction: "increase", unit: "$k", start: 0, target: 500 });
+  assert.ok(kr.success, JSON.stringify(kr));
+  const read = await goals.readCompanyGoalsAction(id);
+  assert.ok(read.success);
+  assert.deepEqual(read.goals.map((g) => g.title), ["Grow revenue"]);
 });
