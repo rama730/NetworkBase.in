@@ -51,14 +51,14 @@ export function AddPeople({ channelId, autoFocus = false }: { channelId: string;
             disabled={member || adding !== null}
             aria-busy={adding === person.id || undefined}
             onClick={() => void add(person.id, personName(person))}
-            className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[15px] hover:bg-muted disabled:cursor-default disabled:hover:bg-transparent"
+            className="nbm-mrow nbm-mrow-add"
           >
             <UserAvatar identity={person} size={26} />
             <span className="min-w-0 flex-1 truncate">{personName(person)}</span>
             {member ? (
-              <span className="nb-tag"><Check size={14} aria-hidden="true" /> In channel</span>
+              <span className="nbm-tag"><Check size={12} aria-hidden="true" /> In channel</span>
             ) : adding === person.id ? (
-              <span className="nb-meta">Adding…</span>
+              <span className="nbm-lrow-meta">Adding…</span>
             ) : (
               <UserPlus size={16} aria-hidden="true" className="text-muted-foreground" />
             )}

@@ -570,3 +570,15 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-split-row[aria-pressed="true"] { background: var(--card); box-shadow: 0 0 0 1px var(--nbm-line); }
 @media (pointer: coarse) { .nbm-split-row { min-height: 44px; } }
 .nbm-split-title { margin: 0; font: 400 30px/1.15 var(--nbm-serif); letter-spacing: -.01em; color: var(--foreground); }
+
+/* Phase 6 review fixes */
+.nbm-drow .nbm-seg-wrap { display: inline-flex; max-width: 100%; margin-top: 8px; }
+.nbm-drow-side:is(a) { color: var(--nbm-brand); font-family: inherit; font-size: 13px; font-weight: 500; }
+.nbm-dhead-where:is(a):hover { color: var(--foreground); }
+@media (pointer: coarse) { .nbm-tab { min-height: 44px; } }
+.nbm-drow:last-child { border-bottom: 0; }
+.nbm-qa > :focus-visible, .nbm-seg > button:focus-visible { outline-offset: -2px; }
+.nbm-drow-side.cursor-text:hover { background: var(--nbm-soft); }
+.nbm-mrow-add { width: 100%; text-align: left; font-size: 14px; }
+.nbm-mrow-add:disabled { cursor: default; }
+.nbm-mrow-add:disabled:hover { background: transparent; }

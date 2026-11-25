@@ -68,11 +68,26 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
     if (ok) setDraft(null);
   };
   const Field = multiline ? "textarea" : "input";
+  const valueView = (cls: string) => editable ? (
+    <button
+      type="button"
+      aria-label={`Edit ${label.toLowerCase()}${value ? `: ${value}` : ""}`}
+      onClick={start}
+      className={`${cls} cursor-text ${value ? "" : "is-empty"}`}
+    >
+      {value ? `${prefix ?? ""}${value}` : placeholder}
+    </button>
+  ) : (
+    // Not yours to edit: plain text, not a dimmed button.
+    <span className={`${cls} ${value ? "" : "is-empty"}`}>{value ? `${prefix ?? ""}${value}` : "None"}</span>
+  );
   return (
     <div className="nbm-drow" data-multiline={multiline ? "true" : undefined}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <span className="nbm-drow-label">{label}</span>
-        {/* Out of the tab order: the value below is the same button for keyboards and screen readers. */}
+        {/* Single-line values sit right of their label (settings rows); long ones go under it. */}
+        {draft === null && !multiline ? valueView("nbm-drow-side") : null}
+        {/* Out of the tab order: the value is the same button for keyboards and screen readers. */}
         {editable && draft === null ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={start} className="nbm-drow-edit">Edit</button> : null}
       </div>
       {draft !== null ? (
@@ -100,27 +115,16 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
           </div>
           <p className="text-[13px] text-muted-foreground">{multiline ? `${keyLabel("mod+enter")} to save · Esc to cancel` : "Enter to save · Esc to cancel"}</p>
         </div>
-      ) : editable ? (
-        <button
-          type="button"
-          aria-label={`Edit ${label.toLowerCase()}${value ? `: ${value}` : ""}`}
-          onClick={start}
-          className={`nbm-drow-value cursor-text ${value ? "" : "is-empty"}`}
-        >
-          {value ? `${prefix ?? ""}${value}` : placeholder}
-        </button>
-      ) : (
-        // Not yours to edit: plain text, not a dimmed button.
-        <p className={`nbm-drow-value ${value ? "" : "is-empty"}`}>{value ? `${prefix ?? ""}${value}` : "None"}</p>
-      )}
+      ) : multiline ? valueView("nbm-drow-value") : null}
     </div>
   );
 }
 
 /** Star and Copy link, at the top of About (and a DM's details). */
-function QuickActions({ channel, onStar }: { channel: ChannelDetails; onStar?: () => void }) {
+function QuickActions({ channel, onStar, lead }: { channel: ChannelDetails; onStar?: () => void; lead?: React.ReactNode }) {
   return (
     <div className="nbm-qa">
+      {lead}
       {onStar ? (
         <button type="button" onClick={onStar} aria-pressed={channel.starred}>
           <Star size={16} className={channel.starred ? "text-primary" : ""} fill={channel.starred ? "currentColor" : "none"} aria-hidden="true" />
@@ -138,17 +142,29 @@ function QuickActions({ channel, onStar }: { channel: ChannelDetails; onStar?: (
 function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (notify: ChatNotify) => void }) {
   const id = `notify-${channel.id}`;
   const choices = notifyChoices(channel);
-  const current = notifyChoice(channel, channel.notify);
+  // Checked at once, like a native radio; the server's answer takes over when it lands (or a failure snaps back).
+  const [pending, setPending] = useState<string | null>(null);
+  const saved = notifyChoice(channel, channel.notify);
+  useEffect(() => {
+    if (pending === null) return;
+    if (pending === saved) return setPending(null);
+    const timer = setTimeout(() => setPending(null), 8000);
+    return () => clearTimeout(timer);
+  }, [pending, saved]);
+  const current = pending ?? notifyChoice(channel, channel.notify);
   const index = Math.max(0, choices.findIndex((choice) => choice.value === current));
+  const pick = (value: string) => { setPending(value); onChange(value as ChatNotify); };
   return (
     <div className="nbm-drow">
       <span id={id} className="nbm-drow-label">Notifications</span>
       <div
         role="radiogroup" aria-labelledby={id} className="nbm-seg nbm-seg-wrap"
         onKeyDown={(event) => {
-          const next = rovingTabKey(event, index, choices.length);
+          // ↑/↓ move too, as in a native radio group.
+          const key = event.key === "ArrowDown" ? "ArrowRight" : event.key === "ArrowUp" ? "ArrowLeft" : event.key;
+          const next = rovingTabKey({ key, preventDefault: () => event.preventDefault() } as React.KeyboardEvent, index, choices.length);
           if (next === null) return;
-          onChange(choices[next]!.value as ChatNotify);
+          pick(choices[next]!.value);
           (event.currentTarget.children[next] as HTMLElement | undefined)?.focus();
         }}
       >
@@ -159,7 +175,7 @@ function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (
             role="radio"
             aria-checked={current === choice.value}
             tabIndex={current === choice.value ? 0 : -1}
-            onClick={() => onChange(choice.value as ChatNotify)}
+            onClick={() => pick(choice.value)}
           >
             {choice.label}
           </button>
@@ -218,7 +234,7 @@ function MemberRow({ member, channel, meId, onRemove, blocking }: { member: Chan
           {presence.status?.emoji ? <span className="flex-none font-[system-ui] text-[13px]" title={presence.statusText ?? undefined}>{presence.status.emoji}</span> : null}
         </span>
         {/* No "Offline" guess before presence has loaded. */}
-        <span className="block truncate text-[12px] text-muted-foreground">{presence.statusText || (presence.loaded ? presence.availabilityText : " ")}</span>
+        <span className="nbm-lrow-meta block truncate">{presence.statusText || (presence.loaded ? presence.availabilityText : " ")}</span>
       </span>
       {/* Your own block, seen only by you (Blocking B45). */}
       {member.blocked_by_me ? <span className="nbm-tag flex-none">Blocked</span> : null}
@@ -228,7 +244,7 @@ function MemberRow({ member, channel, meId, onRemove, blocking }: { member: Chan
           <DropdownMenuTrigger className="nbm-cell nb-touch-target flex-none pointer-fine:opacity-0 pointer-fine:group-hover/member:opacity-100 pointer-fine:group-focus-within/member:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100" aria-label={`Options for ${personName(member)}`}>
             <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="nbm nbm-menu w-48">
             {/* No Message for someone you blocked (B44). */}
             {member.blocked_by_me ? null : <DropdownMenuItem disabled={opening} onSelect={() => void message()}><MessageSquare /> Message</DropdownMenuItem>}
             {member.username ? <DropdownMenuItem asChild><Link href={profileHref({ id: member.id, username: member.username })}><User /> View profile</Link></DropdownMenuItem> : null}
@@ -388,10 +404,10 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
           {presence.loaded ? presence.availabilityText : "\u00a0"}
           {localTime ? <span>· {localTime} local time</span> : null}
         </p>
-        {person?.username && !self ? (
-          <div className="nbm-qa"><Link href={profileHref({ id: person.id, username: person.username })} className="nbm-qa-link"><User size={16} aria-hidden="true" /> View profile</Link></div>
-        ) : null}
-        <QuickActions channel={channel} onStar={() => setState({ starred: !channel.starred })} />
+        {/* One strip: View profile, Star, Copy link. */}
+        <QuickActions channel={channel} onStar={() => setState({ starred: !channel.starred })} lead={person?.username && !self ? (
+          <Link href={profileHref({ id: person.id, username: person.username })} className="nbm-qa-link"><User size={16} aria-hidden="true" /> View profile</Link>
+        ) : null} />
       </div>
       {context.data && (context.data.sharedProjects.length || context.data.sharedChannels.length) ? (
         <div className="space-y-3 p-4">
@@ -422,10 +438,9 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
               <Ban size={16} aria-hidden="true" /> {channel.blocked_by_me ? "Unblock" : "Block"} {personName(person)}
             </button>
           ) : null}
-          {reporting.dialog}
-          {blocking.dialog}
         </div>
       )}
+      {self ? null : <>{reporting.dialog}{blocking.dialog}</>}
     </div>
   );
 }

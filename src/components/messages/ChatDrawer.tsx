@@ -28,7 +28,16 @@ type View = "thread" | "details";
  * window to 560px so replies have room), a full screen with Back below. With both open they are tabs, and both
  * stay mounted, so checking members never loses the thread's scroll, count or focus.
  */
+// Motion on interaction only: the drawer slides in when a click or key opened it, not on a page load or a refresh.
+let lastInputAt = 0;
+if (typeof window !== "undefined") {
+  const mark = () => { lastInputAt = Date.now(); };
+  window.addEventListener("pointerdown", mark, true);
+  window.addEventListener("keydown", mark, true);
+}
+
 export function ChatDrawer({ channelId }: { channelId: string }) {
+  const [slide] = useState(() => Date.now() - lastInputAt < 1000);
   const panes = usePanes(channelId);
   const router = useRouter();
   const search = useSearchParams()?.toString() ?? "";
@@ -123,14 +132,16 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
       aria-modal={modal || undefined}
       onKeyDown={trapTab}
       // Below 1024px it covers the screen at the visible height, so the reply box sits above the phone's keyboard.
-      className="nbm-enter-slide fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[clamp(340px,34vw,560px)] lg:flex-none lg:border-l lg:border-border lg:h-auto"
+      className={`${slide ? "nbm-enter-slide " : ""}fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[clamp(340px,34vw,560px)] lg:flex-none lg:border-l lg:border-border lg:h-auto`}
     >
       <header className="nbm-dhead">
         <span className="contents lg:hidden">
           <button type="button" onClick={close} className="nbm-cell nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
         </span>
         {both ? (
-          <div className="flex min-w-0 flex-1 flex-col py-1">
+          <div className="flex min-w-0 flex-1 flex-col self-end">
+            {/* Which conversation, above the tabs, so the clay underline sits on the header hairline. */}
+            {where ? <span className="nbm-dhead-where px-1">{where}</span> : null}
             <div role="tablist" aria-label="Side panel" className="flex min-w-0 items-center gap-4 px-1">
               {VIEWS.map((value, index) => (
                 <button
@@ -151,8 +162,6 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
               <h2 ref={heading} tabIndex={-1} className="sr-only">{label}</h2>
                 <TabMarker />
             </div>
-            {/* Which conversation, even with both panes open. */}
-            {where ? <span className="nbm-dhead-where px-1">{where}</span> : null}
           </div>
         ) : (
           <div className="flex min-w-0 flex-1 flex-col px-2 py-1">
@@ -176,13 +185,13 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
       </header>
       <div id="drawer-panel" className="flex min-h-0 flex-1 flex-col" {...(both ? { role: "tabpanel", "aria-labelledby": `drawer-tab-${active}` } : {})}>
         {panes.thread ? (
-          <div className={active === "thread" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+          <div className={active === "thread" ? "nbm-fade-in flex min-h-0 flex-1 flex-col" : "hidden"}>
             <ThreadPane key={`${channelId}:${panes.thread}`} channelId={channelId} rootSeq={panes.thread} headerSlot={slot} focusSeq={panes.m} autoFocus onClose={panes.closeThread} />
           </div>
         ) : null}
         {panes.details && active === "details" ? (
           // Switching from Thread to Details crossfades.
-          <div key={active} className="nbm-fade-in flex min-h-0 flex-1 flex-col"><DetailsPane channelId={channelId} tab={panes.details} onTab={panes.openDetails} /></div>
+          <div className="nbm-fade-in flex min-h-0 flex-1 flex-col"><DetailsPane channelId={channelId} tab={panes.details} onTab={panes.openDetails} /></div>
         ) : null}
       </div>
     </aside>
