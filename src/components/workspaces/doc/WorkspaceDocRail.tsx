@@ -32,7 +32,7 @@ import { NewMeetingDialog } from "@/components/workspaces/doc/DocMeeting";
 const EMPTY_LINE: Record<DocSection, string> = {
     pages: "+ New page", meetings: "+ New meeting", decisions: "+ Record a decision", launches: "+ New launch",
     goals: "+ New goals document", ideas: "+ New idea list", offsite: "+ Plan an off-site",
-    chapters: "+ New chapter", literature: "+ New literature list",
+    chapters: "+ New chapter", literature: "+ New literature list", journals: "+ New journal entry",
 };
 
 /** Collapsed rail sections, remembered per person in this browser (S1); works without storage too. */

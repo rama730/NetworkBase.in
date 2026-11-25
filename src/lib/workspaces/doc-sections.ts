@@ -12,6 +12,7 @@ export const DOC_SECTIONS = [
   { id: "offsite", label: "Off-site", workflow: "offsite" },
   { id: "chapters", label: "Chapters", workflow: "thesis" },
   { id: "literature", label: "Literature", workflow: "thesis" },
+  { id: "journals", label: "Journals", workflow: "capstone" },
 ] as const;
 
 export type DocSection = (typeof DOC_SECTIONS)[number]["id"];

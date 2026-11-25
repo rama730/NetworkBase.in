@@ -1,4 +1,5 @@
 'use client'
+import { CapstoneTeams } from '@/components/organizations/Capstone'
 import { TabMarker } from "@/components/ui/TabMarker";
 import { ThesisCoordinator } from '@/components/organizations/ThesisCoordinator'
 
@@ -124,7 +125,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
         return <div className="mx-auto w-full max-w-[1200px]"><ErrorNotice what="Workspaces" onRetry={() => void query.refetch()} /></div>
     }
     // B1.8c (report 30.6): class staff see the Theses table above the workspaces when any use Thesis.
-    return <>{data.isAdmin ? <div className="mx-auto w-full max-w-[1200px]"><ThesisCoordinator orgId={orgId} /></div> : null}<WorkspacesView orgId={orgId} orgSlug={orgSlug ?? null} data={data} reload={reload} /></>
+    return <>{data.isAdmin ? <div className="mx-auto w-full max-w-[1200px]"><ThesisCoordinator orgId={orgId} /><CapstoneTeams classId={orgId} /></div> : null}<WorkspacesView orgId={orgId} orgSlug={orgSlug ?? null} data={data} reload={reload} /></>
 }
 
 /** §5 Loading: the header at once with dashes, three skeletons at the card's height. */

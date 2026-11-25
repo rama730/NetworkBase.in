@@ -1,5 +1,6 @@
 'use client'
 
+import { ShowcaseSection } from '@/components/organizations/Capstone'
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { ActivityItem } from '@/components/ui/activity-item'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
@@ -80,6 +81,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} editLabel="Edit details" />
                 {isClass ? <YourSectionCard orgId={project.id} /> : null}
                 {isClass ? <SyllabusAndTerm orgId={project.id} base={base} /> : null}
+                {isClass ? <ShowcaseSection classId={project.id} /> : null}
                 {/* Empty-state prompts for admins (report §22.3). */}
                 {isCreator && (!statements.problemStatement || !statements.solutionStatement) ? (
                     <p className="flex flex-wrap gap-4 text-[13px]">
