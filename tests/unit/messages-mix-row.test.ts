@@ -36,3 +36,25 @@ test('name 14/600, mono time, mono (edited), Sending… with the pixel beat, 36p
 test('after the flash ends the row keeps its own fill (hover, mention): no "both" fill on rows', () => {
   assert.match(css, /\.nbm-msg\.nbm-flash\s*\{[^}]*animation-fill-mode:\s*backwards/);
 });
+
+test('reactions: square cells with a mono count; yours clay; a new one pops (not the ones already there)', () => {
+  assert.match(row, /className=\{`nbm-rc\$\{pop \? " nbm-pop" : ""\}`\}/);
+  assert.match(row, /data-me=\{me \? "true" : undefined\}/);
+  assert.match(row, /pop=\{!seenReactions\.current\.has\(r\.emoji\)\}/);
+  assert.match(css, /\.nbm-rc\s*\{[^}]*height:\s*24px[^}]*border-radius:\s*3px[^}]*var\(--nbm-mono\)/);
+  assert.match(css, /\.nbm-rc\[data-me="true"\]\s*\{[^}]*border-color:\s*var\(--nbm-brand\)[^}]*background:\s*var\(--nbm-tint\)/);
+});
+
+test('thread link: clay count, mono last reply, hover outline', () => {
+  assert.match(row, /className="nbm-thr"/);
+  assert.match(row, /<b>\{message\.reply_count\} \{message\.reply_count === 1 \? "reply" : "replies"\}<\/b>/);
+  assert.match(css, /\.nbm-thr:hover\s*\{[^}]*border-color:\s*var\(--nbm-line\)/);
+});
+
+test('hover toolbar: one strip of 32px cells split by hairlines; menus are Messages menus', () => {
+  assert.match(row, /nbm-bar pointer-coarse:!hidden/);
+  assert.doesNotMatch(row, /className="nb-icon-button size-8"/);
+  assert.match(css, /\.nbm-bar > button\s*\{[^}]*width:\s*32px[^}]*border-right:\s*1px solid var\(--nbm-line\)/);
+  assert.match(row, /<DropdownMenuContent align="end" side="bottom" sideOffset=\{4\} className="nbm nbm-menu min-w-\[210px\]">/);
+  assert.match(row, /<DropdownMenuSubContent className="nbm nbm-menu w-48">/);
+});

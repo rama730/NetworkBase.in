@@ -283,3 +283,22 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-flags { display: flex; gap: 10px; margin: 0 0 2px; padding-left: 48px; font: 500 10px/1.4 var(--nbm-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbm-fg2); }
 .nbm-flags-saved { color: var(--nbm-brand); }
 .nbm-msg.nbm-flash { animation-fill-mode: backwards; }
+
+/* Reactions, thread link, hover toolbar (Phase 4 Task 15) */
+.nbm-reacts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.nbm-rc { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--card); font: 500 11.5px/1 var(--nbm-mono); color: var(--nbm-fg2); transition: border-color var(--nbm-m1) var(--nbm-ease), background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-rc:hover { border-color: var(--foreground); color: var(--foreground); }
+.nbm-rc:active { transform: translateY(1px); transition-duration: 60ms; }
+.nbm-rc[data-me="true"] { border-color: var(--nbm-brand); background: var(--nbm-tint); color: var(--nbm-brand); }
+.nbm-rc-e { font-family: system-ui, sans-serif; font-size: 13px; }
+.nbm-rc-add { color: var(--nbm-fg2); }
+@media (pointer: coarse) { .nbm-rc { height: 36px; padding: 0 10px; } }
+.nbm-thr { display: inline-flex; align-items: center; gap: 8px; height: 28px; margin-top: 4px; padding: 0 8px 0 4px; border: 1px solid transparent; border-radius: 5px; font-size: 13px; transition: border-color var(--nbm-m1) var(--nbm-ease), background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-thr:hover { border-color: var(--nbm-line); background: var(--card); }
+.nbm-thr b { font-weight: 600; color: var(--nbm-brand); }
+.nbm-thr-meta { font: 11px/1 var(--nbm-mono); color: var(--nbm-fg2); }
+@media (pointer: coarse) { .nbm-thr { min-height: 44px; } }
+.nbm-bar { overflow: hidden; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--card); box-shadow: var(--nbm-shadow-pop); }
+.nbm-bar > button { display: grid; place-items: center; width: 32px; height: 30px; border-right: 1px solid var(--nbm-line); font-family: system-ui, sans-serif; font-size: 14px; color: var(--nbm-fg2); transition: background-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease); }
+.nbm-bar > button:last-child { border-right: 0; }
+.nbm-bar > button:hover, .nbm-bar > button[data-open="true"] { background: var(--nbm-soft); color: var(--foreground); }

@@ -86,7 +86,7 @@ function bindFlushOnLeave() {
 }
 
 /** Who reacted, loaded when the tooltip opens. */
-function ReactionChip({ emoji, count, me, seq, onToggle }: { emoji: string; count: number; me: boolean; seq: number; onToggle: () => void }) {
+function ReactionChip({ emoji, count, me, seq, onToggle, pop = false }: { emoji: string; count: number; me: boolean; seq: number; onToggle: () => void; pop?: boolean }) {
   const ctx = useConversationContext();
   const [open, setOpen] = useState(false);
   const reactors = useQuery({
@@ -111,9 +111,10 @@ function ReactionChip({ emoji, count, me, seq, onToggle }: { emoji: string; coun
           aria-disabled={ctx.isMember === false || undefined}
           aria-pressed={me}
           aria-label={`${emoji} ${count}${me ? ", you reacted" : ""}`}
-          className={`inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[13px] pointer-coarse:h-9 ${me ? "border-primary bg-accent" : "border-border bg-card"}`}
+          className={`nbm-rc${pop ? " nbm-pop" : ""}`}
+          data-me={me ? "true" : undefined}
         >
-          <span>{emoji}</span><span className="nb-meta text-foreground">{count}</span>
+          <span className="nbm-rc-e">{emoji}</span><span>{count}</span>
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[240px] text-center">
@@ -229,6 +230,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   // The hover bar sits above the row; on the top row it would hide under the tab bar, so it drops inside.
   const [barInside, setBarInside] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  // Reactions already there when the row mounted don't pop; one added while you watch does.
+  const seenReactions = useRef(new Set([...message.reactions.map((r) => r.emoji), ...pollOptions(message.body)]));
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
   const previewMutationRef = useRef(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -595,12 +598,12 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           {/* A deleted message keeps no reactions (like Slack). */}
           {chips.length && !deleted ? (
             <TooltipProvider delayDuration={250}>
-              <div className="mt-1 flex flex-wrap gap-1">
+              <div className="nbm-reacts">
                 {chips.map((r) => (
-                  <ReactionChip key={r.emoji} emoji={r.emoji} count={r.count} me={r.me} seq={message.seq} onToggle={() => void toggleReaction(r.emoji)} />
+                  <ReactionChip key={r.emoji} emoji={r.emoji} count={r.count} me={r.me} seq={message.seq} onToggle={() => void toggleReaction(r.emoji)} pop={!seenReactions.current.has(r.emoji)} />
                 ))}
                 {actions ? (
-                  <button type="button" data-reaction-trigger onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)} aria-label="Add reaction" title="Add reaction" className="inline-flex h-6 items-center rounded-md border border-border bg-card px-1.5 text-muted-foreground hover:text-foreground pointer-coarse:h-9">
+                  <button type="button" data-reaction-trigger onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)} aria-label="Add reaction" title="Add reaction" className="nbm-rc nbm-rc-add">
                     <SmilePlus size={14} />
                   </button>
                 ) : null}
@@ -618,9 +621,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             </p>
           ) : null}
           {!ctx.inThread && message.reply_count > 0 ? (
-            <button type="button" onClick={() => ctx.openThread(message.seq)} className="mt-1 inline-flex min-h-7 items-center gap-2 rounded-md px-1 text-[13px] font-medium text-primary hover:bg-card hover:underline pointer-coarse:min-h-11">
-              {message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}
-              {message.last_reply_at ? <span className="font-normal text-muted-foreground">last reply {formatChatTime(message.last_reply_at, "ago")}</span> : null}
+            <button type="button" onClick={() => ctx.openThread(message.seq)} className="nbm-thr">
+              <b>{message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}</b>
+              {message.last_reply_at ? <span className="nbm-thr-meta">last reply {formatChatTime(message.last_reply_at, "ago")}</span> : null}
             </button>
           ) : null}
         </div>
@@ -628,32 +631,32 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
 
       {actions ? (
         <div
-          className={`absolute ${barInside ? "top-1" : "-top-3"} right-4 z-20 ${isToolbarOpen ? "flex" : "hidden group-hover/msg:flex group-focus-within/msg:flex"} items-center rounded-md border border-border bg-card shadow-md pointer-coarse:!hidden`}
+          className={`absolute ${barInside ? "top-1" : "-top-3"} right-4 z-20 ${isToolbarOpen ? "flex" : "hidden group-hover/msg:flex group-focus-within/msg:flex"} items-center nbm-bar pointer-coarse:!hidden`}
           role="toolbar"
           aria-label="Message actions"
         >
           {quick.slice(0, HOVER_QUICK_COUNT).map((emoji) => (
-            <button key={emoji} type="button" className="nb-icon-button size-8" aria-label={`React ${emoji}`} onClick={() => void toggleReaction(emoji)}>{emoji}</button>
+            <button key={emoji} type="button" aria-label={`React ${emoji}`} onClick={() => void toggleReaction(emoji)}>{emoji}</button>
           ))}
-          <button type="button" data-reaction-trigger className="nb-icon-button size-8" aria-label="Add reaction" title="Add reaction" onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)}><SmilePlus size={16} /></button>
+          <button type="button" data-reaction-trigger aria-label="Add reaction" title="Add reaction" onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)}><SmilePlus size={16} /></button>
           {(["reply", "save", "share"] as const).map((id) => {
             const action = find(id);
             if (!action) return null;
             const Icon = action.icon;
             return (
               // No key hint here: the keys act on a selected row (Tab, ↑/↓), not the hovered one.
-              <button key={id} type="button" className="nb-icon-button size-8" aria-label={action.label} title={action.label} onClick={action.run}>
+              <button key={id} type="button" aria-label={action.label} title={action.label} onClick={action.run}>
                 <Icon size={16} />
               </button>
             );
           })}
           <DropdownMenu open={moreOpen} onOpenChange={handleMoreOpenChange} modal={false}>
             <DropdownMenuTrigger asChild>
-              <button ref={moreTriggerRef} type="button" className={`nb-icon-button size-8 ${moreOpen ? "bg-muted text-foreground" : ""}`} aria-label="More actions">
+              <button ref={moreTriggerRef} type="button" data-open={moreOpen ? "true" : undefined} aria-label="More actions">
                 <MoreHorizontal size={16} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[210px]">
+            <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="nbm nbm-menu min-w-[210px]">
               {groups.map((group, index) => (
                 <div key={index}>
                   {index ? <DropdownMenuSeparator /> : null}
@@ -670,7 +673,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                   {index === 0 && ctx.setSaved ? (
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger><AlarmClock /> Remind me about this</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-48">
+                      <DropdownMenuSubContent className="nbm nbm-menu w-48">
                         {laterTimes("remind").map((option) => <DropdownMenuItem key={option.label} onSelect={() => remind(option.at)}>{option.label}</DropdownMenuItem>)}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onSelect={() => setCustomRemind(new Date(Date.now() + 2 * 60 * 60_000))}>Custom time…</DropdownMenuItem>
