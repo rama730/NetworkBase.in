@@ -83,6 +83,10 @@ test("33.2: What's new holds the last 7 days' announcements and published pages 
     (${id}, 'travel', 'Travel policy.md', ${sql.json({ org: { lifecycle: "published", publishedAt: now, owner: member!, reviewBy: "2020-01-01" } })}),
     (${id}, 'expenses', 'Expenses.md', ${sql.json({ org: { lifecycle: "published", publishedAt: old, reviewBy: "2020-02-01" } })}),
     (${id}, 'draft', 'Draft.md', ${sql.json({ org: { lifecycle: "draft", publishedAt: now } })})`;
+  for (const [docId] of await sql`SELECT id FROM workspace_documents WHERE workspace_id = ${id}`.values()) {
+    const [v] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${id}, ${docId}, 1, '# Page', ${String(docId)}) RETURNING id`;
+    await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${docId} AND settings->'org'->>'lifecycle' = 'published'`;
+  }
   viewerId = member!;
   const mine = await company.readWhatsNewAction(id);
   assert.ok(mine.success);
@@ -94,4 +98,25 @@ test("33.2: What's new holds the last 7 days' announcements and published pages 
   assert.equal(review.total, 2);
   assert.deepEqual(review.owners.map((o) => o.pages.map((p) => p.title)), [["Travel policy"], ["Expenses"]]);
   assert.equal(review.owners[1]!.owner, "No owner");
+});
+
+test("33.2: What's new never names a page the member can't open", async () => {
+  const [owner, member] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, { visibility: "private" }));
+  created.push(id);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${member!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'company', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${id}`;
+  const now = new Date().toISOString();
+  const [d] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES
+    (${id}, 'salaries', 'Salary bands.md', ${sql.json({ visibilityOverride: "leaders_only", org: { lifecycle: "published", publishedAt: now } })}) RETURNING id`;
+  const [v] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${id}, ${d!.id}, 1, '# Salary bands', 'sb') RETURNING id`;
+  await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${d!.id}`;
+  viewerId = member!;
+  const mine = await company.readWhatsNewAction(id);
+  assert.ok(mine.success);
+  assert.equal(mine.items.length, 0);
+  viewerId = owner!;
+  const admin = await company.readWhatsNewAction(id);
+  assert.ok(admin.success);
+  assert.deepEqual(admin.items.map((i) => i.text), ["Salary bands"]);
 });

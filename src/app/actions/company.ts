@@ -81,17 +81,21 @@ export async function readWhatsNewAction(orgId: string) {
         AND NOT (is_pinned AND (pinned_until IS NULL OR pinned_until > now()))
         AND (${ctx.admin} OR audience IS NULL OR audience = '{}'::jsonb)
       ORDER BY created_at DESC LIMIT 5`),
-    db.execute<{ slug: string; filename: string; at: string; versions: number }>(sql`
-      SELECT d.slug, d.filename, d.settings->'org'->>'publishedAt' AS at,
+    db.execute<{ id: string; slug: string; filename: string; at: string; versions: number }>(sql`
+      SELECT d.id, d.slug, d.filename, d.settings->'org'->>'publishedAt' AS at,
         (SELECT count(*)::int FROM workspace_document_versions v WHERE v.doc_id = d.id) AS versions
       FROM workspace_documents d
       WHERE d.workspace_id = ${orgId}::uuid AND d.settings->'org'->>'lifecycle' = 'published'
         AND (CASE WHEN d.settings->'org'->>'publishedAt' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (d.settings->'org'->>'publishedAt')::timestamptz END) > now() - interval '7 days'
       ORDER BY 3 DESC LIMIT 5`),
   ]);
+  // Only pages this viewer can open: the same list Documents shows them (visibility and drafts already applied).
+  const { listWorkspaceDocsAction } = await import("@/app/actions/workspace/doc");
+  const listed = await listWorkspaceDocsAction(orgId);
+  const visible = new Set(listed.success ? listed.docs.map((d) => d.id) : []);
   const items = [
     ...Array.from(posts).map((p) => ({ kind: "announcement" as const, id: p.id, text: p.content.replace(/[#*_>`]/g, "").trim().split("\n")[0]!.slice(0, 140), at: p.at, slug: null })),
-    ...Array.from(pages).map((p) => ({ kind: Number(p.versions) > 1 ? "updated" as const : "new" as const, id: p.slug, text: p.filename.replace(/\.(md|mdx|markdown)$/i, ""), at: p.at, slug: p.slug })),
+    ...Array.from(pages).filter((p) => visible.has(p.id)).map((p) => ({ kind: Number(p.versions) > 1 ? "updated" as const : "new" as const, id: p.slug, text: p.filename.replace(/\.(md|mdx|markdown)$/i, ""), at: p.at, slug: p.slug })),
   ].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 5);
   return { success: true as const, items };
 }
