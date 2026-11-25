@@ -65,9 +65,10 @@ export async function readPathAction(projectId: string) {
     const me1 = isClass && insider && userId ? (await learnerSteps(read.flatMap((s) => s.lessons.map((l) => l.id)), assignments.map((a) => a.id), [userId])).get(userId)! : null;
     const done = me1 ? me1.done : new Set(insider && userId ? (await db.select({ taskId: lessonProgress.taskId }).from(lessonProgress)
       .where(and(eq(lessonProgress.userId, userId), inArray(lessonProgress.taskId, read.flatMap((s) => s.lessons.map((l) => l.id)).concat("00000000-0000-0000-0000-000000000000"))))).map((r) => r.taskId) : []);
-    const withAssignments = read.map((s) => ({ ...s, assignments: assignments.filter((a) => a.sprintId === s.id).map((a) => ({ id: a.id, title: a.title, dueAfterDays: a.dueAfterDays, published: a.published,
-      copy: me1?.copies.get(a.id) ?? null })) }));
-    const counted = countedModules(withAssignments.map((s) => ({ ...s, assignments: s.assignments.map((a) => ({ ...a })) })), me1?.excused ?? new Set());
+    // A learner sees work set for every learner and work they hold a copy of; staff see everything placed.
+    const withAssignments = read.map((s) => ({ ...s, assignments: assignments.filter((a) => a.sprintId === s.id && (!me1 || a.forEveryLearner || me1.copies.has(a.id)))
+      .map((a) => ({ id: a.id, title: a.title, dueAfterDays: a.dueAfterDays, published: a.published, forEveryLearner: a.forEveryLearner, copy: me1?.copies.get(a.id) ?? null })) }));
+    const counted = countedModules(withAssignments, me1);
     const steps = withAssignments;
     // The Teacher's Place an assignment list: the class's assignments not yet in a module.
     const unplaced = isClass && canManage ? await db.select({ id: tasks.id, title: tasks.title }).from(tasks)
@@ -208,13 +209,13 @@ export async function readProgressAction(projectId: string) {
       sets.push(done);
       const last = own ? own.lastDone : mine.reduce<Date | null>((a, m) => (!a || m.doneAt > a ? m.doneAt : a), null);
       const started = p.started ? new Date(p.started) : null;
-      const mods = own ? countedModules(modulesWith, own.excused) : steps;
+      const mods = own ? countedModules(modulesWith, own) : steps;
       const pct = pathPercent(mods, done);
       return { id: p.id, name: p.name, cells: mods.map((s) => stepProgress(s, done)), lastActivity: last?.toISOString() ?? null, started: started?.toISOString() ?? null,
         percent: pct.percent, pace: paceState(mods, done, started, settings.paceWeeks), stuck: isClass ? stuckDays(last, started, pct.total > 0 && pct.done === pct.total, settings.stuckDays) : null };
     });
     return { success: true as const, isClass, steps: modulesWith.map((s) => ({ id: s.id, name: s.name, total: s.lessons.length + s.assignments.length })), people: rows,
-      dropOff: isClass ? dropOff(countedModules(modulesWith, new Set()), sets) : null };
+      dropOff: isClass ? dropOff(countedModules(modulesWith, null), sets) : null };
   } catch (error) {
     return fail(error, "Couldn’t load progress.");
   }

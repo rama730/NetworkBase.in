@@ -46,8 +46,9 @@ export function PathView({ projectId }: { projectId: string }) {
   if (query.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading the path…</p>;
   if (!query.data?.success) return <div className="nb-empty-state py-10" role="alert"><p className="nb-card-title">{query.data?.success === false ? query.data.error : "Couldn’t load the path"}</p></div>;
   const { steps, canManage, insider, settings, upNext, done, isClass, mine, unplaced } = query.data;
-  // B2.2a (report 31.3): in a class a step is a Module.
+  // B2.2a (report 31.3): in a class a step is a Module, and only learners tick (found live: the Teacher had ticks).
   const word = isClass ? "Module" : "Step";
+  const ticks = isClass ? Boolean(mine) : insider;
   const doneSet = new Set(done);
   const refresh = () => queryClient.invalidateQueries({ queryKey: pathKey(projectId) });
   async function run(key: string, fn: () => Promise<{ success: boolean; error?: string }>, ok?: string) {
@@ -80,8 +81,10 @@ export function PathView({ projectId }: { projectId: string }) {
       ) : null}
       {canManage ? (
         <div className="flex flex-wrap items-center gap-3 text-[12px]">
-          <label className="flex items-center gap-1.5"><input type="radio" name="pacing" checked={settings.pacing === "self"} onChange={() => void run("pacing", () => setPathSettingsAction(projectId, { pacing: "self" }))} />Self-paced</label>
-          <label className="flex items-center gap-1.5"><input type="radio" name="pacing" checked={settings.pacing === "scheduled"} onChange={() => void run("pacing", () => setPathSettingsAction(projectId, { pacing: "scheduled", public: false }))} />Scheduled</label>
+          {isClass ? null : <>
+            <label className="flex items-center gap-1.5"><input type="radio" name="pacing" checked={settings.pacing === "self"} onChange={() => void run("pacing", () => setPathSettingsAction(projectId, { pacing: "self" }))} />Self-paced</label>
+            <label className="flex items-center gap-1.5"><input type="radio" name="pacing" checked={settings.pacing === "scheduled"} onChange={() => void run("pacing", () => setPathSettingsAction(projectId, { pacing: "scheduled", public: false }))} />Scheduled</label>
+          </>}
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={settings.lockInOrder} onChange={(e) => void run("lock", () => setPathSettingsAction(projectId, { lockInOrder: e.target.checked }))} />Lock in order</label>
           {settings.pacing === "self" ? <label className="flex items-center gap-1.5"><input type="checkbox" checked={settings.public} onChange={(e) => void run("public", () => setPathSettingsAction(projectId, { public: e.target.checked }))} />Public path (no one’s progress)</label> : null}
           {isClass && settings.pacing === "self" ? (
@@ -101,7 +104,7 @@ export function PathView({ projectId }: { projectId: string }) {
               <span className="font-mono text-[12px] text-muted-foreground">{i + 1}</span>
               <h3 className="text-[14px] font-semibold">{step.name}</h3>
               {step.startDate ? <span className="font-mono text-[11px] text-muted-foreground">{step.startDate.slice(0, 10)} → {step.endDate?.slice(0, 10)}</span> : null}
-              {step.progress ? <span className="ml-auto font-mono text-[12px] text-muted-foreground" data-testid="step-progress">{step.progress.done} of {step.progress.total} done</span> : null}
+              {step.progress && ticks ? <span className="ml-auto font-mono text-[12px] text-muted-foreground" data-testid="step-progress">{step.progress.done} of {step.progress.total} done</span> : null}
               {step.locked ? <span className="flex items-center gap-1 text-[12px] text-muted-foreground"><Lock aria-hidden="true" className="size-3" />Finish {steps[i - 1]?.name} first</span> : null}
               {canManage ? (
                 <span className="flex gap-1">
@@ -112,10 +115,10 @@ export function PathView({ projectId }: { projectId: string }) {
             </div>
             <ul className="divide-y divide-border">
               {step.lessons.map((l) => {
-                const isDone = doneSet.has(l.id), next = upNext?.lessonId === l.id;
+                const isDone = doneSet.has(l.id), next = ticks && upNext?.lessonId === l.id;
                 return (
                   <li key={l.id} className="flex min-h-11 items-center gap-2 px-3 py-1.5 text-[13px]" data-testid="path-lesson">
-                    {insider ? <input type="checkbox" aria-label={`Mark ${l.title} done`} checked={isDone} disabled={step.locked || busy === l.id} className="size-4"
+                    {ticks ? <input type="checkbox" aria-label={`Mark ${l.title} done`} checked={isDone} disabled={step.locked || busy === l.id} className="size-4"
                       onChange={(e) => void run(l.id, () => markLessonAction(projectId, { taskId: l.id, done: e.target.checked }))} /> : null}
                     <span className={cn("min-w-0 flex-1", isDone && "text-muted-foreground line-through")}>{l.title}</span>
                     {next ? <span className="rounded-[3px] border border-foreground px-1 text-[11px] font-medium">Up next</span> : null}
@@ -132,7 +135,7 @@ export function PathView({ projectId }: { projectId: string }) {
                   <li key={a.id} className="flex min-h-11 items-center gap-2 px-3 py-1.5 text-[13px]" data-testid="path-assignment">
                     <span className="nb-meta font-mono">Assignment</span>
                     <span className={cn("min-w-0 flex-1", state === "Done" && "text-muted-foreground line-through")}>{a.title}</span>
-                    {upNext?.lessonId === a.id ? <span className="rounded-[3px] border border-foreground px-1 text-[11px] font-medium">Up next</span> : null}
+                    {ticks && upNext?.lessonId === a.id ? <span className="rounded-[3px] border border-foreground px-1 text-[11px] font-medium">Up next</span> : null}
                     <StatusBadge state={state === "Done" ? "done" : state === "Excused" ? "archived" : state === "Open" ? "active" : "new"}>{state}</StatusBadge>
                     <span className="font-mono text-[11px] text-muted-foreground">{c?.due ? `due ${c.due.slice(0, 10)}` : a.dueAfterDays ? `due ${a.dueAfterDays} days after you start` : "no due date"}</span>
                   </li>
@@ -205,6 +208,7 @@ export function ProgressTable({ projectId }: { projectId: string }) {
           ))}
         </p>
       ) : null}
+      {isClass && !people.length ? <p className="text-[13px] text-muted-foreground">No learners yet. Their progress shows here once they join.</p> : null}
       <div className="overflow-x-auto rounded-[8px] border border-border" role="region" aria-label="Progress" tabIndex={0} data-testid="path-progress">
         <table className="w-full text-[12px]">
           <thead><tr className="border-b border-border text-left text-muted-foreground"><th className="px-3 py-2 font-medium">{isClass ? "Learner" : "Person"}</th>{isClass ? <th className="px-3 py-2 font-medium">Started</th> : null}

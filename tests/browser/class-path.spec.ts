@@ -49,6 +49,9 @@ test('a learner sees their %, steps, start and pace in words, and Modules', asyn
 
 test('the Teacher sets Suggested pace and adds a Module', async ({ page }) => {
   await open(page, 'path', true);
+  // Found live: in a class the Teacher builds the path; only learners tick, and Pacing lives in Settings.
+  await expect(page.getByRole('checkbox', { name: 'Mark Loops done' })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Scheduled' })).toHaveCount(0);
   await page.getByLabel('Suggested pace').selectOption('1');
   await page.getByRole('button', { name: '+ Module' }).click();
   await page.getByLabel('Module name').fill('Module 3 · Files');

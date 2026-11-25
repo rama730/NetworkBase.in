@@ -96,4 +96,16 @@ test("copies wait for the module to open, are due from then, and the path decide
   const excused = await path.readPathAction(klass);
   assert.ok(excused.success && excused.mine);
   assert.deepEqual([excused.mine.done, excused.mine.total], [1, 1]);
+
+  // Security review: work aimed at this learner (named) counts for them once they hold a copy, and stays required.
+  const [mine2] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, sprint_id, assignment_settings) VALUES (${klass}, 'Just for you', 'todo', 'medium', ${teacher!}, 'assignment', ${m2.id},
+    ${sql.json({ ...settings, target: { mode: "people", userIds: [learner!] }, publishedAt: new Date().toISOString() } as never)}) RETURNING id`;
+  await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, assignment_id, assignee_id, review_status) VALUES (${klass}, 'Just for you', 'todo', 'medium', ${teacher!}, 'task', ${mine2!.id}, ${learner!}, 'none')`;
+  const targeted = await path.readPathAction(klass);
+  assert.ok(targeted.success && targeted.mine);
+  assert.deepEqual([targeted.mine.done, targeted.mine.total], [1, 2], "the named work is one of their steps");
+  viewerId = teacher!;
+  const c2 = await completion.readCompletionAction(klass);
+  assert.ok(c2.success);
+  assert.deepEqual(c2.learners.map((l) => [l.required, l.approved, l.meets]), [[2, 1, false]], "and completion waits for it");
 });

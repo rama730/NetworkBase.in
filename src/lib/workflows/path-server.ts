@@ -15,7 +15,7 @@ import type { AssignmentSettings } from "@/lib/organizations/assignment-rules";
  */
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-export type PathAssignment = { id: string; title: string; dueAfterDays: number | null; published: boolean };
+export type PathAssignment = { id: string; title: string; dueAfterDays: number | null; published: boolean; forEveryLearner: boolean };
 export type PathModule = { id: string; name: string; lessons: Array<{ id: string; number: number | null; title: string; minutes: number | null }>; assignments: PathAssignment[] };
 
 /** Whether the workspace plans a self-paced path (a class set Self-paced, or a workspace's path set Self-paced). */
@@ -42,8 +42,7 @@ export async function moduleAssignments(projectId: string, moduleIds: string[], 
     const s = (r.settings ?? {}) as AssignmentSettings & { dueAfterDays?: number | null };
     const forEveryLearner = s.target?.mode === "everyone" || (s.target?.mode === "role" && s.target.role === "member");
     return { id: r.id, title: r.title, sprintId: r.sprintId!, dueAfterDays: s.dueAfterDays ?? null, published: Boolean(s.publishedAt), forEveryLearner };
-  // Learners' steps are the published work set for every learner (what opening a module makes); staff see all.
-  }).filter((a) => !publishedOnly || (a.published && a.forEveryLearner));
+  }).filter((a) => !publishedOnly || a.published);
 }
 
 /** Each learner's done steps (lessons and Done copies, by master id) and excused assignments (master ids). */
@@ -77,9 +76,14 @@ export async function learnerSteps(lessonIds: string[], masterIds: string[], use
   return out;
 }
 
-/** The path as steps for the % and lock rules: lessons plus assignments, an excused one left out (call 6). */
-export const countedModules = (modules: PathModule[], excused: Set<string>) =>
-  modules.map((m) => ({ id: m.id, lessons: [...m.lessons.map((l) => ({ id: l.id })), ...m.assignments.filter((a) => !excused.has(a.id)).map((a) => ({ id: a.id }))] }));
+/**
+ * The path as one learner's steps for the % and lock rules (call 6): lessons, work set for every learner, and any
+ * other work they hold a copy of (security review: targeted work still counts for the people it's for); an Excused
+ * copy is left out. Without a learner (the drop-off line), only work for every learner.
+ */
+export const countedModules = (modules: PathModule[], learner: { excused: Set<string>; copies: Map<string, unknown> } | null) =>
+  modules.map((m) => ({ id: m.id, lessons: [...m.lessons.map((l) => ({ id: l.id })),
+    ...m.assignments.filter((a) => (a.forEveryLearner || learner?.copies.has(a.id)) && !learner?.excused.has(a.id)).map((a) => ({ id: a.id }))] }));
 
 /** Opening a module (call 4): a copy of each published, open assignment in it, due `dueAfterDays` from now. */
 export async function openModuleFor(executor: Executor, projectId: string, moduleId: string, userId: string) {
@@ -126,7 +130,7 @@ export async function pathCounts(projectId: string, userIds: string[]) {
   const steps = await learnerSteps(modules.flatMap((m) => m.lessons.map((l) => l.id)), modules.flatMap((m) => m.assignments.map((a) => a.id)), userIds);
   return new Map(userIds.map((u) => {
     const s = steps.get(u)!;
-    const items = countedModules(modules, s.excused).flatMap((m) => m.lessons);
+    const items = countedModules(modules, s).flatMap((m) => m.lessons);
     return [u, { required: items.length, approved: items.filter((i) => s.done.has(i.id)).length }];
   }));
 }
