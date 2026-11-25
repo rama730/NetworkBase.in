@@ -8751,6 +8751,13 @@ REVIEW QUEUE · Mock 4 (paper) → Enter marks
 10. JEE and NEET classes serve learners aged 18 and over until there's an under-18 policy.
 11. AI agents can log mistakes for the learner but never set marks.
 
+**B2.4 build calls (2026-11-25):**
+- **Split:** B2.4a mock series (Score layout on an Exam, Enter marks, Members → Scores with bands, My prep with Latest, Best and the gap, targets); B2.4b Syllabus stages and Mistakes.
+- Set up a mock picks one of the class's exams and a preset; Edit layout then sets names, maxima and each section's raw-to-band table for every mock in the series (found live: presets alone mixed raw marks and bands). **[call]**
+- Members → Scores shows for staff once the class has an exam. Bands cut at 75% and 60% of the top score; they show once there are marks. **[call]**
+- Held mocks stay out of My prep until results are released. **[call]**
+- The reasons list is fixed for now (Careless slip · Didn’t know it · Ran out of time · Misread the question · Not sure why); renaming waits. **[call]**
+
 ### 31.5 C5 · Mentors (agreed 2026-11-17)
 **References** (16 searches found 111 templates, 34 of them rated; 7 studied from their screenshots):
 
@@ -9195,6 +9202,13 @@ JUDGE (outside, this demo day only) · Judging
 9. Mentors can't judge their own teams.
 10. No guest registration; demo day is shared by link.
 11. After the cohort, a team can take its workspace out of the organization; the organization keeps milestones and marks.
+
+**B2.5 build calls (2026-11-25):**
+- **Split:** B2.5a the Capstone workflow (brief, roles, milestones, Showcase card, the class Showcase, the staff table); B2.5b demo day (details, Run of show, judging, awards, the team's feedback).
+- The Capstone template is a workflow on a team's workspace (like Thesis): Journals in Documents and a Capstone card on Overview; milestones are the class's each-team assignments. **[call]**
+- Ready needs every milestone done; changing the card's words or links asks the other members to agree again before it's public. **[call]**
+- Judges are class members the staff pick; outside judges join as Viewers (a Judge role scoped to one demo day waits with Mentor only access). **[open]**
+- Staff see how many judges picked each team per award and announce one; the counts never show to anyone else. **[call]**
 
 
 ### 31.7 Coaching / Bootcamp: the whole picture (complete 2026-11-17)
