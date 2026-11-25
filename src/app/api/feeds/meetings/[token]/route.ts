@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { personalSchoolEvents } from "@/lib/organizations/school-events-server";
+import { zonedInputToIso } from "@/lib/organizations/zoned-time";
 import { icsCalendar } from "@/lib/workflows/meetings";
 
 export const runtime = "nodejs";
@@ -11,7 +13,7 @@ export const dynamic = "force-dynamic";
 /**
  * Report 38.11 W10 and call 7 (plan A4.1b): the personal .ics feed. The token is the only key (calendar apps can't sign
  * in), so it holds only this person's meetings, in workspaces they still belong to, as times and titles with a link:
- * no notes, attendees or action items. Leaders-only meetings show only to owners and admins.
+ * no notes, attendees or action items. Leaders-only meetings show only to owners and admins. School events: For me only.
  */
 export async function GET(_request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
@@ -32,7 +34,14 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     ORDER BY d.settings->>'startsAt' LIMIT 500`));
   // The public site, as llms.txt links it (behind the proxy the request's own host may be internal).
   const origin = "https://networkbase.in";
-  const body = icsCalendar(rows.map((r) => ({ uid: `${r.id}@networkbase`, title: r.title.replace(/\.md$/i, ""), startsAt: r.starts_at, lengthMinutes: r.length ?? 30,
-    url: `${origin}/workspaces/${encodeURIComponent(r.ws_slug || r.workspace_id)}?tab=docs&doc=${encodeURIComponent(r.slug)}` })));
+  // B3.1c (report 32.2 call 7): the same link carries the school events meant for this person (school plus classes).
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const school = await personalSchoolEvents(owner.user_id, day(-30), day(180));
+  const body = icsCalendar([
+    ...rows.map((r) => ({ uid: `${r.id}@networkbase`, title: r.title.replace(/\.md$/i, ""), startsAt: r.starts_at, lengthMinutes: r.length ?? 30,
+      url: `${origin}/workspaces/${encodeURIComponent(r.ws_slug || r.workspace_id)}?tab=docs&doc=${encodeURIComponent(r.slug)}` })),
+    ...school.map((e) => ({ uid: `${e.id}-${e.day}@networkbase`, title: e.title, url: `${origin}/org/${encodeURIComponent(e.orgSlug ?? "")}?tab=sprints`,
+      ...(e.time ? { startsAt: zonedInputToIso(`${e.day}T${e.time}`, e.zone), lengthMinutes: 60 } : { day: e.day, endDay: e.day }) })),
+  ]);
   return new Response(body, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "private, max-age=300", "X-Robots-Tag": "noindex" } });
 }

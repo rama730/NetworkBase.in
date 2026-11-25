@@ -749,4 +749,9 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "A repeat ends after the first day.": {"title": "A repeat ends after the first day.", "type": "warning"},
   "Couldn’t add the event.": {"title": "Couldn’t add the event."},
   "Couldn’t load the events.": {"title": "Couldn’t load the events."},
+  "Set up the school year first.": {"title": "Set up the school year first.", "type": "warning"},
+  "The new year starts after this one ends.": {"title": "The new year starts after this one ends.", "type": "warning"},
+  "Set up the school year first; holidays sit inside its terms.": {"title": "Set up the school year first; holidays sit inside its terms.", "type": "warning"},
+  "Import 1–300 rows at a time.": {"title": "Import 1–300 rows at a time.", "type": "warning"},
+  "Import a file under 1 MB.": {"title": "Import a file under 1 MB.", "type": "warning"},
 };

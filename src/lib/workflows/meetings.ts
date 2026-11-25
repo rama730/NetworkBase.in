@@ -103,7 +103,9 @@ export function meetingWhen(startsAt: string, lengthMinutes: number, tz: string)
 }
 
 /** W10: an iCalendar (RFC 5545) feed: one VEVENT per meeting, times in UTC, text escaped, lines folded at 75 octets. */
-export function icsCalendar(events: Array<{ uid: string; title: string; startsAt: string; lengthMinutes: number; url: string }>, now = new Date()) {
+type IcsEvent = { uid: string; title: string; url: string } & ({ startsAt: string; lengthMinutes: number } | { day: string; endDay: string });
+/** B3.1c: an event is timed (startsAt and length) or all-day (day to endDay, inclusive; DTEND is the day after). */
+export function icsCalendar(events: IcsEvent[], now = new Date(), name = "NetworkBase") {
   const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   // Security review (A4.1b): every line-ending form is escaped and other control characters dropped, so a title
   // (people type it) can never start a new property line in the feed.
@@ -121,11 +123,13 @@ export function icsCalendar(events: Array<{ uid: string; title: string; startsAt
     out.push(rest);
     return out.join("\r\n");
   };
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NetworkBase//Meetings//EN", "CALSCALE:GREGORIAN", "X-WR-CALNAME:NetworkBase meetings"];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NetworkBase//Meetings//EN", "CALSCALE:GREGORIAN", `X-WR-CALNAME:${text(name)}`];
+  const date = (d: string) => d.replace(/-/g, "");
   for (const e of events) {
-    const start = new Date(e.startsAt);
-    lines.push("BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start.getTime() + e.lengthMinutes * 60_000))}`,
-      `SUMMARY:${text(e.title)}`, `URL:${e.url}`, "END:VEVENT");
+    const when = "startsAt" in e
+      ? [`DTSTART:${stamp(new Date(e.startsAt))}`, `DTEND:${stamp(new Date(new Date(e.startsAt).getTime() + e.lengthMinutes * 60_000))}`]
+      : [`DTSTART;VALUE=DATE:${date(e.day)}`, `DTEND;VALUE=DATE:${date(new Date(Date.parse(`${e.endDay}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10))}`];
+    lines.push("BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${stamp(now)}`, ...when, `SUMMARY:${text(e.title)}`, `URL:${e.url}`, "END:VEVENT");
   }
   lines.push("END:VCALENDAR");
   return `${lines.map(fold).join("\r\n")}\r\n`;

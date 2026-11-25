@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { readSchoolYearAction, saveSchoolYearAction } from "@/app/actions/school-year";
 import { OrgCard } from "@/components/organizations/org-ui";
+import { StartNextYear } from "@/components/organizations/SchoolCalendarTools";
 import { EventsView } from "@/components/organizations/SchoolEvents";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
@@ -105,7 +106,10 @@ export function SchoolYearSettings({ orgId }: { orgId: string }) {
           ))}
           <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft({ ...s, days: [...s.days, { name: "Holiday", kind: "holiday", start: "", end: "" }] })}>Add a day</button>
         </div>
-        <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save school year</button>
+        <span className="flex flex-wrap gap-2">
+          <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save school year</button>
+          {y && !draft ? <StartNextYear schoolId={orgId} current={y} /> : null}
+        </span>
       </div>
     </SettingsCard>
   );

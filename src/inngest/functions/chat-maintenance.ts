@@ -81,6 +81,8 @@ export const chatDue = inngest.createFunction(
       await step.run("thesis-no-supervision", async () => (await import("@/lib/workflows/thesis-server")).notifyNoSupervision());
       // B2.3b (report 31.5 layer 15): Prep the day before; Off rhythm once per spell to the pair.
       await step.run("mentoring", async () => (await import("@/lib/organizations/mentoring-server")).notifyMentoring());
+      // B3.1c (report 32.2 call 10): Next week at school, a Summary on the week's last school day after 3 PM.
+      await step.run("school-week", async () => (await import("@/lib/organizations/school-events-server")).notifySchoolWeek());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

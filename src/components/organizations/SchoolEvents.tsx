@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Globe, Repeat } from "lucide-react";
 
 import { createEventAction, readEventsAction, readPublicEventsAction, setEventStatusAction } from "@/app/actions/school-events";
+import { ImportCalendar } from "@/components/organizations/SchoolCalendarTools";
+import { FeedLink } from "@/components/workspaces/doc/FeedLink";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
@@ -26,7 +28,7 @@ export function EventsView({ orgId }: { orgId: string }) {
   const from = today(), to = addDays(from, 120);
   const q = useQuery({ queryKey: ["school-events", orgId, from], queryFn: () => readEventsAction(orgId, from, to), staleTime: 30_000 });
   const [filter, setFilter] = useState<"all" | "forMe">("all");
-  const [adding, setAdding] = useState(false);
+  const [open, setOpen] = useState<"add" | "import" | "subscribe" | null>(null);
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading events…</p>;
   if (!q.data?.success) return <ErrorNotice what="Events" onRetry={() => void q.refetch()} />;
   const d = q.data;
@@ -38,9 +40,15 @@ export function EventsView({ orgId }: { orgId: string }) {
         <div role="group" aria-label="Events filter" className="inline-flex rounded-md border border-border p-0.5 text-[12px]">
           {(["all", "forMe"] as const).map((v) => <button key={v} type="button" aria-pressed={filter === v} onClick={() => setFilter(v)} className={cn("rounded-sm px-2.5 py-1", filter === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "all" ? "All" : "For me"}</button>)}
         </div>
-        {d.canAdd ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => setAdding(!adding)}>+ Event</button> : null}
+        <span className="flex flex-wrap gap-2">
+          <button type="button" className={FORM_SECONDARY_CLASS} aria-pressed={open === "subscribe"} onClick={() => setOpen(open === "subscribe" ? null : "subscribe")}>Subscribe</button>
+          {d.canAdd && d.isSchool ? <button type="button" className={FORM_SECONDARY_CLASS} aria-pressed={open === "import"} onClick={() => setOpen(open === "import" ? null : "import")}>Import…</button> : null}
+          {d.canAdd ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => setOpen(open === "add" ? null : "add")}>+ Event</button> : null}
+        </span>
       </div>
-      {adding ? <NewEvent orgId={orgId} onDone={() => { setAdding(false); void refresh(); }} /> : null}
+      {open === "add" ? <NewEvent orgId={orgId} onDone={() => { setOpen(null); void refresh(); }} /> : null}
+      {open === "import" ? <ImportCalendar schoolId={orgId} onDone={() => { setOpen(null); void refresh(); void client.invalidateQueries({ queryKey: ["school-year", orgId] }); }} /> : null}
+      {open === "subscribe" ? <FeedLink /> : null}
       {items.length === 0 ? <p className="text-muted-foreground">No events in the next four months.</p> : (
         <div className="overflow-x-auto rounded-md border border-border" role="region" aria-label="Upcoming events" tabIndex={0}>
           <table className="w-full text-[12px]">
@@ -113,6 +121,7 @@ export function PublicCalendar({ schoolId }: { schoolId: string }) {
   return (
     <section aria-label="School calendar" className="space-y-2" data-testid="public-calendar">
       <h2 className="nb-section-title">Calendar</h2>
+      <p className="text-[12px] text-muted-foreground">Public events and holidays. <a className="text-primary hover:underline" href={`/api/feeds/school/${schoolId}.ics`}>Subscribe to this calendar</a></p>
       <ul className="space-y-1 text-[13px]">
         {d.items.map((e, i) => <li key={i}><span className="font-mono">{fmt(e.day)}{e.time ? ` ${e.time}` : ""}</span> · {e.title}{e.place ? ` · ${e.place}` : ""}</li>)}
         {d.holidays.map((h) => <li key={h.start} className="text-muted-foreground"><span className="font-mono">{fmt(h.start)} – {fmt(h.end)}</span> · {h.name}</li>)}
