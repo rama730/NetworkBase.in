@@ -70,3 +70,11 @@ test('DM person view: serif name, mono handle and local time, red-words group', 
   assert.match(css, /\.nbm-person-name\s*\{[^}]*var\(--nbm-serif\)/);
   assert.match(css, /\.nbm-dgroup > button\.is-danger\s*\{[^}]*color:\s*var\(--nbm-bad\)/);
 });
+
+test('About tail: privacy, Workspace and Created as settings rows; Leave or archive as red words', () => {
+  const d = readFileSync('src/components/messages/DetailsPane.tsx', 'utf8');
+  assert.match(d, /<div className="nbm-drow nbm-drow-inline">\s*<Lock/);
+  assert.match(d, /<span className="nbm-drow-label">Workspace<\/span>/);
+  assert.match(d, /<span className="nbm-drow-label">Created<\/span>/);
+  assert.match(d, /<div className="nbm-dgroup">\s*\{canLeave && channel\.is_member \? <button type="button" className="is-danger"/);
+});

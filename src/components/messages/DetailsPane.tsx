@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Ban, BellOff, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Archive, Ban, BellOff, Flag, LogOut, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
@@ -590,24 +590,24 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               {/* An archived channel sends nothing, so it has no notification setting. */}
               {channel.is_member && !archived ? <NotifyRow channel={channel} onChange={(notify) => void setState({ notify })} /> : null}
               {canSwitchPrivacy ? (
-                <div className="flex items-center gap-3 p-4">
+                <div className="nbm-drow nbm-drow-inline">
                   <Lock size={16} aria-hidden="true" className="text-muted-foreground" />
                   <span className="flex-1">
-                    <span id="privacy-label" className="nb-ui-label block">Private channel</span>
-                    <span className="block text-[13px] text-muted-foreground">{channel.kind === "private" ? "Only members can see it." : "Everyone in the workspace can find and join it."}</span>
+                    <span id="privacy-label" className="nbm-drow-label block">Private channel</span>
+                    <span className="nbm-drow-help block">{channel.kind === "private" ? "Only members can see it." : "Everyone in the workspace can find and join it."}</span>
                   </span>
                   <SettingsSwitch aria-labelledby="privacy-label" checked={channel.kind === "private"} onCheckedChange={() => setConfirmPrivacy(true)} />
                 </div>
               ) : null}
               {channel.project_title ? (
-                <div className="p-4">
-                  <span className="nb-ui-label">Workspace</span>
-                  <p className="mt-1 text-[13px]"><Link href={`/workspaces/${channel.project_slug ?? channel.project_id}`} className="font-medium text-primary hover:underline">{channel.project_title}</Link></p>
+                <div className="nbm-drow nbm-drow-inline">
+                  <span className="nbm-drow-label">Workspace</span>
+                  <Link href={`/workspaces/${channel.project_slug ?? channel.project_id}`} className="nbm-drow-side font-medium text-primary hover:underline">{channel.project_title}</Link>
                 </div>
               ) : null}
-              <div className="p-4">
-                <span className="nb-ui-label">Created</span>
-                <p className="mt-1 text-[13px] text-muted-foreground">{creatorName ? `By ${creatorName} on ` : "On "}{createdDate}</p>
+              <div className="nbm-drow nbm-drow-inline">
+                <span className="nbm-drow-label">Created</span>
+                <span className="nbm-drow-side">{creatorName ? `By ${creatorName} on ` : "On "}{createdDate}</span>
               </div>
             </div>
             {/* Report a channel you didn't create (trust and safety C15); groups and DMs report people or messages instead. */}
@@ -616,9 +616,9 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
             ) : null}
             {reportChannel.dialog}
             {canLeave || canArchive ? (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {canLeave && channel.is_member ? <Button type="button" variant="outline" onClick={() => setConfirm("leave")} className="pointer-coarse:h-11">Leave {isGroup ? "conversation" : "channel"}</Button> : null}
-                {canArchive ? <Button type="button" variant="outline" onClick={() => setConfirm("archive")} className="text-destructive hover:text-destructive pointer-coarse:h-11">Archive channel</Button> : null}
+              <div className="nbm-dgroup">
+                {canLeave && channel.is_member ? <button type="button" className="is-danger" onClick={() => setConfirm("leave")}><LogOut size={16} aria-hidden="true" /> Leave {isGroup ? "conversation" : "channel"}</button> : null}
+                {canArchive ? <button type="button" className="is-danger" onClick={() => setConfirm("archive")}><Archive size={16} aria-hidden="true" /> Archive channel</button> : null}
               </div>
             ) : null}
           </div>
