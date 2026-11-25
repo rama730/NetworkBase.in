@@ -103,16 +103,26 @@ function videoExtras(file: File): Promise<Extras> {
   });
 }
 
+/** Audio past this size sends without a waveform: decoding it would hold too much sound in memory on a phone. */
+export const AUDIO_EXTRAS_MAX = 15_000_000;
+
+/** A play() that something else cut short (another tile took the sound) — not a load failure. */
+export function isAbortError(error: unknown) {
+  return (error as { name?: unknown } | null)?.name === "AbortError";
+}
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer = 0;
+  return Promise.race([work, new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error("timeout")), ms); })]).finally(() => window.clearTimeout(timer));
+}
+
 async function audioExtras(file: File): Promise<Extras> {
-  const Context = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Context || file.size > 50_000_000) return {};
-  const context = new Context();
-  try {
-    const buffer = await context.decodeAudioData(await file.arrayBuffer());
-    return { durationMs: Math.round(buffer.duration * 1000), peaks: peaksFrom(buffer.getChannelData(0), 48) };
-  } finally {
-    void context.close();
-  }
+  const OfflineCtx = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+  if (!OfflineCtx || file.size > AUDIO_EXTRAS_MAX) return {};
+  // Decoded at 8 kHz: 48 bars and a length need nothing finer, and it keeps memory about six times smaller.
+  const context = new OfflineCtx(1, 1, 8000);
+  const buffer = await withTimeout(context.decodeAudioData(await file.arrayBuffer()), 10_000);
+  return { durationMs: Math.round(buffer.duration * 1000), peaks: peaksFrom(buffer.getChannelData(0), 48) };
 }
 
 /** The extras for one file, or {} when the browser can't make them. Never throws. */

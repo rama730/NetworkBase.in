@@ -162,12 +162,18 @@ export function MediaViewerModal({
                 const items = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.offsetParent !== null);
                 if (!items.length) return;
                 const first = items[0]!, last = items[items.length - 1]!;
+                // Focus on the page behind (a click on the picture drops it on <body>) comes back in.
+                if (!dialogRef.current?.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); return; }
                 if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
                 else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
                 return;
             }
             const target = event.target as HTMLElement | null;
-            if (target?.closest('input, textarea, [role="slider"]')) return;
+            // A key a control already used stays used; text fields and sliders keep every key.
+            if (event.defaultPrevented || target?.closest('input, textarea, [role="slider"]')) return;
+            // Buttons and links keep Space; speed cells keep their arrows.
+            if (event.key === ' ' && target?.closest('button, a')) return;
+            if (event.key.startsWith('Arrow') && target?.closest('[role="radio"], [role="radiogroup"]')) return;
             if (event.key === ' ') {
                 event.preventDefault();
                 const video = viewerVideoRef.current;
@@ -335,7 +341,7 @@ export function MediaViewerModal({
                                 onError={() => setIsMediaLoaded(true)}
                                 className="lightbox-video h-auto max-h-[70vh] w-auto max-w-full object-contain"
                             />
-                            <MixPlayerBar videoRef={viewerVideoRef} keys onNext={hasMultiple ? moveNext : undefined} />
+                            <MixPlayerBar key={currentAttachment.id} videoRef={viewerVideoRef} keys onNext={hasMultiple ? moveNext : undefined} />
                         </div>
                     ) : currentAttachment.filename.toLowerCase().endsWith('.pdf') ? (
                         <div className="nbm-viewer-sheet">

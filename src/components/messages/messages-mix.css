@@ -701,6 +701,8 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-mtile-glyph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--nbm-fg2); }
 .nbm-tile-slow { position: absolute; left: 6px; bottom: 6px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 3px; background: var(--nbm-media-veil); color: var(--nbm-on-media); font: 500 10px/1 var(--nbm-mono); letter-spacing: .06em; text-transform: uppercase; }
 .nbm-tile-play { position: absolute; top: 50%; left: 50%; z-index: 5; display: grid; width: 44px; height: 44px; place-items: center; border-radius: 5px; background: var(--nbm-ink); color: var(--nbm-on-ink); transform: translate(-50%, -50%); pointer-events: none; transition: transform var(--nbm-m1) var(--nbm-ease); }
+/* The video's play cell is a real button: it plays in the tile, above the open-the-viewer hit area. */
+.nbm-tile-play[type] { pointer-events: auto; z-index: 11; }
 .nbm-mtile:hover .nbm-tile-play { transform: translate(-50%, -50%) scale(1.05); }
 .nbm-tile-duration { position: absolute; left: 6px; bottom: 6px; z-index: 5; padding: 2px 5px; border-radius: 3px; background: var(--nbm-media-veil); color: var(--nbm-on-media); font: 500 10.5px/1.3 var(--nbm-mono); pointer-events: none; }
 .nbm-tile-more { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; border-radius: inherit; background: color-mix(in srgb, var(--nbm-ink) 70%, transparent); color: var(--nbm-on-ink); font: 500 18px/1 var(--nbm-mono); pointer-events: none; }

@@ -1,3 +1,5 @@
+import { attachmentRetryUrl } from './attachment-ttl';
+
 /** What a chat file is, from its type, else its extension. Audio first: an .ogg voice note is audio, not video. */
 export function mediaKind(mime: string | null | undefined, name: string | null | undefined): "image" | "video" | "audio" | "file" {
   const type = (mime ?? "").toLowerCase();
@@ -29,6 +31,13 @@ export function tileBox(width: number | null | undefined, height: number | null 
   if (!width || !height || width <= 0 || height <= 0) return { width: 240, ratio: "4 / 3" };
   const scale = Math.min(1, 320 / width, 360 / height);
   return { width: Math.max(1, Math.round(width * scale)), ratio: `${width} / ${height}` };
+}
+
+/** Retry the tile's own picture (the thumb when there is one): re-sign an attachment link, else add a cache-buster. Never the full original. */
+export function tileRetryUrl(url: string, attempt: number, stamp = Date.now()): string {
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+  const signed = attachmentRetryUrl(url, 0, stamp);
+  return signed ?? `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
 }
 
 /** "0:42", "3:05", "1:02:03"; "" without a length. */

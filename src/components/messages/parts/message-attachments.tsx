@@ -19,7 +19,7 @@ import { DownloadLink } from '@/components/ui/download-link';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
 import { formatFileSize } from '@/lib/messaging/channel-view';
-import { formatDuration, parsePreview, tileBox } from '@/lib/messaging/media-kind';
+import { formatDuration, parsePreview, tileBox, tileRetryUrl } from '@/lib/messaging/media-kind';
 import { middleCut } from '@/lib/messaging/mix-format';
 import { PixelBeat } from '@/components/messages/mix/primitives';
 import { AudioTile } from '@/components/messages/parts/AudioTile';
@@ -280,9 +280,11 @@ function MediaAttachmentTileV2({
 
     // Historical video tiles render only the stored poster (thumbnail).
     // The selected viewer owns the first video-body request and playback.
+    // A video whose poster fails is a plain glyph tile that still plays (never "Video didn’t load").
+    const [posterFailed, setPosterFailed] = useState(false);
     const previewUrl = !isVideo
         ? attachment.localUrl || attachment.thumbnailUrl || attachment.url
-        : attachment.thumbnailUrl;
+        : posterFailed ? null : attachment.thumbnailUrl;
     const displayUrl = fallbackUrl || previewUrl;
 
     useEffect(() => {
@@ -302,7 +304,7 @@ function MediaAttachmentTileV2({
         setLoaded(false);
         setSlow(false);
         setAttempt((n) => n + 1);
-        setFallbackUrl(attachmentRetryUrl(attachment.url, attempt + 1) ?? `${attachment.url}${attachment.url.includes('?') ? '&' : '?'}retry=${attempt + 1}`);
+        if (previewUrl) setFallbackUrl(tileRetryUrl(previewUrl, attempt + 1));
     };
     const frameStyle: CSSProperties = { width: `${box.width}px`, aspectRatio: box.ratio };
     // A video plays in its tile when you press its play cell (explicit intent); expand opens the viewer at that second.
@@ -343,7 +345,8 @@ function MediaAttachmentTileV2({
                         onContentLoad?.();
                     }}
                     onError={() => {
-                        if (!fallbackUrl && displayUrl !== attachment.url && !isVideo) {
+                        if (isVideo) { setPosterFailed(true); return; }
+                        if (!fallbackUrl && displayUrl !== attachment.url) {
                             setFallbackUrl(attachment.url);
                         } else if (!fallbackUrl && displayUrl === attachment.url) {
                             const renewed = attachmentRetryUrl(attachment.url, 0);

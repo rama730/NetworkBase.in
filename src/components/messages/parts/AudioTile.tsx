@@ -6,6 +6,7 @@ import { Pause, Play, RotateCw } from "lucide-react";
 import { PixelBeat } from "@/components/messages/mix/primitives";
 import { formatDuration } from "@/lib/messaging/media-kind";
 import { claimSound, nextSpeed } from "@/lib/messaging/one-sound";
+import { isAbortError } from "@/lib/messaging/media-make";
 import type { ChatAttachmentV2 } from "@/components/messages/parts/message-attachments";
 
 /**
@@ -33,7 +34,7 @@ export function AudioTile({ attachment }: { attachment: ChatAttachmentV2 }) {
     if (!audio) return;
     if (audio.paused) {
       claimSound(audio);
-      void audio.play().catch(() => setFailed(true));
+      void audio.play().catch((error) => { if (!isAbortError(error)) setFailed(true); });
     } else audio.pause();
   };
   const seekTo = (ms: number) => {
