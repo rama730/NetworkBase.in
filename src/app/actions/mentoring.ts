@@ -53,13 +53,19 @@ async function groups(orgId: string) {
   return [...map.values()];
 }
 
-/** Whether `userId` mentors `learnerId` here (a TA of the learner's mentor group). */
-async function mentors(orgId: string, userId: string, learnerId: string) {
-  const [r] = await db.execute<{ ok: boolean }>(sql`
-    SELECT EXISTS (SELECT 1 FROM class_section_members t JOIN class_section_members l ON l.section_id = t.section_id
+/**
+ * When `userId` mentors `learnerId` here, the start of their pairing (else null). Security review: the mentor must
+ * still be an admin (TA) of the class and the learner still a member; a mentor reads only entries made since the
+ * pair was matched, so a new match never opens earlier check-ins.
+ */
+async function pairedSince(orgId: string, userId: string, learnerId: string): Promise<Date | null> {
+  const [r] = await db.execute<{ since: string | null }>(sql`
+    SELECT max(l.created_at)::text AS since FROM class_section_members t JOIN class_section_members l ON l.section_id = t.section_id
       JOIN class_sections s ON s.id = t.section_id AND s.kind = 'mentor'
-      WHERE t.workspace_id = ${orgId}::uuid AND t.user_id = ${userId}::uuid AND t.role = 'ta' AND l.user_id = ${learnerId}::uuid AND l.role = 'student') AS ok`);
-  return Boolean(r?.ok);
+      JOIN workspace_members tw ON tw.workspace_id = t.workspace_id AND tw.user_id = t.user_id AND tw.role = 'admin'
+      JOIN workspace_members lw ON lw.workspace_id = l.workspace_id AND lw.user_id = l.user_id AND lw.role = 'member'
+    WHERE t.workspace_id = ${orgId}::uuid AND t.user_id = ${userId}::uuid AND t.role = 'ta' AND l.user_id = ${learnerId}::uuid AND l.role = 'student'`);
+  return r?.since ? new Date(r.since) : null;
 }
 
 export async function readMentoringAction(orgId: string) {
@@ -145,18 +151,22 @@ export async function matchMentorsAction(orgId: string, input: unknown): Promise
   return { success: true, matched: parsed.data.length };
 }
 
-/** A pair's check-ins, newest first (null: my own). The pair reads everything; staff read only entries the learner shared. */
+/** A pair's check-ins, newest first (null: my own). The pair reads everything; the Teacher reads only entries the learner shared. */
 export async function readCheckinsAction(orgId: string, who: string | null) {
   try {
     const ctx = await classCtx(orgId);
     const learnerId = who ?? ctx?.userId ?? "";
     if (!ctx || !isLooseUuid(learnerId)) return DENIED;
-    const pairMember = ctx.userId === learnerId || (await mentors(orgId, ctx.userId, learnerId));
-    if (!pairMember && !ctx.staff) return DENIED;
+    const isLearner = ctx.userId === learnerId;
+    const since = isLearner ? null : await pairedSince(orgId, ctx.userId, learnerId);
+    const pairMember = isLearner || since != null;
+    if (!pairMember && !ctx.teacher) return DENIED;
     const rows = await db.select().from(mentorCheckins).where(and(eq(mentorCheckins.projectId, orgId), eq(mentorCheckins.learnerId, learnerId))).orderBy(desc(mentorCheckins.onDate)).limit(100);
     const answered = new Set((await db.select({ id: mentorUseful.checkinId }).from(mentorUseful).where(eq(mentorUseful.projectId, orgId))).map((r) => r.id));
-    const visible = pairMember ? rows : rows.filter((r) => r.sharedAt);
-    return { success: true as const, learnerId, isLearner: ctx.userId === learnerId, isMentor: pairMember && ctx.userId !== learnerId, usefulOn: ctx.settings.useful, today: todayInZone(ctx.zone),
+    // The learner reads all; their mentor, entries made since they were matched; the Teacher (the instructor), entries
+    // the learner shared. Other TAs read nothing.
+    const visible = isLearner ? rows : rows.filter((r) => (since && r.createdAt >= since) || (ctx.teacher && r.sharedAt));
+    return { success: true as const, learnerId, isLearner, isMentor: since != null, usefulOn: ctx.settings.useful, today: todayInZone(ctx.zone),
       entries: visible.map((r) => ({ id: r.id, date: r.onDate, prep: (r.prep ?? null) as { since?: string; stuck?: string; asks?: string } | null, prepDone: Boolean(r.prepDoneAt), notes: r.notes,
         shared: Boolean(r.sharedAt), answered: ctx.userId === learnerId ? answered.has(r.id) : undefined })) };
   } catch (error) {
@@ -172,10 +182,17 @@ export async function saveCheckinAction(orgId: string, learnerId: string, input:
   const ctx = await classCtx(orgId, true);
   if (!ctx || !isLooseUuid(learnerId)) return DENIED;
   const isLearner = ctx.userId === learnerId;
-  if (!isLearner && !(await mentors(orgId, ctx.userId, learnerId))) return DENIED;
+  const since = isLearner ? null : await pairedSince(orgId, ctx.userId, learnerId);
+  if (!isLearner && !since) return DENIED;
   const parsed = entryInput.safeParse(input);
   if (!parsed.success) return { success: false, error: "Check the entry." };
   if (parsed.data.prep && !isLearner) return { success: false, error: "Prep is the learner’s to write." };
+  if (since) {
+    // A mentor never edits an entry from before their pairing.
+    const [old] = await db.select({ at: mentorCheckins.createdAt }).from(mentorCheckins)
+      .where(and(eq(mentorCheckins.projectId, orgId), eq(mentorCheckins.learnerId, learnerId), eq(mentorCheckins.onDate, parsed.data.date))).limit(1);
+    if (old && old.at < since) return DENIED;
+  }
   const now = new Date();
   const set: Partial<typeof mentorCheckins.$inferInsert> = { updatedAt: now };
   if (parsed.data.notes !== undefined) set.notes = parsed.data.notes.trim() || null;

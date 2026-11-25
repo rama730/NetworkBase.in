@@ -56,7 +56,7 @@ export async function readSectionsAction(orgId: string) {
         seatsLeft: seatsLeft(s.seatLimit, students.length), tas: of.filter((m) => m.role === "ta").map((m) => ({ id: m.userId, name: name(m) })), students, mine: myIds.has(s.id) };
     });
     // Layer 16: a student sees only their own sections' names; with self-pick on, the others' times and seats (no names).
-    const visible = ctx.staff ? rows : rows.flatMap((r) => (r.mine ? [r] : ctx.settings.selfPick ? [{ ...r, students: [] }] : []));
+    const visible = ctx.staff ? rows : rows.flatMap((r) => (r.mine ? [r] : ctx.settings.selfPick && r.kind !== "mentor" ? [{ ...r, students: [] }] : []));
     let unplaced: Array<{ id: string; name: string }> = [];
     if (ctx.staff) {
       const roster = await db.select({ id: workspaceMembers.userId, fullName: profiles.fullName, username: profiles.username }).from(workspaceMembers)
@@ -180,6 +180,8 @@ export async function pickSectionAction(orgId: string, sectionId: string): Promi
   return db.transaction(async (tx) => {
     const [s] = await tx.execute<{ kind: string; seat_limit: number | null }>(sql`SELECT kind, seat_limit FROM class_sections WHERE id = ${sectionId}::uuid AND workspace_id = ${orgId}::uuid FOR UPDATE`);
     if (!s) return { success: false as const, error: "That section isn’t in this class." };
+    // Security review (B2.3a): staff match mentor groups; a learner never picks one.
+    if (s.kind === "mentor") return { success: false as const, error: "Your teacher matches you with a mentor." };
     const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(classSectionMembers).where(and(eq(classSectionMembers.sectionId, sectionId), eq(classSectionMembers.role, "student")));
     if (s.seat_limit != null && n >= s.seat_limit) return { success: false as const, error: "No seats left in that one." };
     await tx.delete(classSectionMembers).where(and(eq(classSectionMembers.projectId, orgId), eq(classSectionMembers.userId, ctx.userId), eq(classSectionMembers.kind, s.kind), eq(classSectionMembers.role, "student")));

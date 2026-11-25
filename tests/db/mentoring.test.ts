@@ -120,4 +120,27 @@ test("mentoring: match, private check-ins, sharing, Prep and Was this useful?", 
   const cards = await act.readMentoringAction(klass);
   assert.ok(cards.success && cards.on && cards.staff);
   assert.deepEqual(cards.staff.cards[0]!.useful, { shown: false, answers: 1 });
+
+  // Security review: learners never pick a mentor group; a new match opens nothing from before it; a mentor who is no
+  // longer a TA reads nothing.
+  const sections = await loadAppModule(() => import("../../src/app/actions/sections"));
+  await sql`UPDATE workspaces SET org_settings = org_settings || '{"sections": {"word": "Section", "taOnlyOwn": false, "selfPick": true}}'::jsonb WHERE id = ${klass}`;
+  viewerId = other!;
+  assert.equal((await sections.pickSectionAction(klass, group!.id)).success, false, "no self-pick into a mentor group");
+  viewerId = teacher!;
+  const [group2] = await sql`INSERT INTO class_sections (workspace_id, name, kind) VALUES (${klass}, 'Teacher''s group', 'mentor') RETURNING id`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${klass}, ${other!}, 'admin') ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = 'admin'`;
+  await sql`INSERT INTO class_section_members (section_id, workspace_id, user_id, role, kind) VALUES (${group2!.id}, ${klass}, ${other!}, 'ta', 'mentor')`;
+  await sql`UPDATE class_section_members SET created_at = now() - interval '1 minute' WHERE section_id = ${group!.id}`;
+  assert.equal((await act.matchMentorsAction(klass, [{ userId: learner!, groupId: group2!.id }])).success, true);
+  viewerId = other!;
+  const fresh = await act.readCheckinsAction(klass, learner!);
+  assert.ok(fresh.success);
+  assert.equal(fresh.entries.length, 0, "the new mentor sees nothing from before the match");
+  assert.equal((await act.saveCheckinAction(klass, learner!, { date: yesterday, notes: "overwrite" })).success, false, "nor edits it");
+  viewerId = mentor!;
+  assert.equal((await act.readCheckinsAction(klass, learner!)).success, false, "the old mentor is out of the pair");
+  await sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${klass} AND user_id = ${other!}`;
+  viewerId = other!;
+  assert.equal((await act.readCheckinsAction(klass, learner!)).success, false, "no longer a TA, no longer a mentor");
 });
