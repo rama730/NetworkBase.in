@@ -146,7 +146,8 @@
     "drizzle/0140_prep_syllabus.sql",
     "drizzle/0141_demo_day.sql",
     "drizzle/0142_school_timetable.sql",
-    "drizzle/0143_school_cover.sql"
+    "drizzle/0143_school_cover.sql",
+    "drizzle/0144_school_duties.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

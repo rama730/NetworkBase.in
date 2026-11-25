@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
-import { dayView, readTimetableSettings, timetableSettingsSchema, type ImportSlot, type Slot } from "@/lib/organizations/school-timetable";
+import { dayView, isoDay, readTimetableSettings, timetableSettingsSchema, type ImportSlot, type Slot } from "@/lib/organizations/school-timetable";
 import { todayInZone } from "@/lib/organizations/zoned-time";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -45,7 +45,16 @@ export async function readTimetableAction(schoolId: string, day?: string) {
   const settings = readTimetableSettings(ctx.settings);
   const today = day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : todayInZone(ctx.zone);
   const mine = await slotsOf(schoolId, ctx.userId);
-  return { success: true as const, leader: ctx.leader, settings, today, mine, yourDay: settings ? dayView(today, mine, settings) : [],
+  // B3.4b–c (report 32.5 Your day): today's covers given to me, and my duties (a swap I gave away is gone; one I took is mine).
+  const covers = Array.from(await db.execute<{ period: string; class_name: string; room: string | null; note: string | null }>(sql`
+    SELECT s.period, s.class_name, s.room, c.note FROM school_covers c JOIN school_timetable_slots s ON s.id = c.slot_id
+    WHERE c.workspace_id = ${schoolId}::uuid AND c.cover_user_id = ${ctx.userId}::uuid AND c.day = ${today}::date`));
+  const duties = Array.from(await db.execute<{ place: string; slot: string }>(sql`
+    SELECT d.place, d.slot FROM school_duties d WHERE d.workspace_id = ${schoolId}::uuid AND d.day = ${isoDay(today)}
+      AND ((d.user_id = ${ctx.userId}::uuid AND NOT EXISTS (SELECT 1 FROM school_duty_swaps w WHERE w.duty_id = d.id AND w.day = ${today}::date AND w.state = 'accepted'))
+        OR EXISTS (SELECT 1 FROM school_duty_swaps w WHERE w.duty_id = d.id AND w.day = ${today}::date AND w.state = 'accepted' AND w.to_user = ${ctx.userId}::uuid))
+    ORDER BY d.slot`));
+  return { success: true as const, leader: ctx.leader, settings, today, mine, yourDay: settings ? dayView(today, mine, settings) : [], covers, duties,
     all: ctx.leader ? await slotsOf(schoolId, null) : [] };
 }
 

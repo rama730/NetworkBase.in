@@ -788,4 +788,10 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "That lesson isn’t on the school’s timetable.": {"title": "That lesson isn’t on the school’s timetable.", "type": "warning"},
   "Pick someone other than the absent teacher.": {"title": "Pick someone other than the absent teacher.", "type": "warning"},
   "Couldn’t load the cover board.": {"title": "Couldn’t load the cover board."},
+  "Name the place.": {"title": "Name the place.", "type": "warning"},
+  "Say when (a period, Before school or After school).": {"title": "Say when (a period, Before school or After school).", "type": "warning"},
+  "Check the duty.": {"title": "Check the duty.", "type": "warning"},
+  "That isn’t your duty.": {"title": "That isn’t your duty.", "type": "warning"},
+  "Pick a day when that duty happens.": {"title": "Pick a day when that duty happens.", "type": "warning"},
+  "That swap was answered or taken already.": {"title": "That swap was answered or taken already.", "type": "warning"},
 };

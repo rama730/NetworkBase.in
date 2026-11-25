@@ -14,7 +14,7 @@ async function open(page: Page, view: string) {
     (window as any).__actions = {
       readTimetableAction: async () => ({ success: true, leader: true, settings: s, today: '2026-09-08', mine,
         yourDay: [{ ...s.patterns[0].periods[0], slots: mine }, { ...s.patterns[0].periods[1], slots: [] }, { ...s.patterns[0].periods[2], slots: [] }],
-        all: [...mine, { id: '2', day: 3, period: 'P2', week: null, className: '7B', courseId: null, teacherId: 'rl', teacher: 'Ravi Lee', room: 'S2' }] }),
+        covers: [], duties: [], all: [...mine, { id: '2', day: 3, period: 'P2', week: null, className: '7B', courseId: null, teacherId: 'rl', teacher: 'Ravi Lee', room: 'S2' }] }),
       saveTimetableSettingsAction: async (_s: string, v: unknown) => { calls.push(['save', v]); return { success: true }; },
       importTimetableAction: async (_s: string, rows: unknown[]) => { calls.push(['import', rows.length]); return { success: true, added: rows.length, unmatched: [] }; },
     };

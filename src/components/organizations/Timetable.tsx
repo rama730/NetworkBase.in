@@ -119,6 +119,8 @@ export function TimetableView({ schoolId }: { schoolId: string }) {
             ))}
           </ul>
         ) : <p className="text-muted-foreground">Nothing timetabled for you today.</p>}
+        {d.covers.length ? <p data-testid="your-covers"><span className="font-medium">Cover today:</span> {d.covers.map((c) => `${c.period} ${c.class_name}${c.room ? ` · ${c.room}` : ""}${c.note ? ` (${c.note})` : ""}`).join("; ")}</p> : null}
+        {d.duties.length ? <p data-testid="your-duties"><span className="font-medium">Duty today:</span> {d.duties.map((x) => `${x.place}, ${x.slot}`).join("; ")}</p> : null}
       </div>
       {d.leader && teachers.length ? (
         <label className="flex items-center gap-2">Timetable of

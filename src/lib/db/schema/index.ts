@@ -1379,6 +1379,28 @@ export const schoolCovers = pgTable("school_covers", {
   assignedBy: uuid("assigned_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [unique("school_covers_one_per_slot").on(t.slotId, t.day), index("school_covers_workspace_day_idx").on(t.projectId, t.day), index("school_covers_cover_user_idx").on(t.coverUserId)]);
+/** B3.4c (0144, report 32.5 calls 3, 9): duties (place × day × time × person) and swaps. Server only. */
+export const schoolDuties = pgTable("school_duties", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  place: text("place").notNull(),
+  day: smallint("day").notNull(),
+  slot: text("slot").notNull(),
+  week: text("week"),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("school_duties_workspace_day_idx").on(t.projectId, t.day)]);
+export const schoolDutySwaps = pgTable("school_duty_swaps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  dutyId: uuid("duty_id").notNull().references(() => schoolDuties.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  fromUser: uuid("from_user").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  toUser: uuid("to_user").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  state: text("state").default("asked").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+}, (t) => [index("school_duty_swaps_workspace_idx").on(t.projectId, t.day), uniqueIndex("school_duty_swaps_one_accepted").on(t.dutyId, t.day).where(sql`state = 'accepted'`)]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),
