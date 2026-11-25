@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { WifiOff } from "lucide-react";
+import { PixelBeat } from "@/components/messages/mix/primitives";
 
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import type { BroadcastStatus } from "@/lib/realtime/private-broadcast";
@@ -28,8 +29,10 @@ export function ConnectionBanner({ status: own }: { status?: BroadcastStatus }) 
     : status === "disconnected" ? "Reconnecting… new messages may take a moment to appear." : null;
   if (!text) return null;
   return (
-    <p role="status" className="flex flex-none items-center gap-2 border-b border-border bg-[var(--status-warning-soft)] px-4 py-1.5 text-[13px] text-foreground">
-      <WifiOff size={14} aria-hidden="true" /> {text}
+    <p role="status" className="nbm-warn">
+      {online ? <PixelBeat /> : <WifiOff size={14} aria-hidden="true" />}
+      <span className="nbm-tag warn" aria-hidden="true">{online ? "Reconnecting" : "Offline"}</span>
+      <span>{text}</span>
     </p>
   );
 }

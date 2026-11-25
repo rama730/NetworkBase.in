@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -77,7 +77,7 @@ type Props = {
 
 
 function IntroButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return <Button type="button" variant="outline" size="sm" onClick={onClick} className="pointer-coarse:h-11">{children}</Button>;
+  return <Button type="button" variant="outline" size="sm" onClick={onClick} className="rounded-[5px] pointer-coarse:h-11">{children}</Button>;
 }
 
 function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onCanvas }: {
@@ -87,7 +87,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
   if (channel.kind === "dm") {
     const self = isSelfDm(channel, meId);
     return (
-      <div className="px-4 py-4 text-[13px] text-muted-foreground">
+      <div className="nbm-intro">
         <p>
           {self
             ? "This is your space. Jot down notes, drafts and links only you can see."
@@ -102,7 +102,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
     const decided = meta ? isDecidedApplication(meta.status) : false;
     const outcome = meta ? (APPLICATION_STATUS_LABEL[meta.status] ?? meta.status).toLowerCase() : "";
     return (
-      <div className="px-4 py-4 text-[13px] text-muted-foreground">
+      <div className="nbm-intro">
         <p>
           {meta?.is_applicant
             ? `This is your application for ${subject}. ${decided ? `It was ${outcome}. You can still ask or reply here.` : "The workspace’s reviewers answer here, and you can ask or add anything they need."}`
@@ -113,36 +113,36 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
   }
   if (channel.name === null) {
     return (
-      <div className="space-y-3 px-4 py-5">
-        <p className="text-[13px] text-muted-foreground">This is the start of your group conversation. Give it a name so it’s easy to find.</p>
-        {isMember ? <div className="flex flex-wrap gap-2"><IntroButton onClick={onDetails}>Name the group</IntroButton><IntroButton onClick={onAddPeople}><UserPlus size={16} /> Add people</IntroButton></div> : null}
+      <div className="nbm-intro">
+        <p>This is the start of your group conversation. Give it a name so it’s easy to find.</p>
+        {isMember ? <div className="nbm-intro-acts"><IntroButton onClick={onDetails}>Name the group</IntroButton><IntroButton onClick={onAddPeople}><UserPlus size={16} /> Add people</IntroButton></div> : null}
       </div>
     );
   }
   const isDefault = Boolean(channel.is_default);
   return (
-    <div className="space-y-4 px-4 pb-6 pt-6 sm:px-6 sm:pt-8">
+    <div className="nbm-intro">
       <div>
-        <h2 className="nb-section-title flex flex-wrap items-center gap-x-2 text-foreground">
+        <h2 className="nbm-intro-title">
           <span>{isDefault ? "Welcome to" : "This is the start of"}</span>
-          <span className="inline-flex items-center gap-1">
-            {channel.kind === "private" ? <Lock size={18} className="text-muted-foreground" aria-hidden="true" /> : <Hash size={18} className="text-muted-foreground" aria-hidden="true" />}
+          <span className="inline-flex items-baseline gap-1">
+            {channel.kind === "private" ? <Lock size={20} className="self-center text-muted-foreground" aria-hidden="true" /> : <span className="nbm-chead-hash" aria-hidden="true">#</span>}
             <span>{channel.name}</span>
           </span>
         </h2>
-        <p className="nb-body mt-2 max-w-2xl text-muted-foreground">
+        <p className="nbm-intro-text">
           {channel.description || (isDefault
             ? `The general channel of ${channel.project_title ?? "this workspace"}. Every member is here: share updates, decisions and wins.`
             : `Everything about #${channel.name} lives here: conversations, files and decisions.`)}
         </p>
         {channel.created_at ? (
-          <p className="nb-meta mt-1">
+          <p className="nbm-meta nbm-intro-meta">
             Created {new Date(channel.created_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
           </p>
         ) : null}
       </div>
       {isMember ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="nbm-intro-acts">
           {!channel.description ? <IntroButton onClick={onDetails}>Add a description</IntroButton> : null}
           <IntroButton onClick={onAddPeople}><UserPlus size={16} /> Add people</IntroButton>
           {/* Once a canvas exists its tab is right above; the intro only offers to start one. */}

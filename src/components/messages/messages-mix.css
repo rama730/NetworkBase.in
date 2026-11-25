@@ -254,3 +254,14 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-tab:not([aria-selected="true"]):hover::after { transform: scaleX(1); background: var(--nbm-line); }
 /* The open tab's clay underline is the app's sliding TabMarker (one marker app-wide), not a per-tab line. */
 .nbm-tab .nbm-count { height: 16px; min-width: 16px; font-size: 10px; }
+
+/* States (Phase 3 Task 13): intros, skeleton blocks, the connection strip */
+.nbm-intro { padding: 22px 20px 18px; font-size: 13.5px; color: var(--nbm-fg2); animation: nbm-fade var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm-intro p { margin: 0; max-width: 56ch; }
+.nbm-intro-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0; font: 400 30px/1.1 var(--nbm-serif); letter-spacing: -.01em; color: var(--foreground); }
+.nbm-intro .nbm-intro-text { margin-top: 8px; }
+.nbm-intro .nbm-intro-meta { margin-top: 6px; letter-spacing: .04em; text-transform: uppercase; }
+.nbm-intro-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.nbm-sk { display: block; background: var(--nbm-soft); border-radius: 2px; animation: nbm-breathe 1.6s var(--nbm-ease) infinite; }
+.nbm-warn { display: flex; flex: none; align-items: center; gap: 10px; min-height: 36px; margin: 0; padding: 6px 16px; border-bottom: 1px solid var(--nbm-line); background: color-mix(in srgb, var(--nbm-warn) 11%, var(--card)); font-size: 13px; color: var(--foreground); animation: nbm-drop var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm-warn > svg { flex: none; color: var(--nbm-warn); }

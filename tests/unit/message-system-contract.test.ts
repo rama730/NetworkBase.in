@@ -750,12 +750,12 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.1 Slack-parity channel starting point: hashtag inline before channel name, no profile box
     assert.match(
         conversationViewSource,
-        /<Hash size=\{18\}/,
-        "Channel Intro must render inline Hash icon before channel name",
+        /<span className="nbm-chead-hash" aria-hidden="true">#<\/span>\}\s*<span>\{channel\.name\}<\/span>/,
+        "Channel Intro renders an inline # before the channel name (mix: muted serif #)",
     );
     assert.match(
         conversationViewSource,
-        /"Welcome to" : "This is the start of"[\s\S]*?<Hash[\s\S]*?\{channel\.name\}/,
+        /"Welcome to" : "This is the start of"[\s\S]*?nbm-chead-hash[\s\S]*?\{channel\.name\}/,
         "Channel Intro must render Slack-parity starting point with inline hashtag and channel name",
     );
     assert.match(
