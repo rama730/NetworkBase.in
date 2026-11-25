@@ -175,6 +175,11 @@ test("B3.2a: one plan, several classes — Taught per class (two at once keep bo
   const [row] = await sql`SELECT stage, type_fields->'taught' AS taught FROM tasks WHERE id = ${a.id}`;
   assert.deepEqual([row!.stage, Object.keys(row!.taught).sort()], ["taught", ["6A", "6B"]]);
   assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6C", true)).success, false, "only the course's classes");
+  const before6A = (await sql`SELECT type_fields->'taught'->'6A' AS t FROM tasks WHERE id = ${a.id}`)[0]!.t;
+  viewerId = t.teacher;
+  assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6A", true)).success, true);
+  assert.deepEqual((await sql`SELECT type_fields->'taught'->'6A' AS t FROM tasks WHERE id = ${a.id}`)[0]!.t, before6A, "security review: ticking again keeps the first tick");
+  viewerId = t.ta;
   assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6B", false)).success, false, "security review: a TA doesn't take a tick back");
   viewerId = t.teacher;
   assert.equal((await plan.markClassTaughtAction(t.klass, a.id, "6B", false)).success, true);

@@ -252,7 +252,8 @@ export async function duplicateLessonAction(orgId: string, taskId: string): Prom
 /**
  * B3.2a (report 32.3 call 4): Mark taught for one class (6A), or take the tick back. Teachers and TAs; either teacher
  * of a class shared by two can tick (layer 12). The lesson is Taught once every class has it, and back to Ready if
- * a tick is taken back. One statement, so two people ticking at once never lose a tick.
+ * a tick is taken back. One statement, so two people ticking at once never lose a tick; a tick already there is kept
+ * (its day and who ticked it), so ticking again changes nothing.
  */
 export async function markClassTaughtAction(orgId: string, taskId: string, group: string, taught: boolean): Promise<{ success: true; lessonTaught: boolean } | Failure> {
   const ctx = await classAccess(orgId);
@@ -265,7 +266,7 @@ export async function markClassTaughtAction(orgId: string, taskId: string, group
   const tick = JSON.stringify({ on: today, by: ctx.userId });
   const [row] = Array.from(await db.execute<{ fields: unknown; stage: string | null }>(sql`
     UPDATE tasks SET type_fields = CASE WHEN ${taught}
-        THEN jsonb_set(coalesce(type_fields, '{}'::jsonb), '{taught}', coalesce(type_fields->'taught', '{}'::jsonb) || jsonb_build_object(${group}::text, ${tick}::jsonb))
+        THEN jsonb_set(coalesce(type_fields, '{}'::jsonb), '{taught}', jsonb_build_object(${group}::text, ${tick}::jsonb) || coalesce(type_fields->'taught', '{}'::jsonb))
         ELSE jsonb_set(coalesce(type_fields, '{}'::jsonb), '{taught}', coalesce(type_fields->'taught', '{}'::jsonb) - ${group}::text) END,
       updated_at = now()
     WHERE id = ${taskId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'class_lesson' AND deleted_at IS NULL AND coalesce(stage, 'draft') <> 'cancelled'
