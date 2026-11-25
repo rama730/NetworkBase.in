@@ -56,6 +56,7 @@ import { GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import type { OrgFilesInfo } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { CompanyPeople } from '@/components/organizations/CompanyPeople';
+import { CompanyProjects, ProjectGoalLine } from '@/components/organizations/CompanyGoals';
 import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } from '@/components/organizations/OrgOverviewParts';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
 import { SchoolClassesTab } from '@/components/organizations/SchoolParts';
@@ -1284,6 +1285,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                         {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} orgType={organization?.type ?? null} isSchool={Boolean(organization?.isSchool)} isClass={Boolean(organization && !organization.isSchool && typeProfile(organization.type).schools)} started={orgStarted?.dashboard} /> : <>
                         {parentOrg ? <ChildOrgLine projectId={project.id} /> : null}
                         {parentOrg ? <ChildUnitsLine projectId={project.id} members={allMembers} /> : null}
+                        {/* Report 33.4 (B4.3): a project in a company — Supports, dates, status, Post status (nothing shows elsewhere). */}
+                        {parentOrg ? <div className="mb-4"><ProjectGoalLine projectId={project.id} /></div> : null}
                         <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} recentActivityStarted={started?.recentActivity} />
                         </>}
                     </TabErrorBoundary>
@@ -1301,7 +1304,10 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {isOrganization && isOwnerOrMember && activeTab === 'projects' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Workspaces">
-                        {organization?.isSchool ? <SchoolClassesTab orgId={project.id} /> : <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />}
+                        {organization?.isSchool ? <SchoolClassesTab orgId={project.id} />
+                            // Report 33.4 (B4.3): a company's Workspaces add Goals and Timeline beside the list.
+                            : organization?.type === 'company' ? <CompanyProjects orgId={project.id} base={canonicalProjectHref} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
+                            : <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />}
                     </TabErrorBoundary>
                 </div>
             )}

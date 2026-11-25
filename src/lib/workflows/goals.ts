@@ -101,6 +101,8 @@ const PERIOD = /^\d{4}(-(Q[1-4]|H[12]|(0[1-9]|1[0-2])))?$/;
 export const objectiveFieldsSchema = z.object({
   period: z.string().regex(PERIOD, "Pick a period"),
   statusOverride: z.object({ status: z.enum(["on_track", "at_risk", "off_track"]), reason: z.string().trim().min(1).max(200) }).nullish(),
+  /** Report 33.4 (B4.3): a team goal contributes to one company goal; alignment only, it never adds to progress. */
+  contributesTo: z.string().uuid().nullish(),
 }).strict();
 /** Key result type_fields (A5.1a: measured by check-ins; A5.1b adds the linked kinds). */
 export const keyResultFieldsSchema = z.object({
