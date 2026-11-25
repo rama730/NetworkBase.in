@@ -66,6 +66,8 @@ export function feedbackError(value: unknown, fallback = 'Action couldn’t fini
   if (catalogEntry(message)) return message;
   if (/into (?:its )?(?:own )?(?:descendant|itself|subfolder)|move.*inside itself/i.test(message)) return 'Invalid move destination';
   if (/file.*(?:too large|exceed.*size)|file size.*exceed|maximum upload size/i.test(message)) return message;
+  // Messages attachment errors name the file ("photo.png is empty."): kept only when a file name with an extension leads.
+  if (/^[^\n]*\.[A-Za-z0-9]{1,8}(?: is empty\.| is too large \(max [\d.]+ [KMG]B\)\.|: SVG files can’t be attached\.)$/.test(message)) return message;
   return fallback;
 }
 

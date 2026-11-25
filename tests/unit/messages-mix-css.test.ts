@@ -15,7 +15,18 @@ test('every rule is scoped under .nbm', () => {
   const body = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@keyframes[^{]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '').replace(/@(media|supports)[^{]+\{/g, '');
   const selectors = body.match(/[^{}]+(?=\{)/g) ?? [];
   for (const s of selectors.map((x) => x.trim()).filter(Boolean))
-    for (const part of s.split(',')) assert.match(part.trim(), /^(html\[data-reduce-motion="true"\]\s+|\.dark\s+)?\.nbm\b/, part);
+    for (const part of s.split(',')) assert.match(part.trim(), /^(html\[data-reduce-motion="true"\]\s+|\.dark\s+)?\.nbm(\b|-)/, part);
+});
+
+test('nbm- classes work on portalled content and on the .nbm root itself (no ancestor needed)', () => {
+  for (const cls of ['nbm-enter-dialog', 'nbm-enter-rise', 'nbm-beat', 'nbm-tag', 'nbm-count', 'nbm-pxprog'])
+    assert.match(css, new RegExp(`(^|[},]\\s*)\\.${cls}[\\s{.,:>\\[]`, 'm'), cls);
+  assert.match(css, /\.nbm,\s*\.nbm \*/, 'reduced motion must cover the .nbm root too');
+});
+
+test('reduced motion keeps the cues: the jump highlight still fades and the beat stays visible', () => {
+  assert.match(css, /\.nbm-flash[^{]*\{[^}]*animation-duration:\s*2\.5s\s*!important/);
+  assert.match(css, /\.nbm-beat > i[^{]*\{[^}]*opacity:\s*\.6/);
 });
 
 test('motion tokens match the language', () => {

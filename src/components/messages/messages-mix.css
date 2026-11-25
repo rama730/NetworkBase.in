@@ -37,43 +37,46 @@
   --nbm-shadow-pop: 0 12px 28px rgba(0, 0, 0, .5);
 }
 
+/* nbm- classes need no .nbm ancestor (the prefix namespaces them), so they work on the .nbm root itself
+   and on portalled menus, dialogs and toasts, which carry `nbm` on their own content root. */
+
 /* ---------- type ---------- */
-.nbm .nbm-mono { font-family: var(--nbm-mono); }
-.nbm .nbm-meta { font: 11.5px/1.4 var(--nbm-mono); color: var(--nbm-fg2); font-variant-numeric: tabular-nums; }
-.nbm .nbm-eyebrow { display: flex; align-items: center; gap: 8px; margin: 0; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbm-fg2); }
-.nbm .nbm-eyebrow::before { content: ""; width: 7px; height: 7px; flex: none; background: var(--nbm-brand); }
-.nbm .nbm-serif-title { margin: 0; font-family: var(--nbm-serif); font-weight: 400; letter-spacing: -.01em; }
-.nbm .nbm-glabel { display: flex; align-items: center; gap: 10px; min-height: 28px; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbm-fg2); }
-.nbm .nbm-glabel b { color: var(--foreground); font-weight: 500; }
-.nbm .nbm-glabel-rule { flex: 1; height: 1px; background: var(--nbm-line); }
+.nbm-mono { font-family: var(--nbm-mono); }
+.nbm-meta { font: 11.5px/1.4 var(--nbm-mono); color: var(--nbm-fg2); font-variant-numeric: tabular-nums; }
+.nbm-eyebrow { display: flex; align-items: center; gap: 8px; margin: 0; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm-eyebrow::before { content: ""; width: 7px; height: 7px; flex: none; background: var(--nbm-brand); }
+.nbm-serif-title { margin: 0; font-family: var(--nbm-serif); font-weight: 400; letter-spacing: -.01em; }
+.nbm-glabel { display: flex; align-items: center; gap: 10px; min-height: 28px; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm-glabel b { color: var(--foreground); font-weight: 500; }
+.nbm-glabel-rule { flex: 1; height: 1px; background: var(--nbm-line); }
 
 /* ---------- tags, counts, the unread square (all square) ---------- */
-.nbm .nbm-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 3px; background: var(--nbm-soft); font: 500 10px/1.5 var(--nbm-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbm-fg2); white-space: nowrap; }
-.nbm .nbm-tag.ok { background: color-mix(in srgb, var(--nbm-ok) 12%, transparent); color: var(--nbm-ok); }
-.nbm .nbm-tag.warn { background: color-mix(in srgb, var(--nbm-warn) 14%, transparent); color: var(--nbm-warn); }
-.nbm .nbm-tag.bad { background: color-mix(in srgb, var(--nbm-bad) 12%, transparent); color: var(--nbm-bad); }
-.nbm .nbm-tag.hot { background: var(--nbm-brand); color: var(--nbm-on-brand); }
-.nbm .nbm-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 5px; border-radius: 3px; background: var(--nbm-soft); font: 600 10.5px/1 var(--nbm-mono); font-variant-numeric: tabular-nums; color: var(--nbm-fg2); }
-.nbm .nbm-count.hot { background: var(--nbm-brand); color: var(--nbm-on-brand); }
-.nbm .nbm-sq { display: inline-block; flex: none; width: 6px; height: 6px; background: var(--nbm-brand); }
+.nbm-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 3px; background: var(--nbm-soft); font: 500 10px/1.5 var(--nbm-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbm-fg2); white-space: nowrap; }
+.nbm-tag.ok { background: color-mix(in srgb, var(--nbm-ok) 12%, transparent); color: var(--nbm-ok); }
+.nbm-tag.warn { background: color-mix(in srgb, var(--nbm-warn) 14%, transparent); color: var(--nbm-warn); }
+.nbm-tag.bad { background: color-mix(in srgb, var(--nbm-bad) 12%, transparent); color: var(--nbm-bad); }
+.nbm-tag.hot { background: var(--nbm-brand); color: var(--nbm-on-brand); }
+.nbm-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 5px; border-radius: 3px; background: var(--nbm-soft); font: 600 10.5px/1 var(--nbm-mono); font-variant-numeric: tabular-nums; color: var(--nbm-fg2); }
+.nbm-count.hot { background: var(--nbm-brand); color: var(--nbm-on-brand); }
+.nbm-sq { display: inline-block; flex: none; width: 6px; height: 6px; background: var(--nbm-brand); }
 
 /* ---------- cells ---------- */
-.nbm .nbm-cell { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 5px; color: var(--nbm-fg2); }
-.nbm .nbm-cell:hover, .nbm .nbm-cell[aria-pressed="true"], .nbm .nbm-cell[aria-expanded="true"] { background: var(--nbm-soft); color: var(--foreground); }
-.nbm .nbm-seg { display: inline-flex; overflow: hidden; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--card); }
-.nbm .nbm-seg > button { height: 26px; padding: 0 10px; border-right: 1px solid var(--nbm-line); font: 500 10.5px var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); }
-.nbm .nbm-seg > button:last-child { border-right: 0; }
-.nbm .nbm-seg > button:not([aria-pressed="true"]):not([aria-checked="true"]):hover { background: var(--nbm-soft); color: var(--foreground); }
-.nbm .nbm-seg > button[aria-pressed="true"], .nbm .nbm-seg > button[aria-checked="true"] { background: var(--nbm-ink); color: var(--nbm-on-ink); }
+.nbm-cell { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 5px; color: var(--nbm-fg2); }
+.nbm-cell:hover, .nbm-cell[aria-pressed="true"], .nbm-cell[aria-expanded="true"] { background: var(--nbm-soft); color: var(--foreground); }
+.nbm-seg { display: inline-flex; overflow: hidden; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--card); }
+.nbm-seg > button { height: 26px; padding: 0 10px; border-right: 1px solid var(--nbm-line); font: 500 10.5px var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--nbm-fg2); }
+.nbm-seg > button:last-child { border-right: 0; }
+.nbm-seg > button:not([aria-pressed="true"]):not([aria-checked="true"]):hover { background: var(--nbm-soft); color: var(--foreground); }
+.nbm-seg > button[aria-pressed="true"], .nbm-seg > button[aria-checked="true"] { background: var(--nbm-ink); color: var(--nbm-on-ink); }
 
 /* ---------- loading: pixel beat and pixel progress (the only things that move on their own) ---------- */
-.nbm .nbm-beat { display: inline-flex; gap: 2px; align-items: center; }
-.nbm .nbm-beat > i { display: block; width: 4px; height: 4px; background: currentColor; opacity: .25; animation: nbm-beat 900ms steps(2) infinite; }
-.nbm .nbm-beat > i:nth-child(2) { animation-delay: 150ms; }
-.nbm .nbm-beat > i:nth-child(3) { animation-delay: 300ms; }
-.nbm .nbm-pxprog { display: inline-grid; grid-template-columns: repeat(10, 6px); gap: 2px; }
-.nbm .nbm-pxprog > i { display: block; height: 6px; background: color-mix(in srgb, currentColor 22%, transparent); transition: background-color var(--nbm-m1) var(--nbm-ease); }
-.nbm .nbm-pxprog > i[data-on] { background: currentColor; }
+.nbm-beat { display: inline-flex; gap: 2px; align-items: center; }
+.nbm-beat > i { display: block; width: 4px; height: 4px; background: currentColor; opacity: .25; animation: nbm-beat 900ms steps(2) infinite; }
+.nbm-beat > i:nth-child(2) { animation-delay: 150ms; }
+.nbm-beat > i:nth-child(3) { animation-delay: 300ms; }
+.nbm-pxprog { display: inline-grid; grid-template-columns: repeat(10, 6px); gap: 2px; }
+.nbm-pxprog > i { display: block; height: 6px; background: color-mix(in srgb, currentColor 22%, transparent); transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-pxprog > i[data-on] { background: currentColor; }
 
 /* ---------- motion layer: nothing moves until it is touched ---------- */
 @keyframes nbm-beat { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
@@ -89,30 +92,35 @@
 @keyframes nbm-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* entrances, applied by components only when something just opened or arrived because of a click */
-.nbm .nbm-enter-drop { animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
-.nbm .nbm-enter-rise { animation: nbm-rise var(--nbm-m3) var(--nbm-ease) backwards; }
-.nbm .nbm-settle { animation: nbm-settle var(--nbm-m3) var(--nbm-ease) backwards; }
-.nbm .nbm-enter-sheet { animation: nbm-sheet var(--nbm-m3) var(--nbm-ease) backwards; }
-.nbm .nbm-enter-dialog { animation: nbm-dialog var(--nbm-m2) var(--nbm-ease) backwards; }
-.nbm .nbm-enter-slide { animation: nbm-slide var(--nbm-m3) var(--nbm-ease) backwards; }
-.nbm .nbm-fade-in { animation: nbm-fade var(--nbm-m2) var(--nbm-ease) backwards; }
-.nbm .nbm-pop { animation: nbm-pop var(--nbm-m2) var(--nbm-ease); }
-.nbm .nbm-flash { animation: nbm-flash 2.5s var(--nbm-ease) both; }
-.nbm .nbm-breathe:hover, .nbm :hover > .nbm-breathe { animation: nbm-breathe 1.6s var(--nbm-ease) infinite; }
+.nbm-enter-drop { animation: nbm-drop var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm-enter-rise { animation: nbm-rise var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm-settle { animation: nbm-settle var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm-enter-sheet { animation: nbm-sheet var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm-enter-dialog { animation: nbm-dialog var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm-enter-slide { animation: nbm-slide var(--nbm-m3) var(--nbm-ease) backwards; }
+.nbm-fade-in { animation: nbm-fade var(--nbm-m2) var(--nbm-ease) backwards; }
+.nbm-pop { animation: nbm-pop var(--nbm-m2) var(--nbm-ease); }
+.nbm-flash { animation: nbm-flash 2.5s var(--nbm-ease) both; }
+.nbm-breathe:hover, .nbm :hover > .nbm-breathe { animation: nbm-breathe 1.6s var(--nbm-ease) infinite; }
 
 /* fills, colours and borders ease; a press sinks 1px */
-.nbm .nbm-cell, .nbm .nbm-tag, .nbm .nbm-seg > button, .nbm .nbm-ease {
+.nbm-cell, .nbm-tag, .nbm-seg > button, .nbm-ease {
   transition: background-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease), border-color var(--nbm-m1) var(--nbm-ease),
               box-shadow var(--nbm-m1) var(--nbm-ease), opacity var(--nbm-m1) var(--nbm-ease), transform var(--nbm-m1) var(--nbm-ease);
 }
-.nbm .nbm-cell:active, .nbm .nbm-seg > button:active, .nbm .nbm-press:active { transform: translateY(1px); transition-duration: 60ms; }
+.nbm-cell:active, .nbm-seg > button:active, .nbm-press:active { transform: translateY(1px); transition-duration: 60ms; }
 
 /* never animated: the unread square, counts changing in place */
-.nbm .nbm-sq, .nbm .nbm-count { transition: none; animation: none; }
+.nbm-sq, .nbm-count { transition: none; animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .nbm *, .nbm *::before, .nbm *::after { animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 80ms !important; transition-property: background-color, color, border-color, opacity !important; }
+  .nbm, .nbm *, .nbm *::before, .nbm *::after { animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 80ms !important; transition-property: background-color, color, border-color, opacity !important; }
+  /* cues stay: the jump highlight is a colour fade, the beat holds still but visible */
+  .nbm-flash { animation-duration: 2.5s !important; }
+  .nbm-beat > i { opacity: .6; animation: none !important; }
 }
-html[data-reduce-motion="true"] .nbm *, html[data-reduce-motion="true"] .nbm *::before, html[data-reduce-motion="true"] .nbm *::after {
+html[data-reduce-motion="true"] .nbm, html[data-reduce-motion="true"] .nbm *, html[data-reduce-motion="true"] .nbm *::before, html[data-reduce-motion="true"] .nbm *::after {
   animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 80ms !important; transition-property: background-color, color, border-color, opacity !important;
 }
+html[data-reduce-motion="true"] .nbm-flash { animation-duration: 2.5s !important; }
+html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !important; }
