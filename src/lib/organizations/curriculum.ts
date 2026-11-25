@@ -38,12 +38,13 @@ export const allTaught = (groups: string[], ticks: Ticks) => groups.length > 0 &
 
 type MapLesson = { stage: string; day: string | null; ticks: Ticks };
 /**
- * Behind the map for one class: lessons planned by today (their day has come) minus those it has taught. Cancelled
- * lessons don't count. Two or more behind shows ⚠ (layer 6).
+ * Behind the map for one class: lessons planned by today (their day has come) minus those it has taught (its tick,
+ * or the whole lesson Taught). Cancelled lessons don't count. Two or more behind shows ⚠ (layer 6).
  */
 export function behind(lessons: MapLesson[], group: string, today: string) {
   const due = lessons.filter((l) => l.stage !== "cancelled" && l.day && l.day <= today);
-  const taught = due.filter((l) => l.ticks[group]).length;
+  // Found live (B3.2a): a lesson Taught as a whole (before the course listed its classes) is taught for every class.
+  const taught = due.filter((l) => l.stage === "taught" || l.ticks[group]).length;
   return { due: due.length, taught, behind: due.length - taught, warn: due.length - taught >= 2 };
 }
 

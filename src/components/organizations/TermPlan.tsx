@@ -229,8 +229,8 @@ function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpd
             {l.outcomes.map((o) => <span key={o} className="nb-tag font-mono text-[11px]">{o}</span>)}
             {perClass && l.stage !== "cancelled" ? (
               <span className="flex flex-wrap items-center gap-2" role="group" aria-label={`Taught per class: ${l.title}`} data-testid="class-ticks">
-                {groups.map((g) => <label key={g} className="flex items-center gap-1 text-[12px]"><input className="nb-check" type="checkbox" checked={Boolean(l.ticks[g])}
-                  aria-label={`Taught ${g}: ${l.title}`} disabled={!teacher && Boolean(l.ticks[g])} onChange={(e) => onTick(l.id, g, e.target.checked)} />{g}{l.ticks[g] ? <span className="font-mono text-muted-foreground"> {day(l.ticks[g]!.on)}</span> : null}</label>)}
+                {groups.map((g) => <label key={g} className="flex items-center gap-1 text-[12px]"><input className="nb-check" type="checkbox" checked={Boolean(l.ticks[g]) || l.stage === "taught"}
+                  aria-label={`Taught ${g}: ${l.title}`} disabled={!teacher && (Boolean(l.ticks[g]) || l.stage === "taught")} onChange={(e) => onTick(l.id, g, e.target.checked)} />{g}{l.ticks[g] ? <span className="font-mono text-muted-foreground"> {day(l.ticks[g]!.on)}</span> : null}</label>)}
               </span>
             ) : null}
             {staff ? (

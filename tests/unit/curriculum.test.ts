@@ -27,6 +27,7 @@ test("Behind the map per class; Planned; Draft ⚠ within 3 school days", () => 
   ];
   assert.deepEqual(behind(lessons, "6A", "2026-10-08"), { due: 3, taught: 2, behind: 1, warn: false });
   assert.deepEqual(behind(lessons, "6B", "2026-10-08"), { due: 3, taught: 1, behind: 2, warn: true });
+  assert.equal(behind([{ stage: "taught", day: "2026-10-05", ticks: {} }], "6A", "2026-10-08").behind, 0, "found live: Taught before classes were listed counts for every class");
   assert.deepEqual(plannedPercent(lessons), { ready: 3, total: 4, percent: 75 });
   // Thu 2026-10-08 → Tue 2026-10-13 is Thu, Fri, Mon: 3 school days.
   assert.equal(draftSoon("draft", "2026-10-13", "2026-10-08"), true);
