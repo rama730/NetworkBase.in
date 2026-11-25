@@ -40,3 +40,21 @@ test('quick switcher: the find field is the head; mono group labels; square tags
   assert.match(sw, /className="nbm-popover-row nbm-sw-row" aria-selected|className="nbm-popover-row nbm-sw-row"/);
   assert.match(css, /\.nbm-sw-find\s*\{[^}]*height:\s*52px/);
 });
+
+test('shortcuts: groups as two-column key tables with kbd cells', () => {
+  const sc = readFileSync('src/components/messages/ShortcutsDialog.tsx', 'utf8');
+  assert.match(sc, /<h3 className="nbm-glabel mb-1\.5">/);
+  assert.match(sc, /<dl className="nbm-keys">/);
+  assert.match(sc, /<kbd className="nbm-kbd">\{keys\}<\/kbd>/);
+  assert.match(css, /\.nbm-kbd\s*\{[^}]*border:\s*1px solid var\(--nbm-line\)[^}]*var\(--nbm-mono\)/);
+});
+
+test('new message: square To chips, a mono group label, the existing-conversation notice as a cell', () => {
+  const nm = readFileSync('src/components/messages/NewMessage.tsx', 'utf8');
+  assert.match(nm, /className="nbm-to-chip"/);
+  assert.match(nm, /<p className="nbm-glabel px-2 py-1">/);
+  assert.match(nm, /className=\{`nbm-popover-row nbm-sw-row\$\{index === activeIndex \? " is-active" : ""\}`\}/);
+  assert.match(nm, /<span className="nbm-tag flex-none">Can’t message<\/span>/);
+  assert.match(nm, /<p className="nbm-notice">/);
+  assert.match(css, /\.nbm-to-chip\s*\{[^}]*border-radius:\s*3px/);
+});

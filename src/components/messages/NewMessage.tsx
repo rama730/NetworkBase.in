@@ -161,10 +161,10 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[13px] text-muted-foreground">To:</span>
           {to.map((person) => (
-            <span key={person.id} className="inline-flex h-8 items-center gap-1 rounded-md bg-secondary pl-1 pr-0.5 text-[13px]">
+            <span key={person.id} className="nbm-to-chip">
               <UserAvatar identity={person} size={20} />
               {personName(person)}
-              <button type="button" onClick={() => changeTo(to.filter((p) => p.id !== person.id))} className="grid size-7 place-items-center rounded-sm hover:bg-muted pointer-coarse:size-11" aria-label={`Remove ${personName(person)}`}><X size={14} /></button>
+              <button type="button" onClick={() => changeTo(to.filter((p) => p.id !== person.id))} className="nbm-to-chip-x" aria-label={`Remove ${personName(person)}`}><X size={14} /></button>
             </span>
           ))}
           {!full ? (
@@ -187,7 +187,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
         {full ? <p className="mt-1 text-[13px] text-muted-foreground">A group message holds up to {CHAT_MAX_GROUP_OTHERS + 1} people, you included. Remove someone to add another.</p> : null}
         {candidates.length && !full ? (
           <div className="mt-2">
-            <p className="nb-micro px-2 py-1">
+            <p className="nbm-glabel px-2 py-1">
               {isSearching && people.data ? "Search results" : typed ? "People you know" : "Recent and suggested"}
             </p>
             <ul id="new-message-people" role="listbox" className="max-h-64 overflow-y-auto" aria-label="People">
@@ -199,12 +199,12 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
                     disabled={person.can_dm === false}
                     onClick={() => pick(person)}
                     onMouseEnter={() => setActive(index)}
-                    className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[15px] hover:bg-muted disabled:opacity-50 ${index === activeIndex ? "bg-muted" : ""}`}
+                    className={`nbm-popover-row nbm-sw-row${index === activeIndex ? " is-active" : ""}`}
                   >
                     <UserAvatar identity={person} size={26} />
                     <span className="min-w-0 flex-1 truncate">{personName(person)}</span>
-                    {person.username ? <span className="nb-meta">@{person.username}</span> : null}
-                    {person.can_dm === false ? <span className="text-[13px] text-muted-foreground">Can’t message</span> : null}
+                    {person.username ? <span className="nbm-popover-hint">@{person.username}</span> : null}
+                    {person.can_dm === false ? <span className="nbm-tag flex-none">Can’t message</span> : null}
                   </button>
                 </li>
               ))}
@@ -217,7 +217,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
           </p>
         ) : null}
         {existing ? (
-          <p className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-muted px-3 py-2 text-[13px]">
+          <p className="nbm-notice">
             {to.length === 1 ? `You already have a conversation with ${personName(to[0])}.` : "You already have a group with these people; your message goes there."}
             <Button type="button" variant="link" size="sm" onClick={openExisting} className="h-auto px-0 pointer-coarse:min-h-11">Open it</Button>
           </p>

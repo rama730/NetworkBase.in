@@ -659,3 +659,18 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm[data-testid="chat-window"] .nbm-lhead-title, .nbm[data-testid="chat-window"] .nbm-chead-title { font-size: 20px; }
 .nbm[data-testid="chat-window"] .nbm-lrowx-time { width: 44px; }
 .nbm-fcell[data-set="true"] svg { color: currentColor; opacity: 1; }
+
+/* Shortcuts and New message (Phase 9 Task 38) */
+.nbm-keys { margin: 0; overflow: hidden; border: 1px solid var(--nbm-line); border-radius: 5px; }
+.nbm-keys > div { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr); align-items: center; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--nbm-line); font-size: 13px; }
+.nbm-keys > div:last-child { border-bottom: 0; }
+.nbm-keys dt { margin: 0; }
+.nbm-keys dd { margin: 0; color: var(--nbm-fg2); }
+.nbm-kbd { display: inline-flex; align-items: center; min-height: 22px; padding: 0 6px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--nbm-soft); font: 500 11.5px/1 var(--nbm-mono); color: var(--foreground); white-space: nowrap; }
+.nbm-to-chip { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 2px 0 4px; border: 1px solid var(--nbm-line); border-radius: 3px; background: var(--nbm-soft); font-size: 13px; }
+.nbm-to-chip-x { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 3px; color: var(--nbm-fg2); }
+.nbm-to-chip-x:hover { background: var(--card); color: var(--foreground); }
+@media (pointer: coarse) { .nbm-to-chip-x { width: 44px; height: 44px; } }
+.nbm-sw-row.is-active { background: var(--nbm-soft); }
+.nbm-sw-row:disabled { opacity: .55; cursor: default; }
+.nbm-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; padding: 8px 12px; border: 1px solid var(--nbm-line); border-radius: 5px; background: var(--nbm-soft); font-size: 13px; }

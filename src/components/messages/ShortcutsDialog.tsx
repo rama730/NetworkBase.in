@@ -55,12 +55,12 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
         <DialogDescription>Shortcuts don’t fire while you’re typing, except in the message box.</DialogDescription>
         {groups().map((group) => (
           <section key={group.title} aria-label={group.title}>
-            <h3 className="nb-micro mb-1.5">{group.title}</h3>
-            <dl className="divide-y divide-border rounded-md border border-border">
+            <h3 className="nbm-glabel mb-1.5">{group.title}</h3>
+            <dl className="nbm-keys">
               {group.keys.map(([keys, what]) => (
-                <div key={keys} className="flex items-center justify-between gap-3 px-3 py-1.5 text-[13px]">
-                  <dt><kbd className="nb-meta text-foreground">{keys}</kbd></dt>
-                  <dd className="text-right text-muted-foreground">{what}</dd>
+                <div key={keys}>
+                  <dt><kbd className="nbm-kbd">{keys}</kbd></dt>
+                  <dd>{what}</dd>
                 </div>
               ))}
             </dl>
