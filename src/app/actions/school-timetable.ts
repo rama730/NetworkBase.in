@@ -73,8 +73,12 @@ export async function importTimetableAction(schoolId: string, rows: ImportSlot[]
   const staff = Array.from(await db.execute<{ id: string; name: string | null; username: string | null }>(sql`
     SELECT p.id, p.full_name AS name, p.username FROM profiles p
     WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${schoolId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${schoolId}::uuid AND role <> 'viewer')`));
-  const byName = new Map<string, string>();
-  for (const s of staff) for (const n of [s.name, s.username]) if (n) byName.set(n.trim().toLowerCase(), s.id);
+  // Security review: a username matches exactly; a full name only when exactly one person on the staff has it. An
+  // ambiguous name is left unmatched and reported, so nobody can take a colleague's slots by copying their name.
+  const byUser = new Map(staff.filter((x) => x.username).map((x) => [x.username!.trim().toLowerCase(), x.id]));
+  const nameCount = new Map<string, string[]>();
+  for (const x of staff) if (x.name) nameCount.set(x.name.trim().toLowerCase(), [...(nameCount.get(x.name.trim().toLowerCase()) ?? []), x.id]);
+  const byName = { get: (n: string) => byUser.get(n) ?? (nameCount.get(n)?.length === 1 ? nameCount.get(n)![0] : undefined) };
   const good = rows.filter((r) => r && Number.isInteger(r.day) && r.day! >= 1 && r.day! <= 7 && typeof r.period === "string" && keys.has(r.period)
     && typeof r.className === "string" && r.className.trim() && (r.week === null || r.week === "A" || r.week === "B"));
   if (!good.length) return { success: false, error: "No row matches the school day." };

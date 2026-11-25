@@ -70,6 +70,11 @@ test("the school day, an imported timetable, Your day; leaders see all, staff th
   viewerId = principal!;
   const all = await tt.readTimetableAction(school);
   assert.ok(all.success && all.all.length === 3);
+  // Security review: two people with one name are ambiguous — left unmatched, never guessed.
+  await sql`UPDATE profiles SET full_name = 'Asha Rao' WHERE id = ${other!}`;
+  const twice = await tt.importTimetableAction(school, [{ day: 2, period: "P1", week: null, className: "6A", teacher: "Asha Rao", room: "", error: null }]);
+  assert.deepEqual(twice, { success: true, added: 1, unmatched: ["Asha Rao"] });
+  await sql`UPDATE profiles SET full_name = 'Ravi Lee' WHERE id = ${other!}`;
   // Importing again replaces the timetable.
   await tt.importTimetableAction(school, [{ day: 4, period: "P2", week: null, className: "9A", teacher: "Ravi Lee", room: "", error: null }]);
   const again = await tt.readTimetableAction(school);
