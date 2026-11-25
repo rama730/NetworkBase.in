@@ -30,7 +30,6 @@ import { useBlockedIds, useChatShell, useMutedIds } from "@/components/messages/
 import { useChatUi } from "@/components/messages/chat-ui-store";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle, formatChatTime, isSelfDm, personName } from "@/lib/messaging/channel-view";
 import { channelTopic } from "@/lib/messaging/constants";
@@ -53,15 +52,15 @@ const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialo
 // so the bottom reply, reactions, and preview cards never touch the composer border.
 const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-10" : "h-6 transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"} /> };
 
-/** Replies loading: rows in the shared shimmer (no pulse). */
+/** Replies loading: square soft blocks that breathe (the mix), like the timeline's. */
 function RepliesSkeleton() {
   return (
     <div role="status" className="space-y-3 px-4 py-3">
       <span className="sr-only">Loading replies…</span>
       {[70, 45].map((width) => (
-        <div key={width} className="flex gap-2.5">
-          <Skeleton className="size-[34px] flex-none rounded-md" />
-          <div className="flex-1 space-y-2 pt-1"><Skeleton className="h-3 w-24 rounded-sm" /><Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} /></div>
+        <div key={width} className="flex gap-3">
+          <span aria-hidden="true" className="nbm-sk size-9 flex-none" />
+          <div className="flex-1 space-y-2 pt-1"><span aria-hidden="true" className="nbm-sk h-[9px] w-24" /><span aria-hidden="true" className="nbm-sk h-[9px]" style={{ width: `${width}%` }} /></div>
         </div>
       ))}
     </div>
@@ -489,7 +488,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
               followOutput={(bottom) => (bottom ? "smooth" : false)}
               computeItemKey={(index, row) => (row.type === "reply" || row.type === "root" ? `${row.type}:${row.message.client_message_id ?? row.message.seq}` : `${row.type}:${index}`)}
               itemContent={(_index, row) => {
-                if (row.type === "newer") return <div className="px-4 py-1"><Button type="button" variant="ghost" size="sm" disabled={loadingNewer} onClick={() => void loadNewer()}>{loadingNewer ? "Loading…" : "Load newer replies"}</Button></div>;
+                if (row.type === "newer") return <div className="px-5 py-1"><button type="button" className="nbm-loadmore" disabled={loadingNewer} onClick={() => void loadNewer()}>{loadingNewer ? "Loading…" : "Load newer replies"}</button></div>;
                 if (row.type === "root") return <div className="pt-2"><MessageRow message={row.message} grouped={false} tabStop={rowTab === row.message.seq} /></div>;
                 if (row.type === "loading") return <RepliesSkeleton />;
                 if (row.type === "new") {
@@ -502,29 +501,29 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
                 }
                 if (row.type === "older") {
                   return (
-                    <div className="px-4 py-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder} className="-ml-2.5 text-primary pointer-coarse:h-11">
+                    <div className="px-5 py-1">
+                      <button type="button" className="nbm-loadmore" onClick={() => void loadOlder()} disabled={loadingOlder}>
                         {loadingOlder ? "Loading…" : "Load earlier replies"}
-                      </Button>
+                      </button>
                     </div>
                   );
                 }
                 if (row.type === "summary") {
                   return (
-                    <div className="space-y-1.5 px-4 py-2">
+                    <div className="space-y-1.5 px-5 py-2">
                       {/* Who replied: nothing to list until someone has. */}
                       {replyCount > 0 && participants.length ? (
                         <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
-                          <span className="inline-flex -space-x-1.5">
+                          <span className="nbm-faces-stack">
                             {participants.slice(0, 4).map((p) => <span key={p.id} className="inline-block rounded-sm ring-2 ring-card"><UserAvatar identity={p} size={20} /></span>)}
                           </span>
                           <span className="truncate">{names(participants)}</span>
                         </span>
                       ) : null}
-                      <div className="flex items-center gap-2">
-                        <span className="nb-meta">{replyCount ? `${replyCount} ${replyCount === 1 ? "reply" : "replies"}` : loadingReplies ? "Replies" : "No replies yet"}</span>
-                        {lastReply ? <span className="nb-meta" title={new Date(lastReply).toLocaleString()}>· last reply {formatChatTime(lastReply, "ago")}</span> : null}
-                        <span className="h-px flex-1 bg-border" />
+                      <div className="nbm-thr-label">
+                        <span>{replyCount ? `${replyCount} ${replyCount === 1 ? "reply" : "replies"}` : loadingReplies ? "Replies" : "No replies yet"}</span>
+                        {lastReply ? <span title={new Date(lastReply).toLocaleString()}>· last reply {formatChatTime(lastReply, "ago")}</span> : null}
+                        <span className="nbm-glabel-rule" aria-hidden="true" />
                       </div>
                     </div>
                   );
@@ -563,7 +562,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             autoFocus={autoFocus}
           />
         ) : details.data ? (
-          <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+          <div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">
             {details.data.channel_archived_at ? (
               <span>This channel is archived. You can read it, but not reply.</span>
             ) : details.data.kind === "public" ? (
@@ -574,7 +573,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             ) : (
               <span>You’re not in this conversation.</span>
             )}
-          </div>
+          </div></div>
         ) : null}
       </div>
       {shareSeq !== null ? <ShareDialog channelId={channelId} seq={shareSeq} onClose={() => setShareSeq(null)} /> : null}

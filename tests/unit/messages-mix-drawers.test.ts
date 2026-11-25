@@ -28,3 +28,12 @@ test('Follow is a toggle cell: Following = ink fill + tick', () => {
   assert.match(thread, /<DropdownMenuTrigger className="nbm-cell nb-touch-target flex-none" aria-label="Thread options">/);
   assert.match(thread, /<DropdownMenuContent align="end" className="nbm nbm-menu w-52">/);
 });
+
+test('thread content: mix skeleton, quiet load buttons, mono replies label with a rule, footer cell', () => {
+  assert.doesNotMatch(thread, /<Skeleton\b/);
+  assert.match(thread, /className="nbm-sk/);
+  assert.equal((thread.match(/className="nbm-loadmore"/g) ?? []).length, 2);
+  assert.match(thread, /<div className="nbm-thr-label">/);
+  assert.match(thread, /<div className="nbm-comp-foot"><div className="nbm-comp-foot-cell">\s*\{details\.data\.channel_archived_at/);
+  assert.match(css, /\.nbm-thr-label\s*\{[^}]*var\(--nbm-mono\)[^}]*text-transform:\s*uppercase/);
+});
