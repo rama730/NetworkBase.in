@@ -12,7 +12,7 @@ test('the main layout loads the Messages stylesheet (the floating window lives o
 
 test('every rule is scoped under .nbm', () => {
   assert.ok(css.length > 0, 'stylesheet missing');
-  const body = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@keyframes[^{]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '').replace(/@(media|supports)[^{]+\{/g, '');
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@keyframes[^{]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '').replace(/@(media|supports|container)[^{]+\{/g, '');
   const selectors = body.match(/[^{}]+(?=\{)/g) ?? [];
   for (const s of selectors.map((x) => x.trim()).filter(Boolean))
     for (const part of s.split(',')) assert.match(part.trim(), /^(html\[data-reduce-motion="true"\]\s+|\.dark\s+)?\.nbm(\b|-)/, part);

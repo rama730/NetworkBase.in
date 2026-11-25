@@ -782,8 +782,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.2 Notifications live on the header bell, always shown to members (plan #11, #13)
     assert.match(
         conversationViewSource,
-        /\{isMember \? \(\s*<DropdownMenu>\s*<DropdownMenuTrigger className=\{`\$\{headerButton\} hidden sm:inline-flex`\} aria-label=\{`Notifications:/,
-        "The header bell is visible to members (on phones it moves into ⋯, round 3 #98)",
+        /\{isMember \? \(\s*<DropdownMenu>\s*<DropdownMenuTrigger className=\{`\$\{headerButton\} nbm-fold`\} aria-label=\{`Notifications:/,
+        "The header bell is visible to members (in a narrow column it moves into ⋯, round 3 #98; mix: column fold)",
     );
     assert.doesNotMatch(
         conversationViewSource,

@@ -284,3 +284,10 @@ test('review fix: counts read as numbers, not "zero one"', async ({ page }) => {
   await expect(chip.locator('[aria-hidden="true"]')).toHaveText(/^\d{2}$/);
   await expect(chip.locator('.sr-only')).toHaveText(/^\d+ /);
 });
+
+test('mix: header cells fold when the conversation column is under 560px, at any window width', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setContent(`<style>${css}</style><section class="nbm nbm-conv" style="width:520px"><button class="nbm-fold" id="a">x</button></section><section class="nbm nbm-conv" style="width:700px"><button class="nbm-fold" id="b">x</button></section>`);
+  expect(await page.locator('#a').evaluate((el) => getComputedStyle(el).display)).toBe('none');
+  expect(await page.locator('#b').evaluate((el) => getComputedStyle(el).display)).not.toBe('none');
+});

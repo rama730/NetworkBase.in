@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
@@ -40,6 +40,7 @@ import { RowsSkeleton } from "@/components/messages/parts/RowsSkeleton";
 import { detailsKeys, isDetailsKey, keyLabel } from "@/components/messages/keys";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { capCount } from "@/lib/messaging/mix-format";
 import { useAuth } from "@/hooks/useAuth";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
@@ -223,7 +224,24 @@ const AddPeopleDialog = dynamic(() => import("@/components/messages/parts/AddPeo
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
 const TasksTab = dynamic(() => import("@/components/workspaces/v2/TasksTab"), { ssr: false, loading: () => <SkeletonTasks /> });
 
+/** True while the element is narrower than `px` (the column, not the window): the header folds its cells into ⋯. */
+function useNarrow(px: number) {
+  const [narrow, setNarrow] = useState(false);
+  const observer = useRef<ResizeObserver | null>(null);
+  // A callback ref: the section mounts after the loading skeleton, so an effect would miss it.
+  const ref = useCallback((el: HTMLElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!el) return;
+    observer.current = new ResizeObserver(([entry]) => setNarrow((entry?.contentRect.width ?? px) < px));
+    observer.current.observe(el);
+  }, [px]);
+  return [ref, narrow] as const;
+}
+
 export function ConversationView({ channelId, around = null, surface = "page", onBack, onOpenThread, windowActions }: Props) {
+  // The column's width folds the header (CSS container query for the cells, this for the ⋯ menu).
+  const [convRef, narrow] = useNarrow(560);
   const router = useRouter();
   const goBack = useBack("/messages");
   // Opened from outside Messages, desktop gets the arrow too: the list beside it isn't where you came from (R1).
@@ -595,7 +613,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       {notifyChoices(channel).map((choice) => <DropdownMenuRadioItem key={choice.value} value={choice.value}>{choice.label}</DropdownMenuRadioItem>)}
     </DropdownMenuRadioGroup>
   );
-  const headerButton = "nb-icon-button nb-touch-target size-8";
+  const headerButton = "nbm-cell nb-touch-target";
   const detailsShortcut = keyLabel(detailsKeys());
   // DMs with only Messages skip the tab bar (40px for one tab); bookmarks and files move to ⋯.
   const showTabBar = isMember && surface === "page" && !isApplication && (tabs.length > 1 || !isDirect);
@@ -603,8 +621,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 
   return (
     <ConversationContext.Provider value={ctx}>
-      <section className="flex h-full min-h-0 flex-col bg-card" aria-label={title} data-chat-pane="conversation">
-        <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2 sm:px-3">
+      <section ref={convRef} className="nbm-conv flex h-full min-h-0 flex-col bg-card" aria-label={title} data-chat-pane="conversation">
+        <header className="nbm-chead">
           {backButton}
           {surface === "page" ? <SidebarSheetToggle /> : null}
           {channel.kind === "dm" ? (
@@ -625,8 +643,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 className="group/title inline-flex min-w-0 items-center gap-1 rounded-sm text-left"
                 title={`Conversation details (${detailsShortcut})`}
               >
-                {channel.kind !== "dm" && !other ? <ConversationIcon channel={channel} size={16} aria-hidden="true" className="shrink-0" /> : null}
-                <h1 className="nb-card-title truncate text-foreground group-hover/title:underline">{title}</h1>
+                {channel.kind === "public" && !other ? <span className="nbm-chead-hash" aria-hidden="true">#</span> : channel.kind !== "dm" && !other ? <ConversationIcon channel={channel} size={16} aria-hidden="true" className="shrink-0" /> : null}
+                <h1 className="nbm-chead-title truncate text-foreground">{title}</h1>
               </button>
               {/* Only a starred conversation shows its star (click to unstar); starring lives in ⋯ and Details, so no empty slot. */}
               {isMember && channel.starred ? (
@@ -639,13 +657,13 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               ) : null}
             </div>
             {applicationSubline ? (
-              <p className="truncate text-xs leading-4 text-muted-foreground">{applicationSubline}</p>
+              <p className="nbm-chead-sub">{applicationSubline}</p>
             ) : null}
             {/* One quiet line under the name: the project and the topic, when there are any. */}
             {channel.kind !== "dm" && !channel.application && (channel.project_title || channel.topic) ? (
-              <p className="flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground">
-                {channel.project_title ? <span className="hidden flex-none truncate sm:inline">{channel.project_title}</span> : null}
-                {channel.project_title && channel.topic ? <span aria-hidden="true" className="hidden sm:inline">·</span> : null}
+              <p className="nbm-chead-sub flex min-w-0 items-center gap-1.5">
+                {channel.project_title ? <span className="nbm-fold-inline flex-none truncate">{channel.project_title}</span> : null}
+                {channel.project_title && channel.topic ? <span aria-hidden="true" className="nbm-fold-inline">·</span> : null}
                 {channel.topic ? (
                   <button type="button" onClick={() => openDetails("about")} className="min-w-0 truncate text-left hover:text-foreground" title={channel.topic}>{channel.topic}</button>
                 ) : null}
@@ -655,10 +673,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           {surface === "window" ? (
             <>
               <DropdownMenu>
-                <DropdownMenuTrigger className="nb-icon-button nb-touch-target" aria-label="More options">
+                <DropdownMenuTrigger className={headerButton} aria-label="More options">
                   <MoreHorizontal size={16} />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="nbm nbm-menu w-56">
                   {isMember ? (
                     <>
                       <DropdownMenuItem onSelect={() => void setState({ starred: !channel.starred })}><Star /> {starLabel}</DropdownMenuItem>
@@ -685,10 +703,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             <>
               {isMember ? (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className={`${headerButton} hidden sm:inline-flex`} aria-label={`Notifications: ${notifyText}`} title={`Notifications: ${notifyText}`}>
+                  <DropdownMenuTrigger className={`${headerButton} nbm-fold`} aria-label={`Notifications: ${notifyText}`} title={`Notifications: ${notifyText}`}>
                     <NotifyIcon size={16} />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="nbm nbm-menu w-48">
                     <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                     {notifyMenu}
                   </DropdownMenuContent>
@@ -696,12 +714,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               ) : null}
               {/* Org #general and child project channels link to their page (report §25.5): "Open Compiler Lab →". */}
               {orgPlace ? (
-                <Link href={orgPlace.href} className="nb-ui-label hidden shrink-0 items-center px-2 text-[13px] text-primary hover:underline sm:inline-flex" data-testid="channel-open-project">
+                <Link href={orgPlace.href} className="nbm-fold nb-ui-label shrink-0 items-center px-2 text-[13px] text-primary hover:underline" data-testid="channel-open-project">
                   Open {orgPlace.title} →
                 </Link>
               ) : null}
               {isMember ? (
-                <Link href={`/messages/search?in=${channelId}`} className={`${headerButton} hidden sm:inline-flex`} aria-label={`Search in ${displayName}`} title={`Search in ${displayName}`}>
+                <Link href={`/messages/search?in=${channelId}`} className={`${headerButton} nbm-fold`} aria-label={`Search in ${displayName}`} title={`Search in ${displayName}`}>
                   <Search size={16} />
                 </Link>
               ) : null}
@@ -709,11 +727,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 <button
                   type="button"
                   onClick={() => openDetails("members")}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:h-11"
+                  className="nbm-faces"
                   aria-label={`${channel.member_count} members`}
                   title="Members"
                 >
-                  <span className="hidden items-center -space-x-1.5 sm:inline-flex">
+                  <span className="nbm-faces-stack">
                     {people.slice(0, 3).map((p) => (
                       <span key={p.id} className="relative inline-block rounded-sm ring-2 ring-card">
                         <UserAvatar title="" identity={p} size={20} />
@@ -722,8 +740,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     ))}
                   </span>
                   {/* Below sm the avatars are hidden: the icon says what the number counts. */}
-                  <Users size={16} aria-hidden="true" className={people.length ? "sm:hidden" : ""} />
-                  <span className="nb-meta text-foreground">{channel.member_count}</span>
+                  <Users size={16} aria-hidden="true" className={people.length ? "nbm-unfold" : ""} />
+                  <span aria-hidden="true">{capCount(channel.member_count, 999)}</span>
                 </button>
               ) : null}
               {!isMember && channel.kind === "public" && !archived ? (
@@ -731,10 +749,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               ) : null}
               {isMember || canPreview ? (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="nb-icon-button nb-touch-target" aria-label="More options">
+                  <DropdownMenuTrigger className={headerButton} aria-label="More options">
                     <MoreHorizontal size={16} />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuContent align="end" className="nbm nbm-menu w-60">
+                    {narrow && orgPlace ? <DropdownMenuItem asChild><Link href={orgPlace.href}><ExternalLink /> Open {orgPlace.title} →</Link></DropdownMenuItem> : null}
                     {isMember ? <DropdownMenuItem onSelect={() => openDetails("about")}><PanelRight /> Conversation details <kbd className="nb-meta ml-auto">{detailsShortcut}</kbd></DropdownMenuItem> : null}
                     {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus /> Add people</DropdownMenuItem> : null}
                     {/* Star and topic live here at every width; on phones search and notifications do too. */}
@@ -742,10 +761,14 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       <>
                         <DropdownMenuItem onSelect={() => void setState({ starred: !channel.starred })}><Star /> {starLabel}</DropdownMenuItem>
                         {isChannel && channel.can_admin && !archived ? <DropdownMenuItem onSelect={() => openDetails("about")}><Pencil /> {channel.topic ? "Edit topic" : "Add a topic"}</DropdownMenuItem> : null}
-                        <DropdownMenuItem className="sm:hidden" onSelect={() => router.push(`/messages/search?in=${channelId}`)}><Search /> Search in {displayName}</DropdownMenuItem>
-                        <DropdownMenuSeparator className="sm:hidden" />
-                        <DropdownMenuLabel className="sm:hidden">Notifications</DropdownMenuLabel>
-                        <div className="sm:hidden">{notifyMenu}</div>
+                        {narrow ? (
+                          <>
+                            <DropdownMenuItem onSelect={() => router.push(`/messages/search?in=${channelId}`)}><Search /> Search in {displayName}</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                            {notifyMenu}
+                          </>
+                        ) : null}
                       </>
                     ) : null}
                     {/* A DM without its tab bar: bookmarks and files start here. */}
