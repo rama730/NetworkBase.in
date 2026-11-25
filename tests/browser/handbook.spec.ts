@@ -11,6 +11,7 @@ async function open(page: Page, view: string) {
     (window as any).__calls = calls;
     (window as any).__actions = {
       markOrgDocStillCorrectAction: async (o: string, d: string) => { calls.push(['still', o, d]); return { success: true, reviewBy: '2027-11-25' }; },
+      runProcessAction: async (o: string, d: string) => { calls.push(['run', o, d]); return { success: true, taskId: 't1', steps: 3 }; },
       saveHandbookSettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
       readOrgDocsAction: async () => ({ success: true, data: { mode: 'org', orgId: 'o', orgTitle: 'Acme', orgSlug: 'acme', isAdmin: view === 'settings', isInside: true, memberCount: 80, signedIn: true, groups: [], docs: [], sprints: [], viewerId: 'u-me', reviewMonths: 0, people: [] } }),
     };
@@ -36,5 +37,13 @@ test('Settings → Handbook: the review cycle is 6 or 12 months, or off', async 
   const s = page.getByTestId('handbook-settings');
   await s.getByLabel('Review cycle').selectOption({ label: 'Every 12 months' });
   await expect.poll(async () => (await calls(page))[0]?.[1]).toEqual({ reviewMonths: 12 });
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('a Process page: Run this process adds a task with its steps to My work', async ({ page }) => {
+  await open(page, 'process');
+  await page.getByTestId('run-process').click();
+  await expect(page.getByTestId('toast').getByText('Added to My work with 3 steps')).toBeVisible();
+  await expect.poll(async () => (await calls(page))[0]?.[0]).toBe('run');
   expect(await axeViolations(page)).toEqual([]);
 });

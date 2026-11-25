@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { COMPANY_DOC_GROUPS, DEFAULT_DOC_GROUPS, needsReview, nextReviewBy, docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle } from "../../src/lib/organizations/doc-rules";
+import { COMPANY_DOC_GROUPS, DEFAULT_DOC_GROUPS, needsReview, nextReviewBy, processSteps, docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle } from "../../src/lib/organizations/doc-rules";
 
 test("templates fill {{project}}, {{team}} and {{date}} and name the copy", () => {
   const filled = fillDocTemplate("# Lab report: {{project}}\nTeam: {{ team }}\nDate: {{date}}\n{{unknown}}", { project: "Compiler Lab", team: "Parser", date: "Oct 30" });
@@ -54,4 +54,10 @@ test("B4.1 handbook: a company starts with its four sections; owner and Review b
   assert.equal(nextReviewBy("2026-08-31", 6), "2027-02-28", "the 31st clamps");
   assert.equal(nextReviewBy("2026-11-25", 12), "2027-11-25");
   assert.equal(nextReviewBy("2026-11-25", 0), null);
+});
+
+test("B4.1b Run this process copies the Steps checklist, nothing else", () => {
+  const md = "# Release\n\n## Purpose\n- not a step\n\n## Steps\n- [ ] Tag the build\n- [x] Write notes\n1. Ship it\n* Watch errors\n\n### Detail\n- still a step\n\n## References\n- [ ] not a step";
+  assert.deepEqual(processSteps(md), ["Tag the build", "Write notes", "Ship it", "Watch errors", "still a step"]);
+  assert.deepEqual(processSteps("# No steps here\n- a"), []);
 });

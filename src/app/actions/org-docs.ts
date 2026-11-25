@@ -11,7 +11,7 @@ import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
-import { docFileName, docLabel, docState, docTitle, fillDocTemplate, needsReview, nextReviewBy, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
+import { docFileName, docLabel, docState, docTitle, fillDocTemplate, needsReview, nextReviewBy, processSteps, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
 import { getOrBuildWorkspaceDocPublishMetadata } from '@/lib/workspaces/doc';
 import { readWorkspaceFileText } from '@/lib/files/content-reader';
 import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
@@ -38,6 +38,8 @@ export type OrgDocItem = OrgDocOptions & {
     needsReview: boolean
     ownerName: string | null
     ownerGone: boolean
+    /** The NetworkBase template it started from (settings.kind): "process" shows Run this process. */
+    kind: string | null
 }
 export type OrgDocsData = {
     mode: 'org' | 'child';
@@ -58,6 +60,9 @@ export type OrgDocsData = {
     /** Report 33.2 (B4.1): the viewer (page owners publish and review their pages), the handbook's review cycle in
      * months (0 = off), and, for admins, the people who can own a page. */
     viewerId: string | null;
+    /** The organization's type (company documents offer the handbook templates) and whether the viewer can run processes (not Viewers). */
+    orgType: string | null;
+    canRun: boolean;
     reviewMonths: number;
     people: Array<{ id: string; name: string }>;
 };
@@ -172,6 +177,7 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
             needsReview: needsReview(options.reviewBy, today),
             ownerName: options.owner ? nameOf.get(options.owner) ?? null : null,
             ownerGone: Boolean(options.owner && mode === 'org' && !nameOf.has(options.owner)),
+            kind: normalizeWorkspaceDocSettings(row?.settings).kind ?? null,
         }];
     });
     const linkable = mode === 'org' && isAdmin
@@ -180,7 +186,7 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
         : [];
     const [members] = isAdmin ? await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${orgId} AND role IN ('member', 'viewer')`) : [];
     return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, isInside: Boolean(role), memberCount: members?.n ?? 0, signedIn: Boolean(userId), groups, docs, sprints: linkable,
-        viewerId: userId ?? null, reviewMonths: reviewMonthsOf(org.orgSettings), people: isAdmin ? people : [] } };
+        viewerId: userId ?? null, orgType: org.orgType ?? null, canRun: Boolean(userId && role && role !== 'viewer'), reviewMonths: reviewMonthsOf(org.orgSettings), people: isAdmin ? people : [] } };
 }
 
 const optionsSchema = z.object({
@@ -460,4 +466,38 @@ export async function saveHandbookSettingsAction(orgId: string, input: { reviewM
     const org = await readOrg(orgId);
     touch(org?.slug ?? null, orgId);
     return { success: true };
+}
+
+/**
+ * Run this process (report 33.2 call 6): a task for the person running it, in the organization, with the process's
+ * Steps as its steps — from the version members read. Anyone in the organization but Viewers; never a token.
+ */
+export async function runProcessAction(orgId: string, docId: string): Promise<{ success: true; taskId: string; steps: number } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    const role = userId ? await readViewerOrgRole(orgId, userId) : null;
+    if (!userId || !role || role === 'viewer') return DENIED;
+    const [doc, org] = await Promise.all([orgDocRow(orgId, docId), readOrg(orgId)]);
+    if (!doc || !org) return { success: false, error: 'That doc is no longer available.' };
+    const [row] = await db.select({ publishedVersionId: workspaceDocuments.publishedVersionId }).from(workspaceDocuments).where(eq(workspaceDocuments.id, doc.id)).limit(1);
+    let content: string | null = null;
+    if (row?.publishedVersionId) {
+        const [v] = await db.select({ content: workspaceDocumentVersions.content }).from(workspaceDocumentVersions).where(eq(workspaceDocumentVersions.id, row.publishedVersionId)).limit(1);
+        content = v?.content ?? null;
+    } else if (doc.linkedNodeId) {
+        const access = await getWorkspaceAccessById(orgId, userId);
+        if (access.project) content = await readWorkspaceFileText({ ...access, project: access.project }, orgId, doc.linkedNodeId).catch(() => null);
+    }
+    const steps = content ? processSteps(content) : [];
+    if (!steps.length) return { success: false, error: 'This process has no Steps to run yet.' };
+    const { insertTask } = await import('@/lib/organizations/assignments');
+    const { taskSubtasks, tasks } = await import('@/lib/db/schema');
+    const taskId = await db.transaction(async (tx) => {
+        const id = await insertTask(tx, { projectId: orgId, title: `Run: ${docTitle(doc.filename)}`.slice(0, 200), description: `Steps from the process “${docTitle(doc.filename)}”.`,
+            dueDate: null, sprintId: null, assigneeId: userId, creatorId: userId, kind: 'task', assignmentId: null, assignmentSettings: null, teamName: null });
+        await tx.insert(taskSubtasks).values(steps.map((title, position) => ({ taskId: id, title, position, createdBy: userId })));
+        await tx.update(tasks).set({ sourceDocId: doc.id }).where(eq(tasks.id, id));
+        return id;
+    });
+    touch(org.slug, orgId);
+    return { success: true, taskId, steps: steps.length };
 }

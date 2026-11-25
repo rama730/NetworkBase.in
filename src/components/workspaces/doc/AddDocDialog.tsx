@@ -70,7 +70,8 @@ export function AddDocDialog({
             }
             if (org?.mode === "org") {
                 const { updateOrgDocOptionsAction } = await import("@/app/actions/org-docs");
-                await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only" });
+                // Report 33.2 (B4.1b): a company's processes start in How we work.
+                await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only", ...(key === "process" && org.groups.some((g) => g.id === "how") ? { group: "how" } : {}) });
             }
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
@@ -167,11 +168,12 @@ export function AddDocDialog({
                     </Button>
                 </form>
                 {/* Report 38.15 W1 (A6.1): NetworkBase templates by group; the title above names the document ("Tech spec – Sign-in"). */}
-                {org?.mode !== "org" ? (
+                {org?.mode !== "org" || org.orgType === "company" ? (
                     <details className="rounded-[6px] border border-border" data-testid="nb-templates">
                         <summary className="cursor-pointer px-2.5 py-2 text-[12px] font-medium text-muted-foreground">NetworkBase templates</summary>
                         <div className="max-h-56 space-y-2 overflow-y-auto px-1.5 pb-2">
-                            {TEMPLATE_GROUPS.filter((g) => DOC_TEMPLATES.some((t) => t.group === g.id)).map((g) => (
+                            {/* Report 33.2 (B4.1b): a company's Documents offer its handbook templates; workspaces offer the rest. */}
+                            {TEMPLATE_GROUPS.filter((g) => (org?.mode === "org" ? g.id === "company" : g.id !== "company") && DOC_TEMPLATES.some((t) => t.group === g.id)).map((g) => (
                                 <div key={g.id} role="list" aria-label={g.label}>
                                     <p className="px-1 pt-1 text-[11px] text-muted-foreground">{g.label}</p>
                                     {DOC_TEMPLATES.filter((t) => t.group === g.id).map((t) => (

@@ -16,6 +16,7 @@ import {
     readTemplateTargetsAction,
     readUnreadDocPeopleAction,
     remindUnreadDocAction,
+    runProcessAction,
     saveHandbookSettingsAction,
     saveOrgDocGroupsAction,
     updateOrgDocOptionsAction,
@@ -275,6 +276,7 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
                 {admin && doc.readers ? <ReadByLine orgId={data.orgId} docId={doc.id} readers={doc.readers} /> : null}
             </p>
             {data.mode === 'org' ? <ReviewLine data={data} doc={doc} canReview={canPublish} /> : null}
+            {data.mode === 'org' && doc.kind === 'process' && data.canRun ? <RunProcessButton orgId={data.orgId} docId={doc.id} /> : null}
             {admin ? (
                 <Dialog open={optionsOpen} onOpenChange={setOptionsOpen}>
                     <DialogContent>
@@ -456,5 +458,17 @@ export function HandbookSettings({ orgId }: { orgId: string }) {
                 </select></label>
             <p className="text-muted-foreground">Publishing a page sets its next Review by. On that date its owner sees Needs review and checks it; the page stays visible.</p>
         </div>
+    )
+}
+
+/** Run this process (report 33.2 call 6): a task in My work with the process's steps. */
+function RunProcessButton({ orgId, docId }: { orgId: string; docId: string }) {
+    const [pending, startTransition] = useTransition()
+    return (
+        <Button type="button" size="sm" disabled={pending} data-testid="run-process" onClick={() => startTransition(async () => {
+            const result = await runProcessAction(orgId, docId)
+            if (!result.success) return void toast.error(result.error)
+            toast.success(`Added to My work with ${result.steps} ${result.steps === 1 ? 'step' : 'steps'}`)
+        })}>Run this process</Button>
     )
 }

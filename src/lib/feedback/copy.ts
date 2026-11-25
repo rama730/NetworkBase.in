@@ -821,4 +821,5 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Pick 6 months, 12 months or off.": {"title": "Pick 6 months, 12 months or off.", "type": "warning"},
   "You don’t have permission to do this.": {"title": "You don’t have permission to do this.", "type": "warning"},
   "Use 1 to 20 groups with names up to 40 characters.": {"title": "Use 1 to 20 groups with names up to 40 characters.", "type": "warning"},
+  "This process has no Steps to run yet.": {"title": "This process has no Steps to run yet.", "type": "warning"},
 };

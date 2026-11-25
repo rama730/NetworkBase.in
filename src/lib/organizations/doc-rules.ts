@@ -127,3 +127,23 @@ export function isEmptyDoc(content: string, title: string) {
   return Boolean(heading && !text.includes("\n") && heading[1]!.trim().toLowerCase() === title.trim().toLowerCase());
 }
 
+
+/**
+ * Run this process (report 33.2 call 6): the checklist under a "Steps" heading, as task steps — "- [ ] x", "- x" or
+ * "1. x", until the next heading of the same or a higher level. At most 100, each up to 200 characters.
+ */
+export function processSteps(markdown: string): string[] {
+  const lines = markdown.split("\n");
+  const start = lines.findIndex((l) => /^#{1,6}\s+steps\s*$/i.test(l.trim()));
+  if (start < 0) return [];
+  const level = /^(#+)/.exec(lines[start]!.trim())![1]!.length;
+  const steps: string[] = [];
+  for (const raw of lines.slice(start + 1)) {
+    const line = raw.trim();
+    const heading = /^(#+)\s/.exec(line);
+    if (heading && heading[1]!.length <= level) break;
+    const m = /^(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)(.+)$/.exec(line);
+    if (m && m[1]!.trim()) steps.push(m[1]!.trim().slice(0, 200));
+  }
+  return steps.slice(0, 100);
+}

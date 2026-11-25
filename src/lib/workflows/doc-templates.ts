@@ -11,6 +11,8 @@ export const TEMPLATE_GROUPS = [
   { id: "learning", label: "Learning" },
   { id: "nonprofit", label: "Non-profit" },
   { id: "games", label: "Games and stories" },
+  // Report 33.2 (B4.1b): company handbook pages and processes, offered in a company's Documents only.
+  { id: "company", label: "Company handbook" },
 ] as const;
 export type TemplateGroup = (typeof TEMPLATE_GROUPS)[number]["id"];
 
@@ -699,6 +701,43 @@ _Add an image from Files._
 ## Art references
 ` },
 ];
+
+DOC_TEMPLATES.push(
+  // 33.2 (Basic Employee Handbook): a policy or guide page — summary first, then the details and who to ask.
+  { id: "handbook-page", name: "Handbook page", group: "company", line: "A policy or guide: the summary, the details, who to ask.",
+    body: `## Summary
+_In two or three sentences: what this covers and what people need to do._
+
+## Details
+
+## Asking for help
+_Who to ask, and how._
+` },
+  // 33.2 (SOP): Purpose · Scope · Roles · Steps (a checklist; Run this process copies them) · References · Revision history.
+  { id: "process", name: "Process", group: "company", line: "A repeatable process with steps anyone can run as a task.",
+    body: `## Purpose
+_Why this process exists and what it produces._
+
+## Scope
+_When it applies, and when it doesn’t._
+
+## Roles
+- **Runs it:**
+- **Approves:**
+
+## Steps
+- [ ] Prepare
+- [ ] Do the work
+- [ ] Check and finish
+
+## References
+_Links, or Files videos for screen recordings._
+
+## Revision history
+| Date | What changed | By |
+|---|---|---|
+` },
+);
 
 export const templateById = (id: string) => DOC_TEMPLATES.find((t) => t.id === id) ?? null;
 export const templateTitle = (name: string, title: string) => (title.trim() ? `${name} – ${title.trim()}` : name);
