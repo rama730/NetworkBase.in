@@ -38,3 +38,9 @@ test("term weeks, the next holiday, the year's months and this week", () => {
   assert.deepEqual([months[0]!.month, months.length, months[0]!.days[0]!.kind], ["2026-09", 7, "outside"]);
   assert.deepEqual(thisWeek("2026-10-08", year).map((d) => [d.day, d.kind]), [["2026-10-09", "staff"]]);
 });
+
+test("security review: real dates, at most 400 days, every day inside the terms", () => {
+  assert.equal(schoolYearSchema.safeParse({ name: "x", terms: [{ name: "A", start: "2026-02-30", end: "2026-03-10" }] }).success, false);
+  assert.match(JSON.stringify(schoolYearSchema.safeParse({ name: "x", terms: [{ name: "A", start: "0001-01-01", end: "9999-12-31" }] }).error?.issues), /at most 400 days/);
+  assert.match(JSON.stringify(schoolYearSchema.safeParse({ name: "x", terms: [{ name: "A", start: "2026-09-01", end: "2026-12-01" }], days: [{ name: "Far", kind: "holiday", start: "2027-05-01", end: "2027-05-02" }] }).error?.issues), /outside the terms/);
+});

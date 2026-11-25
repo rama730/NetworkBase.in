@@ -742,4 +742,6 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "{name} ends before it starts.": {"title": "{name} ends before it starts.", "type": "warning"},
   "Terms can’t overlap.": {"title": "Terms can’t overlap.", "type": "warning"},
   "Check the school year.": {"title": "Check the school year.", "type": "warning"},
+  "A school year is at most 400 days.": {"title": "A school year is at most 400 days.", "type": "warning"},
+  "{name} is outside the terms.": {"title": "{name} is outside the terms.", "type": "warning"},
 };
