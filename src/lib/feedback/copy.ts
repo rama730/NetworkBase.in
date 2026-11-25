@@ -773,4 +773,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "This hand-in has two approval steps. Approve them one at a time.": {"title": "This hand-in has two approval steps. Approve them one at a time.", "type": "warning"},
   "The courses’ teachers need to be on the school’s staff first.": {"title": "The courses’ teachers need to be on the school’s staff first.", "type": "warning"},
   "Pick a unit or lesson from one of your courses.": {"title": "Pick a unit or lesson from one of your courses.", "type": "warning"},
+  "Name each quiet week.": {"title": "Name each quiet week.", "type": "warning"},
+  "A quiet week ends after it starts.": {"title": "A quiet week ends after it starts.", "type": "warning"},
+  "Check the quiet weeks.": {"title": "Check the quiet weeks.", "type": "warning"},
 };

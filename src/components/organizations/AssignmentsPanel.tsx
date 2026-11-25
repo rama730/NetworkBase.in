@@ -55,6 +55,8 @@ import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
 import { ASSIGNMENT_STATE_LABELS, copyStateWords } from '@/lib/copy/terms'
+import { ClashNote } from '@/components/organizations/StaffHandIns'
+import { HAND_IN_TEMPLATES } from '@/lib/organizations/staff-deadlines'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog, ReviewersPicker, ThenApprovedByPicker } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -210,6 +212,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [dueTime, setDueTime] = useState(DEFAULT_DUE_TIME)
     // Repeat weekly until (report §33.5): later weeks are made as drafts to check before publishing.
     const [repeatUntil, setRepeatUntil] = useState('')
+    // B3.3c (report 32.4 call 5): at a school, Week N of every later term.
+    const [termWeek, setTermWeek] = useState<number | null>(null)
     const [sprintId, setSprintId] = useState('')
     const draftRef = useRef(onDraft)
     draftRef.current = onDraft
@@ -258,7 +262,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [announcement, setAnnouncement] = useState<string | null>(null)
     const [stepDraft, setStepDraft] = useState('')
     const [roster, setRoster] = useState<OrgRosterPerson[]>([])
-    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string; endDate?: string | null }>; teamAssignments?: Array<{ id: string; title: string }>; sections?: Array<{ id: string; name: string; students: number }>; rubrics?: Array<{ id: string; name: string; outOf: number }> | null }>({ children: [], sprints: [] })
+    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string; endDate?: string | null }>; teamAssignments?: Array<{ id: string; title: string }>; sections?: Array<{ id: string; name: string; students: number }>; rubrics?: Array<{ id: string; name: string; outOf: number }> | null; isSchool?: boolean }>({ children: [], sprints: [] })
     // B1.5a Marking (report 30.8): Not marked, Out of N, or one of the class's rubrics (copied onto the assignment).
     const [marking, setMarking] = useState('none')
     const [outOf, setOutOf] = useState('10')
@@ -295,7 +299,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         void listOrgRosterAction(orgId, '').then(setRoster)
         void readAssignmentComposerOptionsAction(orgId).then((r) => {
             if (!r.success) return
-            setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments, sections: r.sections, rubrics: r.rubrics })
+            setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments, sections: r.sections, rubrics: r.rubrics, isSchool: r.isSchool })
             setAdmins(r.admins ?? [])
             // A new assignment starts from the org's Work defaults (report §21.2 #5).
             setReviewRequired(r.defaults.reviewRequired)
@@ -388,6 +392,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
             ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
+            ...(!repeatUntil && termWeek && dueDay ? { repeatTermWeek: { week: termWeek, weekday: Math.min(4, (new Date(`${dueDay}T00:00:00Z`).getUTCDay() + 6) % 7) } } : {}),
         })
         if (result.success && 'clashes' in result && result.clashes) toast.warning(`${result.clashes} ${result.clashes === 1 ? 'student also has' : 'students also have'} another exam at that time.`)
         setNoReviewer(!result.success && 'noReviewer' in result && result.noReviewer === true)
@@ -473,6 +478,19 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
 
                 <div className="space-y-3.5">
                     <SectionDivider title="Basics" />
+                    {options.isSchool ? (
+                        <Field label="Start from" htmlFor="hand-in-template" hint="The school’s hand-in templates.">
+                            <SelectWrap>
+                                <select id="hand-in-template" defaultValue="" className={cn('nb-select', selectClassName())} onChange={(e) => {
+                                    const t = HAND_IN_TEMPLATES.find((x) => x.id === e.target.value)
+                                    if (t) { setTitle(t.title); setDescription(t.description); setSubmissionType(t.type); clear('title') }
+                                }}>
+                                    <option value="">Blank</option>
+                                    {HAND_IN_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                                </select>
+                            </SelectWrap>
+                        </Field>
+                    ) : null}
                     <Field label="Assignment title" htmlFor="assignment-title" required error={fieldErrors.title}>
                         <input id="assignment-title" value={title} onChange={(e) => { setTitle(e.target.value); clear('title') }} maxLength={200} placeholder="e.g., Lab 1: Arrays and linked lists" className={inputClassName(Boolean(fieldErrors.title))} autoFocus />
                     </Field>
@@ -719,6 +737,15 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                         </label>
                         {!dueLocal ? <p className="text-xs text-muted-foreground">Pick a due date first.</p> : null}
                         {repeatDays.length ? <p className="text-xs text-muted-foreground">{repeatDays.length} {repeatDays.length === 1 ? 'assignment' : 'assignments'}: {dayList(repeatDays)}. Later weeks are saved as drafts to check before publishing.</p> : null}
+                        {options.isSchool ? (
+                            <label className={cn('flex flex-wrap items-center gap-2', small)}>
+                                <input className="nb-check" type="checkbox" checked={termWeek != null} disabled={!dueLocal || Boolean(repeatUntil)} onChange={(e) => setTermWeek(e.target.checked ? 5 : null)} />
+                                Also in Week
+                                {termWeek != null ? <input type="number" min={1} max={20} value={termWeek} onChange={(e) => setTermWeek(Math.max(1, Math.min(20, Number(e.target.value) || 1)))} aria-label="Week of every term" className={cn(inputClassName(false), 'h-8 w-16 font-mono')} /> : <span>N</span>}
+                                of every later term, same weekday (drafts to check; a holiday moves it earlier)
+                            </label>
+                        ) : null}
+                        {options.isSchool && dueDay ? <ClashNote schoolId={orgId} due={dueDay} target={target()} /> : null}
                     </div>
                     <Field label="Late submissions" htmlFor="assignment-late">
                         <SelectWrap>

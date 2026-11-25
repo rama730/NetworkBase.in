@@ -156,7 +156,9 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
     })
     const chip = handInChip(h.state, h.approved)
     const box = handInBox(h)
-    const button = handInButton(h)
+    const shown = handInButton(h)
+    // B3.3c (report 32.4 call 7): a school's sign-off says I've read this, and keeps the date.
+    const button = h.signOff && shown.label === 'Mark as done' ? { ...shown, label: 'I’ve read this' } : shown
     const blocked = handInBlocked({ submissionType: h.submissionType, files: h.files.length, link, text })
     const openSteps = h.steps.filter((s) => !s.done).length
     const at = h.latest ? WHEN.format(new Date(h.latest.at)) : null

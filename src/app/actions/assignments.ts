@@ -101,6 +101,8 @@ const createSchema = z.object({
     materials: z.array(z.string().uuid()).max(20, 'Up to 20 materials.').optional(),
     /** Repeat weekly until (report §33.5): one draft per later week, each checked before it's published. */
     repeatWeeklyUntil: z.string().datetime({ offset: true }).nullable().optional(),
+    /** B3.3c (report 32.4 call 5): at a school, Week N of every later term (weekday 0 = Monday), each a draft to check. */
+    repeatTermWeek: z.object({ week: z.number().int().min(1).max(20), weekday: z.number().int().min(0).max(4) }).nullable().optional(),
     /** Reviewers (report §33.5): the admins who review it; none means every admin's queue has it. */
     reviewers: z.array(z.string().uuid()).max(20).optional(),
     thenApprovedBy: z.string().uuid().nullable().optional(),
@@ -150,6 +152,18 @@ function scheduleFields(schedule: z.infer<typeof scheduleSchema> | null | undefi
 }
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
+/** B3.3c: Week N of every later term of the school's year, at the first one's time of day; a holiday moves it earlier. */
+async function termRepeats(tx: Pick<typeof db, "select">, orgId: string, title: string, due: Date, at: { week: number; weekday: number }) {
+    const [o] = await tx.select({ level: workspaces.orgLevel, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const { readSchoolYear } = await import('@/lib/organizations/school-year');
+    const year = o?.level === 'institution' ? readSchoolYear(o.settings) : null;
+    if (!year) return [];
+    const { weekOfEveryTerm } = await import('@/lib/organizations/staff-deadlines');
+    const first = due.toISOString().slice(0, 10);
+    const time = due.toISOString().slice(10);
+    return weekOfEveryTerm(year, at.week, at.weekday, first).filter((d) => d > first).map((d) => ({ title, dueDate: new Date(`${d}${time}`) }));
+}
+
 export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number; drafts?: number; clashes?: number } | Failure | NoReviewer> {
     const parsed = createSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Check the assignment details.' };
@@ -234,7 +248,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
             }
             if (recipients.length > 0) await createCopies(tx, masterId, recipients, viewer.userId);
             // Repeat weekly (report §33.5): later weeks wait as drafts with their own due dates, to be checked first.
-            const repeats = data.repeatWeeklyUntil ? weeklyRepeats(data.title, new Date(data.dueDate), new Date(data.repeatWeeklyUntil)) : [];
+            const repeats = data.repeatWeeklyUntil ? weeklyRepeats(data.title, new Date(data.dueDate), new Date(data.repeatWeeklyUntil)) : data.repeatTermWeek ? await termRepeats(tx, data.projectId, data.title, new Date(data.dueDate), data.repeatTermWeek) : [];
             for (const week of repeats) {
                 const draftId = await createMasterTask(tx, {
                     orgId: data.projectId, title: week.title, description: data.description || null, dueDate: week.dueDate, sprintId: null, creatorId: viewer.userId,
@@ -311,6 +325,8 @@ export async function scheduleAssignmentAction(masterId: string, schedule: z.inp
 
 export type HandIn = {
     holder: boolean; submissionType: string; reviewRequired: boolean; dueDate: string | null; lateLabel: string | null; from: string; reviewers: string;
+    /** B3.3c: a school's sign-off (nothing to attach): the button says I've read this. */
+    signOff?: boolean;
     state: CopyState; late: boolean; canSubmit: boolean; closed: boolean; approved: boolean; excusedReason: string | null;
     returned: { reason: string | null; fixBy: string | null; by: string | null } | null;
     latest: { version: number; at: string; by: string; link: string | null; text: string | null; note: string | null; files: HandInFile[] } | null;
@@ -354,7 +370,7 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
         SELECT n.id AS node_id, n.name, n.size, n.workspace_id AS project_id FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND ((n.task_id = ${copyId} AND (n.metadata->>'taskFileDetachedFrom') IS DISTINCT FROM ${copyId}::text) OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
     const materials = await readAssignmentMaterialsAction(copyId);
     const byName = latest?.submittedBy ? (await db.select({ name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` }).from(profiles).where(eq(profiles.id, latest.submittedBy)).limit(1))[0]?.name : null;
-    const [org] = await db.select({ title: workspaces.title, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
+    const [org] = await db.select({ title: workspaces.title, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings, orgLevel: workspaces.orgLevel }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
     // Student check 15: who reviews, by role ("Teacher or TA"), not the organization's name.
     const roles = orgRoleNames(org?.orgType, org?.orgSettings);
     // Submit is open per the same rules the server checks on Submit.
@@ -390,6 +406,8 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
         latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId)?.size ?? null, projectId: sizes.get(f.nodeId)?.projectId ?? copy.projectId, ...label(f.nodeId) })) } : null,
         files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), projectId: f.project_id, ...label(f.node_id) })), materials: materials.success ? materials.materials : [],
         wouldBeLate, projectId: copy.projectId, orgId: master.projectId, masterId: master.id, steps, maxFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES,
+        // B3.3c (report 32.4 call 7): at a school, a hand-in with nothing to attach is a sign-off — "I've read this".
+        signOff: master.settings.submissionType === 'none' && org?.orgLevel === 'institution',
         exam: exam ? { settings: exam, coverNames: [...coverNames, ...exam.covers.outcomes], extraMinutes: extra } : null,
         history: history.map((e) => ({ kind: e.kind, at: new Date(e.at).toISOString(), by: e.by, ...(e.kind === 'handed_in' ? { version: Number(e.version), late: Boolean(e.late) } : { reason: e.reason }) })),
     } };
@@ -1277,7 +1295,9 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
         FROM class_sections s WHERE s.workspace_id = ${orgId}::uuid ORDER BY s.position, s.created_at`));
     // B1.5a: Marking in Education classes — the class's rubrics (archived ones stay out of the picker).
     const rubrics = typeProfile(org?.type).schools ? readRubrics(org?.settings).filter((r) => !r.archived).map((r) => ({ id: r.id, name: r.name, outOf: rubricOutOf(r) })) : null;
-    return { success: true as const, children, sprints, teamAssignments, sections, rubrics, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime, aiPolicy: work.aiPolicy }, admins: [...admins] };
+    // B3.3c: a school's composer offers the hand-in templates, the clash check and Week N of every term.
+    const [lvl] = await db.select({ level: workspaces.orgLevel }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    return { success: true as const, isSchool: lvl?.level === 'institution', children, sprints, teamAssignments, sections, rubrics, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime, aiPolicy: work.aiPolicy }, admins: [...admins] };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };

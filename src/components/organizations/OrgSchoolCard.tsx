@@ -2,6 +2,7 @@
 
 import { SchoolYearSettings } from "@/components/organizations/SchoolYear";
 import { TeachingSettings } from "@/components/organizations/Curriculum";
+import { QuietWeeksSettings } from "@/components/organizations/StaffHandIns";
 import { SCHOOL_KINDS, type SchoolKind } from "@/lib/organizations/school-kind";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -90,6 +91,7 @@ export function OrgSchoolCard({ orgId, isSchool }: { orgId: string; isSchool: bo
         <DepartmentsCard schoolId={orgId} departments={school.departments} onSaved={refresh} />
         <SchoolYearSettings orgId={orgId} />
         <TeachingSettings schoolId={orgId} />
+        <QuietWeeksSettings schoolId={orgId} />
         <SchoolKindCard schoolId={orgId} value={school.schoolKind} onSaved={refresh} />
         <SchoolMinimum schoolId={orgId} value={school.attendanceMinimum} onSaved={refresh} />
         <SchoolExamWeeks schoolId={orgId} value={school.examWeeks ?? []} onSaved={refresh} />
