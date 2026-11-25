@@ -1,6 +1,5 @@
 "use client";
-import { UploadBar } from "@/components/ui/UploadBar";
-import { PixelBeat } from "@/components/messages/mix/primitives";
+import { PixelBeat, PixelProgress } from "@/components/messages/mix/primitives";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -819,39 +818,39 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       <TypingIndicator names={typingNames} />
       <p className="sr-only" aria-live="polite">{uploadNews}</p>
       {uploads.length ? (
-        <ul className="mb-2 flex flex-wrap gap-2" aria-label="Attachments">
+        <ul className="nbm-tiles" aria-label="Attachments">
           {uploads.map((u) => (
             u.isImage && u.previewUrl ? (
-              <li key={u.id} className="relative flex size-20 flex-none overflow-hidden rounded-md border border-border bg-muted">
-                <img src={u.previewUrl} alt={u.name} className="size-full object-cover" />
+              <li key={u.id} className="nbm-tile" data-failed={u.error ? "true" : undefined}>
+                <img src={u.previewUrl} alt={u.name} className="nbm-tile-img" />
                 {u.progress < 100 && !u.error ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-foreground/50 text-background">
-                    <UploadBar value={u.progress} label={`Upload progress: ${u.name}`} showPercent className="is-on-image w-14" />
+                  <div className="nbm-tile-veil">
+                    <PixelProgress value={u.progress} label={`Upload progress: ${u.name}`} />
                   </div>
                 ) : null}
                 {u.error ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-destructive/85 px-1 text-center text-[11px] font-semibold leading-tight text-destructive-foreground">
+                  <div className="nbm-tile-fail">
                     <span className="line-clamp-2">{u.reason ?? "Upload failed"}</span>
-                    {u.refused ? null : <button type="button" onClick={() => retryUpload(u)} className="underline pointer-coarse:min-h-8" aria-label={`Retry ${u.name}`}>Retry</button>}
+                    {u.refused ? null : <button type="button" onClick={() => retryUpload(u)} aria-label={`Retry ${u.name}`}>Retry</button>}
                   </div>
                 ) : null}
-                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="absolute right-1 top-1 grid size-6 place-items-center rounded-sm bg-foreground/70 text-background hover:bg-foreground pointer-coarse:size-8">
+                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="nbm-tile-x">
                   <X size={14} />
                 </button>
               </li>
             ) : (
-              <li key={u.id} className={`flex max-w-[260px] items-center gap-2 rounded-md border px-2 py-1 text-[13px] ${u.error ? "border-destructive text-destructive" : "border-border"}`}>
-                <Paperclip size={14} aria-hidden="true" />
+              <li key={u.id} className="nbm-ftile" data-failed={u.error ? "true" : undefined}>
+                <span className="nbm-ftile-glyph" aria-hidden="true"><Paperclip size={14} /></span>
                 <span className="min-w-0 flex-1 truncate">{u.name}</span>
                 {u.error ? (
                   <>
-                    <span className="max-w-[96px] truncate text-[11px]" title={u.reason}>{u.reason ?? "Upload failed"}</span>
-                    {u.refused ? null : <button type="button" onClick={() => retryUpload(u)} className="nb-meta text-destructive underline pointer-coarse:min-h-11" aria-label={`Retry ${u.name}`}>Retry</button>}
+                    <span className="nbm-ftile-why" title={u.reason}>{u.reason ?? "Upload failed"}</span>
+                    {u.refused ? null : <button type="button" onClick={() => retryUpload(u)} className="nbm-ftile-retry" aria-label={`Retry ${u.name}`}>Retry</button>}
                   </>
                 ) : (
-                  <span className="nb-meta">{u.assetId ? "Ready" : `${u.progress}%`}</span>
+                  u.assetId ? <span className="nbm-ftile-meta">Ready</span> : <PixelProgress value={u.progress} label={`Upload progress: ${u.name}`} />
                 )}
-                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="nb-icon-button size-6 pointer-coarse:size-11"><X size={14} /></button>
+                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="nbm-cell nbm-ftile-x"><X size={14} /></button>
               </li>
             )
           ))}
@@ -1000,7 +999,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             title={canSend ? sendHint : sendBlockedReason}
             data-blocked={canSend ? undefined : "true"}
           >
-            <SendHorizontal size={16} /> <span className={queued ? "" : "hidden sm:inline"}>{queued ? `Sending at ${uploadPercent}%` : "Send"}</span>
+            {queued ? <PixelProgress value={uploadPercent} label="Upload progress" /> : <SendHorizontal size={16} />} <span className={queued ? "" : "hidden sm:inline"}>{queued ? `Sending at ${uploadPercent}%` : "Send"}</span>
           </button>
           {send ? null : (
             <ComposerMenu
