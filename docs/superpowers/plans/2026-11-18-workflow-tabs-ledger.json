@@ -1168,9 +1168,9 @@
       "text": "B3.4 S4 Timetable, cover, duties (32.5) — Build: day patterns, periods, rooms; classes as names; timetable slots (CSV/typed + today-only changes); absences by p",
       "kind": "unit",
       "milestone": "B3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/school-timetable.test.ts; tests/unit/school-cover.test.ts; tests/db/school-timetable.test.ts; tests/db/school-cover.test.ts; tests/db/school-duties.test.ts; tests/browser/timetable.spec.ts; tests/browser/cover.spec.ts; tests/browser/duties.spec.ts",
+      "evidence": "B3.4a-d live 2026-11-25 (844423479+848d30035+7fdc3c33c, 72fb2d1d1, 8995a8cd9+8f0ceca4c, 62f4431f0+37b87af99; migrations 0142-0145). Live in Chrome on wt-test-b0-school: school day saved, WT timetable CSV imported (3 slots, teacher matched), Your day with Break and Lunch; an absence P1-P3 made 2 open cover slots (Filled 0 of 2, nobody free as the only staff), removed; a WT Gate duty on Wednesday shown in the grid and in Your day; Cancel today and Undo on WT6B; Use the school timetable set 2 class times on wt-test-b0-class. Live fix: Class details refresh after the sync. Security fixes: teacher matching by unique name, Viewers kept out of duties and cover, today-only changes need write access and no token. Swaps, cover suggestions between colleagues, Cover only staff and cover info are DB- and browser-tested (one account)."
     },
     {
       "key": "B3.5",
