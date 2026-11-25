@@ -57,3 +57,9 @@ test('live votes add only your own face; others come from the server, which leav
     assert.match(read(file), /mine && typeof payload\.user_id === "string" \? payload\.user_id : undefined/, file);
   }
 });
+
+test('a poll option keeps number, bar, faces and count on one row', () => {
+  const css = read('src/components/messages/messages-mix.css');
+  assert.match(css, /\.nbm-poll-opt \{ display: grid; grid-template-columns: 28px minmax\(0, 1fr\) 52px auto;/);
+  assert.match(css, /\.nbm-poll-count \{ grid-column: -2;/);
+});
