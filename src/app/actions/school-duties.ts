@@ -50,7 +50,9 @@ export async function readDutiesAction(schoolId: string) {
   const swaps = Array.from(await db.execute<{ id: string; day: string; place: string; slot: string; from_name: string | null; to_user: string; from_user: string; state: string }>(sql`
     SELECT s.id, s.day::text, d.place, d.slot, coalesce(p.full_name, p.username) AS from_name, s.to_user, s.from_user, s.state FROM school_duty_swaps s
     JOIN school_duties d ON d.id = s.duty_id JOIN profiles p ON p.id = s.from_user
-    WHERE s.workspace_id = ${schoolId}::uuid AND (s.to_user = ${ctx.userId}::uuid OR s.from_user = ${ctx.userId}::uuid) AND s.day >= current_date ORDER BY s.day LIMIT 100`));
+    WHERE s.workspace_id = ${schoolId}::uuid AND (s.to_user = ${ctx.userId}::uuid OR s.from_user = ${ctx.userId}::uuid)
+      -- Today in the school's own time zone, not the database's (a swap for today vanished after midnight in India).
+      AND s.day >= (now() AT TIME ZONE coalesce((SELECT nullif(time_zone, '') FROM workspaces WHERE id = ${schoolId}::uuid), 'UTC'))::date ORDER BY s.day LIMIT 100`));
   const staff = Array.from(await db.execute<{ id: string; name: string | null }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username) AS name FROM profiles p
     WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${schoolId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${schoolId}::uuid AND role <> 'viewer') ORDER BY 2`));
