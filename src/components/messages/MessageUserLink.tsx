@@ -45,14 +45,14 @@ export function MessageUserLink({ userId, className, children = "Message" }: { u
   );
 }
 
-/** In a person's menu when they only take messages from connections: Message stays, off, with the tag and the reason. */
-export function MessageOffMenuItem() {
+/** In a person's menu when Message isn't open to you: off, with the tag, and the reason when it is their privacy. */
+export function MessageOffMenuItem({ reason = true }: { reason?: boolean }) {
   return (
     <DropdownMenuItem disabled className="nb-msg-off-item">
       <MessageSquare className="size-4" aria-hidden="true" />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="flex items-center gap-1.5">Message <span className="nb-state-tag">Can’t message</span></span>
-        <span className="nb-msg-off-reason">Only accepts messages from connections</span>
+        {reason ? <span className="nb-msg-off-reason">Only accepts messages from connections</span> : null}
       </span>
     </DropdownMenuItem>
   );

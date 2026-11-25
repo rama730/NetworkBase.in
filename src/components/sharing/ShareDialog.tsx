@@ -186,7 +186,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
       <DialogHeader><DialogTitle>{step === 'send' ? `Send ${kind}` : step === 'username' ? 'Set your username' : title}</DialogTitle>
         <DialogDescription>{step === 'send' ? 'Choose a conversation you already have access to.' : step === 'username' ? 'Set a username to get a short profile link.' : 'Review the link and what recipients can see.'}</DialogDescription></DialogHeader>
       {step === 'username' ? <>
-        <label className="space-y-2 text-[13px]"><span className="flex items-baseline justify-between">Username<span className="nb-share-count" aria-hidden="true">{username.length}/20</span></span><Input value={sameDraftAccount?username:''} maxLength={20} onChange={event => setUsername(event.target.value)} autoComplete="off" disabled={busy} /></label>
+        <label className="space-y-2 text-[13px]"><span className="flex items-baseline justify-between">Username<span className="nb-share-count" aria-hidden="true">{(sameDraftAccount ? username : '').length}/20</span></span><Input value={sameDraftAccount?username:''} maxLength={20} onChange={event => setUsername(event.target.value)} autoComplete="off" disabled={busy} /></label>
         <p className="nb-compact text-muted-foreground">3–20 lowercase letters, numbers or underscores. Your profile visibility stays the same.</p>
         <div className="flex gap-2"><Button variant="outline" disabled={busy} onClick={() => { setStep('share'); setMessage(''); }}>Back</Button><Button disabled={busy} onClick={() => void saveUsername()}>{busy ? 'Saving…' : 'Save username'}</Button></div>
       </> : step === 'send' ? <>

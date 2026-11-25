@@ -16,10 +16,21 @@ function flush() {
   timer = 0;
   const ids = [...waiting];
   waiting.clear();
-  void canMessageMany({ userIds: ids })
-    .then((result) => { if (result.success) for (const [id, gate] of Object.entries(result.gates ?? {})) known.set(id, gate); })
-    .catch(() => undefined)
-    .finally(() => listeners.forEach((listener) => listener()));
+  // The server answers 100 at a time.
+  for (let i = 0; i < ids.length; i += 100) {
+    void canMessageMany({ userIds: ids.slice(i, i + 100) })
+      .then((result) => { if (result.success) for (const [id, gate] of Object.entries(result.gates ?? {})) known.set(id, gate); })
+      .catch(() => undefined)
+      .finally(() => listeners.forEach((listener) => listener()));
+  }
+}
+
+// A block or unblock changes who can message whom: forget every answer and ask again.
+let blockedKey = "";
+function forgetIfBlocksChanged(key: string) {
+  if (key === blockedKey) return;
+  blockedKey = key;
+  known.clear();
 }
 
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
@@ -27,11 +38,13 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
 /** What one person's Message link should do. Unknown (still asking, or the read failed): open, and the server decides. */
 export function useMessageGate(userId: string) {
   const blockedIds = useBlockedIds();
+  const key = [...blockedIds].sort().join(",");
   useEffect(() => {
+    forgetIfBlocksChanged(key);
     if (known.has(userId) || waiting.has(userId)) return;
     waiting.add(userId);
     if (!timer) timer = window.setTimeout(flush, 0);
-  }, [userId]);
+  }, [userId, key]);
   const gate = useSyncExternalStore(subscribe, () => known.get(userId), () => undefined);
   return messageGate({ canMessage: gate?.canMessage, reason: gate?.reason, blockedByMe: blockedIds.has(userId) });
 }

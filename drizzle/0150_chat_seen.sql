@@ -16,11 +16,21 @@ CREATE OR REPLACE FUNCTION app_private.chat_mark_read(p_channel_id uuid, p_user_
     AS $$
 DECLARE
   v_moved boolean;
+  v_share boolean;
 BEGIN
+  -- A read becomes "seen" only in a DM, while the reader keeps read receipts on, and never across a block:
+  -- reads made with receipts off (or while blocked) never surface later.
+  SELECT c.kind = 'dm' AND coalesce(p.read_receipts, true)
+         AND NOT EXISTS (SELECT 1 FROM public.chat_channel_members o
+                         WHERE o.channel_id = p_channel_id AND o.user_id <> p_user_id AND app_private.blocked_between(p_user_id, o.user_id))
+  INTO v_share
+  FROM public.chat_channels c, public.profiles p
+  WHERE c.id = p_channel_id AND p.id = p_user_id;
+  v_share := coalesce(v_share, false);
   UPDATE public.chat_channel_members m
   SET last_read_seq = p_seq,
-      seen_at = CASE WHEN coalesce(m.seen_seq, 0) < p_seq THEN now() ELSE m.seen_at END,
-      seen_seq = greatest(coalesce(m.seen_seq, 0), p_seq)
+      seen_at = CASE WHEN v_share AND coalesce(m.seen_seq, 0) < p_seq THEN now() ELSE m.seen_at END,
+      seen_seq = CASE WHEN v_share THEN greatest(coalesce(m.seen_seq, 0), p_seq) ELSE m.seen_seq END
   FROM public.chat_channels c
   WHERE m.channel_id = p_channel_id AND m.user_id = p_user_id
     AND c.id = m.channel_id AND p_seq <= c.last_seq AND m.last_read_seq < p_seq;

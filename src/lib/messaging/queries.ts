@@ -15,12 +15,13 @@ export async function selectMessages(viewerId: string, channelId: string, filter
     SELECT m.channel_id, m.channel_seq::int AS seq, m.author_id, m.kind, m.body, m.thread_root_seq::int AS thread_root_seq,
            m.reply_count, m.last_reply_seq::int AS last_reply_seq, m.last_reply_at, m.edited_at, m.deleted_at, m.link_preview_hidden,
            m.created_at, m.client_message_id,
-           -- The thread link's faces: up to 3 people who replied most recently (the thread index serves it).
+           -- The thread link's faces: up to 3 people who replied most recently (the thread index serves it). No block
+           -- filter here: their replies show in the thread, so leaving them out would hint at who blocked you; the row
+           -- hides only people you blocked.
            CASE WHEN m.reply_count > 0 THEN (
              SELECT jsonb_agg(x.author_id ORDER BY x.last_seq DESC) FROM (
                SELECT r.author_id, max(r.channel_seq) AS last_seq FROM chat_messages r
                WHERE r.channel_id = m.channel_id AND r.thread_root_seq = m.channel_seq AND r.deleted_at IS NULL AND r.author_id IS NOT NULL
-                 AND NOT app_private.chat_is_blocked(${viewerId}::uuid, r.author_id)
                GROUP BY r.author_id ORDER BY last_seq DESC LIMIT 3
              ) x
            ) END AS last_repliers,

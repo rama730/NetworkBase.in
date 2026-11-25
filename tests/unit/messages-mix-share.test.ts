@@ -30,7 +30,7 @@ test('Send in NetworkBase: a missing conversation keeps the note; a block clears
   assert.match(dialog, /This conversation isn’t available anymore\. Your note is kept\./);
   assert.match(dialog, /'chat_cannot_reply','chat_blocked'\]/);
   assert.match(dialog, /<PixelBeat \/>Sending…/);
-  assert.match(dialog, /\{username\.length\}\/20/);
+  assert.match(dialog, /\{\(sameDraftAccount \? username : ''\)\.length\}\/20/);
   assert.match(dialog, /sm:max-w-\[440px\]/);
   assert.match(dialog, /className="nb-seg" data-fill>[\s\S]{0,400}<TabMarker \/><\/div>/);
   assert.doesNotMatch(dialog, /rounded-md border border-border bg-muted p-3/, 'the receipt panel is a soft fill without an edge');

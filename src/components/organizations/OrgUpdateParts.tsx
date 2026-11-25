@@ -209,7 +209,7 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
                             onClick={() => onChange({ ...value, notifyLevel: emailOn ? 'in_app' : 'email' })}><Mail className="h-4 w-4" /></button>
                         {/* #general is for the whole organization (EntryPoints): off for a partial audience, and it says why. */}
                         <button type="button" className={tool} aria-pressed={Boolean(value.shareToGeneral) && !partialAudience} disabled={partialAudience}
-                            aria-label={partialAudience ? '#general is for updates to the whole organization.' : 'Also share in #general'} title={partialAudience ? '#general is for updates to the whole organization.' : 'Also share in #general'}
+                            aria-label="Also share in #general" aria-description={partialAudience ? '#general is for updates to the whole organization.' : undefined} title={partialAudience ? '#general is for updates to the whole organization.' : 'Also share in #general'}
                             onClick={() => onChange({ ...value, shareToGeneral: !value.shareToGeneral })}><Hash className="h-4 w-4" /></button>
                     </>
                 ) : null}

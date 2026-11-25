@@ -29,7 +29,7 @@ test('0150: seen columns, the receipts setting on by default, mark_read sets the
   assert.match(sql, /ADD COLUMN seen_at timestamptz/);
   assert.match(sql, /ADD COLUMN read_receipts boolean NOT NULL DEFAULT true/);
   assert.match(sql, /CREATE OR REPLACE FUNCTION app_private\.chat_mark_read/);
-  assert.match(sql, /seen_seq = greatest\(coalesce\(m\.seen_seq, 0\), p_seq\)/);
+  assert.match(sql, /seen_seq = CASE WHEN v_share THEN greatest\(coalesce\(m\.seen_seq, 0\), p_seq\) ELSE m\.seen_seq END/);
   assert.doesNotMatch(sql, /chat_mark_unread/);
   const journal = read('drizzle/meta/_journal.json');
   assert.match(journal, /"tag": "0150_chat_seen"/);

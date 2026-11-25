@@ -48,7 +48,8 @@ export function pollStats(options: { emoji: string; label: string }[], reactions
   });
   const votes = rows.reduce((sum, r) => sum + r.count, 0);
   const known = reactions.some((r) => Array.isArray(r.user_ids));
-  const people = known ? new Set(rows.flatMap((r) => r.voters)).size : null;
+  // Live votes from others raise counts before their ids arrive: never fewer people than the biggest option's votes.
+  const people = known ? Math.max(new Set(rows.flatMap((r) => r.voters)).size, ...rows.map((r) => r.count)) : null;
   const base = people || votes;
   return { votes, people, options: rows.map((r) => ({ ...r, share: base ? Math.min(100, Math.round((r.count / base) * 100)) : 0 })) };
 }

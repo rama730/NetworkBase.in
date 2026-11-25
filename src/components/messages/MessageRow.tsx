@@ -722,7 +722,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             <button type="button" onClick={() => ctx.openThread(message.seq)} className="nbm-thr">
               {message.last_repliers?.length ? (
                 <span className="nbm-thr-faces" aria-hidden="true">
-                  {message.last_repliers.map((id) => ctx.people.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p)).map((p) => <UserAvatar key={p.id} identity={p} size={18} />)}
+                  {message.last_repliers.filter((id) => !ctx.blockedIds?.has(id)).map((id) => ctx.people.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p)).map((p) => <UserAvatar key={p.id} identity={p} size={18} />)}
                 </span>
               ) : null}
               <b>{message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}</b>

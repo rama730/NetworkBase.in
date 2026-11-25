@@ -323,7 +323,7 @@ function ConnectionCard({
                             </>
                         ) : (
                             <>
-                                <MessageOffMenuItem />
+                                <MessageOffMenuItem reason={false} />
                                 <DropdownMenuSeparator />
                             </>
                         )}

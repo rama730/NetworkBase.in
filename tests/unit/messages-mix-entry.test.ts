@@ -47,7 +47,7 @@ test('MessageUserLink: gated per person in one batched read, "Opening…" with t
   assert.match(link, /gate\.state === "unblock"\) return null/);
   assert.match(link, /className="nb-state-tag"/);
   const gates = read('src/components/messages/message-gates.ts');
-  assert.match(gates, /canMessageMany\(\{ userIds: ids \}\)/);
+  assert.match(gates, /canMessageMany\(\{ userIds: ids\.slice\(i, i \+ 100\) \}\)/);
   assert.match(gates, /setTimeout\(flush, 0\)/);
 });
 
@@ -61,7 +61,7 @@ test('every organization Message link goes through MessageUserLink', () => {
 
 test('network and profile: Message shows off with the tag instead of disappearing; profile shows it beside Connect for anyone who takes messages', () => {
   for (const file of ['src/components/network/PersonCard.tsx', 'src/components/network/ConnectionsClient.tsx']) {
-    assert.match(read(file), /<MessageOffMenuItem \/>/, file);
+    assert.match(read(file), /<MessageOffMenuItem( reason=\{false\})? \/>/, file);
   }
   assert.match(read('src/components/messages/MessageUserLink.tsx'), /<DropdownMenuItem disabled[^>]*>[\s\S]{0,300}Can’t message[\s\S]{0,200}Only accepts messages from connections/);
   const band = read('src/components/profile/v2/ProfileBand.tsx');
