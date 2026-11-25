@@ -48,6 +48,11 @@ test("the school day, an imported timetable, Your day; leaders see all, staff th
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${school}, ${principal!}, 'owner'), (${school}, ${teacher!}, 'member'), (${school}, ${other!}, 'member')`;
   await sql`UPDATE profiles SET full_name = 'Asha Rao' WHERE id = ${teacher!}`;
   await sql`UPDATE profiles SET full_name = 'Ravi Lee' WHERE id = ${other!}`;
+  // A username equal to someone else's full name is ambiguous too.
+  await sql`UPDATE profiles SET username = 'asha rao' WHERE id = ${other!}`.catch(() => undefined);
+  const crossed = await tt.importTimetableAction(school, [{ day: 2, period: "P1", week: null, className: "6A", teacher: "Asha Rao", room: "", error: null }]);
+  const [u] = await sql`SELECT username FROM profiles WHERE id = ${other!}`;
+  if (u!.username === "asha rao") assert.deepEqual(crossed, { success: true, added: 1, unmatched: ["Asha Rao"] });
   viewerId = teacher!;
   assert.equal((await tt.saveTimetableSettingsAction(school, { patterns: [{ name: "Day", days: [1, 2, 3, 4, 5], periods: [{ key: "P1", start: "09:00", end: "10:00" }] }] })).success, false, "leaders only");
   viewerId = principal!;
