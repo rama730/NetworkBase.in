@@ -106,6 +106,7 @@ export async function createWorkspaceInvitationAction(input: CreateInvitationAct
             success: true as const,
             invitationId: invitation.id,
             messageDelivered: Boolean(chatChannelId),
+            channelId: chatChannelId ?? null,
             capacityWarning: Boolean(created.capacityWarning),
         };
     } catch (error) {

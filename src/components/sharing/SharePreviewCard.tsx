@@ -29,7 +29,7 @@ export function SharePreviewCard({ preview, linked = false, loading = false, tra
       </div> : null}
     </div> : null}
   </>;
-  const className = 'block min-w-0 rounded-lg border border-border bg-muted p-3.5';
+  const className = 'block min-w-0 rounded-[3px] bg-muted p-3.5';
   if (preview.kind === 'project') return <div aria-busy={loading || undefined} className={className+' relative'}>{linked?<Link href={destination ?? preview.url} prefetch={false} aria-label={preview.title+'. Open workspace'} className="after:absolute after:inset-0 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-primary"><span className="sr-only">Open workspace</span></Link>:null}{content}</div>;
   return linked ? <Link href={destination ?? preview.url} prefetch={false} aria-label={preview.imageAlt + '. Open ' + preview.kind} aria-busy={loading || undefined} className={className + ' hover:bg-secondary'}>{content}</Link>
     : <div aria-busy={loading || undefined} className={className}>{content}</div>;

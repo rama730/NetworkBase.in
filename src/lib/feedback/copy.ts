@@ -44,7 +44,6 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Account unblocked": { "title": "Account unblocked" },
   "account_limited": { "title": "Your account is limited", "description": "For now you can’t reach people outside your workspaces and connections. See Settings → Account standing.", "type": "warning" },
   "account_suspended": { "title": "Your account is suspended", "description": "See Settings → Account standing.", "type": "warning" },
-  "Invitation sent": { "title": "Invitation sent", "description": "mentor limit nearly full.", "type": "warning" },
   "Invitation accepted": { "title": "Invitation accepted" },
   "Invitation declined": { "title": "Invitation declined" },
   "Application submitted": { "title": "Application submitted" },

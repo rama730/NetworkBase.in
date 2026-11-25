@@ -26,6 +26,8 @@ import { useReportDialog } from "@/components/reports/ReportDialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { conversationHref } from "@/lib/messaging/routes";
+import { inviteToast } from "@/lib/messaging/invite-result";
+import { openChatWindow, prefersChatWindow } from "@/components/messages/chat-window-store";
 import { logger } from "@/lib/logger";
 
 export type ParticipationRole = {
@@ -580,7 +582,13 @@ export default function InviteCollaboratorModal({
                     if (/role is no longer available|guidance appointment/i.test(result.error || "")) refreshProjectOptions(selectedProject.id);
                     return showError(result.error || "Couldn’t send invitation");
                 }
-                toast.success(result.capacityWarning ? "Invitation sent" : "Invitation sent");
+                // Where the note went (EntryPoints): into your conversation with them, or it stays with the invitation.
+                const shown = inviteToast(result);
+                const channelId = result.channelId;
+                toast[shown.kind](shown.title, {
+                    description: shown.description,
+                    action: shown.action && channelId ? { label: shown.action, onClick: () => { if (prefersChatWindow()) openChatWindow(channelId); else router.push(conversationHref(channelId)); } } : undefined,
+                });
             }
             logger.metric("recruitment.composer.submit", { module: "recruitment-composer", projectId: selectedProject.id, kind: mode, outcome: "success", durationMs: Math.round(performance.now() - startedAt) });
             onSuccess?.(applied);

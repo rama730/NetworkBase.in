@@ -267,7 +267,8 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
         const afterSave = async (step: string, run: () => Promise<unknown>) => {
             try { await run(); } catch (error) { logger.warn('assignments.after_save_failed', { module: 'assignments', step, masterId: result.masterId, error: error instanceof Error ? error.message : String(error) }); }
         };
-        if (data.publish && data.shareToGeneral) await afterSave('share', () => shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId }));
+        // #general is for the whole organization: an assignment for part of it is never posted there.
+        if (data.publish && data.shareToGeneral && data.target.mode === 'everyone') await afterSave('share', () => shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId }));
         if (data.publish && data.announcement) await afterSave('announcement', () => postOrgAnnouncement(data.projectId, viewer.userId, data.announcement!));
         if (data.publish) await afterSave('notify', () => notifyAssignmentPublished(result.masterId, viewer.userId));
         // B1.6b call 5: students with another exam at the same time — a warning, never a block.

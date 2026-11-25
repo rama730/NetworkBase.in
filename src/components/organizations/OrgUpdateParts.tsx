@@ -87,6 +87,7 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
     const [reach, setReach] = useState<number | null>(null)
     const isOrgAdmin = org?.kind === 'org' && org.isAdmin
     const audienceKey = JSON.stringify(value.audience ?? {})
+    const partialAudience = Boolean(value.audience?.roles?.length || value.audience?.projectIds?.length || value.audience?.sectionIds?.length)
     useEffect(() => {
         if (!isOrgAdmin || !canCreate) return
         let cancelled = false
@@ -206,7 +207,9 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
                             aria-label={emailsLeft === 0 ? `${EMAIL_LIMIT} emails sent today. Resets tomorrow.` : `Also email · ${emailsLeft} of ${EMAIL_LIMIT} left today`}
                             title={emailsLeft === 0 ? `${EMAIL_LIMIT} emails sent today. Resets tomorrow.` : `Also email · ${emailsLeft} of ${EMAIL_LIMIT} left today`}
                             onClick={() => onChange({ ...value, notifyLevel: emailOn ? 'in_app' : 'email' })}><Mail className="h-4 w-4" /></button>
-                        <button type="button" className={tool} aria-pressed={Boolean(value.shareToGeneral)} aria-label="Also share in #general" title="Also share in #general"
+                        {/* #general is for the whole organization (EntryPoints): off for a partial audience, and it says why. */}
+                        <button type="button" className={tool} aria-pressed={Boolean(value.shareToGeneral) && !partialAudience} disabled={partialAudience}
+                            aria-label={partialAudience ? '#general is for updates to the whole organization.' : 'Also share in #general'} title={partialAudience ? '#general is for updates to the whole organization.' : 'Also share in #general'}
                             onClick={() => onChange({ ...value, shareToGeneral: !value.shareToGeneral })}><Hash className="h-4 w-4" /></button>
                     </>
                 ) : null}

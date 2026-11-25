@@ -205,7 +205,7 @@ export function StatusPicker() {
             <div className="flex min-h-11 items-center gap-3">
               <div className="flex flex-1 flex-col gap-0.5">
                 <span className="text-[15px] font-medium">Pause notifications</span>
-                <span className="text-[13px] text-muted-foreground">Until the status clears. Mentions wait in Activity.</span>
+                <span className="text-[13px] text-muted-foreground">Until the status clears. Mentions wait in your Inbox.</span>
               </div>
               <Switch checked={pause} onChange={setPause} label="Pause notifications" />
             </div>

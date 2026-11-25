@@ -2700,6 +2700,16 @@ html[data-reduce-motion="true"] .nb-tab-marker { transition: none; }
 .nb-seg > :is(button, a):hover { color: var(--foreground); }
 .nb-seg > :is([aria-selected="true"], [aria-checked="true"], [aria-pressed="true"], [aria-current="page"]) { color: var(--foreground); background: color-mix(in srgb, var(--secondary) 70%, transparent); }
 .nb-seg > :is(button, a):focus-visible { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--foreground); }
+/* Send in NetworkBase (Share board): soft cells without an edge, square radio rows, a mono status line. */
+.nb-share-cell { padding: 12px; border-radius: 3px; background: var(--muted); }
+.nb-share-count { font: 400 11px/1 var(--font-jetbrains-mono), ui-monospace, monospace; color: var(--muted-foreground); }
+.nb-share-status { font: 400 11.5px/1.5 var(--font-jetbrains-mono), ui-monospace, monospace; color: var(--muted-foreground); }
+.nb-share-row { display: flex; min-height: 64px; align-items: center; gap: 12px; padding: 8px; border-radius: 3px; font-size: 13px; }
+.nb-share-row:hover, .nb-share-row.is-picked { background: var(--muted); }
+.nb-share-row.is-off { opacity: .5; }
+.nb-share-mark { appearance: none; flex: none; width: 16px; height: 16px; margin: 0; border: 1px solid var(--border); border-radius: 2px; background: var(--card); }
+.nb-share-mark:checked { border-color: var(--foreground); background: var(--foreground); box-shadow: inset 0 0 0 3px var(--card); }
+.nb-share-mark:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .nb-seg[data-size="sm"] > :is(button, a) { height: calc(var(--ui-control-height-sm) - 2px); padding: 0 10px; font-size: 12.5px; }
 .nb-seg .nb-seg-n { font: 11px var(--font-mono, ui-monospace), ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
 .nb-seg > [aria-selected="true"] .nb-seg-n, .nb-seg > [aria-pressed="true"] .nb-seg-n { color: var(--nb-brand); }

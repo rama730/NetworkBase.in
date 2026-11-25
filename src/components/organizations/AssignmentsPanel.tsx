@@ -384,7 +384,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: at(dueLocal), sprintId: sprintId || null, publish,
             submissionType, reviewRequired: reviewOff ? false : reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntil ? at(lateUntil) : null,
-            target: target(), steps, shareToGeneral, lateAfterMinutes: isExam ? 0 : lateAfter, materials: materials.map((m) => m.id),
+            target: target(), steps, shareToGeneral: shareToGeneral && mode === 'everyone', lateAfterMinutes: isExam ? 0 : lateAfter, materials: materials.map((m) => m.id),
             ...(reviewRequired && !reviewOff && reviewers.length ? { reviewers } : {}),
             ...(reviewRequired && !reviewOff && thenApprovedBy ? { thenApprovedBy } : {}),
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
@@ -870,7 +870,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             <span className="mt-1 block font-normal text-muted-foreground">Applies to AI agents connected to NetworkBase. It can’t detect work written with other tools.</span>
                         </label>
                         <input value={aiNote} onChange={(e) => setAiNote(e.target.value)} maxLength={300} placeholder="A note to students about AI (optional)" aria-label="Note to students about AI" className={cn(inputClassName(false), small)} />
-                        <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} />Also share in #general</label>
+                        <label className={cn('flex items-center gap-2', small, mode !== 'everyone' && 'opacity-50')} title={mode !== 'everyone' ? '#general is for updates to the whole organization.' : undefined}><input className="nb-check" type="checkbox" checked={shareToGeneral && mode === 'everyone'} disabled={mode !== 'everyone'} onChange={(e) => setShareToGeneral(e.target.checked)} />Also share in #general</label>{mode !== 'everyone' ? <span className={cn('text-muted-foreground', small)}>#general is for updates to the whole organization.</span> : null}
                         <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} />Also post an announcement</label>
                         {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className={cn('nb-textarea', inputClassName(false), 'min-h-[60px] resize-y py-2')} /> : null}
                     </div>

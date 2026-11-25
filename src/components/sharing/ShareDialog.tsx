@@ -1,5 +1,7 @@
 'use client';
 
+import { TabMarker } from '@/components/ui/TabMarker';
+import { PixelBeat } from '@/components/ui/PixelBeat';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Copy, Share2, Send } from 'lucide-react';
@@ -137,8 +139,8 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
       if(!alive.current||currentUser.current!==account)return;
       if(!result.success){
         if(result.error==='chat_unauthorized')setNeedsAuth(true);
-        if(['chat_not_member','chat_channel_not_found','chat_channel_archived','chat_cannot_reply'].includes(result.error)){setTarget('');}
-        setMessage(result.error==='share_link_changed'?'The link changed. Review the refreshed preview before retrying.':result.error==='share_unavailable'?'This link is no longer available to share. Your note is kept.':chatErrorMessage(result.error));
+        if(['chat_not_member','chat_channel_not_found','chat_channel_archived','chat_cannot_reply','chat_blocked'].includes(result.error)){setTarget('');}
+        setMessage(result.error==='chat_channel_not_found'?'This conversation isn’t available anymore. Your note is kept.':result.error==='share_link_changed'?'The link changed. Review the refreshed preview before retrying.':result.error==='share_unavailable'?'This link is no longer available to share. Your note is kept.':chatErrorMessage(result.error));
         void previewQuery.refetch();void targetQuery.refetch();shell.refresh();return;
       }
       const changedDraft=checkingReceipt&&(note!==intent.note||Boolean(target&&target!==intent.channelId));
@@ -179,28 +181,28 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
   };
   const title = `Share ${kind === 'application' ? 'NetworkBase' : kind}`;
   return <Dialog open onOpenChange={open => { if (!open && !pending.current) onClose(); }}>
-    <DialogContent presentation={mobile ? 'bottom-sheet' : 'center'} className={`gap-4 p-6 max-h-[90dvh] overflow-y-auto sm:max-w-[480px] ${mobile ? 'pb-[calc(1.5rem+env(safe-area-inset-bottom))]' : ''}`} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}
+    <DialogContent presentation={mobile ? 'bottom-sheet' : 'center'} className={`gap-4 p-6 max-h-[90dvh] overflow-y-auto sm:max-w-[440px] ${mobile ? 'pb-[calc(1.5rem+env(safe-area-inset-bottom))]' : ''}`} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}
       onEscapeKeyDown={event => { if (pending.current) event.preventDefault(); }} showCloseButton={!busy}>
       <DialogHeader><DialogTitle>{step === 'send' ? `Send ${kind}` : step === 'username' ? 'Set your username' : title}</DialogTitle>
         <DialogDescription>{step === 'send' ? 'Choose a conversation you already have access to.' : step === 'username' ? 'Set a username to get a short profile link.' : 'Review the link and what recipients can see.'}</DialogDescription></DialogHeader>
       {step === 'username' ? <>
-        <label className="space-y-2 text-[13px]">Username<Input value={sameDraftAccount?username:''} maxLength={20} onChange={event => setUsername(event.target.value)} autoComplete="off" disabled={busy} /></label>
+        <label className="space-y-2 text-[13px]"><span className="flex items-baseline justify-between">Username<span className="nb-share-count" aria-hidden="true">{username.length}/20</span></span><Input value={sameDraftAccount?username:''} maxLength={20} onChange={event => setUsername(event.target.value)} autoComplete="off" disabled={busy} /></label>
         <p className="nb-compact text-muted-foreground">3–20 lowercase letters, numbers or underscores. Your profile visibility stays the same.</p>
         <div className="flex gap-2"><Button variant="outline" disabled={busy} onClick={() => { setStep('share'); setMessage(''); }}>Back</Button><Button disabled={busy} onClick={() => void saveUsername()}>{busy ? 'Saving…' : 'Save username'}</Button></div>
       </> : step === 'send' ? <>
-        {!userId || needsAuth ? <><p className="nb-compact text-muted-foreground">Sign in again to send. Your draft stays here until you close this dialog.</p><Button asChild><a href={buildAuthPageHref('/login', canonicalUrl ? new URL(canonicalUrl).pathname : '/discover')} target="_blank" rel="noopener">Sign in</a></Button><Button variant="outline" onClick={() => void previewQuery.refetch()}>Check sign-in</Button></> : <>
+        {!userId || needsAuth ? <div className="nb-share-cell space-y-2"><p className="nb-compact text-muted-foreground">Sign in again to send. Your draft stays here until you close this dialog.</p><div className="flex flex-wrap gap-2"><Button asChild><a href={buildAuthPageHref('/login', canonicalUrl ? new URL(canonicalUrl).pathname : '/discover')} target="_blank" rel="noopener">Sign in</a></Button><Button variant="outline" onClick={() => void previewQuery.refetch()}>Check sign-in</Button></div></div> : <>
           <ShareDestinationBrowser scope={scope} onScopeChange={changeScope} selectedId={target} disabled={busy} memory={listMemory} onAuthRequired={setNeedsAuth} onSelect={channel=>{setTarget(channel.id);setMessage('');}}/>
         </>}
         <label className="space-y-2 text-[13px]">Note (optional)<textarea value={sameDraftAccount?note:''} maxLength={1000} rows={2} disabled={busy} onChange={event => setNote(event.target.value)} className="w-full rounded-md border border-input bg-card px-3 py-2 outline-none focus:border-ring" /></label>
         <p className="nb-compact text-muted-foreground">Recipients see the details permitted for their own accounts.</p>
-        {canCheckReceipt?<div className="rounded-md border border-border bg-muted p-3"><p className="nb-compact mb-2">Resolve the earlier send before starting a new one. Changed notes and destinations remain separate.</p><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy||!online||!userId||needsAuth} onClick={()=>void checkReceipt()}>Check earlier send</Button>{receiptState==='missing'?<Button disabled={busy||!canRetryOriginal} onClick={()=>void send(true)}>Retry earlier send</Button>:null}</div></div>:null}
+        {canCheckReceipt?<div className="nb-share-cell"><p className="nb-compact mb-2">Resolve the earlier send before starting a new one. Changed notes and destinations remain separate.</p><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy||!online||!userId||needsAuth} onClick={()=>void checkReceipt()}>Check earlier send</Button>{receiptState==='missing'?<Button disabled={busy||!canRetryOriginal} onClick={()=>void send(true)}>Retry earlier send</Button>:null}</div></div>:null}
         <p className="break-words text-[12px] text-muted-foreground">{targetLabel?`Send to ${targetLabel}`:draftIntent.current?'An earlier send can be checked safely.':'Choose a channel or a person to continue.'}</p>
-        <div className="flex justify-between gap-2"><Button variant="outline" disabled={busy} onClick={() => { setStep('share'); setMessage(''); }}>Back to sharing</Button><Button disabled={receiptState!=='none'||!online||!userId||needsAuth||busy||!targetAvailable||(unavailable||current?.viewerPreview.state!=='ready')} onClick={() => void send()}>{busy?'Sending…':'Send'}</Button></div>
+        <div className="flex justify-between gap-2"><Button variant="outline" disabled={busy} onClick={() => { setStep('share'); setMessage(''); }}>Back to sharing</Button><Button disabled={receiptState!=='none'||!online||!userId||needsAuth||busy||!targetAvailable||(unavailable||current?.viewerPreview.state!=='ready')} onClick={() => void send()}>{busy?<><PixelBeat />Sending…</>:'Send'}</Button></div>
       </> : <>
         <label className="space-y-2 text-[13px]">{kind === 'profile' ? 'Profile link' : 'Link'}<Input ref={field} readOnly value={canonicalUrl ?? ''} placeholder={ownerUsernameSetup ? 'Set a username to get a profile link' : 'No valid sharing link'} onFocus={event => { if (manual) event.target.select(); }} className="font-mono text-[12px]" /></label>
         <p className="nb-compact text-muted-foreground">{!online ? 'You are offline. Copy the link now; reconnect to load the preview and send.' : publicPreview ? accessCopy(internalPreview?.draft ? internalPreview : publicPreview) : 'A valid username is needed before sharing this profile.'}</p>
         {canonicalUrl && selected ? <>
-          <div role="group" aria-label="Preview audience" className="flex flex-wrap gap-2"><Button size="sm" variant={format === 'public' ? 'secondary' : 'outline'} aria-pressed={format === 'public'} onClick={() => setFormat('public')}>Outside NetworkBase</Button><Button size="sm" variant={format === 'internal' ? 'secondary' : 'outline'} aria-pressed={format === 'internal'} onClick={() => setFormat('internal')}>On NetworkBase</Button></div>
+          <div role="group" aria-label="Preview audience" className="nb-seg" data-fill><button type="button" aria-pressed={format === 'public'} onClick={() => setFormat('public')}>Outside NetworkBase</button><button type="button" aria-pressed={format === 'internal'} onClick={() => setFormat('internal')}>On NetworkBase</button><TabMarker /></div>
           <SharePreviewCard preview={selected} loading={previewQuery.isLoading} />
           <p className="nb-compact text-muted-foreground">{format === 'public' ? 'External apps receive public metadata. Their framing and refresh timing may differ.' : 'This sample uses your current access. Each recipient’s permissions are checked separately.'}</p>
           {previewQuery.isError || publicPreview?.state === 'unknown' ? <Button size="sm" variant="outline" disabled={!online||previewQuery.isFetching} onClick={() => void previewQuery.refetch()}>Retry preview</Button> : null}
@@ -211,7 +213,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
           {<Button variant="outline" disabled={!canonicalUrl || unavailable} onClick={() => { setScope(WORKSPACES_SCOPE);setTarget('');setStep('send');setMessage('');shell.refresh(); }}><Send className="size-4" />{userId?'Send in NetworkBase':'Sign in to send in NetworkBase'}</Button>}
         </>}
       </>}
-      <p role="status" aria-live="polite" className="min-h-5 break-words text-[12px] text-muted-foreground">{message}</p>
+      <p role="status" aria-live="polite" className="nb-share-status min-h-5 break-words">{message}</p>
     </DialogContent>
   </Dialog>;
 }
