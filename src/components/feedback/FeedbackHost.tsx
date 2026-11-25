@@ -116,7 +116,7 @@ export function FeedbackHost() {
   const region = useRef<HTMLDivElement>(null);
   const origin = useRef<HTMLElement | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
-  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.reduceMotion === 'true';
 
   // What the stack draws: the shown cards, plus any that just left, fading for 140 ms in their old place.
   const shownItems = snapshot.shown.map(id => snapshot.items.find(item => item.id === id)).filter((item): item is FeedbackItem => Boolean(item));

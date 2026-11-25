@@ -73,4 +73,10 @@
 @keyframes nb-feedback-content{from{opacity:.4}to{opacity:1}}
 /* Reduced motion: fade only, 100 ms; the stack fans out without moving; the Undo squares still drain (they carry the time). */
 @media(prefers-reduced-motion:reduce){.nb-feedback-fallback{transition:none}.nb-feedback-card{animation-name:nb-feedback-fade-in;animation-duration:100ms;transition:none}.nb-feedback-card[data-leaving]{animation-duration:100ms}.nb-feedback-stack{transition:none}.nb-feedback-content{animation:none}.nb-feedback-progress i{transition:none}}
+/* The app's own Reduce motion (Settings) gets the same: fade only, nothing moves. */
+html[data-reduce-motion="true"] .nb-feedback-fallback{transition:none}
+html[data-reduce-motion="true"] .nb-feedback-card{animation-name:nb-feedback-fade-in;animation-duration:100ms;transition:none}
+html[data-reduce-motion="true"] .nb-feedback-card[data-leaving]{animation-duration:100ms}
+html[data-reduce-motion="true"] .nb-feedback-stack{transition:none}
+html[data-reduce-motion="true"] .nb-feedback-content{animation:none}
 @keyframes nb-feedback-fade-in{from{opacity:0}to{opacity:1}}
