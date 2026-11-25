@@ -139,7 +139,7 @@ test("33.2 call 7: a team's pages stay in the team unless marked Company-wide; t
   };
   const shipping = await page("shipping");
   const secret = await page("salaries", { companyWide: id, visibilityOverride: "leaders_only" });
-  await page("notes");
+  await page("other-notes");
 
   viewerId = member!;
   let listed = await company.readCompanyWidePagesAction(id);
@@ -161,6 +161,12 @@ test("33.2 call 7: a team's pages stay in the team unless marked Company-wide; t
   assert.ok(read.success);
   assert.match(read.content, /How we ship/);
   assert.equal((await company.readCompanyWidePageAction(id, secret)).success, false);
+  // A workspace page never published (no publish step for workspace pages) still shares its latest saved version.
+  const [draft] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${team}, 'notes', 'notes.md', ${sql.json({ companyWide: id })}) RETURNING id`;
+  await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${team}, ${draft!.id}, 1, '# Notes v1', 'n1'), (${team}, ${draft!.id}, 2, '# Notes v2', 'n2')`;
+  const latest = await company.readCompanyWidePageAction(id, draft!.id);
+  assert.ok(latest.success);
+  assert.match(latest.content, /Notes v2/);
   viewerId = outsider!;
   assert.equal((await company.readCompanyWidePagesAction(id)).success, false, "outside the company: nothing");
   // Moving the team to another company ends the sharing on its own.

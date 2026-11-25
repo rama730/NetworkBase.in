@@ -119,7 +119,7 @@ function TimelineView({ orgId }: { orgId: string }) {
             <tr key={p.id} className="border-t border-border">
               <td className="py-1.5">{p.title}</td>
               <td className="font-mono">{p.start && p.end ? `${p.start.slice(5)} – ${p.end.slice(5)}` : "No dates"}</td>
-              <td>{p.start && p.end ? <span aria-hidden="true" className="relative block h-2 rounded-sm bg-muted"><span className="absolute top-0 h-2 rounded-sm bg-primary" style={{ left: `${((Date.parse(p.start) - min) / span) * 100}%`, width: `${Math.max(2, ((Date.parse(p.end) - Date.parse(p.start)) / span) * 100)}%` }} /></span> : null}</td>
+              <td className="pr-4">{p.start && p.end ? <span aria-hidden="true" className="relative block h-2 rounded-sm bg-muted"><span className="absolute top-0 h-2 rounded-sm bg-primary" style={{ left: `${((Date.parse(p.start) - min) / span) * 100}%`, width: `${Math.max(2, ((Date.parse(p.end) - Date.parse(p.start)) / span) * 100)}%` }} /></span> : null}</td>
               <td className="font-mono">{p.masked ? "—" : `${pct}%`}</td>
               <td className="text-muted-foreground">{p.supports ? names.get(p.supports) ?? "A removed goal" : "—"}</td>
             </tr>

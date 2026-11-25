@@ -120,10 +120,10 @@ export async function readNeedsReviewAction(orgId: string) {
 
 /**
  * From teams (report 33.2 call 7, B4.1e): pages a team marked Company-wide, readable by everyone in the company. A team's
- * other pages stay in the team. A page needs a published version; a leaders-only page never leaves its team.
+ * other pages stay in the team. The company reads its published version, else the latest saved one; a leaders-only page never leaves its team.
  */
 const companyWideWhere = (orgId: string) => sql`w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND d.settings->>'companyWide' = w.parent_id::text
-  AND d.published_version_id IS NOT NULL AND coalesce(d.settings->>'visibilityOverride', 'inherit_workspace') <> 'leaders_only'`;
+  AND coalesce(d.settings->>'visibilityOverride', 'inherit_workspace') <> 'leaders_only'`;
 
 export async function readCompanyWidePagesAction(orgId: string) {
   const ctx = await company(orgId);
@@ -139,7 +139,10 @@ export async function readCompanyWidePageAction(orgId: string, docId: string) {
   if (!ctx?.inside || !isLooseUuid(docId)) return DENIED;
   const [row] = Array.from(await db.execute<{ filename: string; team: string; archived: boolean; content: string }>(sql`
     SELECT d.filename, w.title AS team, (w.status = 'archived') AS archived, v.content
-    FROM workspace_documents d JOIN workspaces w ON w.id = d.workspace_id JOIN workspace_document_versions v ON v.id = d.published_version_id
+    FROM workspace_documents d JOIN workspaces w ON w.id = d.workspace_id
+    -- B4.1 live check: a workspace page has no publish step, so the company reads its published version, else its latest.
+    JOIN LATERAL (SELECT v.content FROM workspace_document_versions v WHERE v.doc_id = d.id
+      ORDER BY (v.id = d.published_version_id) DESC, v.version_number DESC LIMIT 1) v ON true
     WHERE d.id = ${docId}::uuid AND ${companyWideWhere(orgId)}`));
   if (!row) return DENIED;
   return { success: true as const, title: row.filename.replace(/\.(md|mdx|markdown)$/i, ""), team: row.team, archived: Boolean(row.archived), content: row.content };
