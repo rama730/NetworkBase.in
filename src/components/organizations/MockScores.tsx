@@ -27,6 +27,7 @@ export function ScoresView({ orgId }: { orgId: string }) {
   const [series, setSeries] = useState<string | null>(null);
   const [entering, setEntering] = useState<string | null>(null);
   const [setup, setSetup] = useState({ examId: "", preset: "ielts", name: "" });
+  const [editing, setEditing] = useState(false);
   const q = useQuery({ queryKey: ["mock-scores", orgId, series], queryFn: () => readScoresAction(orgId, series), staleTime: 15_000 });
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading scores…</p>;
   if (!q.data?.success) return <ErrorNotice what="Scores" onRetry={() => void q.refetch()} />;
@@ -46,8 +47,9 @@ export function ScoresView({ orgId }: { orgId: string }) {
         {d.series.length ? <label className="flex items-center gap-2">Series
           <select className="nb-select" data-size="sm" value={d.picked ?? ""} onChange={(e) => setSeries(e.target.value)}>{d.series.map((s) => <option key={s} value={s}>{s}</option>)}</select></label> : null}
         {d.mocks.map((m) => <button key={m.id} type="button" className={LINK} onClick={() => setEntering(m.id)}>Enter marks: {m.title}{m.held ? " (held)" : ""}</button>)}
+        {d.layout ? <button type="button" className={LINK} onClick={() => setEditing(true)}>Edit layout</button> : null}
       </div>
-      {d.mocks.length === 0 ? <p className="text-muted-foreground">No mocks yet. Set up one of the class’s exams as a mock below.</p> : (
+      {d.mocks.length === 0 ? <p className="text-muted-foreground">No mocks yet. Set up one of the class’s exams as a mock below.</p> : d.learners.length === 0 ? <p className="text-muted-foreground">No learners yet. Their scores show here once they join.</p> : (
         <div className="overflow-x-auto rounded-md border border-border" role="region" aria-label="Scores by learner" tabIndex={0}>
           <table className="w-full text-[12px]">
             <thead><tr className="border-b border-border text-left text-muted-foreground"><th className="px-3 py-2 font-medium">Learner</th><th className="px-3 py-2 font-medium">Exam</th><th className="px-3 py-2 font-medium">Target</th>
@@ -64,7 +66,8 @@ export function ScoresView({ orgId }: { orgId: string }) {
           </table>
         </div>
       )}
-      {d.bands.length && d.mocks.length ? (
+      {/* Found live: the spread shows once there are marks. */}
+      {d.bands.some((b) => b.count > 0) && d.mocks.length ? (
         <p className="text-muted-foreground" data-testid="score-bands">{d.mocks[d.mocks.length - 1]!.title}: {d.bands.map((b) => `${Number.isFinite(b.from) ? `${b.from}${b.to == null ? "+" : `–${b.to}`}` : `below ${b.to}`} · ${b.count}`).join("  ")}</p>
       ) : null}
       {d.exams.length ? (
@@ -81,6 +84,15 @@ export function ScoresView({ orgId }: { orgId: string }) {
         </div>
       ) : null}
       <StaffSyllabus orgId={orgId} />
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent size="wide">
+          <DialogHeader><DialogTitle>Edit layout</DialogTitle><DialogDescription>Sections, maxima and each section’s raw-to-band table, for every mock in {d.picked}. Marks already entered stay as raw marks.</DialogDescription></DialogHeader>
+          {editing && d.layout ? <LayoutEditor layout={d.layout} onSave={async (layout) => {
+            for (const m of d.mocks) { const r = await saveScoreLayoutAction(orgId, m.id, layout); if (!r.success) return void toast.error(r.error); }
+            toast.success("Layout saved"); setEditing(false); void refresh();
+          }} /> : null}
+        </DialogContent>
+      </Dialog>
       <Dialog open={entering != null} onOpenChange={(o) => { if (!o) setEntering(null); }}>
         <DialogContent size="wide">
           <DialogHeader><DialogTitle>Enter marks</DialogTitle><DialogDescription>Each learner sees only their own, once results are released.</DialogDescription></DialogHeader>
@@ -88,6 +100,44 @@ export function ScoresView({ orgId }: { orgId: string }) {
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+type Layout = NonNullable<Extract<Awaited<ReturnType<typeof readScoresAction>>, { success: true }>["layout"]>;
+const tableText = (c: Array<[number, number]> | undefined) => (c ?? []).map(([raw, band]) => `${raw}:${band}`).join(", ");
+const parseTable = (t: string): Array<[number, number]> | null => {
+  const pairs = t.split(",").map((x) => x.trim()).filter(Boolean).map((x) => x.split(":").map((n) => Number(n.trim())));
+  return pairs.every((p) => p.length === 2 && p.every((n) => Number.isFinite(n) && n >= 0)) ? (pairs as Array<[number, number]>) : null;
+};
+
+/** Found live: the raw-to-band tables institutions enter themselves (call 3), with each section's maximum. */
+function LayoutEditor({ layout, onSave }: { layout: Layout; onSave: (layout: Layout) => Promise<void> }) {
+  const [rows, setRows] = useState(layout.sections.map((s) => ({ ...s, table: tableText(s.conversion as Array<[number, number]> | undefined) })));
+  const [overall, setOverall] = useState(layout.overall);
+  const save = () => {
+    const sections = [];
+    for (const r of rows) {
+      const table = r.table.trim() ? parseTable(r.table) : [];
+      if (table === null) return void toast.error(`${r.name}: write the table as raw:band pairs, like 39:9, 30:7.`);
+      sections.push({ key: r.key, name: r.name.trim() || r.key, max: Number(r.max) || 1, ...(table.length ? { conversion: table } : {}) });
+    }
+    void onSave({ series: layout.series, overall, sections });
+  };
+  return (
+    <div className="space-y-3 text-[13px]" data-testid="layout-editor">
+      {rows.map((r, i) => (
+        <div key={r.key} className="grid gap-2 sm:grid-cols-[1fr_90px_2fr]">
+          <Input value={r.name} aria-label={`Name of section ${i + 1}`} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+          <Input type="number" min={1} value={r.max} aria-label={`Maximum for ${r.name}`} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, max: Number(e.target.value) } : x)))} className="font-mono" />
+          <Input value={r.table} placeholder="Raw to band, e.g. 39:9, 30:7, 23:6 (blank keeps raw marks)" aria-label={`Raw to band table for ${r.name}`} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, table: e.target.value } : x)))} className="font-mono" />
+        </div>
+      ))}
+      <label className="flex items-center gap-2">Overall
+        <select className="nb-select" data-size="sm" value={overall} onChange={(e) => setOverall(e.target.value as Layout["overall"])}>
+          <option value="average_half">Average, to the nearest 0.5</option><option value="sum">Sum</option><option value="none">None</option>
+        </select></label>
+      <button type="button" className={FORM_PRIMARY_CLASS} onClick={save}>Save layout</button>
+    </div>
   );
 }
 

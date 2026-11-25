@@ -91,3 +91,15 @@ test('B2.4b: my Syllabus stages, my private Mistakes with weak topics and Share;
   await syl.getByRole('button', { name: 'Save topics' }).click();
   await expect.poll(() => calls(page)).toEqual([['topics', ['True / False / Not given', 'Maps']]]);
 });
+
+test('found live: Edit layout writes each section’s raw-to-band table to every mock in the series', async ({ page }) => {
+  await open(page, 'scores', true);
+  await page.getByRole('button', { name: 'Edit layout' }).click();
+  const editor = page.getByTestId('layout-editor');
+  await editor.getByLabel('Raw to band table for Writing').fill('9:9, 6:6');
+  await editor.getByRole('button', { name: 'Save layout' }).click();
+  await expect.poll(async () => (await calls(page)).filter((c: unknown[]) => c[0] === 'layout').map((c: unknown[]) => c[1])).toEqual(['m1', 'm2']);
+  const saved = (await calls(page)).find((c: unknown[]) => c[0] === 'layout')[2];
+  expect(saved.sections[1]).toEqual({ key: 'writing', name: 'Writing', max: 9, conversion: [[9, 9], [6, 6]] });
+  expect(saved.sections[0].conversion).toEqual([[39, 9], [30, 7], [0, 4]]);
+});
