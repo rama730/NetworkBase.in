@@ -347,12 +347,15 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             : mode === 'people' ? `Creates ${people.length} ${people.length === 1 ? 'assignment' : 'assignments'}`
                 : mode === 'teams' ? teamsSummary(teams.length, placed.size, pool.length, leftover === 'own')
                     : mode === 'sections' ? `Creates ${pickedStudents} ${pickedStudents === 1 ? 'assignment' : 'assignments'} · one per student in the picked sections`
+                    // Found live (B3.3a): at a school it's one hand-in per course teacher, not one per course.
+                    : options.isSchool && (mode === 'each_child' || mode === 'children') ? 'One hand-in per course teacher on the staff'
                     : mode === 'each_child' ? `Creates ${options.children.length} assignments · one per workspace`
                         : `Creates ${childIds.length} assignments · one per workspace`
 
     // Board/review report §4: the button says what happens — "Publish to 60".
     const goesTo = mode === 'everyone' ? roster.filter((p) => p.role === 'member').length : mode === 'people' ? people.length
-        : mode === 'teams' ? teams.length + individuals.length : mode === 'each_child' ? options.children.length : mode === 'children' ? childIds.length : mode === 'sections' ? pickedStudents : 0
+        : mode === 'teams' ? teams.length + individuals.length : options.isSchool && (mode === 'each_child' || mode === 'children') ? 0
+            : mode === 'each_child' ? options.children.length : mode === 'children' ? childIds.length : mode === 'sections' ? pickedStudents : 0
     const target = (): AssignmentTarget => mode === 'everyone' ? { mode }
         : mode === 'role' ? { mode, role: 'admin' }
             : mode === 'people' ? { mode, userIds: people }
@@ -568,8 +571,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                                     <option value="people">Selected people</option>
                                     <option value="teams">Teams</option>
                                     {options.sections?.length ? <option value="sections">Sections</option> : null}
-                                    <option value="each_child">Each workspace in the organization</option>
-                                    <option value="children">Selected workspaces</option>
+                                    <option value="each_child">{options.isSchool ? 'Each course' : 'Each workspace in the organization'}</option>
+                                    <option value="children">{options.isSchool ? 'Selected courses' : 'Selected workspaces'}</option>
                                 </select>
                             </SelectWrap>
                         </Field>

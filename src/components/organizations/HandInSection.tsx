@@ -351,7 +351,7 @@ function PlanItemHandIn({ copyId, onDone }: { copyId: string; onDone: () => Prom
                     {courses.map((c) => (
                         <optgroup key={c.id} label={c.course}>
                             {c.units.flatMap((u) => [<option key={u.id} value={`unit:${u.id}`}>Unit: {u.name}</option>,
-                                ...u.lessons.map((l) => <option key={l.id} value={`lesson:${l.id}`}>Lesson: {l.title}</option>)])}
+                                ...u.lessons.map((l) => <option key={l.id} value={`lesson:${l.id}`}>Lesson: {u.name} › {l.title}</option>)])}
                         </optgroup>
                     ))}
                 </select>
