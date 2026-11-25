@@ -62,6 +62,7 @@ test.beforeAll(async () => {
         '@/components/workspaces/dashboard/WorkspaceSocialLinksCard': `export const WorkspaceLinkCluster=()=>null;`,
         '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none;`,
         '@/app/actions/workspace/doc': `export const listWorkspaceDocsAction=async()=>({success:true,docs:[]});`,
+        '@/app/actions/plan-hand-in': `export const readMyPlanItemsAction=async()=>({success:true,courses:[]});export const submitPlanItemAction=async()=>({success:true});`,
         '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
             export const readReviewLanesAction=async()=>({success:true,returned:[],approved:[]});
             export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:'Asia/Kolkata',rows:[

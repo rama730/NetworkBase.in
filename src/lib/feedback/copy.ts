@@ -772,4 +772,5 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Step 1 is approved; the second approver decides now.": {"title": "Step 1 is approved; the second approver decides now.", "type": "warning"},
   "This hand-in has two approval steps. Approve them one at a time.": {"title": "This hand-in has two approval steps. Approve them one at a time.", "type": "warning"},
   "The courses’ teachers need to be on the school’s staff first.": {"title": "The courses’ teachers need to be on the school’s staff first.", "type": "warning"},
+  "Pick a unit or lesson from one of your courses.": {"title": "Pick a unit or lesson from one of your courses.", "type": "warning"},
 };

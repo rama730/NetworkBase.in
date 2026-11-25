@@ -20,6 +20,7 @@ test.beforeAll(async () => {
     '@/app/actions/child-units': `export const readWorkspaceUnitsAction=async()=>[];`,
     // The card's panel, cut to the part this test needs: the assignment's own actions (Use again).
     '@/components/workspaces/v2/tasks/TaskDetailPanel': `import React from 'react';import { AssignmentManageSection } from '@/components/organizations/AssignmentsPanel';export default ({task})=>task?React.createElement(AssignmentManageSection,{orgId:'org',masterId:task.id}):null;`,
+    '@/app/actions/plan-hand-in': `export const readMyPlanItemsAction=async()=>({success:true,courses:[]});export const submitPlanItemAction=async()=>({success:true});`,
     '@/app/actions/assignments': `const counts={not_started:0,in_progress:1,submitted:1,returned:0,done:0,missing:0,excused:0,total:2};
       export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:null,rows:[{masterId:'master-1',title:'Array lab',dueDate:null,status:'open',submissionType:'file',reviewRequired:true,teams:false,counts,mine:null}]});
       export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[{id:'co1',name:'CO1',status:'active',endDate:'2026-12-04T18:29:00.000Z'}],teamAssignments:[],admins:[],defaults:{reviewRequired:true,lateRule:'until',dueTime:'17:00'}});

@@ -69,6 +69,7 @@ test.beforeAll(async () => {
     '@/hooks/workspaces/useWorkspaceTasksData': detail,
     '@/app/actions/workspace': `export const readSprintBacklogAction=async({query})=>({success:true,rows:[{id:'b1',title:'Refund flow',storyPoints:5,assignee:null,status:'todo',kind:'task'},{id:'b2',title:'Invoice PDF',storyPoints:3,assignee:'Asha Nair',status:'todo',kind:'task'},{id:'b3',title:'Retry payouts',storyPoints:null,assignee:null,status:'todo',kind:'task'}].filter((r)=>r.title.toLowerCase().includes(query.toLowerCase()))});
       export const createSprintAction=async(input)=>{(window.created??=[]).push(input);return {success:true,sprint:{id:'s9',code:'SPR-9'}}};`,
+    '@/app/actions/plan-hand-in': `export const readMyPlanItemsAction=async()=>({success:true,courses:[]});export const submitPlanItemAction=async()=>({success:true});`,
     '@/app/actions/assignments': `export const remindCopiesAction=async(masterId,ids)=>{(window.reminded??=[]).push([masterId,ids]);return {success:true,reminded:ids.length,skipped:0}};`,
     '@/app/actions/task': `export const addTasksToSprintAction=async(input)=>{(window.added??=[]).push(input);return {added:input.taskIds.length,failed:[]}};`,
   };

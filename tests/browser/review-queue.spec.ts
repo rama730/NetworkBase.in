@@ -18,7 +18,7 @@ const row = (i: number, extra = '') => `{kind:'copy',mine:true,copyId:'c${i}',ma
   steps:[{title:'Read the brief',done:true},{title:'Write the tests',done:false}],comments:2,left:false,
   dueDate:${i === 1 ? 'new Date(Date.now()-(100-1)*36e5-2*36e5).toISOString()' : 'null'},
   people:${i === 3 ? "[{id:'p3',name:'Asha',avatarUrl:null},{id:'p4',name:'Kiran',avatarUrl:null},{id:'p5',name:'Ravi',avatarUrl:null}]" : `[{id:'p${i}',name:'Student ${i}',avatarUrl:null}]`},
-  twoStep:${i === 1 ? "'Asha approved step 1 · Raj decides, step 2 of 2'" : 'null'},newMessages:${i === 2 ? 1 : 0},lastAsk:${i === 1 ? "'Cite your sources.'" : 'null'},
+  twoStep:${i === 1 ? "'Asha approved step 1 · Raj decides, step 2 of 2'" : 'null'},item:${i === 1 ? "{kind:'unit',label:'Forces',changedSince:true}" : 'null'},newMessages:${i === 2 ? 1 : 0},lastAsk:${i === 1 ? "'Cite your sources.'" : 'null'},
   events:${i === 1 ? "[{id:'e1',at:new Date(Date.now()-6*864e5).toISOString(),text:'Version 1 handed in by Student 1'},{id:'e2',at:new Date(Date.now()-5*864e5).toISOString(),text:'Returned by Ms. Rao: Cite your sources. · fix by Nov 13'},{id:'e3',at:new Date(Date.now()-99*36e5).toISOString(),text:'Version 2 handed in by Student 1'}]" : '[]'}${extra}}`;
 
 async function bundle(rows: string) {
@@ -28,6 +28,7 @@ async function bundle(rows: string) {
         '@/components/workspaces/v2/preview/UniversalPreviewEngine': `import React from 'react';export default ({node,fileUrl})=>React.createElement('div',{title:'Preview of '+node.name,'data-url':fileUrl},node.name);`,
         '@/app/actions/files/nodes': `export const getNodesByIds=async(p,ids)=>ids.filter((id)=>id!=='n3').map((id)=>({id,name:{n1:'lab3-report.pdf',n1b:'data.xlsx',v1:'lab3-report.pdf'}[id]??'lab3.zip',type:'file',mimeType:null}));`,
         // Review queue §4b: pages (?paged), live reloads (window.extra rows), presence (?viewers) and a note that fails (window.noteFails).
+        '@/app/actions/plan-hand-in': `export const readMyPlanItemsAction=async()=>({success:true,courses:[]});export const submitPlanItemAction=async()=>({success:true});`,
         '@/app/actions/assignments': `const base=()=>[${rows}];export const readReviewQueueAction=async(_o,cursor)=>{const paged=new URLSearchParams(location.search).has('paged');
             if(cursor==='p2')return {success:true,total:4,rows:[${row(4)}],recentReasons:[],nextCursor:null};
             const all=[...base(),...(window.extra??[])];return {success:true,total:all.length+(paged?1:0),rows:all,recentReasons:['Add the test cases.','Cite your sources.'],nextCursor:paged?'p2':null}};
@@ -87,6 +88,8 @@ test('review queue §1–§3: who is waiting on the left, the work with the deci
     expect((await decision.boundingBox())!.y).toBeLessThan((await work.getByTestId('file-viewer').first().boundingBox())!.y);
     await expect(work).toContainText('Their note: “I used the second dataset.”');
     await expect(work.getByTestId('two-step')).toHaveText('Asha approved step 1 · Raj decides, step 2 of 2');
+    await expect(page.getByTestId('handed-in-item')).toContainText('Unit: Forces · Changed since handed in');
+    await expect(page.getByLabel('Mark its lessons Ready when approved')).not.toBeChecked();
     await expect(work).toContainText('Asked last time: Cite your sources.');
     await work.getByRole('button', { name: /Steps 1 of 2/ }).click();
     await expect(work.getByRole('list', { name: 'Steps' })).toContainText('Write the tests');

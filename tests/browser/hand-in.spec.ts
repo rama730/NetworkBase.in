@@ -37,6 +37,7 @@ test.beforeAll(async () => {
         '@/components/workspaces/v2/preview/UniversalPreviewEngine': `import React from 'react';export default ({node,fileUrl})=>React.createElement('div',{title:'Preview of '+node.name,'data-url':fileUrl},node.name);`,
         '@/app/actions/files/nodes': `export const getNodesByIds=async(p,ids)=>ids.map((id)=>({id,name:id,type:'file',mimeType:null}));`,
         '@/app/actions/files/content': `export const getFilePreviewUrl=async(p,n,d)=>({url:'/files/'+n+(d?'?download=1':'')});`,
+        '@/app/actions/plan-hand-in': `export const readMyPlanItemsAction=async()=>({success:true,courses:[]});export const submitPlanItemAction=async()=>({success:true});`,
         '@/app/actions/assignments': `const copies={${Object.entries(copies).map(([k, v]) => `${k}:${v}`).join(',')}};
             export const readHandInAction=async(id)=>({success:true,handIn:copies[id]});export const submitAssignmentAction=${ok};
             export const readReviewQueueAction=async()=>({success:true,total:2,recentReasons:['Add the test cases.'],rows:[${queueRow('admin', 'Asha Nair')},${queueRow('c9', 'Kiran')}]});

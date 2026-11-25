@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { readHandInAction, startCopyAction, submitAssignmentAction, unsubmitAssignmentAction, type HandIn, type HandInFile } from '@/app/actions/assignments'
+import { readMyPlanItemsAction, submitPlanItemAction } from '@/app/actions/plan-hand-in'
 import { toggleSubtaskAction } from '@/app/actions/subtask'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -17,6 +18,7 @@ import { PeerReviewCard } from '@/components/organizations/PeerReview'
 import { ExamCard } from '@/components/organizations/ExamCard'
 import { handInBlocked, handInBox, handInButton, handInChip, webLink } from '@/lib/organizations/assignment-rules'
 import { cn } from '@/lib/utils'
+import { toast } from '@/lib/feedback'
 
 // Hand in, in the task panel (report §34.4, decision 85; review UX phase 3): what's asked, one state box with what to
 // do next, the files once, the steps, the note and the button that says why it's off; history underneath.
@@ -240,6 +242,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                             <Input type="url" value={link} onChange={(e) => typed({ link: e.target.value })} placeholder="https://" aria-invalid={Boolean(link.trim()) && !webLink(link.trim())} />
                         </label>
                     ) : null}
+                    {h.submissionType === 'text' ? <PlanItemHandIn copyId={copyId} onDone={async () => { await refresh(); onSubmitted(h.reviewRequired) }} /> : null}
                     {h.submissionType === 'text' ? (
                         <label className="block space-y-1"><span className="font-medium">Your answer</span>
                             <textarea value={text} onChange={(e) => typed({ text: e.target.value })} rows={5} maxLength={TEXT_MAX} className="nb-textarea" aria-describedby="hand-in-count" />
@@ -313,5 +316,45 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
             <ConfirmDialog open={confirmSteps} onOpenChange={setConfirmSteps} title={`${openSteps} ${openSteps === 1 ? 'step isn’t' : 'steps aren’t'} ticked`}
                 description="Hand it in anyway? You can’t change the steps while it waits for review." confirmLabel={button.label} onConfirm={submit} />
         </section>
+    )
+}
+
+/**
+ * B3.3b (report 32.4 call 2): hand in a unit or lesson from one of your courses — it is written into this hand-in as
+ * it is now and frozen as a version; later edits to the unit don't change what was handed in.
+ */
+function PlanItemHandIn({ copyId, onDone }: { copyId: string; onDone: () => Promise<void> | void }) {
+    const q = useQuery({ queryKey: ['plan-items', copyId], queryFn: () => readMyPlanItemsAction(copyId), staleTime: 60_000 })
+    const [pick, setPick] = useState('')
+    const [busy, setBusy] = useState(false)
+    const courses = q.data?.success ? q.data.courses : []
+    if (!courses.length) return null
+    const send = async () => {
+        const [kind, id] = pick.split(':') as ['unit' | 'lesson', string]
+        if (!id) return
+        setBusy(true)
+        const r = await submitPlanItemAction(copyId, { kind, id }).finally(() => setBusy(false))
+        if (!r.success) return void toast.error(r.error)
+        toast.success(kind === 'unit' ? 'Unit handed in' : 'Lesson handed in')
+        setPick('')
+        await onDone()
+    }
+    return (
+        <div className="space-y-1.5 rounded-md border border-border p-3" data-testid="plan-item-hand-in">
+            <span className="block font-medium">Hand in a unit or lesson</span>
+            <span className="block text-[12px] text-muted-foreground">It is handed in as it is now; later changes to it don’t change this version.</span>
+            <span className="flex flex-wrap gap-2">
+                <select className="nb-select" aria-label="Unit or lesson to hand in" value={pick} onChange={(e) => setPick(e.target.value)}>
+                    <option value="">Pick a unit or lesson…</option>
+                    {courses.map((c) => (
+                        <optgroup key={c.id} label={c.course}>
+                            {c.units.flatMap((u) => [<option key={u.id} value={`unit:${u.id}`}>Unit: {u.name}</option>,
+                                ...u.lessons.map((l) => <option key={l.id} value={`lesson:${l.id}`}>Lesson: {l.title}</option>)])}
+                        </optgroup>
+                    ))}
+                </select>
+                <Button type="button" size="sm" disabled={!pick || busy} onClick={() => void send()}>{pick.startsWith('lesson') ? 'Hand in this lesson' : 'Hand in this unit'}</Button>
+            </span>
+        </div>
     )
 }

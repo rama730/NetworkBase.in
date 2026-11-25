@@ -929,7 +929,7 @@ async function lastReviewer(copyId: string) {
 }
 
 /** Approve, or Return with a reason, one submitted copy (org admins; report §16.4). */
-export async function reviewAssignmentCopyAction(copyId: string, decision: 'approve' | 'return', reason?: string, expected?: { projectId: string; updatedAt?: string }, options: { fixBy?: string; change?: boolean } = {}): Promise<{ success: true } | Failure> {
+export async function reviewAssignmentCopyAction(copyId: string, decision: 'approve' | 'return', reason?: string, expected?: { projectId: string; updatedAt?: string }, options: { fixBy?: string; change?: boolean; markReady?: boolean } = {}): Promise<{ success: true } | Failure> {
     const loaded = await loadCopy(copyId);
     if (!loaded) return DENIED;
     // From the task panel: the copy must be in that workspace, and the panel must be looking at its current version.
@@ -984,6 +984,14 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
         return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
     }
     if (second && decision === 'return') await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) - 'firstApproval'` }).where(eq(tasks.id, copyId));
+    // B3.3b (report 32.4 call 4): approving a handed-in unit (or lesson) can mark its Draft lessons Ready — only in the
+    // course it came from, under this school.
+    const item = (loaded.copy.typeFields as { handedInItem?: { kind: string; id: string; courseId: string } } | null)?.handedInItem
+    if (decision === 'approve' && options.markReady && item && !approved) {
+        await db.execute(sql`UPDATE tasks t SET stage = 'ready', updated_at = now() FROM workspaces w
+            WHERE w.id = t.workspace_id AND w.id = ${item.courseId}::uuid AND w.institution_id = ${loaded.master.projectId}::uuid AND t.item_type = 'class_lesson' AND t.deleted_at IS NULL AND t.stage = 'draft'
+              AND ${item.kind === 'unit' ? sql`t.sprint_id IN (SELECT id FROM workspace_sprints WHERE parent_sprint_id = ${item.id}::uuid)` : sql`t.id = ${item.id}::uuid`}`)
+    }
     touch(viewer.slug, loaded.master.projectId);
     return { success: true };
 }
@@ -1439,6 +1447,8 @@ export type ReviewQueueRow = {
     copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string;
     /** B3.3a (report 32.4 layer 6): the step line, as text ("Ana approved step 1 · Raj decides, step 2 of 2"). */
     twoStep?: string | null;
+    /** B3.3b (report 32.4 layer 11): a handed-in unit or lesson, and whether it changed since. */
+    item?: { kind: 'unit' | 'lesson'; label: string; changedSince: boolean } | null;
     /** The review panel (report §23.2): what was handed in, its version, steps and the private conversation. */
     projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null;
     /** Mockup task 2: the files to preview and download, and the versions before this one, newest first. */
@@ -1474,10 +1484,13 @@ export async function readReviewQueueAction(orgId: string, cursor?: string | nul
     const after = decodeQueueCursor(cursor);
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
         updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: Array<{ nodeId: string; name: string; size: number | null }> | null; versions: ReviewQueueRow['versions'] | null; steps: ReviewQueueRow['steps']; comments: number; left_org: boolean; late_after: number | null; mine: boolean;
-        people: ReviewQueueRow['people'] | null; new_messages: number; sort_at: string; step1_by: string | null; second_name: string | null }>(sql`
+        people: ReviewQueueRow['people'] | null; new_messages: number; sort_at: string; step1_by: string | null; second_name: string | null; item: { kind: 'unit' | 'lesson'; label: string } | null; item_changed: boolean }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.type_fields->'firstApproval'->>'by')::uuid) AS step1_by,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (m.assignment_settings->>'thenApprovedBy')::uuid) AS second_name,
+               c.type_fields->'handedInItem' AS item,
+               EXISTS (SELECT 1 FROM tasks l WHERE c.type_fields ? 'handedInItem' AND l.item_type = 'class_lesson' AND l.updated_at > (c.type_fields->'handedInItem'->>'at')::timestamptz
+                 AND (l.id::text = c.type_fields->'handedInItem'->>'id' OR l.sprint_id IN (SELECT id FROM workspace_sprints WHERE parent_sprint_id::text = c.type_fields->'handedInItem'->>'id'))) AS item_changed,
                coalesce(c.review_submitted_at, c.updated_at)::text AS sort_at,
                (SELECT jsonb_agg(jsonb_build_object('id', p.id, 'name', coalesce(p.full_name, p.username, 'Member'), 'avatarUrl', p.avatar_url) ORDER BY p.full_name) FROM profiles p
                   WHERE p.id = c.assignee_id OR p.id IN (SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id)) AS people,
@@ -1557,6 +1570,7 @@ export async function readReviewQueueAction(orgId: string, cursor?: string | nul
     return { success: true, nextCursor: more && last ? encodeQueueCursor(last.sort_at, last.copy_id) : null, rows: [...page.map((r): ReviewQueueRow => ({
         ...aiOf(r.files),
         kind: 'copy', mine: r.mine, copyId: r.copy_id, masterId: r.master_id, title: r.title,
+        item: r.item ? { kind: r.item.kind, label: r.item.label, changedSince: Boolean(r.item_changed) } : null,
         twoStep: r.second_name ? (r.step1_by ? `${r.step1_by} approved step 1 · ${r.second_name} decides, step 2 of 2` : `Step 1 of 2 · then ${r.second_name}`) : null,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at).getTime() > new Date(r.due_date).getTime() + (r.late_after ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000),

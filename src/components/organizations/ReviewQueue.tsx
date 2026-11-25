@@ -50,6 +50,8 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     /** Board/review report §2: the board's View button, drawn at the end of the queue's own line. */
     tabs?: (waiting: number) => React.ReactNode }) {
     const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
+    // B3.3b: hand-ins whose unit's lessons become Ready when approved (ticked per hand-in).
+    const [markReady, setMarkReady] = useState<Set<string>>(new Set())
     const [incoming, setIncoming] = useState<ReviewQueueRow[]>([])
     const [total, setTotal] = useState(0)
     const [cursor, setCursor] = useState<string | null>(null)
@@ -160,7 +162,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             return row.kind === 'task'
                 ? await (decision === 'approve' ? approveTaskReviewAction(row.copyId, row.projectId, row.updatedAt) : requestTaskChangesAction(row.copyId, row.projectId, reason ?? '', row.updatedAt))
                     .then((x) => (x.success ? { success: true } : { success: false, error: ('error' in x && x.error) || 'Couldn’t save that. Try again.' }))
-                : await reviewAssignmentCopyAction(row.copyId, decision, reason, { projectId: row.projectId, updatedAt: row.updatedAt }, fixBy ? { fixBy } : {})
+                : await reviewAssignmentCopyAction(row.copyId, decision, reason, { projectId: row.projectId, updatedAt: row.updatedAt }, { ...(fixBy ? { fixBy } : {}), ...(decision === 'approve' && markReady.has(row.copyId) ? { markReady: true } : {}) })
         }
         deferDecision(decision === 'approve' ? `Approved ${row.who}’s ${row.title}.` : `Returned ${row.title} to ${row.who}.`, send, () => hold(row.copyId, false), (ok, message = 'Couldn’t save that. Try again.') => {
             if (ok) {
@@ -390,6 +392,15 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                 )} />
                         </div>
                         {/* Their note, what was asked last time, and the steps: one quiet strip under the header. */}
+                        {/* B3.3b (report 32.4 call 4): a handed-in unit or lesson — what it is, whether it changed, and Mark Ready. */}
+                        {current.item ? (
+                            <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted px-3 py-2 text-[12px]" data-testid="handed-in-item">
+                                <span>{current.item.kind === 'unit' ? 'Unit' : 'Lesson'}: {current.item.label}{current.item.changedSince ? ' · Changed since handed in' : ''}</span>
+                                <label className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={markReady.has(current.copyId)}
+                                    onChange={(e) => setMarkReady((cur) => { const next = new Set(cur); if (e.target.checked) next.add(current.copyId); else next.delete(current.copyId); return next })} />
+                                    Mark its lessons Ready when approved</label>
+                            </div>
+                        ) : null}
                         <NoteStrip row={current} />
                         {current.kind === 'copy' ? <MarkingPanel key={`mark-${current.copyId}`} copyId={current.copyId} /> : null}
                         {current.link ? <LinkCard link={current.link} /> : null}
