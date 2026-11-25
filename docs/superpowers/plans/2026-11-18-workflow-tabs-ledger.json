@@ -1158,9 +1158,9 @@
       "text": "B3.3 S3 Staff hand-ins and reviews (32.4) — Build: NB-item hand-in type (frozen version); second approver (\"Then approved by\", max 2); repeat by school week; qu",
       "kind": "unit",
       "milestone": "B3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/staff-deadlines.test.ts; tests/unit/curriculum.test.ts; tests/db/staff-hand-ins.test.ts; tests/db/plan-hand-in.test.ts; tests/db/staff-deadlines.test.ts; tests/browser/staff-hand-ins.spec.ts",
+      "evidence": "B3.3a-c live 2026-11-25 (85992f621+7f0456b78, 8c25cb503, 5f5c902f7+0c89f8075; no migration). Live in Chrome on wt-test-b0-school: WT Unit plan to Each course (one hand-in per course teacher), handed in Unit 1 from the picker (frozen text v1, waiting for review), Deadlines view (Week of Nov 30, 1 deadline, 1 person), composer Start from templates, Each course words, the clash check listing WT Unit plan that week, Also in Week N of every later term. Live fixes: Each course and Selected courses words, per-teacher count, the picker names each lesson's unit. Security fix: step 1 approves one version. Two-step approvals, Mark Ready, staff words, quiet weeks, repeats and I've read this are DB- and browser-tested (one account can't review its own work)."
     },
     {
       "key": "B3.4",
