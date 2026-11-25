@@ -78,6 +78,18 @@ test("33.4: goals cascade from company to team to project; progress only from ke
   const masked = d.projects.find((p) => p.masked)!;
   assert.deepEqual([masked.title, masked.slug, masked.status?.status], ["Private project", null, "on_track"], "outside it: the name is hidden, the status shows");
   assert.equal(JSON.stringify(d).includes("Acquisition"), false);
+  // A private team's own goals stay with its people (security review): add one and check a member can't see it.
+  const sdoc = await goalsDoc(secret);
+  await item(secret, sdoc, "objective", "Buy a rival", { period });
+  const again = await goals.readCompanyGoalsAction(id);
+  assert.ok(again.success);
+  assert.equal(again.goals.some((x) => x.title === "Buy a rival"), false);
+  // The company's goals document while a draft: admins only.
+  await sql`UPDATE workspace_documents SET settings = settings || '{"org":{"lifecycle":"draft"}}'::jsonb WHERE id = ${cdoc}`;
+  const draft = await goals.readCompanyGoalsAction(id);
+  assert.ok(draft.success);
+  assert.equal(draft.goals.some((x) => x.title === "Grow revenue"), false);
+  await sql`UPDATE workspace_documents SET settings = settings || '{"org":{"lifecycle":"published"}}'::jsonb WHERE id = ${cdoc}`;
   assert.deepEqual(d.notLinked, [], "Not linked is for admins");
   const update = await sql`SELECT content FROM workspace_updates WHERE workspace_id = ${team}`;
   assert.match(String(update[0]?.content), /Status: At risk — Hiring slipped/, "the status is also an Update");
@@ -88,4 +100,5 @@ test("33.4: goals cascade from company to team to project; progress only from ke
   const admin = await goals.readCompanyGoalsAction(id);
   assert.ok(admin.success);
   assert.ok(admin.projects.some((p) => p.title === "Acquisition"), "admins see every project");
+  assert.ok(admin.goals.some((x) => x.title === "Buy a rival"), "and every goal");
 });

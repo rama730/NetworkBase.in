@@ -48,7 +48,11 @@ export async function readCompanyGoalsAction(orgId: string) {
     SELECT t.id, t.title, t.item_type AS type, t.part_of_id, t.type_fields AS fields, t.workspace_id, w.title AS team, coalesce(p.full_name, p.username) AS owner
     FROM tasks t JOIN workspaces w ON w.id = t.workspace_id LEFT JOIN profiles p ON p.id = t.assignee_id
     JOIN workspace_documents d ON d.id = t.source_doc_id AND d.settings->>'section' = 'goals' AND d.settings->>'period' = ${period}
-    WHERE (w.id = ${orgId}::uuid OR (w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND w.status <> 'archived'))
+    WHERE (w.id = ${orgId}::uuid OR (w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND w.status <> 'archived'
+        -- Security review (B4.3): a private team's goals stay with its people and the company's admins.
+        AND (${ctx.admin} OR w.visibility <> 'private' OR w.owner_id = ${ctx.userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${ctx.userId}::uuid))))
+      -- The company's goals document while it's a draft is for its admins (report §37.4).
+      AND (${ctx.admin} OR w.id <> ${orgId}::uuid OR coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft')
       AND t.deleted_at IS NULL AND t.item_type IN ('objective', 'key_result') LIMIT 2000`));
   // Call 6: progress only from key results; links show alignment and never add up.
   const goals: GoalRow[] = items.filter((i) => i.type === "objective").map((o) => {
