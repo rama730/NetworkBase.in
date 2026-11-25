@@ -1,5 +1,7 @@
 "use client";
 
+import { padCount } from "@/lib/messaging/mix-format";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -78,9 +80,10 @@ function DmStatus({ userId }: { userId: string }) {
  * The count: the same neutral badge as the main navigation (.nb-nav-count), capped at 99+.
  * Screen readers hear "3 unread" (or what `noun` says) as part of the row's own text.
  */
+/** Mix count: a square mono chip, two digits, "99+" above; clay because it needs you. */
 function Count({ value, noun = "unread", hidden = false }: { value: number; noun?: string; hidden?: boolean }) {
   if (!value) return null;
-  return <span className="nb-chat-count" aria-hidden={hidden || undefined}>{value > 99 ? "99+" : value}{hidden ? null : <span className="sr-only"> {noun}</span>}</span>;
+  return <span className="nb-chat-count nbm-count hot" aria-hidden={hidden || undefined}>{padCount(value)}{hidden ? null : <span className="sr-only"> {noun}</span>}</span>;
 }
 
 function Row({ channel, meId, variant, onSelect, draft, team }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; draft: boolean; team?: TeamWorkspace | null }) {
@@ -115,6 +118,7 @@ function Row({ channel, meId, variant, onSelect, draft, team }: { channel: ChatC
         </span>
       </span>
       {srNotes}
+      {unread ? <span className="nbm-sq" aria-hidden="true" /> : null}
       <Count value={count} />
     </>
   ) : (
@@ -134,6 +138,7 @@ function Row({ channel, meId, variant, onSelect, draft, team }: { channel: ChatC
       ) : null}
       {draftMark}
       {srNotes}
+      {unread ? <span className="nbm-sq" aria-hidden="true" /> : null}
       <Count value={count} />
     </>
   );
@@ -385,8 +390,11 @@ function SwipeActions({ channel, meId, children }: { channel: ChatChannelSummary
   );
 }
 
-function Section({ id, title, count, noun = "unread", collapsed, onToggle, action, children, attention, plainTitle = false }: {
-  id: string; title: ReactNode; count?: number; collapsed: boolean; onToggle: (id: string) => void; action?: ReactNode; children: ReactNode;
+function Section({ id, title, count, size, noun = "unread", collapsed, onToggle, action, children, attention, plainTitle = false }: {
+  id: string; title: ReactNode; count?: number;
+  /** How many rows the section holds: the mono number beside the label (decoration; the sr count says what needs you). */
+  size?: number;
+  collapsed: boolean; onToggle: (id: string) => void; action?: ReactNode; children: ReactNode;
   /** A project's name: user data, shown as typed (not the uppercase mono label). */
   plainTitle?: boolean;
   /** What the count counts, for screen readers: "mentions" (channels) or "unread conversations". */
@@ -398,13 +406,15 @@ function Section({ id, title, count, noun = "unread", collapsed, onToggle, actio
   return (
     <section aria-labelledby={headingId} className="group/section">
       <div className="nb-chat-section-title">
-        <h2 className="flex min-w-0 flex-1">
+        <h2 className="flex min-w-0 shrink">
           <button type="button" id={headingId} className="flex min-h-7 min-w-0 flex-1 items-center gap-1 text-left pointer-coarse:min-h-11" aria-expanded={!collapsed} onClick={() => onToggle(id)}>
             <ChevronDown size={14} aria-hidden="true" className={`flex-none ${collapsed ? "-rotate-90" : ""}`} />
             <span className={`truncate ${plainTitle ? "nb-ui-label font-sans normal-case tracking-normal text-foreground" : ""}`}>{title}</span>
             {count ? <span className="sr-only">, {count} {noun}</span> : null}
           </button>
         </h2>
+        {size ? <b aria-hidden="true">{padCount(size)}</b> : null}
+        <span className="nbm-glabel-rule" aria-hidden="true" />
         <Count value={count ?? 0} hidden />
         {action}
       </div>
@@ -772,7 +782,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       )}
 
       {applications.length ? (
-        <Section id="applications" title="Applications" noun="unread conversations" count={applications.filter(needsAttention).length} collapsed={Boolean(collapsed.applications)} onToggle={toggle} attention={applications.filter(needsAttention).map(row)}>
+        <Section id="applications" title="Applications" size={applications.length} noun="unread conversations" count={applications.filter(needsAttention).length} collapsed={Boolean(collapsed.applications)} onToggle={toggle} attention={applications.filter(needsAttention).map(row)}>
           {applications.filter((c) => !isDecidedApplication(c.application?.status)).map(row)}
           {decidedGroup("decided:applications", applications.filter((c) => isDecidedApplication(c.application?.status)))}
         </Section>
@@ -783,13 +793,14 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       ) : null}
 
       {starred.length ? (
-        <Section id="starred" title="Starred" noun="unread conversations" count={starred.filter(needsAttention).length} collapsed={Boolean(collapsed.starred)} onToggle={toggle} attention={starred.filter(needsAttention).map(row)}>{starred.map(row)}</Section>
+        <Section id="starred" title="Starred" size={starred.length} noun="unread conversations" count={starred.filter(needsAttention).length} collapsed={Boolean(collapsed.starred)} onToggle={toggle} attention={starred.filter(needsAttention).map(row)}>{starred.map(row)}</Section>
       ) : null}
 
       {open && !(unreadsOnly && !sections.channels.some(keep) && !teamAttention(openTeams).length) ? (
         <Section
           id="channels"
           title="Channels"
+          size={sections.channels.filter(keep).length + openTeams.length}
           noun="mentions"
           // This list only: starred channels count under Starred.
           count={sections.channels.reduce((sum, c) => sum + attention(c), 0) + teamCount(openTeams)}
@@ -814,6 +825,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
             <Section
               key={project.id}
               id={`project:${project.id}`}
+              size={rows.length + teams.length}
               title={<span className="inline-flex min-w-0 items-center gap-1.5"><WorkspaceBadge project={project} size="sm" /><span className="truncate">{project.title}</span>{project.guestOf ? <span className="nb-meta flex-none font-normal">· {project.guestOf}</span> : null}</span>}
               plainTitle
               count={count}
@@ -838,6 +850,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         title="Direct messages"
         count={dmUnread}
         noun="unread conversations"
+        size={others.length + (self ? 1 : 0)}
         collapsed={Boolean(collapsed.dms)}
         onToggle={toggle}
         attention={others.filter(needsAttention).map(row)}

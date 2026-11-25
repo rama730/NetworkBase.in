@@ -16,8 +16,8 @@ export function MessagesSidebar() {
   const wide = useWide();
   return (
     <aside className="nb-chat-sidebar hidden h-full w-[260px] flex-none flex-col border-r border-border bg-card lg:flex" aria-label="Conversations">
-      {/* The app sidebar's spacing: 16px 12px. */}
-      <div data-scroll-memory="messages-sidebar" className="app-scroll app-scroll-y min-h-0 flex-1 px-3 py-4">
+      {/* Mix: full-bleed rows; each row carries its own 14px inset. */}
+      <div data-scroll-memory="messages-sidebar" className="app-scroll app-scroll-y min-h-0 flex-1 py-2">
         {wide === false ? null : <ChatSections variant="sidebar" />}
       </div>
     </aside>

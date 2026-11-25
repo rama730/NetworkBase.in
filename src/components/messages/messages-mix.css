@@ -124,3 +124,16 @@ html[data-reduce-motion="true"] .nbm, html[data-reduce-motion="true"] .nbm *, ht
 }
 html[data-reduce-motion="true"] .nbm-flash { animation-duration: 2.5s !important; }
 html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !important; }
+
+/* ================= Sidebar (Phase 2) ================= */
+.nbm .nb-chat-row { gap: 10px; min-height: 32px; padding: 0 12px 0 14px; border-radius: 0; font-size: 13.5px;
+  transition: background-color var(--nbm-m1) var(--nbm-ease), color var(--nbm-m1) var(--nbm-ease), transform var(--nbm-m1) var(--nbm-ease); }
+.nbm .nb-chat-row:hover { background: var(--nbm-soft); color: var(--foreground); }
+.nbm .nb-chat-row:active { transform: translateY(1px); transition-duration: 60ms; }
+.nbm .nb-chat-row[aria-current="page"] { background: var(--nbm-soft); color: var(--foreground); font-weight: 600; }
+.nbm .nb-chat-row[data-unread="true"] { color: var(--foreground); font-weight: 600; }
+.nbm .nb-chat-row[data-muted="true"] { opacity: .55; }
+.nbm .nb-chat-row-preview { min-height: 60px; padding: 10px 12px 10px 14px; }
+.nbm .nb-chat-section-title { gap: 10px; min-height: 28px; margin-top: 10px; padding: 0 8px 0 14px; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .12em; color: var(--nbm-fg2); }
+.nbm .nb-chat-section-title b { font-weight: 500; color: var(--foreground); }
+.nbm .nb-chat-section-title .nbm-count { min-width: 18px; height: 16px; font-size: 10px; }

@@ -98,7 +98,8 @@ test("#166 #167 #170 #171 timeline: older-page Retry, connection banner, quiet l
 test("#168 #169 rows read their own content; ARIA for switcher, mentions, tabs, section headings", () => {
   const sections = read("src/components/messages/ChatSections.tsx");
   assert.doesNotMatch(sections, /"aria-label": label/);
-  assert.match(sections, /<h2 className="flex min-w-0 flex-1">/);
+  // Messages mix: the heading no longer stretches; the mono row count and the rule fill the line.
+  assert.match(sections, /<h2 className="flex min-w-0 shrink">/);
   // Unread is said in words inside the row (", unread"), the dot is decoration (round 3 #86, #124).
   assert.match(read("src/components/messages/MessagesViews.tsx"), /<span className="sr-only">, unread<\/span>/);
   const switcher = read("src/components/messages/QuickSwitcher.tsx");

@@ -16,7 +16,7 @@ const FALCON = '11111111-1111-4111-8111-111111111111', LONE = '22222222-2222-422
 const shell = `
 const data = { server_time: new Date().toISOString(), activity_latest_at: null, channels: [
   ${channel('c-gen', 'cse', 'general')}, ${channel(FALCON, 'falcon', 'team-falcon-hash-table-library', ",last_seq:9,mention_count:1")},
-  ${channel('c-o1', 'osprey', 'osprey-general')}, ${channel('c-o2', 'osprey', 'osprey-design', ',is_default:false')}, ${channel('c-nfb', 'nfb', 'general')}, ${channel(LONE, 'lone', 'compiler-lab')}],
+  ${channel('c-o1', 'osprey', 'osprey-general')}, ${channel('c-o2', 'osprey', 'osprey-design', ',is_default:false')}, ${channel('c-nfb', 'nfb', 'general')}, ${channel('c-nfb2', 'nfb', 'random', ',is_default:false,last_seq:8,last_top_seq:8')}, ${channel(LONE, 'lone', 'compiler-lab')}],
   projects: [
     { id: 'cse', title: 'CSE 3B · Data Structures 2026', slug: 'cse', cover_image: null, role: 'owner', kind: 'organization', parent_id: null },
     { id: 'falcon', title: 'Team Falcon: Hash table library', slug: 'falcon', cover_image: null, role: 'member', kind: 'workspace', parent_id: 'cse', parent_title: 'CSE 3B' },
@@ -46,7 +46,8 @@ test.beforeAll(async () => {
     b.onLoad({ filter: /.*/, namespace: 'fixture' }, (args) => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
   } }, serverActionsPlugin] });
   script = out.outputFiles![0]!.text;
-  css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
+  css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css
+    + await readFile('src/components/messages/messages-mix.css', 'utf8');
 });
 
 async function open(page: Page, path = '') {
@@ -70,7 +71,7 @@ test('all workspaces: teams sit inside their organization; an outside team stays
   await expect(org.getByRole('button', { name: /Team Osprey/ })).toContainText('2 channels');
   await expect(headings.filter({ hasText: 'Compiler Lab' })).toContainText('CSE-3A');
   // Names aren't cut down to a few letters any more.
-  const title = page.getByRole('button', { name: /Network for builders/ });
+  const title = page.getByRole('button', { name: 'Network for builders', exact: true });
   expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
 });
 
@@ -100,4 +101,36 @@ test('someone in a team but not its organization still gets the team on its own'
   const channels = page.locator('section').filter({ has: page.getByRole('button', { name: /^Channels/ }) });
   await expect(channels.getByRole('link', { name: /compiler-lab/ })).toHaveAttribute('aria-current', 'page');
   await expect(channels.getByRole('link', { name: 'general', exact: true })).toHaveCount(0);
+});
+
+// Messages mix (Phase 2, Task 5): counts, the unread square, section labels, the selected row.
+test('mix: counts are square mono two-digit chips, clay for mentions', async ({ page }) => {
+  await open(page, '?w=cse');
+  const count = page.getByRole('link', { name: /team-falcon-hash-table-library/ }).locator('.nbm-count');
+  await expect(count).toHaveText(/^01/);
+  await expect(count).toHaveClass(/\bhot\b/);
+  expect(parseFloat(await count.evaluate((el) => getComputedStyle(el).borderTopLeftRadius))).toBeLessThanOrEqual(4);
+});
+
+test('mix: an unread channel without mentions shows the 6px square, not a count', async ({ page }) => {
+  await open(page);
+  const row = page.getByRole('link', { name: /^random/ });
+  await expect(row.locator('.nbm-sq')).toHaveCount(1);
+  await expect(row.locator('.nbm-count')).toHaveCount(0);
+});
+
+test('mix: a section label shows its row count in mono; the heading name is unchanged', async ({ page }) => {
+  await open(page, '?w=cse');
+  await expect(page.getByRole('heading', { name: /Channels , 1 mentions/ })).toBeVisible();
+  const label = page.locator('.nb-chat-section-title').filter({ hasText: /^Channels/ }).locator('b[aria-hidden="true"]');
+  await expect(label).toHaveText(/^\d{2}$/);
+});
+
+test('mix: the open row is a soft fill with no edge bar', async ({ page }) => {
+  await open(page, `/${FALCON}`);
+  const row = page.getByRole('link', { name: /team-falcon-hash-table-library/ });
+  const style = await row.evaluate((el) => { const s = getComputedStyle(el); return { left: s.borderLeftWidth, bg: s.backgroundColor, radius: s.borderTopLeftRadius }; });
+  expect(style.left).toBe('0px');
+  expect(style.bg).not.toBe('rgba(0, 0, 0, 0)');
+  expect(parseFloat(style.radius)).toBe(0);
 });
