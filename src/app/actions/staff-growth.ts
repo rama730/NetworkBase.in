@@ -29,7 +29,7 @@ async function school(schoolId: string, write = false) {
   return { userId, leader: a.isOwner || a.memberRole === "admin", settings: w.settings };
 }
 
-export const DEFAULT_REVIEW_HEADINGS = ["Teaching and learning", "Working with colleagues", "Professional growth"];
+const DEFAULT_REVIEW_HEADINGS = ["Teaching and learning", "Working with colleagues", "Professional growth"];
 const growthOf = (settings: unknown) => {
   const g = ((settings as { staffGrowth?: Record<string, unknown> } | null)?.staffGrowth ?? {}) as Record<string, unknown>;
   const reportsTo = (g.reportsTo && typeof g.reportsTo === "object" ? g.reportsTo : {}) as Record<string, string>;
