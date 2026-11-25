@@ -104,3 +104,61 @@ export function mapRow(units: MapUnit[], weeks: string[]): MapSegment[] {
   if (at < weeks.length) out.push({ kind: "gap", span: weeks.length - at });
   return out;
 }
+
+/**
+ * B3.2c (report 32.3 calls 5–6, 9): the school's standards (code, description, grade, subject; imported from a CSV),
+ * the lesson template's sections, and the opt-in public curriculum overview — all in the school's settings.
+ */
+export type Standard = { code: string; text: string; grade: string; subject: string; retired?: boolean };
+export const MAX_STANDARDS = 500;
+export function readStandards(orgSettings: unknown): Standard[] {
+  const raw = (orgSettings as { curriculum?: { standards?: unknown } } | null)?.curriculum?.standards;
+  return (Array.isArray(raw) ? raw : []).flatMap((s) => {
+    const r = s as Partial<Standard> | null;
+    const code = typeof r?.code === "string" ? r.code.trim().slice(0, 20) : "";
+    return code ? [{ code, text: String(r?.text ?? "").slice(0, 300), grade: String(r?.grade ?? "").slice(0, 20), subject: String(r?.subject ?? "").slice(0, 60), ...(r?.retired ? { retired: true } : {}) }] : [];
+  }).slice(0, MAX_STANDARDS);
+}
+export const DEFAULT_TEMPLATE = ["Objective", "Starter", "Main", "Plenary", "Support and stretch"];
+export function readCurriculumSettings(orgSettings: unknown) {
+  const c = ((orgSettings as { curriculum?: Record<string, unknown> } | null)?.curriculum ?? {}) as Record<string, unknown>;
+  const t = Array.isArray(c.template) ? (c.template as unknown[]).filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((x) => x.trim().slice(0, 40)).slice(0, 10) : [];
+  return { standards: readStandards(orgSettings), template: t.length ? t : DEFAULT_TEMPLATE, publicOverview: c.publicOverview === true };
+}
+/** The lesson's In class text starts with the template's sections as headings. */
+export const templateMarkdown = (sections: string[]) => sections.map((s) => `## ${s}\n\n`).join("");
+
+/** A CSV with a header (code, description, grade, subject); rows without a code are dropped, repeats keep the first. */
+export function parseStandardsCsv(text: string) {
+  const lines = text.replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return { standards: [] as Standard[], skipped: 0 };
+  const split = (l: string) => {
+    const out: string[] = []; let cur = "", q = false;
+    for (let i = 0; i < l.length; i++) { const ch = l[i]!; if (q) { if (ch === '"' && l[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; } else if (ch === '"') q = true; else if (ch === ",") { out.push(cur.trim()); cur = ""; } else cur += ch; }
+    out.push(cur.trim()); return out;
+  };
+  const head = split(lines[0]!).map((h) => h.toLowerCase());
+  const col = (...n: string[]) => head.findIndex((h) => n.includes(h));
+  const [ci, ti, gi, si] = [col("code", "standard"), col("description", "text", "statement"), col("grade", "year", "level"), col("subject")];
+  const seen = new Set<string>();
+  const standards: Standard[] = [];
+  let skipped = 0;
+  for (const l of lines.slice(1)) {
+    const r = split(l);
+    const code = (ci >= 0 ? r[ci] : r[0])?.trim().slice(0, 20) ?? "";
+    if (!code || seen.has(code.toLowerCase()) || standards.length >= MAX_STANDARDS) { skipped++; continue; }
+    seen.add(code.toLowerCase());
+    standards.push({ code, text: (ti >= 0 ? r[ti] : r[1] ?? "")?.slice(0, 300) ?? "", grade: (gi >= 0 ? r[gi] : "")?.slice(0, 20) ?? "", subject: (si >= 0 ? r[si] : "")?.slice(0, 60) ?? "" });
+  }
+  return { standards, skipped };
+}
+
+/** Standards covered: a standard counts once any lesson that isn't cancelled is tagged with it (retired ones aside). */
+export function standardsCoverage(standards: Standard[], lessons: Array<{ stage: string; standards: string[]; course: string }>) {
+  const live = lessons.filter((l) => l.stage !== "cancelled");
+  const rows = standards.filter((s) => !s.retired).map((s) => {
+    const hits = live.filter((l) => l.standards.includes(s.code));
+    return { ...s, lessons: hits.length, courses: [...new Set(hits.map((h) => h.course))] };
+  });
+  return { covered: rows.filter((r) => r.lessons > 0).length, total: rows.length, rows };
+}

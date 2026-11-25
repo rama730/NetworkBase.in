@@ -759,4 +759,10 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Two classes have the same name.": {"title": "Two classes have the same name.", "type": "warning"},
   "A TA marks lessons taught; the teacher takes a tick back.": {"title": "A TA marks lessons taught; the teacher takes a tick back.", "type": "warning"},
   "Couldn’t load the year map.": {"title": "Couldn’t load the year map."},
+  "Give each standard a code.": {"title": "Give each standard a code.", "type": "warning"},
+  "At most 500 standards.": {"title": "At most 500 standards.", "type": "warning"},
+  "Two standards have the same code.": {"title": "Two standards have the same code.", "type": "warning"},
+  "Keep at least one section.": {"title": "Keep at least one section.", "type": "warning"},
+  "Check the teaching settings.": {"title": "Check the teaching settings.", "type": "warning"},
+  "Couldn’t load the standards.": {"title": "Couldn’t load the standards."},
 };

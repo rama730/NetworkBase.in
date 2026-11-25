@@ -127,7 +127,7 @@ export function TermPlanView({ orgId }: { orgId: string }) {
                     open={open} setOpen={setOpen} adding={adding?.weekId === w.id ? adding.title : null} setAdding={(title) => setAdding(title === null ? null : { weekId: w.id, title })}
                     onAdd={(title, lessonType) => void run(addTermLessonAction(orgId, { weekId: w.id, title, lessonType }), `${LESSON_TYPES[lessonType]} added`).then(() => setAdding(null))}
                     groups={data.groups} onTick={(id, g, on) => void run(markClassTaughtAction(orgId, id, g, on), on ? `Marked taught for ${g}` : `Taught taken back for ${g}`)}
-                    onClassNote={(id, g, note) => void run(saveClassNoteAction(orgId, id, g, note), "Class note saved")}
+                    onClassNote={(id, g, note) => void run(saveClassNoteAction(orgId, id, g, note), "Class note saved")} schoolStandards={data.schoolStandards}
                     onTopics={(t) => void run(setWeekTopicsAction(orgId, w.id, t))} onStage={(id, stage) => void run(setLessonStageAction(orgId, id, stage), stage === "taught" ? "Marked taught" : undefined)}
                     onUpdate={(id, patch) => void run(updateLessonAction(orgId, id, patch), "Saved")} onNotes={(id, notes) => void run(saveLessonNotesAction(orgId, id, notes), "Notes saved")}
                     weeks={allWeeks} onMove={(id, weekId, shiftRest) => void run(moveLessonAction(orgId, { taskId: id, weekId, shiftRest }), shiftRest ? "Moved, with the lessons after it" : "Lesson moved")}
@@ -147,13 +147,15 @@ export function TermPlanView({ orgId }: { orgId: string }) {
 
 type Moves = { weeks: Array<{ id: string; name: string }>; onMove: (id: string, weekId: string, shiftRest: boolean) => void; onDuplicate: (id: string) => void;
   /** B3.2a: the classes this course teaches, per-class Taught and class notes. */
-  groups: string[]; onTick: (id: string, group: string, taught: boolean) => void; onClassNote: (id: string, group: string, note: string) => void };
+  groups: string[]; onTick: (id: string, group: string, taught: boolean) => void; onClassNote: (id: string, group: string, note: string) => void;
+  /** B3.2c: the school's standards a teacher tags lessons with. */
+  schoolStandards: Array<{ code: string; text: string; retired?: boolean }> };
 
-function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen, adding, setAdding, onAdd, onTopics, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate, groups, onTick, onClassNote }: Moves & {
+function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen, adding, setAdding, onAdd, onTopics, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate, groups, onTick, onClassNote, schoolStandards }: Moves & {
   week: TermPlanWeek; staff: boolean; teacher: boolean; label: string; current: boolean; breaks: Array<{ name: string; start: string; end: string }>;
   open: string | null; setOpen: (id: string | null) => void; adding: string | null; setAdding: (title: string | null) => void; onAdd: (title: string, lessonType: LessonType) => void;
   onTopics: (t: string) => void; onStage: (id: string, stage: "draft" | "ready" | "taught" | "cancelled") => void;
-  onUpdate: (id: string, patch: { before?: string; during?: string; after?: string }) => void; onNotes: (id: string, notes: string) => void;
+  onUpdate: (id: string, patch: { before?: string; during?: string; after?: string; standards?: string[] }) => void; onNotes: (id: string, notes: string) => void;
 }) {
   const live = week.lessons.filter((l) => l.stage !== "cancelled");
   const [newType, setNewType] = useState<LessonType>("lesson");
@@ -179,7 +181,7 @@ function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen,
       </tr>
       {week.lessons.map((l) => (
         <LessonRow key={l.id} lesson={l} staff={staff} teacher={teacher} expanded={open === l.id} toggle={() => setOpen(open === l.id ? null : l.id)} onStage={onStage} onUpdate={onUpdate} onNotes={onNotes}
-          weeks={weeks} onMove={onMove} onDuplicate={onDuplicate} groups={groups} onTick={onTick} onClassNote={onClassNote} />
+          weeks={weeks} onMove={onMove} onDuplicate={onDuplicate} groups={groups} onTick={onTick} onClassNote={onClassNote} schoolStandards={schoolStandards} />
       ))}
       {teacher ? (
         <tr className="border-b border-border">
@@ -207,15 +209,16 @@ function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen,
   );
 }
 
-function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate, groups, onTick, onClassNote }: Moves & {
+function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpdate, onNotes, weeks, onMove, onDuplicate, groups, onTick, onClassNote, schoolStandards }: Moves & {
   lesson: TermPlanLesson; staff: boolean; teacher: boolean; expanded: boolean; toggle: () => void;
-  onStage: (id: string, stage: "draft" | "ready" | "taught" | "cancelled") => void; onUpdate: (id: string, patch: { before?: string; during?: string; after?: string }) => void; onNotes: (id: string, notes: string) => void;
+  onStage: (id: string, stage: "draft" | "ready" | "taught" | "cancelled") => void; onUpdate: (id: string, patch: { before?: string; during?: string; after?: string; standards?: string[] }) => void; onNotes: (id: string, notes: string) => void;
 }) {
   const when = l.session ? describeLocal(l.session.start, null, null).text : null;
   const [draft, setDraft] = useState({ before: l.before ?? "", during: l.during ?? "", after: l.after ?? "", notes: l.notes ?? "" });
   const [moveTo, setMoveTo] = useState("");
   const [classNotes, setClassNotes] = useState<Record<string, string>>(l.classNotes ?? {});
   const perClass = staff && groups.length > 0;
+  const [standardsText, setStandardsText] = useState(l.standards.join(", "));
   return (
     <>
       <tr className="border-b border-border text-[13px]" data-testid="term-lesson">
@@ -227,6 +230,7 @@ function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpd
             {l.lessonType !== "lesson" ? <span className="nb-tag text-[11px]">{LESSON_TYPES[l.lessonType]}</span> : null}
             {l.draftSoon ? <span className="text-[12px] text-[var(--status-warning)]">Still Draft, soon</span> : null}
             {l.outcomes.map((o) => <span key={o} className="nb-tag font-mono text-[11px]">{o}</span>)}
+            {l.standards.map((s) => <span key={s} className="nb-tag font-mono text-[11px]">{s}</span>)}
             {perClass && l.stage !== "cancelled" ? (
               <span className="flex flex-wrap items-center gap-2" role="group" aria-label={`Taught per class: ${l.title}`} data-testid="class-ticks">
                 {groups.map((g) => <label key={g} className="flex items-center gap-1 text-[12px]"><input className="nb-check" type="checkbox" checked={Boolean(l.ticks[g]) || l.stage === "taught"}
@@ -276,6 +280,14 @@ function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpd
             {staff ? (
               <label className="mt-3 flex flex-col gap-1 text-[12px]"><span className="font-medium text-foreground">Teacher notes</span><span className="text-muted-foreground">Only Teachers and TAs see this.</span>
                 <textarea className="nb-textarea" rows={2} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} onBlur={() => { if (draft.notes !== (l.notes ?? "")) onNotes(l.id, draft.notes); }} />
+              </label>
+            ) : null}
+            {teacher && schoolStandards.length ? (
+              <label className="mt-3 flex flex-col gap-1 text-[12px]"><span className="font-medium text-foreground">Standards</span>
+                <span className="text-muted-foreground">The school’s codes this lesson covers, separated by commas.</span>
+                <Input list={`standards-${l.id}`} aria-label={`Standards for ${l.title}`} value={standardsText} maxLength={400} onChange={(e) => setStandardsText(e.target.value)}
+                  onBlur={() => { const next = standardsText.split(",").map((s) => s.trim()).filter(Boolean); if (next.join(",") !== l.standards.join(",")) onUpdate(l.id, { standards: next }); }} className="h-8 max-w-md font-mono" />
+                <datalist id={`standards-${l.id}`}>{schoolStandards.filter((s) => !s.retired).slice(0, 200).map((s) => <option key={s.code} value={s.code}>{s.text}</option>)}</datalist>
               </label>
             ) : null}
             {perClass ? (

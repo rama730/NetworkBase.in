@@ -5,7 +5,7 @@ import { axeViolations } from './axe';
 
 // Report 30.3 W2 (plan B1.2a).
 const lesson = (id: string, title: string, stage: string, extra: Record<string, unknown> = {}) => ({ id, number: 1, title, stage, weekId: 'w2', order: 0, outcomes: [], createdAt: '2027-01-01T00:00:00Z',
-  session: { key: '2027-01-19T10:30', start: '2027-01-19T10:30', end: '2027-01-19T12:00', status: 'on' }, needsNewSession: false, before: null, during: null, after: null, lessonType: 'lesson', ticks: {}, draftSoon: false, ...extra });
+  session: { key: '2027-01-19T10:30', start: '2027-01-19T10:30', end: '2027-01-19T12:00', status: 'on' }, needsNewSession: false, before: null, during: null, after: null, lessonType: 'lesson', ticks: {}, draftSoon: false, standards: [], ...extra });
 async function open(page: Page, view: string, role = 'teacher', groups: string[] = []) {
   await page.setViewportSize({ width: 1100, height: 900 });
   await page.addInitScript((r) => {
@@ -23,7 +23,7 @@ async function open(page: Page, view: string, role = 'teacher', groups: string[]
             { id: 'w2', unitId: 'u1', name: 'Week 2', goal: null, start: '2027-01-18T00:00:00Z', end: '2027-01-24T00:00:00Z', status: 'active', sessions: 1, assessments: [],
               lessons: staff ? [{ ...(window as any).__l2 }, { ...(window as any).__l3 }] : [] },
           ] }],
-        groups: (window as any).__groups ?? [], planned: { ready: 2, total: 3, percent: 67 },
+        groups: (window as any).__groups ?? [], schoolStandards: (window as any).__groups ? [{ code: 'SC6.3', text: 'Forces' }] : [], planned: { ready: 2, total: 3, percent: 67 },
         behind: ((window as any).__groups ?? []).map((g: string, i: number) => ({ group: g, due: 3, taught: 3 - i * 2, behind: i * 2, warn: i > 0 })),
         unplaced: [] }),
       markClassTaughtAction: async (_o: string, id: string, g: string, on: boolean) => { calls.push(['tick', id, g, on]); return { success: true, lessonTaught: false }; },
@@ -132,6 +132,9 @@ test('B3.2a: a course that teaches 6A and 6B ticks Taught per class, keeps class
   await page.getByLabel('Class note for 6A: Stacks').fill('Run the lab in two parts');
   await page.getByLabel('Class note for 6A: Stacks').blur();
   await expect.poll(() => calls(page)).toContainEqual(['classNote', 'l3', '6A', 'Run the lab in two parts']);
+  await page.getByLabel('Standards for Stacks').fill('SC6.3');
+  await page.getByLabel('Standards for Stacks').blur();
+  await expect.poll(() => calls(page)).toContainEqual(['update', 'l3', { standards: ['SC6.3'] }]);
   await page.getByRole('button', { name: '+ Lesson in Week 2' }).click();
   await page.getByLabel('New lesson in Week 2').fill('Stacks quiz');
   await page.getByLabel('Lesson type for Week 2').selectOption('assessment');

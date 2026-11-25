@@ -10,6 +10,7 @@ import { logger } from "@/lib/logger";
 import { readClassDetails, readExamWeeks, readSessionChanges, termSessions, type Session } from "@/lib/organizations/class-sessions";
 import { readExam } from "@/lib/organizations/exams";
 import type { OrgType } from "@/lib/organizations/config";
+import { readCurriculumSettings, templateMarkdown, type Standard } from "@/lib/organizations/curriculum";
 import { allTaught, behind, draftSoon, LESSON_TYPES, lessonTypeOf, plannedPercent, readClassNotes, readGroups, readTicks, type LessonType, type Ticks } from "@/lib/organizations/curriculum";
 import { lessonOrder, matchSessions, outcomeCoverage, readTermPlanSettings, sessionsInWeek, unitProgress, visibleLessons, weekNumber, type PlanLesson, type PlanWeek } from "@/lib/organizations/term-plan";
 import { typeProfile } from "@/lib/organizations/type-profile";
@@ -27,7 +28,7 @@ const DENIED: Failure = { success: false, error: "You can’t do that here." };
 async function classAccess(orgId: string) {
   if (!isLooseUuid(orgId)) return null;
   const [c] = await db.select({ id: workspaces.id, kind: workspaces.kind, orgType: workspaces.orgType, orgLevel: workspaces.orgLevel, orgSettings: workspaces.orgSettings,
-    termStart: workspaces.termStart, termEnd: workspaces.termEnd, timeZone: workspaces.timeZone })
+    termStart: workspaces.termStart, termEnd: workspaces.termEnd, timeZone: workspaces.timeZone, institutionId: workspaces.institutionId })
     .from(workspaces).where(and(eq(workspaces.id, orgId), isNull(workspaces.deletedAt))).limit(1);
   if (c?.kind !== "organization" || c.orgLevel || !typeProfile(c.orgType as OrgType | null).schools) return null;
   const { userId } = await getViewerAuthContext();
@@ -39,9 +40,23 @@ async function classAccess(orgId: string) {
   return { c, userId, teacher, staff, canWrite: a.canWrite };
 }
 
+/**
+ * B3.2c (report 32.3 calls 5–6): the class's school — its standards (lessons are tagged with them) and the lesson
+ * template (a new lesson's In class starts with its sections) when the school set one or is a School.
+ */
+async function schoolCurriculum(institutionId: string | null) {
+  if (!institutionId) return { standards: [] as Standard[], template: null as string[] | null };
+  const [s] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(and(eq(workspaces.id, institutionId), isNull(workspaces.deletedAt))).limit(1);
+  if (!s) return { standards: [] as Standard[], template: null as string[] | null };
+  const { readSchoolKind } = await import("@/lib/organizations/school-kind");
+  const set = Boolean((s.settings as { curriculum?: { template?: unknown } } | null)?.curriculum?.template);
+  const cur = readCurriculumSettings(s.settings);
+  return { standards: cur.standards, template: set || readSchoolKind(s.settings) === "school" ? cur.template : null };
+}
+
 export type TermPlanLesson = PlanLesson & { session: Session | null; needsNewSession: boolean; before: string | null; during: string | null; after: string | null; notes?: string | null;
   /** B3.2a (report 32.3 calls 3–4): its type, per-class Taught ticks, class notes (staff), and Draft ⚠ within 3 school days. */
-  lessonType: LessonType; ticks: Ticks; classNotes?: Record<string, string>; draftSoon: boolean };
+  lessonType: LessonType; ticks: Ticks; classNotes?: Record<string, string>; draftSoon: boolean; standards: string[] };
 export type TermPlanWeek = PlanWeek & { lessons: TermPlanLesson[]; sessions: number; assessments: Array<{ id: string; title: string; due: string; exam?: boolean }>;
   /** B1.6 (report 30.5 layer 4): the school's exam week this week falls in, by name. */
   examWeek?: string | null };
@@ -90,7 +105,7 @@ export async function readTermPlanAction(orgId: string) {
           session: slots.get(l.id)?.session ?? null, needsNewSession: staff && Boolean(slots.get(l.id)?.needsNewSession),
           before: typeof l.fields.before === "string" ? l.fields.before : null, during: typeof l.fields.during === "string" ? l.fields.during : null,
           after: typeof l.fields.after === "string" ? l.fields.after : null, ...(staff ? { notes: notes.find((n) => n.id === l.id)?.notes ?? null, classNotes: readClassNotes(l.fields) } : {}),
-          lessonType: lessonTypeOf(l.fields), ticks: staff ? readTicks(l.fields) : {}, draftSoon: staff && draftSoon(l.stage, lessonDay(slots.get(l.id)?.session ?? null, w), today) })) };
+          standards: Array.isArray(l.fields.standards) ? (l.fields.standards as string[]) : [], lessonType: lessonTypeOf(l.fields), ticks: staff ? readTicks(l.fields) : {}, draftSoon: staff && draftSoon(l.stage, lessonDay(slots.get(l.id)?.session ?? null, w), today) })) };
     });
     return {
       success: true as const, role: teacher ? "teacher" as const : staff ? "ta" as const : "student" as const, canWrite: ctx.canWrite, settings,
@@ -100,7 +115,7 @@ export async function readTermPlanAction(orgId: string) {
         outcomes: [...new Set(all.filter((l) => l.stage !== "cancelled" && weeks.some((w) => w.unitId === u.id && w.id === l.weekId)).flatMap((l) => l.outcomes))],
         weeks: shaped.filter((w) => w.unitId === u.id) })),
       // B3.2a: the classes this course teaches; Planned; Behind the map per class (staff only, never a ranking of teachers).
-      groups: staff ? groups : [], planned: plannedPercent(all),
+      groups: staff ? groups : [], planned: plannedPercent(all), schoolStandards: staff ? (await schoolCurriculum(c.institutionId)).standards : [],
       behind: staff ? groups.map((g) => ({ group: g, ...behind(shaped.flatMap((w) => w.lessons.map((l) => ({ stage: l.stage, day: lessonDay(l.session, w), ticks: l.ticks }))), g, today) })) : [],
       unplaced: staff ? lessons.filter((l) => !l.weekId || !weeks.some((w) => w.id === l.weekId)).map((l) => ({ id: l.id, title: l.title, stage: l.stage })) : [],
     };
@@ -111,24 +126,29 @@ export async function readTermPlanAction(orgId: string) {
 }
 
 const lessonTypeSchema = z.enum(Object.keys(LESSON_TYPES) as [LessonType, ...LessonType[]]);
+const standardCodes = z.array(z.string().trim().min(1).max(20)).max(20);
 const outcomeCodes = z.array(z.string().trim().min(1).max(12)).max(20);
 
 /** + Lesson on a week (the teacher; call 6: TAs don't add lessons). */
-export async function addTermLessonAction(orgId: string, input: { weekId: string; title: string; outcomes?: string[]; lessonType?: LessonType }): Promise<{ success: true; id: string } | Failure> {
+export async function addTermLessonAction(orgId: string, input: { weekId: string; title: string; outcomes?: string[]; lessonType?: LessonType; standards?: string[] }): Promise<{ success: true; id: string } | Failure> {
   const ctx = await classAccess(orgId);
   if (!ctx?.teacher || !ctx.canWrite) return DENIED;
-  const data = z.object({ weekId: z.string().uuid(), title: z.string().trim().min(1, "Name the lesson.").max(200), outcomes: outcomeCodes.optional(), lessonType: lessonTypeSchema.optional() }).safeParse(input);
+  const data = z.object({ weekId: z.string().uuid(), title: z.string().trim().min(1, "Name the lesson.").max(200), outcomes: outcomeCodes.optional(), lessonType: lessonTypeSchema.optional(), standards: standardCodes.optional() }).safeParse(input);
   if (!data.success) return { success: false, error: data.error.issues[0]?.message ?? "Check the lesson." };
   const [week] = await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
     .where(and(eq(workspaceSprints.id, data.data.weekId), eq(workspaceSprints.projectId, orgId), sql`${workspaceSprints.parentSprintId} IS NOT NULL`)).limit(1);
   if (!week) return { success: false, error: "Pick a week of this term." };
   const known = new Set(readTermPlanSettings(ctx.c.orgSettings).outcomes.map((o) => o.code));
   const outcomes = (data.data.outcomes ?? []).filter((o) => known.has(o));
+  const school = await schoolCurriculum(ctx.c.institutionId);
+  const codes = new Set(school.standards.filter((s) => !s.retired).map((s) => s.code));
+  const standards = (data.data.standards ?? []).filter((s) => codes.has(s));
   const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(tasks)
     .where(and(eq(tasks.projectId, orgId), eq(tasks.itemType, "class_lesson"), eq(tasks.sprintId, week.id), isNull(tasks.deletedAt)));
   const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
   const r = await createTaskAction({ projectId: orgId, title: data.data.title, status: "todo", priority: "medium", itemType: "class_lesson", stage: "draft",
-    typeFields: { outcomes, order: n, ...(data.data.lessonType && data.data.lessonType !== "lesson" ? { lessonType: data.data.lessonType } : {}) } } as Parameters<typeof createTaskAction>[0]);
+    typeFields: { outcomes, order: n, ...(data.data.lessonType && data.data.lessonType !== "lesson" ? { lessonType: data.data.lessonType } : {}),
+      ...(school.template ? { during: templateMarkdown(school.template) } : {}), ...(standards.length ? { standards } : {}) } } as Parameters<typeof createTaskAction>[0]);
   if (!r.success || !("task" in r) || !r.task) return { success: false, error: (r.success ? null : r.error) ?? "Couldn’t add the lesson." };
   // Off-board items don't take a sprint when made; a lesson belongs to its week.
   await db.update(tasks).set({ sprintId: week.id }).where(eq(tasks.id, r.task.id));
@@ -148,17 +168,25 @@ export async function setLessonStageAction(orgId: string, taskId: string, stage:
 }
 
 /** A lesson's outcomes, Before / In / After class (the teacher; a TA edits In class only, call 6). */
-export async function updateLessonAction(orgId: string, taskId: string, input: { title?: string; outcomes?: string[]; before?: string; during?: string; after?: string; lessonType?: LessonType }): Promise<{ success: true } | Failure> {
+export async function updateLessonAction(orgId: string, taskId: string, input: { title?: string; outcomes?: string[]; before?: string; during?: string; after?: string; lessonType?: LessonType; standards?: string[] }): Promise<{ success: true } | Failure> {
   const ctx = await classAccess(orgId);
   if (!ctx?.staff || !ctx.canWrite || !isLooseUuid(taskId)) return DENIED;
   const data = z.object({ title: z.string().trim().min(1).max(200).optional(), outcomes: outcomeCodes.optional(), before: z.string().max(20_000).optional(),
-    during: z.string().max(20_000).optional(), after: z.string().max(20_000).optional(), lessonType: lessonTypeSchema.optional() }).strict().safeParse(input);
+    during: z.string().max(20_000).optional(), after: z.string().max(20_000).optional(), lessonType: lessonTypeSchema.optional(), standards: standardCodes.optional() }).strict().safeParse(input);
   if (!data.success) return { success: false, error: data.error.issues[0]?.message ?? "Check the lesson." };
   const patch = data.data;
   if (!ctx.teacher && Object.keys(patch).some((k) => k !== "during")) return { success: false, error: "A TA edits In class; the teacher plans the rest." };
   const known = new Set(readTermPlanSettings(ctx.c.orgSettings).outcomes.map((o) => o.code));
+  // B3.2c: only the school's current standards can be tagged (a retired one already on the lesson stays).
+  let tagged: string[] | undefined;
+  if (patch.standards) {
+    const [had] = await db.select({ fields: tasks.typeFields }).from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.projectId, orgId))).limit(1);
+    const old = new Set(Array.isArray((had?.fields as { standards?: unknown } | null)?.standards) ? ((had!.fields as { standards: string[] }).standards) : []);
+    const codes = new Set((await schoolCurriculum(ctx.c.institutionId)).standards.filter((s) => !s.retired).map((s) => s.code));
+    tagged = patch.standards.filter((s) => codes.has(s) || old.has(s));
+  }
   const fields = { ...(patch.outcomes ? { outcomes: patch.outcomes.filter((o) => known.has(o)) } : {}), ...(patch.before !== undefined ? { before: patch.before } : {}),
-    ...(patch.during !== undefined ? { during: patch.during } : {}), ...(patch.after !== undefined ? { after: patch.after } : {}), ...(patch.lessonType ? { lessonType: patch.lessonType } : {}) };
+    ...(patch.during !== undefined ? { during: patch.during } : {}), ...(patch.after !== undefined ? { after: patch.after } : {}), ...(patch.lessonType ? { lessonType: patch.lessonType } : {}), ...(tagged ? { standards: tagged } : {}) };
   const done = await db.update(tasks).set({ ...(patch.title ? { title: patch.title } : {}), typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify(fields)}::jsonb`, updatedAt: new Date() })
     .where(and(eq(tasks.id, taskId), eq(tasks.projectId, orgId), eq(tasks.itemType, "class_lesson"), isNull(tasks.deletedAt))).returning({ id: tasks.id });
   return done.length ? { success: true } : { success: false, error: "That lesson isn’t in this class." };

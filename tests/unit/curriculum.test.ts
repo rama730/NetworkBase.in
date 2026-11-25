@@ -46,3 +46,13 @@ test("B3.2b Year map: school weeks from Monday; units as spans with gaps; overla
   ], weeks);
   assert.deepEqual(row.map((s) => (s.kind === "gap" ? ["gap", s.span] : [s.name, s.span, s.draft, s.assessment])), [["Cells", 3, false, false], ["Forces", 3, true, true], ["gap", 3]]);
 });
+
+test("B3.2c standards: CSV import, coverage, template", async () => {
+  const { parseStandardsCsv, readCurriculumSettings, standardsCoverage, templateMarkdown } = await import("@/lib/organizations/curriculum");
+  const { standards, skipped } = parseStandardsCsv('code,description,grade,subject\nSC6.3,"Forces, balanced and not",6,Science\nSC6.4,Friction,6,Science\nSC6.3,dup,6,Science\n,no code,6,Science');
+  assert.deepEqual([standards.map((s) => s.code), standards[0]!.text, skipped], [["SC6.3", "SC6.4"], "Forces, balanced and not", 2]);
+  const cov = standardsCoverage(standards, [{ stage: "ready", standards: ["SC6.3"], course: "G6" }, { stage: "cancelled", standards: ["SC6.4"], course: "G6" }]);
+  assert.deepEqual([cov.covered, cov.total, cov.rows[0]!.courses], [1, 2, ["G6"]]);
+  assert.deepEqual(readCurriculumSettings({}).template, ["Objective", "Starter", "Main", "Plenary", "Support and stretch"]);
+  assert.equal(templateMarkdown(["I do", "We do"]), "## I do\n\n## We do\n\n");
+});

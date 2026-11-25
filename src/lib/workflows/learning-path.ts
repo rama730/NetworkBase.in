@@ -32,6 +32,8 @@ export const lessonFieldsSchema = z.object({
   order: z.number().int().min(0).max(1000).optional(),
   /** B3.2a (report 32.3 call 3): Lesson · Assessment · Activity. Ticks and class notes are written only by their own actions. */
   lessonType: z.enum(["lesson", "assessment", "activity"]).optional(),
+  /** B3.2c (report 32.3 call 5): the school's standards this lesson covers. */
+  standards: z.array(z.string().trim().min(1).max(20)).max(20).optional(),
 }).strict();
 
 type Step = { id: string; lessons: Array<{ id: string }> };

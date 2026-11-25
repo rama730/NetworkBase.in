@@ -7,7 +7,7 @@ import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql,
 // Plan B3.2b (report 32.3 Year map, call 8): courses × school weeks; Taught per class and Behind the map only for the
 // school's leaders and that department's heads; unit names and counts only, never lesson text.
 let viewerId = "";
-const token: string | null = null;
+let token: string | null = null;
 moduleStubs.set("@/lib/supabase/server", {
   createClient: async () => ({ auth: {
     getUser: async () => ({ data: { user: viewerId ? { id: viewerId, user_metadata: {} } : null }, error: null }),
@@ -20,6 +20,8 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 stubNextAfter();
 
 let map: typeof import("../../src/app/actions/curriculum-map");
+let cur: typeof import("../../src/app/actions/curriculum");
+let plan: typeof import("../../src/app/actions/term-plan");
 let inst: typeof import("../../src/app/actions/institutions");
 let year: typeof import("../../src/app/actions/school-year");
 before(async () => {
@@ -32,6 +34,8 @@ before(async () => {
   const shared = await loadAppModule(() => import("../../src/app/api/v1/_shared"));
   moduleStubs.set("@/app/api/v1/_shared", { ...shared, requireAuthenticatedUser: async () => (viewerId ? { user: { id: viewerId }, tokenKind: token } : Promise.reject(new Error("401"))) });
   map = await loadAppModule(() => import("../../src/app/actions/curriculum-map"));
+  cur = await loadAppModule(() => import("../../src/app/actions/curriculum"));
+  plan = await loadAppModule(() => import("../../src/app/actions/term-plan"));
   inst = await loadAppModule(() => import("../../src/app/actions/institutions"));
   year = await loadAppModule(() => import("../../src/app/actions/school-year"));
 });
@@ -95,4 +99,64 @@ test("Year map: units as spans per course; Taught per class only for leaders and
   viewerId = outsider!;
   assert.equal((await map.readYearMapAction(school)).success, false);
   assert.equal((await map.readYearMapAction(science)).success, false, "a class isn't a school");
+});
+
+test("B3.2c: Settings → Teaching (leaders), standards on lessons, coverage, retired standards kept, the template, the opt-in overview", async () => {
+  const [principal, teacher, outsider] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
+  const mk = async (owner: string, visibility = "private") => {
+    const id = await sql.begin((tx) => createProject(tx, owner, { visibility }));
+    created.push(id);
+    await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, time_zone = 'UTC', term_start = '2026-09-01', term_end = '2026-12-18' WHERE id = ${id}`;
+    await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner}, 'owner')`;
+    return id;
+  };
+  const school = await mk(principal!, "public");
+  viewerId = principal!;
+  await inst.makeInstitutionAction(school);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${school}, ${teacher!}, 'member')`;
+  const course = await mk(teacher!);
+  await sql`UPDATE workspaces SET institution_id = ${school} WHERE id = ${course}`;
+  const [unit] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status) VALUES (${course}, 1, 'Forces', '2026-09-01', '2026-09-20', 'active') RETURNING id`;
+  const [week] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${course}, 2, 'Week 1', '2026-09-01', '2026-09-06', 'active', ${unit!.id}) RETURNING id`;
+
+  token = "agent";
+  assert.equal((await cur.saveCurriculumAction(school, { publicOverview: true })).success, false, "never a token");
+  token = null;
+  viewerId = teacher!;
+  assert.equal((await cur.saveCurriculumAction(school, { publicOverview: true })).success, false, "teachers don't set Teaching");
+  viewerId = principal!;
+  assert.match((await cur.saveCurriculumAction(school, { standards: [{ code: "A1" }, { code: "a1" }] }) as { error: string }).error, /same code/);
+  assert.equal((await cur.saveCurriculumAction(school, { standards: [{ code: "SC6.3", text: "Forces" }, { code: "SC6.4", text: "Friction" }], template: ["I do", "We do", "You do"] })).success, true);
+
+  viewerId = teacher!;
+  const l = await plan.addTermLessonAction(course, { weekId: week!.id, title: "Balanced forces", standards: ["SC6.3", "NOPE"] });
+  assert.ok(l.success);
+  const [row] = await sql`SELECT type_fields FROM tasks WHERE id = ${l.id}`;
+  assert.deepEqual(row!.type_fields.standards, ["SC6.3"], "only the school's codes");
+  assert.equal(row!.type_fields.during, "## I do\n\n## We do\n\n## You do\n\n", "a new lesson starts with the template");
+  const tp = await plan.readTermPlanAction(course);
+  assert.ok(tp.success && tp.schoolStandards.length === 2);
+  const cov = await cur.readStandardsCoverageAction(school);
+  assert.ok(cov.success);
+  assert.deepEqual([cov.covered, cov.total, cov.rows.find((r) => r.code === "SC6.3")!.lessons], [1, 2, 1]);
+
+  // A standard taken off the list while a lesson uses it stays, retired; an unused one goes.
+  viewerId = principal!;
+  const saved = await cur.saveCurriculumAction(school, { standards: [{ code: "SC7.1", text: "Light" }] });
+  assert.deepEqual(saved, { success: true, retired: 1 });
+  const after = await cur.readCurriculumAction(school);
+  assert.ok(after.success);
+  assert.deepEqual(after.standards.map((s) => [s.code, Boolean(s.retired)]), [["SC7.1", false], ["SC6.3", true]]);
+
+  // The overview: off by default; on, visitors read unit titles only.
+  viewerId = outsider!;
+  assert.equal((await cur.readCurriculumOverviewAction(school)).success, false, "off by default");
+  assert.equal((await cur.readCurriculumAction(school)).success, false, "Teaching is for the school");
+  viewerId = principal!;
+  await cur.saveCurriculumAction(school, { publicOverview: true });
+  viewerId = outsider!;
+  const ov = await cur.readCurriculumOverviewAction(school);
+  assert.ok(ov.success);
+  assert.equal(JSON.stringify(ov).includes("Balanced forces"), false, "no lesson titles");
+  assert.deepEqual(ov.courses[0]!.units.map((u) => u.name), ["Forces"]);
 });
