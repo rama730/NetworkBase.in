@@ -107,3 +107,51 @@ test('undo label, overflow row and its name', () => {
   assert.equal(overflowLabel(2, 0), '+2 more');
   assert.equal(overflowName(2), '2 more waiting, open Pending feedback');
 });
+
+import { stackRows } from '../../src/lib/feedback/stack';
+import { readFileSync } from 'node:fs';
+
+const item = (id: string) => ({ id }) as never;
+
+test('stackRows: a card that leaves keeps its place while it fades; new cards come in at the front', () => {
+  const a = item('a'), b = item('b'), c = item('c'), d = item('d');
+  const first = stackRows([], [a, b, c]);
+  assert.deepEqual(first.map((r) => [r.item, r.leaving]), [[a, false], [b, false], [c, false]]);
+  const next = stackRows(first, [a, c, d]);
+  assert.deepEqual(next.map((r) => [(r.item as { id: string }).id, r.leaving]), [['a', false], ['b', true], ['c', false], ['d', false]]);
+  const again = stackRows(next, [a, c, d]);
+  assert.deepEqual(again.map((r) => (r.item as { id: string }).id), ['a', 'b', 'c', 'd'], 'still leaving, still in place');
+});
+
+const host = readFileSync('src/components/feedback/FeedbackHost.tsx', 'utf8');
+const css = readFileSync('src/components/feedback/feedback.css', 'utf8');
+
+test('the card: square glyph, words, one action cell, close named for the title, Undo squares hidden from readers', () => {
+  assert.match(host, /className="nb-feedback-glyph"/);
+  assert.match(host, /aria-label=\{`Dismiss \$\{label\}`\}/);
+  assert.match(host, /className="nb-feedback-clock" aria-hidden="true"/);
+  assert.match(host, /countdownCells\(/);
+  assert.match(host, /undoLabel\(/);
+  assert.doesNotMatch(host, /nb-feedback-countdown|nb-feedback-seconds|nb-feedback-chip/);
+});
+
+test('the stack: shelves are inert until fanned, the overflow row opens Pending feedback, only the front card is "toast"', () => {
+  assert.match(host, /inert=\{shelf \|\| undefined\}/);
+  assert.match(host, /data-fanned=\{fanned\}/);
+  assert.match(host, /aria-label=\{overflowName\(waiting\)\}/);
+  assert.match(host, /overflowLabel\(waiting, issues\)/);
+  assert.match(host, /data-testid=\{isFront \? \(row\.item\.options\.testId \?\? "toast"\) : undefined\}/);
+});
+
+test('two live regions: polite for most, assertive for errors', () => {
+  assert.match(host, /role="status" aria-live="polite"/);
+  assert.match(host, /role="alert"[^>]*>\s*<span key=\{snapshot\.alert\.serial\}>/);
+});
+
+test('toast CSS: 360 px card, square cells, 8 px shelves at 94 % and 88 %, reduced motion fades only', () => {
+  assert.match(css, /--feedback-width:\s*360px/);
+  assert.match(css, /\[data-shelf="1"\][^{]*\{[^}]*width:\s*94%/);
+  assert.match(css, /\[data-shelf="2"\][^{]*\{[^}]*width:\s*88%/);
+  assert.match(css, /prefers-reduced-motion/);
+  assert.doesNotMatch(css, /border-radius:\s*(?:12px|9999px|50%)/);
+});

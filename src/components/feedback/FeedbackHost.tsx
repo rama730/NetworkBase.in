@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, Info, Layers, TriangleAlert, X, XCircle } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { PixelBeat } from '@/components/ui/PixelBeat';
 import { feedbackStore, feedbackLabel } from '@/lib/feedback';
 import { feedbackText, type FeedbackItem } from '@/lib/feedback/store';
-import { useUIStore } from '@/stores/ui-store';
+import { countdownCells, overflowLabel, overflowName, stackRows, undoLabel, type StackRow } from '@/lib/feedback/stack';
 import './feedback.css';
 
-const ICONS = { success: CheckCircle2, error: XCircle, warning: TriangleAlert, info: Info };
-const RANK = { error: 4, warning: 3, loading: 2, info: 1, success: 0 };
-function StatusIcon({ item }: { item: FeedbackItem }) { if (item.type === 'loading') return <PixelBeat />; const Icon = ICONS[item.type]; return <Icon aria-hidden="true" />; }
+/** A 20 px square in the kind's colour with a paper mark (tick, i, !, ×); loading is an outlined square with the pixel beat. */
+function Glyph({ item }: { item: FeedbackItem }) {
+  return <span className="nb-feedback-glyph" data-type={item.type} aria-hidden="true">
+    {item.type === 'loading' ? <PixelBeat /> : item.type === 'success' ? <Check /> : item.type === 'error' ? <X /> : <b>{item.type === 'warning' ? '!' : 'i'}</b>}
+  </span>;
+}
 
 function useFeedbackOwner() {
   const [owner, setOwner] = useState<{ element: HTMLElement; kind: 'navigation' | 'fallback' | 'modal'; mobile: boolean } | null>(null);
@@ -65,127 +68,136 @@ function useFeedbackOwner() {
 
 export function FeedbackHost() {
   const snapshot = useSyncExternalStore(feedbackStore.subscribe, feedbackStore.getSnapshot, feedbackStore.getServerSnapshot);
-  const collapsed = useUIStore(state => state.sidebarCollapsed);
-  const setCollapsed = useUIStore(state => state.setSidebarCollapsed);
   const owner = useFeedbackOwner();
-  const current = snapshot.items.find(item => item.id === snapshot.currentId) ?? null;
-  const [displayed, setDisplayed] = useState<FeedbackItem | null>(null);
-  const [exiting, setExiting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [recent, setRecent] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const card = useRef<HTMLElement>(null);
+  const [busy, setBusy] = useState<FeedbackItem['id'] | null>(null);
+  // Hover, focus inside or F8 fans the stack out and holds every clock.
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const fanned = hovered || focused || reviewing;
+  const front = useRef<HTMLElement>(null);
   const queue = useRef<HTMLDivElement>(null);
   const region = useRef<HTMLDivElement>(null);
-  const chip = useRef<HTMLButtonElement>(null);
   const origin = useRef<HTMLElement | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
-  const paused = useRef(false);
-  const collapsedHere = owner?.kind === 'navigation' && collapsed;
-  const shown = displayed?.id === current?.id ? current : displayed;
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // What the stack draws: the shown cards, plus any that just left, fading for 140 ms in their old place.
+  const shownItems = snapshot.shown.map(id => snapshot.items.find(item => item.id === id)).filter((item): item is FeedbackItem => Boolean(item));
+  const previous = useRef<StackRow<FeedbackItem>[]>([]);
+  const gone = useRef(new Set<FeedbackItem['id']>());
+  const timers = useRef(new Map<FeedbackItem['id'], number>());
+  const [, redraw] = useState(0);
+  shownItems.forEach(item => gone.current.delete(item.id));
+  const rows = stackRows(previous.current.filter(row => !(row.leaving && gone.current.has(row.item.id))), shownItems);
   useEffect(() => {
-    if (displayed?.id === current?.id) return;
-    if (!displayed) { setDisplayed(current); setExiting(false); return; }
-    setExiting(true);
-    const timer = setTimeout(() => {
-      const latest = feedbackStore.getSnapshot();
-      setDisplayed(latest.items.find(item => item.id === latest.currentId) ?? null);
-      setExiting(false);
-    }, reduced() ? 100 : 140);
-    return () => clearTimeout(timer);
-  }, [current?.id, displayed?.id]);
-  useEffect(() => {
-    if (displayed?.id === current?.id && displayed?.revision !== current?.revision) setDisplayed(current);
-  }, [current?.id, current?.revision, displayed?.id, displayed?.revision]);
+    previous.current = rows;
+    for (const row of rows) {
+      if (!row.leaving || timers.current.has(row.item.id)) continue;
+      timers.current.set(row.item.id, window.setTimeout(() => { timers.current.delete(row.item.id); gone.current.add(row.item.id); redraw(n => n + 1); }, reduced() ? 100 : 140));
+    }
+  });
+  useEffect(() => () => timers.current.forEach(timer => clearTimeout(timer)), []);
 
   useEffect(() => {
-    let previous = performance.now();
-    const mountedAt = previous;
+    let previousTick = performance.now();
+    const mountedAt = previousTick;
     const timer = window.setInterval(() => {
       const now = performance.now();
-      const elapsed = Math.max(0, now - previous); previous = now;
-      const el = region.current;
-      const focus = el?.contains(document.activeElement) ?? false;
-      feedbackStore.advance(elapsed, document.hidden || !owner || collapsedHere || reviewing || exiting || paused.current || focus || now - mountedAt < (reduced() ? 100 : 200));
+      const elapsed = Math.max(0, now - previousTick); previousTick = now;
+      feedbackStore.advance(elapsed, document.hidden || !owner || fanned || now - mountedAt < (reduced() ? 100 : 200));
     }, 100);
-    const visibility = () => { previous = performance.now(); };
+    const visibility = () => { previousTick = performance.now(); };
     document.addEventListener('visibilitychange', visibility);
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', visibility); };
-  }, [owner, collapsedHere, reviewing, exiting, current?.id]);
+  }, [owner, fanned, snapshot.currentId]);
 
-  const focusFeedback = () => (collapsedHere ? chip.current : card.current)?.focus({ preventScroll: true });
+  const focusFeedback = () => front.current?.focus({ preventScroll: true });
   const closeReview = () => { setReviewing(false); requestAnimationFrame(() => { if (origin.current?.isConnected) origin.current.focus({ preventScroll: true }); else focusFeedback(); }); };
-  const dismiss = () => {
-    if (!shown || exiting || shown.options.dismissible === false) return;
-    const wasFocused = card.current?.contains(document.activeElement);
-    feedbackStore.remove(shown.id);
-    if (wasFocused) setTimeout(() => { if (card.current?.isConnected) card.current.focus({ preventScroll: true }); else document.querySelector<HTMLElement>('#application-sidebar a[aria-current="page"], #main-content, input, button')?.focus({ preventScroll: true }); }, reduced() ? 110 : 150);
+  const dismiss = (item: FeedbackItem) => {
+    if (item.options.dismissible === false) return;
+    const wasFocused = region.current?.contains(document.activeElement);
+    feedbackStore.remove(item.id);
+    if (wasFocused) setTimeout(() => { if (front.current?.isConnected) front.current.focus({ preventScroll: true }); else document.querySelector<HTMLElement>('#main-content, input, button')?.focus({ preventScroll: true }); }, reduced() ? 110 : 150);
   };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.key === 'F8') { event.preventDefault(); focusFeedback(); }
       if (event.key === 'Escape' && (reviewing || region.current?.contains(document.activeElement))) {
-        event.preventDefault(); event.stopImmediatePropagation(); if (reviewing) closeReview(); else dismiss();
+        event.preventDefault(); event.stopImmediatePropagation();
+        if (reviewing) { closeReview(); return; }
+        const id = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-feedback-id]')?.dataset.feedbackId;
+        const item = snapshot.items.find(item => String(item.id) === id) ?? shownItems.at(-1);
+        if (item) dismiss(item);
       }
     };
     document.addEventListener('keydown', key, true);
     return () => document.removeEventListener('keydown', key, true);
   });
   useEffect(() => { if (reviewing) queue.current?.focus({ preventScroll: true }); }, [reviewing]);
-  useEffect(() => { setReviewing(false); paused.current = false; }, [owner?.element]);
-  useEffect(() => { setBusy(false); }, [current?.id, current?.revision]);
+  useEffect(() => { setReviewing(false); setHovered(false); }, [owner?.element]);
 
-  const runAction = async (event: MouseEvent<HTMLButtonElement>) => {
+  const runAction = async (item: FeedbackItem, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    if (!shown?.action || exiting || busy || shown.options.deadline !== undefined && Date.now() >= shown.options.deadline) return;
-    const revision = shown.revision, id = shown.id;
-    setBusy(true);
+    if (!item.action || busy !== null || item.options.deadline !== undefined && Date.now() >= item.options.deadline) return;
+    const { revision, id } = item;
+    setBusy(id);
     try {
-      await shown.action.onClick(event);
-      const latest = feedbackStore.getSnapshot().items.find(item => item.id === id);
-      if (latest?.revision === revision && shown.options.dismissOnAction !== false) feedbackStore.remove(id, 'action');
+      await item.action.onClick(event);
+      const latest = feedbackStore.getSnapshot().items.find(old => old.id === id);
+      if (latest?.revision === revision && item.options.dismissOnAction !== false) feedbackStore.remove(id, 'action');
     } catch {
-      feedbackStore.put('error', 'Action couldn’t finish', { id, action: shown.action });
-    } finally { setBusy(false); }
+      feedbackStore.put('error', 'Action couldn’t finish', { id, action: item.action });
+    } finally { setBusy(null); }
   };
   if (!owner) return null;
-  const waiting = Math.max(0, snapshot.items.length - 1);
-  const issues = snapshot.items.filter(item => item.id !== snapshot.currentId && ['warning', 'error'].includes(item.type)).length;
-  const highest = [...snapshot.items].sort((a, b) => RANK[b.type] - RANK[a.type])[0];
-  const label = shown ? feedbackLabel(shown.title) : 'Notification';
-  const inlineContext = Boolean(shown?.description && shown.action && feedbackText(shown.description).length <= 22 && feedbackText(shown.description).length + feedbackText(shown.action.label).length <= 31);
+  const waiting = Math.max(0, snapshot.items.length - snapshot.shown.length);
+  const issues = snapshot.items.filter(item => !snapshot.shown.includes(item.id) && ['warning', 'error'].includes(item.type)).length;
   const list = recent ? [...snapshot.history].reverse() : snapshot.items;
-  return createPortal(<div ref={region} className="nb-feedback-system" data-empty={!shown && !snapshot.items.length} data-owner={owner.kind} data-mobile={owner.mobile} data-collapsed={collapsedHere} onPointerEnter={() => { paused.current = true; }} onPointerLeave={() => { paused.current = false; }}>
+  const live = rows.filter(row => !row.leaving).length;
+  let after = live;
+  return createPortal(<div ref={region} className="nb-feedback-system" data-empty={!rows.length && !snapshot.items.length} data-owner={owner.kind} data-mobile={owner.mobile} data-fanned={fanned}
+    onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}
+    onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
     <div className="sr-only" role="status" aria-live="polite" aria-atomic="true"><span key={snapshot.announcement.serial}>{snapshot.announcement.text}</span></div>
-    {collapsedHere ? highest && <button ref={chip} type="button" className="nb-feedback-chip" data-type={highest.type} aria-label={`${feedbackLabel(highest.title)}. ${snapshot.items.length} pending messages. Expand navigation to review.`} onClick={() => {
-      setCollapsed(false); try { localStorage.setItem('networkbase:sidebar-collapsed', 'false'); } catch { /* Navigation still expands. */ }
-      feedbackStore.select(highest.id); requestAnimationFrame(() => card.current?.focus({ preventScroll: true }));
-    }}><StatusIcon item={highest} />{snapshot.items.length > 1 && <span>{snapshot.items.length}</span>}</button> : <>
-      {shown && <article key={shown.id} ref={card} tabIndex={-1} aria-label={label} className={`nb-feedback-card${exiting ? ' nb-feedback-exit' : ''}`} data-type={shown.type} data-feedback-id={shown.id} data-testid={shown.options.testId ?? "toast"}
-        onPointerDown={event => { if (event.pointerType !== 'mouse' && !(event.target as HTMLElement).closest('button')) pointer.current = { x: event.clientX, y: event.clientY }; }}
-        onPointerCancel={() => { pointer.current = null; }} onPointerUp={event => { const start = pointer.current; pointer.current = null; if (start && event.clientX - start.x > 70 && Math.abs(event.clientY - start.y) < 60) dismiss(); }}>
-        <span className="nb-feedback-status"><StatusIcon item={shown} /></span>
-        <div className="nb-feedback-content" key={`${shown.id}-${shown.revision}`}>
-          <div className="nb-feedback-title">{shown.title}{shown.count > 1 && <span className="nb-feedback-repeat">×{shown.count}</span>}</div>
-          {shown.description && !inlineContext && <div className="nb-feedback-context">{shown.description}</div>}
-          {shown.options.progress && <div className="nb-feedback-progress-label"><span>{shown.options.progress.completed} / {shown.options.progress.total} files</span><span>{Math.round(shown.options.progress.completed / Math.max(1, shown.options.progress.total) * 100)}%</span></div>}
-        </div>
-        {shown.options.dismissible !== false && <button type="button" className="nb-feedback-dismiss" aria-label={`Dismiss ${label}`} onClick={dismiss}><X aria-hidden="true" /></button>}
-        {shown.action && <div className="nb-feedback-footer">{inlineContext && <span className="nb-feedback-inline-context">{shown.description}</span>}<button type="button" className="nb-feedback-action" disabled={busy || exiting} onClick={event => void runAction(event)}>{shown.action.label}</button>{feedbackText(shown.action.label) === 'Undo' && Number.isFinite(shown.remaining) && <span className="nb-feedback-seconds" aria-hidden="true">{Math.ceil(shown.remaining / 1000)}s</span>}</div>}
-        {shown.options.progress && <div className="nb-feedback-progress" role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={shown.options.progress.total} aria-valuenow={shown.options.progress.completed}><i style={{ transform: `scaleX(${shown.options.progress.completed / Math.max(1, shown.options.progress.total)})` }} /></div>}
-        {feedbackText(shown.action?.label) === 'Undo' && Number.isFinite(shown.remaining) && <div className="nb-feedback-countdown" aria-hidden="true" style={{ transform: `scaleX(${shown.remaining / shown.duration})` }} />}
-      </article>}
-      {waiting > 0 && <button type="button" className="nb-feedback-queue-trigger" aria-expanded={reviewing} aria-controls="feedback-pending" onClick={event => { origin.current = event.currentTarget; setRecent(false); setReviewing(true); }}><span>{waiting} waiting{issues ? ` · ${issues} issue${issues === 1 ? '' : 's'}` : ''}</span><Layers aria-hidden="true" /></button>}
-    </>}
+    <div className="sr-only" role="alert" aria-atomic="true"><span key={snapshot.alert.serial}>{snapshot.alert.text}</span></div>
+    <div className="nb-feedback-stack">
+      {rows.map(row => {
+        const { item } = row;
+        if (!row.leaving) after -= 1;
+        // Cards behind the front compress into 8 px shelves (words hidden) until the stack fans out.
+        const depth = Math.min(2, after);
+        const shelf = !fanned && depth > 0;
+        const isFront = !row.leaving && after === 0;
+        const label = feedbackLabel(item.title);
+        const undo = feedbackText(item.action?.label) === 'Undo' && Number.isFinite(item.remaining);
+        return <article key={item.id} ref={isFront ? front : undefined} tabIndex={-1} aria-label={label}
+          className="nb-feedback-card" data-type={item.type} data-shelf={shelf ? depth : undefined} data-leaving={row.leaving || undefined}
+          inert={shelf || undefined} data-feedback-id={item.id} data-testid={isFront ? (row.item.options.testId ?? "toast") : undefined}
+          onPointerDown={event => { if (event.pointerType !== 'mouse' && !(event.target as HTMLElement).closest('button')) pointer.current = { x: event.clientX, y: event.clientY }; }}
+          onPointerCancel={() => { pointer.current = null; }} onPointerUp={event => { const start = pointer.current; pointer.current = null; if (start && event.clientX - start.x > 70 && Math.abs(event.clientY - start.y) < 60) dismiss(item); }}>
+          <Glyph item={item} />
+          <div className="nb-feedback-content" key={`${item.id}-${item.revision}`}>
+            <div className="nb-feedback-title">{item.title}{item.count > 1 && <span className="nb-feedback-repeat">×{item.count}</span>}</div>
+            {item.description && <div className="nb-feedback-context">{item.description}</div>}
+            {item.options.progress && <div className="nb-feedback-progress-label"><span>{item.options.progress.completed} / {item.options.progress.total} files</span><span>{Math.round(item.options.progress.completed / Math.max(1, item.options.progress.total) * 100)}%</span></div>}
+          </div>
+          {item.action && <button type="button" className="nb-feedback-action" disabled={busy !== null || row.leaving} onClick={event => void runAction(item, event)}>{item.action.label}</button>}
+          {item.options.dismissible !== false && <button type="button" className="nb-feedback-dismiss" aria-label={`Dismiss ${label}`} onClick={() => dismiss(item)}><X aria-hidden="true" /></button>}
+          {undo && <div className="nb-feedback-clock" aria-hidden="true">{countdownCells(item.remaining, item.duration).map((on, i) => <i key={i} data-on={on || undefined} />)}<span>{undoLabel(item.remaining, fanned)}</span></div>}
+          {item.options.progress && <div className="nb-feedback-progress" role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={item.options.progress.total} aria-valuenow={item.options.progress.completed}><i style={{ transform: `scaleX(${item.options.progress.completed / Math.max(1, item.options.progress.total)})` }} /></div>}
+        </article>;
+      })}
+    </div>
+    {waiting > 0 && <button type="button" className="nb-feedback-more" aria-label={overflowName(waiting)} aria-expanded={reviewing} aria-controls="feedback-pending" onClick={event => { origin.current = event.currentTarget; setRecent(false); setReviewing(true); }}>{overflowLabel(waiting, issues)}</button>}
     {reviewing && <div ref={queue} id="feedback-pending" className="nb-feedback-queue" tabIndex={-1} role="region" aria-label="Pending feedback">
       <div className="nb-feedback-queue-heading"><strong>{recent ? 'Recent feedback' : 'Pending feedback'}</strong><button type="button" className="nb-feedback-dismiss" aria-label="Close pending feedback" onClick={closeReview}><X aria-hidden="true" /></button></div>
-      <p>Choose a message to show in the navigation. Unread messages keep their reading time.</p>
+      <p>Choose a message to bring to the front. Unread messages keep their reading time.</p>
       <button type="button" className="nb-feedback-history-toggle" onClick={() => setRecent(value => !value)}>{recent ? 'Back to pending' : `Recent feedback (${snapshot.history.length})`}</button>
       {snapshot.overflow > 0 && <p>Older feedback has been grouped here. Check the affected item for its current state.</p>}
       {list.length === 0 && <p>No messages here.</p>}
-      {list.map(item => <div key={`${item.id}-${item.revision}`} className="nb-feedback-pending-row" data-type={item.type}><StatusIcon item={item} /><div><strong>{item.title}</strong>{item.description && <small>{item.description}</small>}{item.count > 1 && <small>{item.count} repeated events</small>}</div>{!recent && <button type="button" disabled={item.id === snapshot.currentId} onClick={() => { feedbackStore.select(item.id); closeReview(); requestAnimationFrame(() => card.current?.focus({ preventScroll: true })); }}>{item.id === snapshot.currentId ? 'Current' : 'Show'}</button>}</div>)}
+      {list.map(item => <div key={`${item.id}-${item.revision}`} className="nb-feedback-pending-row" data-type={item.type}><Glyph item={item} /><div><strong>{item.title}</strong>{item.description && <small>{item.description}</small>}{item.count > 1 && <small>{item.count} repeated events</small>}</div>{!recent && <button type="button" disabled={item.id === snapshot.currentId} onClick={() => { feedbackStore.select(item.id); closeReview(); requestAnimationFrame(() => front.current?.focus({ preventScroll: true })); }}>{item.id === snapshot.currentId ? 'Current' : 'Show'}</button>}</div>)}
     </div>}
   </div>, owner.element);
 }

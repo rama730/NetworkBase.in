@@ -17,3 +17,17 @@ export function overflowLabel(waiting: number, issues: number) {
 export function overflowName(waiting: number) {
   return `${waiting} more waiting, open Pending feedback`;
 }
+
+export type StackRow<T extends { id: unknown }> = { item: T; leaving: boolean };
+
+/**
+ * What the stack draws: the shown items in order, plus any that just left, kept in their old place while they
+ * fade (140 ms) so nothing jumps. New items come in at the front (the end).
+ */
+export function stackRows<T extends { id: unknown }>(previous: readonly StackRow<T>[], shown: readonly T[]): StackRow<T>[] {
+  const rows: StackRow<T>[] = shown.map((item) => ({ item, leaving: false }));
+  previous.forEach((row, index) => {
+    if (!shown.some((item) => item.id === row.item.id)) rows.splice(Math.min(index, rows.length), 0, { item: row.item, leaving: true });
+  });
+  return rows;
+}
