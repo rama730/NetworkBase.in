@@ -144,7 +144,8 @@
     "drizzle/0138_mentoring_plan.sql",
     "drizzle/0139_mock_scores.sql",
     "drizzle/0140_prep_syllabus.sql",
-    "drizzle/0141_demo_day.sql"
+    "drizzle/0141_demo_day.sql",
+    "drizzle/0142_school_timetable.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

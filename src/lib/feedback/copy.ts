@@ -776,4 +776,11 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Name each quiet week.": {"title": "Name each quiet week.", "type": "warning"},
   "A quiet week ends after it starts.": {"title": "A quiet week ends after it starts.", "type": "warning"},
   "Check the quiet weeks.": {"title": "Check the quiet weeks.", "type": "warning"},
+  "Check the school day.": {"title": "Check the school day.", "type": "warning"},
+  "Import 1–3,000 rows at a time.": {"title": "Import 1–3,000 rows at a time.", "type": "warning"},
+  "Set up the school day first.": {"title": "Set up the school day first.", "type": "warning"},
+  "No row matches the school day.": {"title": "No row matches the school day.", "type": "warning"},
+  "A period ends after it starts.": {"title": "A period ends after it starts.", "type": "warning"},
+  "Each day follows one pattern.": {"title": "Each day follows one pattern.", "type": "warning"},
+  "Write each period as P1 08:50-09:50 (add break or lunch for those rows).": {"title": "Write each period as P1 08:50-09:50 (add break or lunch for those rows).", "type": "warning"},
 };

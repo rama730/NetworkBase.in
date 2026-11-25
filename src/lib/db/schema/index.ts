@@ -1344,6 +1344,19 @@ export const demoPicks = pgTable("demo_picks", {
   teamId: uuid("team_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.projectId, t.award, t.judgeId] })]);
+/** B3.4a (0142, report 32.5 calls 1–4): a school's timetable slots — imported or typed; no students. Server only. */
+export const schoolTimetableSlots = pgTable("school_timetable_slots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  day: smallint("day").notNull(),
+  period: text("period").notNull(),
+  week: text("week"),
+  className: text("class_name").notNull(),
+  courseId: uuid("course_id").references(() => workspaces.id, { onDelete: "set null" }),
+  teacherId: uuid("teacher_id").references(() => profiles.id, { onDelete: "set null" }),
+  room: text("room"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("school_timetable_slots_workspace_day_idx").on(t.projectId, t.day), index("school_timetable_slots_teacher_idx").on(t.teacherId)]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),
