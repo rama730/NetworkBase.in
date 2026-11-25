@@ -8959,6 +8959,8 @@ CHECK-IN · "Arjun ↔ K. Shah" (one running document, newest on top)
 - Mentors are the TAs of a Mentor group, and only while they're TAs; a mentor reads and edits only entries made since the pair was matched, so a new match opens nothing earlier and the old mentor leaves the pair. **[call]**
 - Shared entries reach the Teacher (the instructor) only, not other TAs. **[call]**
 - Learners never pick a Mentor group; staff match (one click for the suggestions). **[call]**
+- **Mentor only** access for outside mentors is parked: it needs a scoped role that limits a member to their mentees across every tab. Until then an outside mentor joins as a TA. **[open]**
+- Check-in times are booked from a mentor's weekly slots for the next 2 weeks; the booking makes that day's entry, and the .ics comes from the server. **[call]**
 
 ### 31.6 C4 · Capstone and demo day (agreed 2026-11-17)
 **References** (18 searches found 152 templates, 54 of them rated; 7 studied from their screenshots):
