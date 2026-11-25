@@ -783,4 +783,9 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "A period ends after it starts.": {"title": "A period ends after it starts.", "type": "warning"},
   "Each day follows one pattern.": {"title": "Each day follows one pattern.", "type": "warning"},
   "Write each period as P1 08:50-09:50 (add break or lunch for those rows).": {"title": "Write each period as P1 08:50-09:50 (add break or lunch for those rows).", "type": "warning"},
+  "Pick the day, and the periods if it isn’t the whole day.": {"title": "Pick the day, and the periods if it isn’t the whole day.", "type": "warning"},
+  "Pick someone on the school’s staff.": {"title": "Pick someone on the school’s staff.", "type": "warning"},
+  "That lesson isn’t on the school’s timetable.": {"title": "That lesson isn’t on the school’s timetable.", "type": "warning"},
+  "Pick someone other than the absent teacher.": {"title": "Pick someone other than the absent teacher.", "type": "warning"},
+  "Couldn’t load the cover board.": {"title": "Couldn’t load the cover board."},
 };

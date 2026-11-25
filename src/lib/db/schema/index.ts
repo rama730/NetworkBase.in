@@ -1357,6 +1357,28 @@ export const schoolTimetableSlots = pgTable("school_timetable_slots", {
   room: text("room"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("school_timetable_slots_workspace_day_idx").on(t.projectId, t.day), index("school_timetable_slots_teacher_idx").on(t.teacherId)]);
+/** B3.4b (0143, report 32.5 calls 5–7): absences by day or period, and cover for a slot on a day. Server only. */
+export const schoolAbsences = pgTable("school_absences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  fromPeriod: text("from_period"),
+  toPeriod: text("to_period"),
+  reason: text("reason"),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("school_absences_workspace_day_idx").on(t.projectId, t.day)]);
+export const schoolCovers = pgTable("school_covers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  slotId: uuid("slot_id").notNull().references(() => schoolTimetableSlots.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  coverUserId: uuid("cover_user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  note: text("note"),
+  assignedBy: uuid("assigned_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [unique("school_covers_one_per_slot").on(t.slotId, t.day), index("school_covers_workspace_day_idx").on(t.projectId, t.day), index("school_covers_cover_user_idx").on(t.coverUserId)]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),
