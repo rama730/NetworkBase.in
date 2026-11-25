@@ -222,12 +222,15 @@ export function CoverOnlySettings({ schoolId }: { schoolId: string }) {
 
 /** B3.4d (call 4): a course takes its class times from the school's timetable (its teacher's slots for its classes). */
 export function UseTimetableButton({ classId }: { classId: string }) {
+  const client = useQueryClient();
   const [busy, setBusy] = useState(false);
   return (
     <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => { setBusy(true); void classTimesFromTimetableAction(classId).then((r) => {
       setBusy(false);
       if (!r.success) return void toast.error(r.error);
       toast.success(`Class times set from the timetable: ${r.meets} a week`);
+      // Found live (B3.4d): the Class details card shows the new times at once, so saving it can't put the old ones back.
+      void client.invalidateQueries({ queryKey: ["class-home", classId] });
     }); }}>Use the school timetable for class times</button>
   );
 }
