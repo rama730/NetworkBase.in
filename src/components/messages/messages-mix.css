@@ -246,3 +246,11 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
   .nbm-chead { padding: 0 8px; }
   .nbm-chead-title { font-size: 22px; }
 }
+
+/* Tab bar: 38px tabs; hover draws a hairline from the centre. */
+.nbm-tab { position: relative; display: inline-flex; align-items: center; height: 38px; padding: 0 10px; font-size: 13px; font-weight: 500; color: var(--nbm-fg2); transition: color var(--nbm-m1) var(--nbm-ease); }
+.nbm-tab:hover, .nbm-tab[aria-selected="true"] { color: var(--foreground); }
+.nbm-tab::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--nbm-brand); transform: scaleX(0); transition: transform var(--nbm-m2) var(--nbm-ease), background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-tab:not([aria-selected="true"]):hover::after { transform: scaleX(1); background: var(--nbm-line); }
+/* The open tab's clay underline is the app's sliding TabMarker (one marker app-wide), not a per-tab line. */
+.nbm-tab .nbm-count { height: 16px; min-width: 16px; font-size: 10px; }

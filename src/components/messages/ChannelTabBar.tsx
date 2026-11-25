@@ -1,4 +1,5 @@
 "use client";
+import { padCount } from "@/lib/messaging/mix-format";
 import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -69,7 +70,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
     if (next !== null) elements[next]?.focus();
   }, []);
 
-  const tabClass = "nb-tab inline-flex items-center border-b-2 px-2 pb-2 text-[13px] font-medium transition-colors duration-[130ms] pointer-coarse:min-h-11";
+  const tabClass = "nbm-tab pointer-coarse:min-h-11";
   const views = tabs.filter((tab) => tab.kind !== "link");
   const bookmarks = tabs.filter((tab) => tab.kind === "link");
   const closeButton = (tab: ChannelTabItem) => (
@@ -110,11 +111,11 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
                 onClick={() => onSelectTab(tab.id)}
                 onKeyDown={handleKeyDown}
                 // On touch the × always shows: room for it, so it never covers the name.
-                className={`${tabClass} ${closable ? "pointer-coarse:pr-8" : ""} ${selected ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                className={`${tabClass} ${closable ? "pointer-coarse:pr-8" : ""}`}
               >
                 <Icon size={16} className="mr-1.5 shrink-0" aria-hidden="true" />
                 <span className="max-w-[130px] truncate">{tab.title}</span>
-                {tab.kind === "pins" && pinCount > 0 ? <span className="nb-tab-count ml-1.5">{pinCount}<span className="sr-only"> pinned</span></span> : null}
+                {tab.kind === "pins" && pinCount > 0 ? <span className="nbm-count ml-1.5"><span aria-hidden="true">{padCount(pinCount)}</span><span className="sr-only">{pinCount} pinned</span></span> : null}
               </button>
               {closable ? closeButton(tab) : null}
             </div>
@@ -135,7 +136,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
                   target="_blank"
                   rel="noopener noreferrer"
                   title={tab.url ? `Open ${tab.url} in a new tab` : undefined}
-                  className={`${tabClass} pointer-coarse:pr-8 border-transparent text-muted-foreground hover:text-foreground`}
+                  className={`${tabClass} pointer-coarse:pr-8`}
                 >
                   <Link2 size={16} className="mr-1.5 shrink-0" aria-hidden="true" />
                   <span className="max-w-[130px] truncate">{tab.title}</span>
@@ -160,7 +161,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
           >
             <Plus size={16} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-60">
+          <DropdownMenuContent align="start" className="nbm nbm-menu w-60">
             {onAddCanvas ? (
               <>
                 <DropdownMenuItem onSelect={() => onAddCanvas("blank")}><FileText /> {hasCanvas ? "Open note" : "New note"}</DropdownMenuItem>

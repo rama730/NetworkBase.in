@@ -16,7 +16,7 @@ test("tab bar renders the tabs with even spacing, close only on canvas/shared ta
   });
   const html = renderToStaticMarkup(createElement(ChannelTabBar, { activeTab: "messages", tabs, pinCount: 3, onSelectTab: noop, onCloseTab: noop, onAddBookmark: noop }));
   for (const label of ["Messages", "Plan", "Pins", "Files", "Spec"]) assert.match(html, new RegExp(`>${label}<`));
-  assert.match(html, />3<span class="sr-only"> pinned<\/span>/);
+  assert.match(html, /<span class="sr-only">3 pinned<\/span>/);
   assert.match(html, /aria-label="Hide note tab"/);
   // Round 2 #109: a bookmark is a link to a website, not a tab.
   assert.match(html, /aria-label="Remove Spec bookmark"/);
