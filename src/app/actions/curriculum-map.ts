@@ -69,7 +69,8 @@ export async function readYearMapAction(schoolId: string) {
       const counted = leader || Boolean(dept && depts.find((d) => d.id === dept)?.head);
       const mine = sprints.filter((s) => s.workspace_id === c.id);
       const weekOf = new Map(mine.filter((s) => s.parent).map((s) => [s.id, s]));
-      const ls = lessons.filter((l) => l.workspace_id === c.id).map((l) => {
+      // Found live (B3.2b): only the Term plan's lessons (in a week of a unit) count, never a self-paced Path's.
+      const ls = lessons.filter((l) => l.workspace_id === c.id && l.sprint_id && weekOf.has(l.sprint_id)).map((l) => {
         const week = l.sprint_id ? weekOf.get(l.sprint_id) : undefined;
         return { unit: week?.parent ?? null, stage: l.stage ?? "draft", day: week?.start?.slice(0, 10) ?? null, ticks: readTicks(l.fields), type: lessonTypeOf(l.fields) };
       });

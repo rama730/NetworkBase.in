@@ -27,7 +27,7 @@ export function YearMap({ schoolId }: { schoolId: string }) {
   const cols = d.weeks.length + 2;
   const summary = (r: (typeof d.rows)[number]) => (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="font-mono">Planned {r.planned.percent}%</span>
+      <span className="font-mono">{r.planned.total ? `Planned ${r.planned.percent}%` : "No lessons yet"}</span>
       {r.taught.map((t) => <span key={t.group} className="font-mono">{t.group} {t.taught}/{t.due}</span>)}
       {r.taught.some((t) => t.warn) ? <StatusBadge state="at_risk">Behind the map</StatusBadge> : null}
     </span>

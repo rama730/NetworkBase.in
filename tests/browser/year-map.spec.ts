@@ -30,6 +30,7 @@ test('Year map: courses by department, units as spans with Draft and assessment 
   await expect(row.getByRole('cell', { name: /Forces, Draft/ })).toBeVisible();
   await expect(row).toContainText(/Planned 90%\s*6A 4\/4\s*6B 2\/4\s*Behind the map/);
   await expect(map.getByRole('columnheader', { name: /Week of Oct 26, Half-term/ })).toBeVisible();
+  await expect(map.getByTestId('map-row').nth(1)).toContainText('No lessons yet');
   expect(await axeViolations(page)).toEqual([]);
 });
 

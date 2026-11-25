@@ -69,6 +69,9 @@ test("Year map: units as spans per course; Taught per class only for leaders and
     VALUES (${science}, 'Secret lesson words', 'done', 'medium', 'class_lesson', 'ready', ${week!.id}, ${sql.json({ lessonType: "assessment", taught: { "6A": { on: "2026-09-02", by: teacher! } } })}, ${teacher!}),
            (${science}, 'Second', 'todo', 'medium', 'class_lesson', 'ready', ${week!.id}, '{}'::jsonb, ${teacher!})`;
 
+  // A self-paced Path lesson (in a path step, not a Term plan week) never counts on the map.
+  const [step] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, status, path_position) VALUES (${english}, 1, 'Step 1', 'active', 0) RETURNING id`;
+  await sql`INSERT INTO tasks (workspace_id, title, status, priority, item_type, stage, sprint_id, type_fields, creator_id) VALUES (${english}, 'Path lesson', 'todo', 'medium', 'class_lesson', 'ready', ${step!.id}, '{}'::jsonb, ${teacher!})`;
   const leader = await map.readYearMapAction(school);
   assert.ok(leader.success);
   assert.equal(JSON.stringify(leader).includes("Secret lesson words"), false, "unit names and counts only");
@@ -77,6 +80,7 @@ test("Year map: units as spans per course; Taught per class only for leaders and
   assert.deepEqual(row.segments.filter((s) => s.kind === "unit").map((s) => s.kind === "unit" && [s.name, s.draft, s.assessment, s.span]), [["Cells", false, true, 3]]);
   assert.deepEqual(row.taught.map((t) => [t.group, t.taught, t.due, t.behind]), [["6A", 1, 2, 1], ["6B", 0, 2, 2]]);
   assert.equal(row.taught[1]!.warn, true);
+  assert.equal(leader.rows.find((r) => r.id === english)!.planned.total, 0, "found live: Path lessons aren't the plan");
 
   viewerId = head!;
   const h = await map.readYearMapAction(school);
