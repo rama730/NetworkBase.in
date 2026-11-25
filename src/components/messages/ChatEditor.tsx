@@ -185,7 +185,7 @@ export function FormatToolbar({ editor, onLink }: { editor: Editor; onLink: () =
   const [current, setCurrent] = useState(0);
   return (
     <div
-      className="flex flex-wrap gap-0.5 border-b border-border px-1 py-1"
+      className="nbm-comp-tools"
       role="toolbar"
       aria-label="Formatting"
       onKeyDown={(event) => {
@@ -207,7 +207,7 @@ export function FormatToolbar({ editor, onLink }: { editor: Editor; onLink: () =
           onMouseDown={(event) => event.preventDefault()}
           onFocus={() => setCurrent(index)}
           onClick={() => (run ? run(editor) : onLink())}
-          className={`nb-icon-button size-8 pointer-coarse:size-11 ${active[name] ? "bg-muted text-foreground" : ""}`}
+          className={`nbm-comp-tool${active[name] ? " is-on" : ""}`}
         >
           <Icon size={16} />
         </button>

@@ -155,9 +155,7 @@ function TypingIndicator({ names }: { names: string[] }) {
 
 /** Bottom-bar button look: active shows a filled background and an underline bar, like Slack. */
 function barButton(active: boolean) {
-  return `nb-icon-button relative size-8 pointer-coarse:size-11 data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:after:absolute data-[state=open]:after:inset-x-1.5 data-[state=open]:after:bottom-0.5 data-[state=open]:after:h-0.5 data-[state=open]:after:rounded-full data-[state=open]:after:bg-foreground ${
-    active ? "bg-muted text-foreground after:absolute after:inset-x-1.5 after:bottom-0.5 after:h-0.5 after:rounded-full after:bg-foreground" : ""
-  }`;
+  return `nbm-cell nbm-comp-cell${active ? " is-on" : ""}`;
 }
 
 function personLabel(person: ChatPerson) {
@@ -873,7 +871,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         </div>
       ) : null}
       {slashHint ? <p className="nb-meta mb-1 px-1">e.g. {slashHint}</p> : null}
-      <div className="relative rounded-md border border-input bg-card focus-within:border-ring">
+      <div className="nbm-comp">
         {matchingSlash.length > 0 ? (
           <div className="absolute bottom-full left-0 z-30 mb-1 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md">
             <div className="flex items-center justify-between px-2 py-1" aria-hidden="true">
@@ -987,11 +985,12 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             <Slash size={18} />
           </button>
           {nearLimit ? (
-            <span id={`${draftKey}-count`} aria-live="polite" className={`nb-meta ml-auto ${tooLong ? "text-destructive" : ""}`}>
+            <span id={`${draftKey}-count`} aria-live="polite" className={`nbm-comp-count${tooLong ? " is-over" : ""}`}>
               {length.toLocaleString()}/{CHAT_MAX_BODY.toLocaleString()}<span className="sr-only"> characters</span>
             </span>
           ) : null}
           {/* aria-disabled (not disabled): keyboard and screen-reader users can still reach it and hear why. */}
+          <span className="nbm-send">
           <button
             type="button"
             onClick={() => canSend && void submit()}
@@ -999,13 +998,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             aria-describedby={canSend ? undefined : `${draftKey}-send-why`}
             aria-label={queued ? `Sending when the upload finishes, ${uploadPercent}%` : "Send"}
             title={canSend ? sendHint : sendBlockedReason}
-            className={`${nearLimit ? "ml-2" : "ml-auto"} inline-flex h-8 items-center gap-1.5 ${send ? "rounded-md" : "rounded-l-md"} bg-primary px-3.5 text-[13px] font-medium text-primary-foreground transition-colors duration-[130ms] pointer-coarse:h-11 ${
-              canSend ? "cursor-pointer hover:bg-[var(--primary-hover)]" : "cursor-not-allowed opacity-50"
-            }`}
+            data-blocked={canSend ? undefined : "true"}
           >
             <SendHorizontal size={16} /> <span className={queued ? "" : "hidden sm:inline"}>{queued ? `Sending at ${uploadPercent}%` : "Send"}</span>
           </button>
-          <span id={`${draftKey}-send-why`} className="sr-only">{sendBlockedReason}</span>
           {send ? null : (
             <ComposerMenu
               title="Schedule message"
@@ -1016,12 +1012,16 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               triggerProps={{
                 "aria-label": scheduleBlocked ? `Schedule message (${scheduleBlocked})` : "Schedule message",
                 title: scheduleBlocked ?? "Schedule message",
-                className: `-ml-px inline-flex h-8 items-center rounded-r-md border-l border-primary-foreground/20 bg-primary px-2 text-primary-foreground pointer-coarse:h-11 pointer-coarse:px-3.5 ${scheduleBlocked || sending ? "cursor-not-allowed opacity-50" : "hover:bg-[var(--primary-hover)]"}`,
+                className: "nbm-send-more",
               }}
             />
           )}
+          </span>
+          <span id={`${draftKey}-send-why`} className="sr-only">{sendBlockedReason}</span>
         </div>
       </div>
+      {/* The reason Send waits, or its keys, in mono under the box while you type (pointer screens). */}
+      <p className="nbm-comp-hint" aria-hidden="true">{canSend ? sendHint : sendBlockedReason}</p>
       {threadRootSeq && alsoSendTo ? (
         <label className="mt-1.5 flex w-fit items-center gap-2 text-[13px] text-muted-foreground pointer-coarse:min-h-11">
           <input type="checkbox" checked={alsoToChannel} onChange={(e) => setAlsoToChannel(e.target.checked)} className="size-4 accent-[var(--primary)]" />

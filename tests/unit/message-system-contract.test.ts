@@ -808,8 +808,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.4 State-aware Send button using semantic primary design tokens
     assert.match(
         composerSource,
-        /bg-primary px-3\.5 text-\[13px\] font-medium text-primary-foreground[\s\S]*?hover:bg-\[var\(--primary-hover\)\]/,
-        "Composer Send button must use active primary design tokens when content is ready to send",
+        /<span className="nbm-send">[\s\S]*?data-blocked=\{canSend \? undefined : "true"\}/,
+        "Composer Send is the clay split (mix) and shows when it is blocked",
     );
 
     // 8.5 Power-user keyboard shortcuts: Cmd+I for Details, Cmd+L for link
