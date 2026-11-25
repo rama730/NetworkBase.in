@@ -367,11 +367,13 @@ export function isWorkspaceTabVisibleToViewer(input: {
   canManageSettings?: boolean;
   publicTabVisibility?: unknown;
   isOrganization?: boolean;
+  /** Report 33.3 call 1 (B4.2): in a company, Members is the Directory for every member. */
+  orgType?: string | null;
 }) {
   if (input.isOrganization) {
     if (input.tabId === "about") return true;
-    // Members is owners' and admins' alone in v1 (report §20.8).
-    if (input.tabId === "members") return Boolean(input.canManageSettings);
+    // Members is owners' and admins' alone in v1 (report §20.8); a company's Directory is for everyone inside (33.3).
+    if (input.tabId === "members") return Boolean(input.canManageSettings) || (input.orgType === "company" && input.isOwnerOrMember);
     // Projects is for people in the org; visitors see public projects on About (report §28.5).
     if (input.tabId === "projects") return input.isOwnerOrMember;
     if (input.tabId === "dashboard" || input.tabId === "tasks" || input.tabId === "settings") return input.isOwnerOrMember;
@@ -391,6 +393,7 @@ export function resolveAllowedWorkspaceTab(input: {
   canManageSettings?: boolean;
   publicTabVisibility?: unknown;
   isOrganization?: boolean;
+  orgType?: string | null;
 }): string | null {
   // Org visitors land on About; everyone else on Dashboard.
   const landingTab = input.isOrganization && !input.isOwnerOrMember ? "about" : "dashboard";

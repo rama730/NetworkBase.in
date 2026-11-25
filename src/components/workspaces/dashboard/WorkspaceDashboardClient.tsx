@@ -55,6 +55,7 @@ import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import type { OrgFilesInfo } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
+import { CompanyPeople } from '@/components/organizations/CompanyPeople';
 import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } from '@/components/organizations/OrgOverviewParts';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
 import { SchoolClassesTab } from '@/components/organizations/SchoolParts';
@@ -354,6 +355,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         canManageSettings: isOwner || (isMember && normalizeWorkspaceMemberRole(memberRole, 'member') === 'admin') || isInheritedAdmin,
         publicTabVisibility,
         isOrganization,
+        orgType: organization?.type ?? null,
     });
 
     const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);
@@ -707,6 +709,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     canManageSettings: canOpenSettingsTab,
                     publicTabVisibility,
                     isOrganization,
+                    orgType: organization?.type ?? null,
                 })
             ) {
                 toast.error('That workspace tab is not visible for your current access');
@@ -767,6 +770,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             canManageSettings: canOpenSettingsTab,
             publicTabVisibility,
             isOrganization,
+            orgType: organization?.type ?? null,
         });
         if (allowedTab === null) {
             return;
@@ -823,6 +827,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             canManageSettings: canOpenSettingsTab,
             publicTabVisibility,
             isOrganization,
+            orgType: organization?.type ?? null,
         });
         setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
     }, [
@@ -1301,7 +1306,15 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 </div>
             )}
 
-            {isOrganization && canManageProjectSettings && activeTab === 'members' && (
+            {/* Report 33.3 (B4.2): a company's Members is the Directory for everyone inside; admins keep the roster there. */}
+            {isOrganization && organization?.type === 'company' && activeTab === 'members' && (
+                <div className="w-full h-full min-h-0">
+                    <TabErrorBoundary tabName="Members">
+                        <CompanyPeople orgId={project.id} roster={canManageProjectSettings ? <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} /> : null} />
+                    </TabErrorBoundary>
+                </div>
+            )}
+            {isOrganization && organization?.type !== 'company' && canManageProjectSettings && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
                         {organization && !organization.isSchool && typeProfile(organization.type).schools

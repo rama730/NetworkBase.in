@@ -96,6 +96,7 @@ export async function generateWorkspaceRouteMetadata({
                     canManageSettings,
                     publicTabVisibility: project.publicTabVisibility,
                     isOrganization: Boolean(project.organization),
+                    orgType: (project.organization as { type?: string | null } | null | undefined)?.type ?? null,
                 });
                 if (visible(tab)) {
                     metadata.title = `${tabTitle} · ${project.title} · NetworkBase`;

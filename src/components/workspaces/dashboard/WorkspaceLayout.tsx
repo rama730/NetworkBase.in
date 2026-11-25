@@ -232,6 +232,7 @@ export default function WorkspaceLayout({
                 canManageSettings: settingsAccess,
                 publicTabVisibility: normalizedPublicTabs,
                 isOrganization,
+                orgType: (project as { organization?: { type?: string | null } | null }).organization?.type ?? null,
             });
         }),
         [canManageSettings, canOpenSettings, canSeeMemberTabs, isOrganization, isOwner, normalizedPublicTabs, project],
