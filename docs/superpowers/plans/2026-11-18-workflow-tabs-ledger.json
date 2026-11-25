@@ -1138,9 +1138,9 @@
       "text": "B3.1 S1 School year and calendar (32.2) — Build: terms as school sprints shown in teams (\"Set by\"); day types table; event as an F1 item type (never on board) w",
       "kind": "unit",
       "milestone": "B3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/school-year.test.ts; tests/unit/school-calendar-tools.test.ts; tests/db/school-year.test.ts; tests/db/school-events.test.ts; tests/db/school-calendar.test.ts; tests/browser/school-year.spec.ts; tests/browser/school-events.spec.ts; tests/browser/school-calendar.spec.ts",
+      "evidence": "B3.1a–d live 2026-11-25 (f563a1de1, dc927de50, 696a4e1ed, 5516933cd, ffa4f3a7e; no migration). Live in Chrome on wt-test-b0-school: school year WT 2026-27 saved (2 classes follow it: term and WT Winter break as a break), Year view (Week 4 of 17, holiday in 26 days), class This week at school; WT Staff briefing weekly skips Dec 22 and 29; WT Open evening public on About; the class sees both Set by the school; events off the board. Public feed checked live (school made public for one fetch, then private): only the public event and the holiday. Subscribe and Import… panels live. Friday summary, cancellation notice, Start next year and import saving are DB-tested."
     },
     {
       "key": "B3.2",

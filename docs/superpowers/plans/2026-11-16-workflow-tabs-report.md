@@ -9726,6 +9726,19 @@ COURSE WORKSPACE · Grade 6 Science · Sprints → Term plan (W2)
 9. The public curriculum overview is opt-in and shows unit titles only.
 10. Start next year copies courses by week of term, without Taught ticks or class notes.
 
+**B3.1 build calls (2026-11-25):**
+- **Split:** B3.1a the school year (Settings → School year, Year view, classes follow it, This week at school); B3.1b events (Events view, + Event, audience, repeats, Show publicly, About calendar); B3.1c the feeds and notices (one personal link for meetings and school events, the public feed, Friday's Next week at school, Important for a cancellation within 48 hours); B3.1d Start next year and Import….
+- The school's year becomes every class's term and its holidays and staff days reach classes as breaks, so the existing session rules skip them; leaving the school clears both. **[call]**
+- A year is at most 400 days and every holiday, staff day and half day sits inside its terms. **[call]**
+- Audience is Everyone or Admins only in the form (classes and roles are in the data for later); out-of-audience school events are hidden from members who aren't admins in every read, the Tasks list too. **[call]**
+- The personal .ics link is the one meetings already use (A4.1b), now with the school events meant for you; the public feed is per school by id and only for a school visitors can see. **[call]**
+- Next week at school is sent on the week's last school day between 3 and 5 PM in the school's zone, and only when you have an event or a day that isn't ordinary. **[call]**
+- Import reads the file in the browser; holidays, staff days and half days join the year, other rows become school events; Start next year moves only the school's own events. **[call]**
+
+**B3.2 build calls (2026-11-25):**
+- **Correction:** in the build, a **course is the class org** under the school (it already has W2's Term plan) and the **team is its Department** (B0.2), so the Year map is the school's view across its classes, grouped by department. The classes a course teaches (6A, 6B, 6C) are names on the course (Settings → Term plan). **[call]**
+- Per-class Taught ticks and class notes live on the lesson; a lesson becomes Taught when every class has it. **[call]**
+
 ### 32.4 S3 · Staff hand-ins and reviews (agreed 2026-11-17)
 **References** (12 more searches on approvals and deadlines found 117 templates; few are rated, and 3 were studied from their screenshots):
 
