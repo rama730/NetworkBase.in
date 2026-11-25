@@ -167,7 +167,7 @@ function messageGateSql(me: string, target: ReturnType<typeof sql>) {
   return sql`
     SELECT t.id, app_private.chat_can_dm(${me}::uuid, t.id) AS can,
            CASE WHEN NOT app_private.chat_can_dm(${me}::uuid, t.id)
-                 AND p.deleted_at IS NULL
+                 AND p.id IS NOT NULL AND p.deleted_at IS NULL
                  AND coalesce(p.message_privacy, 'connections') = 'connections'
                  AND NOT app_private.chat_is_blocked(${me}::uuid, t.id) THEN 'connections' END AS reason
     FROM (SELECT ${target} AS id) t LEFT JOIN profiles p ON p.id = t.id`;

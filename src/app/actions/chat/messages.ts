@@ -405,9 +405,11 @@ export async function listFiles(input: { channelId: string; kind?: "media"; befo
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE a.channel_id = ${input.channelId}::uuid AND m.deleted_at IS NULL
         AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
-        ${input.kind === "media" ? sql`AND (a.mime LIKE 'image/%' OR a.mime LIKE 'video/%')` : sql``}
-        ${input.before ? sql`AND (a.message_seq, a.idx) < (${input.before.seq}::bigint, ${input.before.idx}::int)` : sql``}
-      ORDER BY a.message_seq DESC, a.idx DESC
+        ${input.kind === "media" ? sql`AND (a.mime LIKE 'image/%' OR a.mime LIKE 'video/%') AND a.name !~* '\.(ogg|oga|opus|mp3|m4a|wav|aac|flac)$'` : sql``}
+        ${input.before ? sql`AND (a.message_seq < ${input.before.seq}::bigint OR (a.message_seq = ${input.before.seq}::bigint AND a.idx > ${input.before.idx}::int))` : sql``}
+      -- Newest message first; files sent together keep the order they were sent in. Photos never take audio
+      -- (an .ogg voice note labelled video/ogg is audio, as mediaKind says).
+      ORDER BY a.message_seq DESC, a.idx ASC
       LIMIT ${limit + 1}
     `);
     // One extra row says whether an older page exists, so a full last page never costs a dead "Load older".

@@ -21,7 +21,7 @@ const css = readFileSync('src/components/messages/messages-mix.css', 'utf8');
 test('listFiles: a media filter and a (seq, idx) cursor; it says where the next page starts', () => {
   assert.match(action, /export async function listFiles\(input: \{ channelId: string; kind\?: "media"; before\?: \{ seq: number; idx: number \} \}\)/);
   assert.match(action, /a\.mime LIKE 'image\/%' OR a\.mime LIKE 'video\/%'/);
-  assert.match(action, /\(a\.message_seq, a\.idx\) < \(\$\{input\.before\.seq\}::bigint, \$\{input\.before\.idx\}::int\)/);
+  assert.match(action, /a\.message_seq < \$\{input\.before\.seq\}::bigint OR \(a\.message_seq = \$\{input\.before\.seq\}::bigint AND a\.idx > \$\{input\.before\.idx\}::int\)/);
   assert.match(action, /next: rows\.length > limit \? \{ seq: last\.seq, idx: last\.idx \} : null/);
 });
 

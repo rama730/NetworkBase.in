@@ -1614,13 +1614,6 @@ input:is([type="checkbox"], [type="radio"]):focus-visible { outline: 1.5px solid
 .nb-canvas[contenteditable="false"] { min-height: 0; padding-bottom: 0; }
 
 /* Typing indicator dots (chat composer) */
-.nb-typing-dots { display: inline-flex; align-items: center; gap: 2px; }
-.nb-typing-dots > span { width: 4px; height: 4px; border-radius: 9999px; background: currentColor; animation: nb-typing-dot 1.2s ease-in-out infinite; }
-.nb-typing-dots > span:nth-child(2) { animation-delay: 0.15s; }
-.nb-typing-dots > span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes nb-typing-dot { 0%, 60%, 100% { opacity: 0.35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
-@media (prefers-reduced-motion: reduce) { .nb-typing-dots > span { animation: none; opacity: 0.7; } }
-html[data-reduce-motion="true"] .nb-typing-dots > span { animation: none; opacity: 0.7; }
 
 /* Approved person-card presentation: one geometry for Network, invitations and the Discover rail. */
 .nb-person-card-host { min-width:0; container:person-card / inline-size; }
@@ -2635,9 +2628,6 @@ html[data-reduce-motion="true"] .nb-pixel-beat > i { animation: none !important;
 .nb-upload-bar > .track { flex: 1; min-width: 24px; height: 4px; overflow: hidden; border-radius: 1px; background: var(--border); }
 .nb-upload-bar > .track > .fill { display: block; height: 100%; background: var(--nb-brand); transition: width 160ms var(--nb-ease, ease); }
 .nb-upload-bar > .pct { font: 11px var(--font-mono, ui-monospace), ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
-.nb-upload-bar.is-on-image > .track { background: rgb(255 255 255 / 35%); }
-.nb-upload-bar.is-on-image > .track > .fill { background: #fff; }
-.nb-upload-bar.is-on-image > .pct { color: #fff; }
 
 /* Saved in place: a tick that pops once, beside what saved. */
 .nb-saved { display: inline-flex; align-items: center; gap: 7px; font: 500 11px/1 var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--status-success); animation: nb-pf-pop 260ms var(--nb-ease) both, nb-saved-out 400ms var(--nb-ease) 4s forwards; }

@@ -21,7 +21,7 @@ test('a read only becomes "Seen" in a DM, with your receipts on, and never acros
 });
 
 test('a deleted account never gets the "connections" reason', () => {
-  assert.match(read('src/app/actions/chat/members.ts'), /AND p\.deleted_at IS NULL\s+AND coalesce\(p\.message_privacy, 'connections'\) = 'connections'/);
+  assert.match(read('src/app/actions/chat/members.ts'), /AND p\.id IS NOT NULL AND p\.deleted_at IS NULL\s+AND coalesce\(p\.message_privacy, 'connections'\) = 'connections'/);
 });
 
 test('the Message gate cache: asked in chunks of 100, and forgotten when your blocks change', () => {
@@ -52,4 +52,11 @@ test('Also share in #general keeps its name when off; the reason goes in the des
 
 test('the username counter counts what the field shows', () => {
   assert.match(read('src/components/sharing/ShareDialog.tsx'), /\{\(sameDraftAccount \? username : ''\)\.length\}\/20/);
+});
+
+test('Files and Photos: newest message first, files sent together in their own order, no audio among photos', () => {
+  const action = read('src/app/actions/chat/messages.ts');
+  assert.match(action, /ORDER BY a\.message_seq DESC, a\.idx ASC/);
+  assert.match(action, /a\.message_seq = \$\{input\.before\.seq\}::bigint AND a\.idx > \$\{input\.before\.idx\}::int/);
+  assert.ok(action.includes("a.name !~* '\\.(ogg|oga|opus|mp3|m4a|wav|aac|flac)$'"));
 });

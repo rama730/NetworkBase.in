@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-import { capCount, padCount } from "@/lib/messaging/mix-format";
 import { rovingTabKey } from "@/components/messages/keys";
 
 /** Three stepping squares: the only loader in Messages. A label makes it a status for screen readers. */
@@ -19,29 +17,6 @@ export function PixelProgress({ value, label, className = "" }: { value: number;
       {Array.from({ length: 10 }, (_, i) => <i key={i} data-on={v >= (i + 1) * 10 ? "" : undefined} />)}
     </span>
   );
-}
-
-/** Mono section label with a count and a hairline rule; actions sit at the end. */
-export function GroupLabel({ label, count, actions, className = "" }: { label: ReactNode; count?: number; actions?: ReactNode; className?: string }) {
-  return (
-    <div className={`nbm-glabel ${className}`}>
-      <span>{label}</span>
-      {count ? <b aria-hidden="true">{padCount(count)}</b> : null}
-      <span className="nbm-glabel-rule" aria-hidden="true" />
-      {actions}
-    </div>
-  );
-}
-
-/** Square mono count: clay when it needs you, quiet otherwise; nothing at zero. */
-export function MixCount({ value, hot = false, cap = 99, pad = true }: { value: number; hot?: boolean; cap?: number; pad?: boolean }) {
-  if (!value || value <= 0) return null;
-  return <span className={`nbm-count${hot ? " hot" : ""}`}>{pad ? padCount(value, cap) : capCount(value, cap)}</span>;
-}
-
-/** Square mono tag. */
-export function MixTag({ tone, children, className = "" }: { tone?: "ok" | "warn" | "bad" | "hot"; children: ReactNode; className?: string }) {
-  return <span className={`nbm-tag${tone ? ` ${tone}` : ""} ${className}`}>{children}</span>;
 }
 
 /** Segmented radio cells (the mix): one Tab stop, ←/→ and ↑/↓ move the choice, like native radios. */
