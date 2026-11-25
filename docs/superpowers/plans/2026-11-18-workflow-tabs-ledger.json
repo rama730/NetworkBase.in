@@ -1128,9 +1128,9 @@
       "text": "B2.5 C4 Capstone and demo day (31.6) — Build: Capstone template; brief; showcase card (Draft → Ready); run of show; Judge role (feedback, not marks); awards; De",
       "kind": "unit",
       "milestone": "B2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/capstone.test.ts; tests/unit/demo-day.test.ts; tests/db/capstone.test.ts; tests/db/demo-day.test.ts; tests/browser/capstone.spec.ts; tests/browser/demo-day.spec.ts",
+      "evidence": "B2.5a–b live 2026-11-25 (fc9907bdd, 93958608a; 0141 demo_day). Live in Chrome: Capstone added to wt-test-b18-thesis (team under wt-test-b0-class), card saved (problem, title), Mark Ready refused with \"Give the card a title.\" (the feedback-catalog fix seen live), the class Workspaces Capstone table (team, brief, 0/0, Draft); demo day set up (2027-02-12, WT Hall B, judge), Run of show with Now, Start/Next team, feedback \"Demo 4 — WT Tighten the live demo\" shown on the team's card, Best project picked and announced. Live fix e9ea797cc (Mark Ready name). Consent, Showcase visibility, mentor-can't-judge rule and token refusals are DB-tested. Judge role for outsiders is parked (Viewers for now)."
     },
     {
       "key": "B3.1",
