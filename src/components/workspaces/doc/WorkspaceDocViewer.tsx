@@ -432,7 +432,7 @@ export function WorkspaceDocViewer({
                     {reportMenu}
                     {orgDocs?.mode === "org" && orgDoc ? (
                         <OrgDocHeader data={orgDocs} doc={orgDoc} updatedBy={version?.createdByName ?? null} updatedAt={version?.createdAt ?? null}
-                            editHref={payload.canEdit ? fileHref : null} onRemove={payload.canEdit && listed ? () => rail.askRemove(listed) : null} visibility={payload.settings.visibilityOverride} />
+                            editHref={payload.canEdit ? fileHref : null} onRemove={payload.canEdit && listed ? () => rail.askRemove(listed) : null} visibility={payload.settings.visibilityOverride} title={listed?.title ?? null} />
                     ) : payload.canEdit ? (
                         <div className="mb-3 flex items-center justify-end gap-1">
                             <DocEditButton projectId={project.id} docSlug={normalizedDocSlug} filename={listed?.filename ?? "README.md"} content={readmeContent} fileHref={fileHref} />

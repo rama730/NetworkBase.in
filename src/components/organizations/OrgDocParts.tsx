@@ -241,8 +241,10 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
  * The reader's header (live-fix 22, 24; report §7.4): the title, who updated it and when, where it stands, Edit, and
  * ⋯ for the options that used to sit in the rail, Publish, History and Remove.
  */
-export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemove, visibility }: {
+export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemove, visibility, title }: {
     data: OrgDocsData; doc: OrgDocItem; updatedBy: string | null; updatedAt: string | null; editHref: string | null; onRemove: (() => void) | null; visibility: string
+    /** B4.3 live check: a goals or meeting document's own title ("Goals · Q4 2026"), not its file name. */
+    title?: string | null
 }) {
     const queryClient = useQueryClient()
     const [optionsOpen, setOptionsOpen] = useState(false)
@@ -256,7 +258,7 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
     return (
         <header className="mb-5 space-y-1.5 border-b border-border pb-4" data-testid="org-doc-header">
             <div className="flex items-start gap-2">
-                <h1 className="nb-section-title min-w-0 flex-1 break-words">{docTitle(doc.filename)}</h1>
+                <h1 className="nb-section-title min-w-0 flex-1 break-words">{title || docTitle(doc.filename)}</h1>
                 {editHref ? <Button asChild size="sm" variant="outline"><Link href={editHref}>Edit</Link></Button> : null}
                 {canPublish || onRemove ? (
                     <DropdownMenu>
