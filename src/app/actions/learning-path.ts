@@ -65,8 +65,9 @@ export async function readPathAction(projectId: string) {
     const me1 = isClass && insider && userId ? (await learnerSteps(read.flatMap((s) => s.lessons.map((l) => l.id)), assignments.map((a) => a.id), [userId])).get(userId)! : null;
     const done = me1 ? me1.done : new Set(insider && userId ? (await db.select({ taskId: lessonProgress.taskId }).from(lessonProgress)
       .where(and(eq(lessonProgress.userId, userId), inArray(lessonProgress.taskId, read.flatMap((s) => s.lessons.map((l) => l.id)).concat("00000000-0000-0000-0000-000000000000"))))).map((r) => r.taskId) : []);
-    // A learner sees work set for every learner and work they hold a copy of; staff see everything placed.
-    const withAssignments = read.map((s) => ({ ...s, assignments: assignments.filter((a) => a.sprintId === s.id && (!me1 || a.forEveryLearner || me1.copies.has(a.id)))
+    // Security review: staff see everything placed; a learner, work for every learner and work they hold a copy of; a
+    // visitor to a public path, only work for every learner.
+    const withAssignments = read.map((s) => ({ ...s, assignments: assignments.filter((a) => a.sprintId === s.id && (canManage || seesProgress || a.forEveryLearner || me1?.copies.has(a.id)))
       .map((a) => ({ id: a.id, title: a.title, dueAfterDays: a.dueAfterDays, published: a.published, forEveryLearner: a.forEveryLearner, copy: me1?.copies.get(a.id) ?? null })) }));
     const counted = countedModules(withAssignments, me1);
     const steps = withAssignments;
