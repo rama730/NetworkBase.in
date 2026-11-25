@@ -1,5 +1,7 @@
 "use client";
 
+// Loaded with the launcher, so the first open after a click already knows it was a click (the window rises).
+import "@/components/messages/recent-input";
 import { padCount } from "@/lib/messaging/mix-format";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
@@ -46,7 +48,6 @@ export default function ChatLauncher() {
         onClick={() => setOpen(!open)}
         aria-label={label}
         aria-expanded={open}
-        aria-pressed={open}
         aria-controls="chat-window"
         data-testid="chat-launcher"
         className="nbm nbm-launcher fixed bottom-6 right-6 z-20"
