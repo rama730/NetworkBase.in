@@ -92,6 +92,11 @@ export type ChatAttachmentView = {
   size: number;
   width: number | null;
   height: number | null;
+  /** Media extras (0149): a 640px thumb or video poster, the 12×12 pixel preview, length, audio waveform. */
+  thumb_asset_id?: string | null;
+  preview?: string | null;
+  duration_ms?: number | null;
+  peaks?: number[] | null;
   /** Client only: the on-device preview while a send is in flight (or failed). */
   local_url?: string;
 };

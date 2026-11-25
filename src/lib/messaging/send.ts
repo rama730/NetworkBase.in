@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cleanMediaExtras } from "@/lib/messaging/media-kind";
+import { logger } from "@/lib/logger";
 import { sql } from "drizzle-orm";
 
 import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
@@ -17,6 +19,8 @@ export type SendInput = {
   clientId?: string | null;
   threadRootSeq?: number | null;
   assetIds?: string[];
+  /** Optional media extras per attached asset (thumbnail, pixel preview, duration, waveform); bad ones are dropped. */
+  media?: Record<string, { thumbAssetId?: string | null; preview?: string | null; durationMs?: number | null; peaks?: number[] | null }>;
 };
 
 export type ChatSender = { id: string };
@@ -73,10 +77,23 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
       WHERE id = ANY(${uuidArray(assetIds)}) AND owner_user_id = ${user.id}::uuid AND state = 'verified' AND bucket = 'chat-attachments'
     `);
     if (assets.length !== assetIds.length) return { success: false as const, error: "chat_attachment_not_ready" };
+    // Thumbnails and posters: only the sender's own verified uploads, like the attachments themselves.
+    const thumbIds = [...new Set(Object.values(input.media ?? {}).map((m) => m?.thumbAssetId).filter((id): id is string => isUuid(id)))];
+    const thumbs = thumbIds.length ? new Set((await chatRows<{ id: string }>(sql`
+      SELECT id FROM storage_assets
+      WHERE id = ANY(${uuidArray(thumbIds)}) AND owner_user_id = ${user.id}::uuid AND state = 'verified' AND bucket = 'chat-attachments'
+        AND coalesce(verified_mime_type, declared_mime_type) LIKE 'image/%'
+    `)).map((row) => row.id)) : new Set<string>();
     attachments = assetIds.map((id, idx) => {
       const asset = assets.find((row) => row.id === id)!;
       const dimensions = /^(image|video)\//.test(asset.mime) ? normalizeMediaDimensions(asset.width, asset.height) : null;
-      return { idx, asset_id: id, name: asset.name, mime: asset.mime, size: Number(asset.size), width: dimensions?.width ?? null, height: dimensions?.height ?? null };
+      const extra = input.media?.[id];
+      const clean = cleanMediaExtras(extra ?? {});
+      const thumb = extra?.thumbAssetId && thumbs.has(extra.thumbAssetId) && !assetIds.includes(extra.thumbAssetId) ? extra.thumbAssetId : null;
+      return {
+        idx, asset_id: id, name: asset.name, mime: asset.mime, size: Number(asset.size), width: dimensions?.width ?? null, height: dimensions?.height ?? null,
+        thumb_asset_id: thumb, preview: clean.preview, duration_ms: clean.durationMs, peaks: clean.peaks,
+      };
     });
   }
 
@@ -85,9 +102,19 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
     SELECT app_private.chat_send_message(
       ${input.channelId}::uuid, ${user.id}::uuid, ${body}, ${input.clientId ?? null},
       ${input.threadRootSeq ?? null}::bigint, ${uuidArray(userIds)}, ${broadcast},
-      ${jsonParam(attachments.map(({ idx: _idx, ...rest }) => rest))}, ${card ? jsonParam(card) : null}::jsonb
+      ${jsonParam(attachments.map(({ idx: _idx, thumb_asset_id: _t, preview: _p, duration_ms: _d, peaks: _k, ...rest }) => rest))}, ${card ? jsonParam(card) : null}::jsonb
     ) AS value
   `), authorAndChannel(user.id, input.channelId)]);
+
+  // Media extras ride on the rows just written (the send function stays as it is); optional, so a failure only logs.
+  const extras = attachments.filter((a) => a.thumb_asset_id || a.preview || a.duration_ms !== null || a.peaks);
+  if (!result.deduped && extras.length) {
+    await Promise.all(extras.map((a) => chatRows(sql`
+      UPDATE chat_attachments SET thumb_asset_id = ${a.thumb_asset_id ?? null}::uuid, preview = ${a.preview ?? null},
+             duration_ms = ${a.duration_ms ?? null}::integer, peaks = ${a.peaks ? sql`${`{${a.peaks.join(",")}}`}::smallint[]` : sql`NULL`}
+      WHERE channel_id = ${input.channelId}::uuid AND message_seq = ${result.channel_seq}::bigint AND idx = ${a.idx}::smallint
+    `))).catch((error) => logger.warn("chat.media_extras_failed", { module: "chat", error: String(error) }));
+  }
 
   if (result.deduped) {
     const [message] = await selectMessages(user.id, input.channelId, sql`m.channel_seq = ${result.channel_seq}`, sql`m.channel_seq ASC`, 1);

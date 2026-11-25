@@ -1037,6 +1037,13 @@
       "when": 1795619243600,
       "tag": "0148_general_thread_replies",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1795619303600,
+      "tag": "0149_chat_attachment_media",
+      "breakpoints": true
     }
   ]
 }

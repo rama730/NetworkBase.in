@@ -40,6 +40,11 @@ export async function GET(request: Request, context: { params: Promise<{ assetId
           WHERE ca.asset_id = a.id AND app_private.chat_is_member(ca.channel_id, ${user.id}::uuid)
         )
         OR EXISTS (
+          -- A photo's thumbnail or a video's poster: readable by the same members as the file.
+          SELECT 1 FROM chat_attachments ca
+          WHERE ca.thumb_asset_id = a.id AND app_private.chat_is_member(ca.channel_id, ${user.id}::uuid)
+        )
+        OR EXISTS (
           SELECT 1 FROM chat_canvases cv
           WHERE cv.asset_ids @> ARRAY[a.id] AND app_private.chat_is_member(cv.channel_id, ${user.id}::uuid)
         )

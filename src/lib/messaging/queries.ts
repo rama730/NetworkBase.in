@@ -22,7 +22,8 @@ export async function selectMessages(viewerId: string, channelId: string, filter
            ) END AS author,
            coalesce((
              SELECT jsonb_agg(jsonb_build_object('idx', a.idx, 'asset_id', a.asset_id, 'name', a.name, 'mime', a.mime,
-                                                 'size', a.size, 'width', a.width, 'height', a.height) ORDER BY a.idx)
+                                                 'size', a.size, 'width', a.width, 'height', a.height,
+                                                 'thumb_asset_id', a.thumb_asset_id, 'preview', a.preview, 'duration_ms', a.duration_ms, 'peaks', a.peaks) ORDER BY a.idx)
              FROM chat_attachments a WHERE a.channel_id = m.channel_id AND a.message_seq = m.channel_seq
            ), '[]'::jsonb) AS attachments,
            coalesce((
