@@ -394,10 +394,10 @@ export async function listFiles(input: { channelId: string; kind?: "media"; befo
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId)) return invalidInput;
-  if (input.before && !(Number.isInteger(input.before.seq) && Number.isInteger(input.before.idx))) return invalidInput;
+  if (input.before && !(Number.isSafeInteger(input.before.seq) && input.before.seq >= 0 && Number.isSafeInteger(input.before.idx) && input.before.idx >= 0)) return invalidInput;
   const limit = input.kind === "media" ? 60 : 200;
   try {
-    const files = await chatRows<ChannelFile>(sql`
+    const rows = await chatRows<ChannelFile>(sql`
       SELECT a.channel_id, a.message_seq::int AS seq, a.idx::int AS idx, m.thread_root_seq::int AS thread_root_seq, a.asset_id, a.name, a.mime, a.size::bigint AS size, a.created_at,
              coalesce(pr.full_name, pr.username) AS author
       FROM chat_attachments a
@@ -408,11 +408,12 @@ export async function listFiles(input: { channelId: string; kind?: "media"; befo
         ${input.kind === "media" ? sql`AND (a.mime LIKE 'image/%' OR a.mime LIKE 'video/%')` : sql``}
         ${input.before ? sql`AND (a.message_seq, a.idx) < (${input.before.seq}::bigint, ${input.before.idx}::int)` : sql``}
       ORDER BY a.message_seq DESC, a.idx DESC
-      LIMIT ${limit}
+      LIMIT ${limit + 1}
     `);
-    // Only read when the page is full, so there is a last row.
-    const last = files.at(-1)!;
-    return { success: true as const, files: files.map((f) => ({ ...f, size: Number(f.size) })), next: files.length === limit ? { seq: last.seq, idx: last.idx } : null };
+    // One extra row says whether an older page exists, so a full last page never costs a dead "Load older".
+    const page = rows.slice(0, limit);
+    const last = page.at(-1)!;
+    return { success: true as const, files: page.map((f) => ({ ...f, size: Number(f.size) })), next: rows.length > limit ? { seq: last.seq, idx: last.idx } : null };
   } catch (error) {
     return chatFailure(error, "files");
   }

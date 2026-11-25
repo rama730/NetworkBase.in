@@ -543,7 +543,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-note-copy { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12.5px; font-weight: 500; transition: background-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-note-copy:hover { background: var(--nbm-soft); }
 @media (pointer: coarse) { .nbm-note-copy { height: 44px; } }
-.nbm-note { display: grid; gap: 16px; width: 100%; max-width: 720px; margin: 0 auto; padding: 32px 24px 32px 0; }
+.nbm-note { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; width: 100%; max-width: 720px; margin: 0 auto; padding: 32px 24px 32px 0; }
 .nbm-note-title { width: 100%; padding-left: 48px; border: 0; background: transparent; font: 400 34px/1.15 var(--nbm-serif); letter-spacing: -.01em; color: var(--foreground); outline: none; }
 .nbm-note-title::placeholder { color: var(--nbm-fg2); }
 .nbm-note-tray { width: 100%; max-width: 720px; margin: 0 auto; padding: 12px 14px; border: 1px solid var(--nbm-line); border-radius: 6px; background: var(--card); }
@@ -621,3 +621,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-fcell[data-set="true"] { border-color: var(--nbm-ink); background: var(--nbm-ink); color: var(--nbm-on-ink); }
 @media (pointer: coarse) { .nbm-fcell { height: 44px; } }
 .nbm-hit { padding: 0 2px; border-radius: 2px; background: var(--nbm-mark); color: var(--foreground); font-weight: 500; }
+
+/* Phase 7 review fixes */
+.nbm-note-bar .nbm-tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nbm-note-conflict { flex-wrap: wrap; }

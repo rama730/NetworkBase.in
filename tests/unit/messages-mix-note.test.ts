@@ -13,7 +13,7 @@ test('note tab: 720px page, serif title, mono save tag (red when not saved), cel
   assert.match(canvas, /className="nbm-note-copy"/);
   assert.match(canvas, /<DropdownMenuTrigger className="nbm-cell nb-touch-target" aria-label="More note options">/);
   assert.match(canvas, /<DropdownMenuContent align="end" className="nbm nbm-menu w-52">/);
-  assert.match(canvas, /<div role="alert" className="nbm-warn">/);
+  assert.match(canvas, /<div role="alert" className="nbm-warn nbm-note-conflict">/);
   assert.match(canvas, /Someone else saved first\. Copy your version to add it back\./);
   assert.match(css, /\.nbm-note\s*\{[^}]*max-width:\s*720px/);
   assert.match(css, /\.nbm-note-title\s*\{[^}]*var\(--nbm-serif\)/);

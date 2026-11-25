@@ -236,7 +236,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
         </div>
       </div>
       {conflict ? (
-        <div role="alert" className="nbm-warn">
+        <div role="alert" className="nbm-warn nbm-note-conflict">
           <span className="min-w-0 flex-1">Someone else saved first. Copy your version to add it back.</span>
           <Button type="button" variant="outline" size="sm" onClick={() => { void copyWithToast(conflict, "Your version copied"); }} className="pointer-coarse:h-11">Copy my version</Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setConflict(null)} className="pointer-coarse:h-11">Dismiss</Button>
