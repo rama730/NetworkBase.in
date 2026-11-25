@@ -23,6 +23,8 @@ import { formatDuration, parsePreview, tileBox } from '@/lib/messaging/media-kin
 import { middleCut } from '@/lib/messaging/mix-format';
 import { PixelBeat } from '@/components/messages/mix/primitives';
 import { AudioTile } from '@/components/messages/parts/AudioTile';
+import { MixPlayerBar } from '@/components/messages/parts/MixPlayerBar';
+import ResolvedVideoPlayer from '@/components/messages/parts/resolved-video-player';
 import { prefersReducedMotionFromAttributes } from '@/lib/theme/appearance';
 import { useOverlayHistory } from "@/lib/navigation/overlay-history";
 
@@ -299,11 +301,15 @@ function MediaAttachmentTileV2({
         setFallbackUrl(attachmentRetryUrl(attachment.url, attempt + 1) ?? `${attachment.url}${attachment.url.includes('?') ? '&' : '?'}retry=${attempt + 1}`);
     };
     const frameStyle: CSSProperties = { width: `${box.width}px`, aspectRatio: box.ratio };
+    // A video plays in its tile when you press its play cell (explicit intent); expand opens the viewer at that second.
+    const [inline, setInline] = useState(false);
+    const inlineRef = useRef<HTMLVideoElement>(null);
+    const frameRef = useRef<HTMLDivElement>(null);
     const markLoaded = useCallback(() => { setLoaded(true); setSlow(false); onContentLoad?.(); }, [onContentLoad]);
     const markError = useCallback(() => setHasError(true), []);
 
     return (
-        <div className="nbm-mtile msg-media-frame group/video" style={frameStyle} data-media-orientation={getMediaOrientation(normalizeMediaDimensions(attachment.width, attachment.height))}>
+        <div ref={frameRef} data-player-host className="nbm-mtile msg-media-frame group/video" style={frameStyle} data-media-orientation={getMediaOrientation(normalizeMediaDimensions(attachment.width, attachment.height))}>
             {!hasError ? (
                 <button
                     type="button"
@@ -354,9 +360,19 @@ function MediaAttachmentTileV2({
             ) : null}
 
             {/* A video reads as a video: a square ink play cell and its length. */}
-            {isVideo && !hasError ? (
+            {isVideo && inline ? (
                 <>
-                    <span className="nbm-tile-play" aria-hidden="true"><Play className="h-5 w-5" fill="currentColor" /></span>
+                    <ResolvedVideoPlayer url={attachment.localUrl || attachment.url} autoPlay playsInline preload="auto" elementRef={inlineRef} initialTime={returnedVideoState?.id === attachment.id ? returnedVideoState.time : undefined} className="nbm-mtile-video" />
+                    <MixPlayerBar compact videoRef={inlineRef} onExpand={(time) => {
+                        inlineRef.current?.pause();
+                        setInline(false);
+                        onClick(frameRef.current?.getBoundingClientRect() ?? new DOMRect(), time);
+                    }} />
+                </>
+            ) : null}
+            {isVideo && !hasError && !inline ? (
+                <>
+                    <button type="button" className="nbm-tile-play" onClick={() => setInline(true)} aria-label={`Play ${attachment.filename || "video"} here`}><Play className="h-5 w-5" fill="currentColor" /></button>
                     {attachment.durationMs ? <span className="nbm-tile-duration" aria-hidden="true">{formatDuration(attachment.durationMs)}</span> : null}
                 </>
             ) : null}

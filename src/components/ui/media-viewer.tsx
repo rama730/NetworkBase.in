@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, VolumeX, Volume2, X, ChevronLeft, ChevronRight, Image as ImageIcon, Video } from 'lucide-react';
+import { Download, X, ChevronLeft, ChevronRight, Image as ImageIcon, Video } from 'lucide-react';
 import ResolvedVideoPlayer from '@/components/messages/parts/resolved-video-player';
+import { MixPlayerBar } from '@/components/messages/parts/MixPlayerBar';
 import { PdfViewerV2 } from '@/components/messages/parts/message-attachments'; 
 import { cn } from '@/lib/utils';
 import { DownloadLink } from '@/components/ui/download-link';
@@ -39,8 +40,8 @@ export function MediaViewerModal({
 
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [zoomLevel, setZoomLevel] = useState(1);
-    const [videoSpeed, setVideoSpeed] = useState(1);
-    const [viewerMuted, setViewerMuted] = useState(true);
+    // Opened by a click: the video starts with sound (a click is consent).
+    const [viewerMuted, setViewerMuted] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isEntering, setIsEntering] = useState(true);
     const [isExiting, setIsExiting] = useState(false);
@@ -236,31 +237,7 @@ export function MediaViewerModal({
                                 </button>
                             </div>
                         ) : null}
-                        {currentAttachment.type === 'video' ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => setViewerMuted((current) => !current)}
-                                    className="nb-touch-target inline-flex h-9 w-9 items-center justify-center rounded-full border-0 bg-white/10 text-white transition-colors hover:bg-white/20 focus:outline-none focus-visible:bg-white/25"
-                                    aria-label={viewerMuted ? 'Turn audio on' : 'Turn audio off'}
-                                    aria-pressed={!viewerMuted}
-                                >
-                                    {viewerMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                                </button>
-                                <select
-                                    value={videoSpeed}
-                                    onChange={(event) => setVideoSpeed(Number(event.target.value))}
-                                    className="rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-white"
-                                    aria-label="Playback speed"
-                                >
-                                    <option value={0.75}>0.75x</option>
-                                    <option value={1}>1x</option>
-                                    <option value={1.25}>1.25x</option>
-                                    <option value={1.5}>1.5x</option>
-                                    <option value={2}>2x</option>
-                                </select>
-                            </>
-                        ) : null}
+                        {/* Sound and speed live in the mix player's bar under the video. */}
                         <button
                             type="button"
                             onClick={handleClose}
@@ -285,15 +262,15 @@ export function MediaViewerModal({
                     )}
 
                     {currentAttachment.type === 'video' ? (
+                        <div data-player-host className="nbm relative flex max-h-[82vh] max-w-full flex-col items-center">
                         <ResolvedVideoPlayer
                             key={currentAttachment.id}
                             url={currentAttachment.localUrl || currentAttachment.url}
-                            controls={true}
+                            controls={false}
                             autoPlay={true}
                             muted={viewerMuted}
                             playsInline={true}
                             preload="auto"
-                            playbackRate={videoSpeed}
                             elementRef={viewerVideoRef}
                             initialTime={currentIndex === initialIndex ? initialVideoTime : undefined}
                             onVolumeChange={() => setViewerMuted(viewerVideoRef.current?.muted ?? true)}
@@ -303,8 +280,10 @@ export function MediaViewerModal({
                             onError={() => {
                                 setIsMediaLoaded(true);
                             }}
-                            className="lightbox-video h-auto max-h-[82vh] w-auto max-w-full rounded-lg bg-black object-contain"
+                            className="lightbox-video h-auto max-h-[74vh] w-auto max-w-full bg-black object-contain"
                         />
+                        <MixPlayerBar videoRef={viewerVideoRef} keys />
+                        </div>
                     ) : currentAttachment.filename.toLowerCase().endsWith('.pdf') ? (
                         <div className="relative h-[82vh] w-full overflow-hidden rounded-lg bg-white">
                             <PdfViewerV2

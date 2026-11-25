@@ -30,7 +30,9 @@ test('video attachments: chat tiles show thumbnails and the media viewer owns pl
     for (const attribute of ['autoPlay={true}', 'muted={viewerMuted}', 'playsInline={true}']) {
         assert.ok(viewer.includes(attribute), `Viewer video must set ${attribute}`);
     }
-    assert.ok(viewer.includes('VolumeX') && viewer.includes('Volume2'), 'Viewer must include VolumeX and Volume2 toggle icons');
+    // The sound toggle lives in the mix player bar under the viewer's video (Phase 10).
+    const bar = fs.readFileSync(path.join(process.cwd(), 'src/components/messages/parts/MixPlayerBar.tsx'), 'utf8');
+    assert.ok(viewer.includes('<MixPlayerBar') && bar.includes('VolumeX') && bar.includes('Volume2'), 'The viewer player bar must include VolumeX and Volume2 toggle icons');
     assert.ok(player.includes('<video'), 'ResolvedVideoPlayer must render a native video element');
 });
 
