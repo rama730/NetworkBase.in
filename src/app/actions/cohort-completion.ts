@@ -129,8 +129,10 @@ export async function recordCompletionAction(orgId: string, input: unknown): Pro
     for (const r of rows) {
       if (r.completed && !before.get(r.userId)) {
         // Call 6: the learner's entry for this cohort reads "Completed · ✓ Verified · Marked completed by …".
+        // B2.3b (report 31.5 call 11): an approved mentor's note goes on the entry.
+        const [mn] = await tx.execute<{ body: string }>(sql`SELECT body FROM mentor_notes WHERE workspace_id = ${orgId}::uuid AND learner_id = ${r.userId}::uuid AND approved_at IS NOT NULL`);
         await endProfileWorkspaceContributionMembership(tx, { profileId: r.userId, projectId: orgId, verifiedBy: ctx.userId, endedAt: now,
-          ending: { reason: "completed", by: ctx.userId, note: `Completed ${ctx.c.title}` } });
+          ending: { reason: "completed", by: ctx.userId, note: mn ? `Mentor: ${mn.body}` : `Completed ${ctx.c.title}` } });
         await tx.update(profileContributions).set({ verifiedAt: now, verifiedBy: ctx.userId, verificationRevokedReason: null })
           .where(and(eq(profileContributions.profileId, r.userId), eq(profileContributions.projectId, orgId), isNull(profileContributions.deletedAt)));
       } else if (!r.completed && before.get(r.userId)) {

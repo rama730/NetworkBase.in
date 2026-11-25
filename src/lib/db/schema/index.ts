@@ -1304,10 +1304,45 @@ export const mentorCheckins = pgTable("mentor_checkins", {
   prepDoneAt: timestamp("prep_done_at", { withTimezone: true }),
   notes: text("notes"),
   sharedAt: timestamp("shared_at", { withTimezone: true }),
+  /** B2.3b (0138): a booked time on the dated entry. */
+  startsAt: timestamp("starts_at", { withTimezone: true }),
   createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [unique("mentor_checkins_one_per_day").on(t.projectId, t.learnerId, t.onDate), index("mentor_checkins_learner_idx").on(t.projectId, t.learnerId, t.onDate)]);
+/** B2.3b (0138, report 31.5): objectives (up to 3 open), a mentor's weekly slots, concerns, the mentor's note. Server only. */
+export const mentorObjectives = pgTable("mentor_objectives", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  learnerId: uuid("learner_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  status: text("status", { enum: ["on_track", "at_risk", "done"] }).default("on_track").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("mentor_objectives_learner_idx").on(t.projectId, t.learnerId)]);
+export const mentorSlots = pgTable("mentor_slots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  mentorId: uuid("mentor_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  weekday: integer("weekday").notNull(),
+  startTime: text("start_time").notNull(),
+}, (t) => [unique("mentor_slots_one").on(t.projectId, t.mentorId, t.weekday, t.startTime)]);
+export const mentorConcerns = pgTable("mentor_concerns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  fromId: uuid("from_id").references(() => profiles.id, { onDelete: "set null" }),
+  aboutId: uuid("about_id").references(() => profiles.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("mentor_concerns_workspace_idx").on(t.projectId, t.createdAt)]);
+export const mentorNotes = pgTable("mentor_notes", {
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  learnerId: uuid("learner_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  mentorId: uuid("mentor_id").references(() => profiles.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.projectId, t.learnerId] })]);
 /** Was this useful? — one per check-in, shown only as totals from 5 (0137). */
 export const mentorUseful = pgTable("mentor_useful", {
   checkinId: uuid("checkin_id").primaryKey().references(() => mentorCheckins.id, { onDelete: "cascade" }),

@@ -36,3 +36,15 @@ test("prep is done once anything is written", () => {
   assert.equal(prepDone({ since: "", stuck: "", asks: "" }), false);
   assert.equal(prepDone({ stuck: "CSS grid" }), true);
 });
+
+test("B2.3b: objectives cap at 3 open; free slots skip the past and booked times", async () => {
+  const { canAddObjective, freeSlots } = await import("@/lib/organizations/mentoring");
+  assert.equal(canAddObjective(2), true);
+  assert.equal(canAddObjective(3), false);
+  const utc = (local: string) => `${local}:00Z`;
+  // 2027-02-01 is a Monday (1); Wednesday (3) at 18:00 and 19:00.
+  const slots = [{ weekday: 3, start: "19:00" }, { weekday: 3, start: "18:00" }];
+  const r = freeSlots(slots, ["2027-02-03T18:00:00Z"], "2027-02-01", 14, utc, new Date("2027-02-01T09:00:00Z"));
+  assert.deepEqual(r, ["2027-02-03T19:00:00.000Z", "2027-02-10T18:00:00.000Z", "2027-02-10T19:00:00.000Z"]);
+  assert.deepEqual(freeSlots(slots, [], "2027-02-03", 1, utc, new Date("2027-02-03T18:30:00Z")), ["2027-02-03T19:00:00.000Z"]);
+});

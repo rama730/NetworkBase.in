@@ -3,14 +3,12 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { mentorCheckins, mentorUseful, workspaces } from "@/lib/db/schema";
-import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
-import { mentoringSchema, planLine, prepDone, prepSchema, readMentoring, rhythm, suggestMatches, usefulSummary, type UsefulAnswer } from "@/lib/organizations/mentoring";
+import { mentoringSchema, planLine, prepDone, prepSchema, rhythm, suggestMatches, usefulSummary, type UsefulAnswer } from "@/lib/organizations/mentoring";
+import { mentoringCtx, objectiveCounts, pairedSince } from "@/lib/organizations/mentoring-server";
 import { notifyOrg, orgHref, orgLabel } from "@/lib/organizations/notify";
-import { typeProfile } from "@/lib/organizations/type-profile";
 import { todayInZone } from "@/lib/organizations/zoned-time";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -23,18 +21,7 @@ import { isLooseUuid } from "@/lib/validations/uuid";
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You can’t do that here." };
 
-async function classCtx(orgId: string, write = false) {
-  if (!isLooseUuid(orgId)) return null;
-  const auth: { user: { id: string } | null; tokenKind?: string | null } = await requireAuthenticatedUser().catch(() => ({ user: null }));
-  const userId = auth.user?.id ?? null;
-  if (!userId || (write && auth.tokenKind != null)) return null;
-  const [c] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType, orgLevel: workspaces.orgLevel, settings: workspaces.orgSettings, zone: workspaces.timeZone, title: workspaces.title })
-    .from(workspaces).where(and(eq(workspaces.id, orgId), isNull(workspaces.deletedAt))).limit(1);
-  if (c?.kind !== "organization" || c.orgLevel || !typeProfile(c.orgType).schools) return null;
-  const a = await getWorkspaceAccessById(orgId, userId);
-  if (!a.canRead || !(a.isOwner || a.isMember) || (write && !a.canWrite)) return null;
-  return { userId, teacher: a.isOwner, staff: a.isOwner || a.memberRole === "admin", learner: !a.isOwner && a.memberRole === "member", settings: readMentoring(c.settings), zone: c.zone, title: c.title };
-}
+const classCtx = mentoringCtx;
 
 /** Mentor groups with their mentors (the group's TAs) and learners. */
 async function groups(orgId: string) {
@@ -51,21 +38,6 @@ async function groups(orgId: string) {
     map.set(r.id, g);
   }
   return [...map.values()];
-}
-
-/**
- * When `userId` mentors `learnerId` here, the start of their pairing (else null). Security review: the mentor must
- * still be an admin (TA) of the class and the learner still a member; a mentor reads only entries made since both
- * were in the group (the later of the two), so a new match or a newly added mentor never opens earlier check-ins.
- */
-async function pairedSince(orgId: string, userId: string, learnerId: string): Promise<Date | null> {
-  const [r] = await db.execute<{ since: string | null }>(sql`
-    SELECT max(greatest(l.created_at, t.created_at))::text AS since FROM class_section_members t JOIN class_section_members l ON l.section_id = t.section_id
-      JOIN class_sections s ON s.id = t.section_id AND s.kind = 'mentor'
-      JOIN workspace_members tw ON tw.workspace_id = t.workspace_id AND tw.user_id = t.user_id AND tw.role = 'admin'
-      JOIN workspace_members lw ON lw.workspace_id = l.workspace_id AND lw.user_id = l.user_id AND lw.role = 'member'
-    WHERE t.workspace_id = ${orgId}::uuid AND t.user_id = ${userId}::uuid AND t.role = 'ta' AND l.user_id = ${learnerId}::uuid AND l.role = 'student'`);
-  return r?.since ? new Date(r.since) : null;
 }
 
 export async function readMentoringAction(orgId: string) {
@@ -96,10 +68,13 @@ export async function readMentoringAction(orgId: string) {
       const unmatched = Array.from(await db.execute<{ id: string; name: string }>(sql`
         SELECT m.user_id AS id, coalesce(p.full_name, p.username, 'Learner') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
         WHERE m.workspace_id = ${orgId}::uuid AND m.role = 'member' ORDER BY 2`)).filter((u) => !matched.has(u.id));
+      // B2.3b: objectives by status per mentor, counts only (never titles).
+      const objectives = await objectiveCounts(orgId, all.flatMap((g) => g.learners.map((l) => l.id)));
       staff = {
         cards: all.map((g) => {
           const pairs = g.learners.map(pair);
-          return { id: g.id, name: g.name, mentors: g.mentors, learners: pairs.length, onRhythm: pairs.filter((p) => p.rhythm.on).length,
+          const ob = g.learners.reduce((n, l) => { const o = objectives.get(l.id); return o ? { onTrack: n.onTrack + o.on_track, atRisk: n.atRisk + o.at_risk } : n; }, { onTrack: 0, atRisk: 0 });
+          return { id: g.id, name: g.name, mentors: g.mentors, learners: pairs.length, onRhythm: pairs.filter((p) => p.rhythm.on).length, objectives: ob,
             off: pairs.filter((p) => !p.rhythm.on).map((p) => ({ name: p.name, days: p.rhythm.days })),
             useful: usefulSummary(answers.filter((a) => g.mentors.some((m) => m.id === a.mentor_id)).map((a) => a.answer)) };
         }),

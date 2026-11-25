@@ -79,6 +79,8 @@ export const chatDue = inngest.createFunction(
       await step.run("lessons-to-mark", async () => (await import("@/lib/organizations/term-plan-server")).notifyLessonsToMarkTaught());
       // B1.8c (report 30.6 layer 15): "No supervision in 30 days", Normal, once per gap, to the student and supervisor.
       await step.run("thesis-no-supervision", async () => (await import("@/lib/workflows/thesis-server")).notifyNoSupervision());
+      // B2.3b (report 31.5 layer 15): Prep the day before; Off rhythm once per spell to the pair.
+      await step.run("mentoring", async () => (await import("@/lib/organizations/mentoring-server")).notifyMentoring());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

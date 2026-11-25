@@ -140,7 +140,8 @@
     "drizzle/0134_literature_sources.sql",
     "drizzle/0135_school_programs.sql",
     "drizzle/0136_cohort_completions.sql",
-    "drizzle/0137_class_mentoring.sql"
+    "drizzle/0137_class_mentoring.sql",
+    "drizzle/0138_mentoring_plan.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

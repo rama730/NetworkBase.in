@@ -57,3 +57,27 @@ export function suggestMatches(groups: Array<{ id: string; size: number }>, unma
 export const prepSchema = z.object({ since: z.string().trim().max(2000).default(""), stuck: z.string().trim().max(2000).default(""), asks: z.string().trim().max(2000).default("") }).strict();
 export type Prep = z.infer<typeof prepSchema>;
 export const prepDone = (p: Partial<Prep> | null | undefined) => Boolean(p && (p.since || p.stuck || p.asks));
+
+/** B2.3b: objectives — up to 3 open at once per learner (call), statuses in words. */
+export const OBJECTIVE_MAX = 3;
+export const OBJECTIVE_WORDS = { on_track: "On track", at_risk: "At risk", done: "Done" } as const;
+export type ObjectiveStatus = keyof typeof OBJECTIVE_WORDS;
+export const canAddObjective = (open: number) => open < OBJECTIVE_MAX;
+
+/**
+ * B2.3b: a mentor's free times for the next `days` days — each weekly slot on its weekday, in the class's time zone,
+ * after `now`, minus times already booked. `toIso` turns a local "YYYY-MM-DDTHH:MM" into an instant.
+ */
+export function freeSlots(slots: Array<{ weekday: number; start: string }>, booked: string[], today: string, days: number, toIso: (local: string) => string, now = new Date()) {
+  const taken = new Set(booked.map((b) => new Date(b).toISOString()));
+  const out: string[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(Date.parse(`${today}T00:00:00Z`) + i * 86_400_000);
+    const date = d.toISOString().slice(0, 10);
+    for (const s of slots.filter((x) => x.weekday === d.getUTCDay()).sort((a, b) => a.start.localeCompare(b.start))) {
+      const at = new Date(toIso(`${date}T${s.start}`)).toISOString();
+      if (Date.parse(at) > now.getTime() && !taken.has(at)) out.push(at);
+    }
+  }
+  return out;
+}
