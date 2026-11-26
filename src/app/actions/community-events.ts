@@ -278,9 +278,11 @@ export async function saveEventLinksAction(orgId: string, eventId: string, links
   if (!ctx?.member || !ctx.userId || !isLooseUuid(eventId)) return DENIED;
   if (!parsed.success) return { success: false, error: "Links start with https:// and have a name." };
   if (!ctx.organiser && !ctx.host) return DENIED;
+  if (ctx.paused && !ctx.organiser) return { success: false, error: "You can add or change events again when your pause ends." };
   const [r] = Array.from(await db.execute<{ id: string }>(sql`
     UPDATE tasks SET type_fields = jsonb_set(type_fields, '{after}', ${JSON.stringify(parsed.data)}::jsonb), updated_at = now()
     WHERE id = ${eventId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'event' AND type_fields->>'kind' = 'community' AND deleted_at IS NULL AND stage <> 'cancelled'
+      AND (type_fields->>'end')::timestamptz <= now()
       AND (${ctx.organiser} OR type_fields->'hosts' ? ${ctx.userId}::text) RETURNING id`));
   return r ? { success: true } : DENIED;
 }
