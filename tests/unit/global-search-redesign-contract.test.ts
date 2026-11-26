@@ -7,19 +7,17 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("the box hangs under the top bar, rows and group labels follow the prototype", () => {
+test("the box hangs under the top bar as the spec's command dialog (§31)", () => {
     const palette = source("src/components/layout/header/CommandPalette.tsx");
     const css = source("src/components/layout/header/search-box/search-box.css");
-    // A full-screen sheet on a phone; on wider screens a panel under the search cell (Main and Phone boards).
+    // A full-screen sheet on a phone; on wider screens a 640px dialog under the search cell.
     assert.match(palette, /h-dvh w-screen/);
-    assert.match(palette, /sm:rounded-\[6px\] sm:border sm:border-border sm:bg-card/);
-    assert.match(css, /top: calc\(var\(--ui-topnav-height, 56px\) \+ 6px\); width: min\(720px/);
-    assert.match(css, /\.nb-sx-panel:has\(\.nb-sx-preview\) \{ width: min\(1040px/);
+    assert.match(css, /top: calc\(var\(--ui-topnav-height, 56px\) \+ 8px\); width: min\(640px/);
     assert.match(css, /\.nb-sx-row, \.nb-sx-row-main \{ min-height: 52px; \}/);
     assert.match(palette, /nb-command-input h-full min-w-0 flex-1/);
     assert.match(palette, /style=\{\{ outline: "none", boxShadow: "none" \}\}/);
     assert.match(palette, /data-testid="global-search-enter-hint"/);
-    assert.match(css, /\.nb-sx-glabel \{[^}]*text-transform: uppercase/);
+    assert.match(palette, /className="nb-sx-glabel nb-micro"/);
     assert.doesNotMatch(css, /border-left: [23]px solid var\(--nb-brand\)|inset 3px/, "no coloured edge accents");
 });
 

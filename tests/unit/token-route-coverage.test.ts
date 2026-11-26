@@ -40,6 +40,7 @@ const BROWSER_ONLY = new Set([
   "link-preview",
   // Global search reads your messages and saves searches: a browser session only (global search mix).
   "search",
+  "search/people",
   "search/saved",
   "privacy",
   "privacy/blocks",

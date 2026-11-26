@@ -5,8 +5,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import CommandPalette from '@/components/layout/header/CommandPalette';
 import SearchPageClient from '@/components/search/SearchPageClient';
-import { parseSearchPageState } from '@/lib/search/global/url-state';
-import type { GlobalSearchResult } from '@/lib/search/global/types';
 
 // Global search mix: the real box and the real results page, with the search answered by the spec (no server).
 const params = new URLSearchParams(location.search);
@@ -16,11 +14,10 @@ w.__router = { subscribe: (f: () => void) => { subs.add(f); return () => subs.de
 document.documentElement.classList.toggle('dark', params.get('theme') === 'dark');
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const surface = params.get('surface') ?? 'box';
-const result = (window as unknown as { __result: GlobalSearchResult }).__result;
 
 function Fixture() {
   if (surface === 'page') {
-    return <div style={{ height: '100dvh' }}><SearchPageClient initialState={parseSearchPageState(params)} result={result} saved={null} /></div>;
+    return <div style={{ height: '100dvh' }}><SearchPageClient saved={null} /></div>;
   }
   return (
     <div>

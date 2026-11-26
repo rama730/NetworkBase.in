@@ -134,7 +134,7 @@ export async function searchPosts(viewerId: string, q: string, limit: number): P
 
 type PersonRow = {
     id: string; username: string | null; full_name: string | null; headline: string | null; location: string | null; avatar_url: string | null;
-    skills: string[] | null; created_at: string; open_to_collaborate: boolean | null; connected: boolean; pending: boolean;
+    skills: string[] | null; created_at: string; open_to_collaborate: boolean | null; connected: boolean; pending: boolean; pending_sent: boolean;
     mutual: number; mutual_names: string[] | null; shared_place: string | null;
 };
 
@@ -153,6 +153,7 @@ const personSelect = (viewerId: string) => sql`
     p.id, p.username, p.full_name, p.headline, p.location, p.avatar_url, p.skills, p.created_at, p.open_to_collaborate,
     EXISTS (SELECT 1 FROM connections c WHERE c.status = 'accepted' AND ((c.requester_id = ${viewerId}::uuid AND c.addressee_id = p.id) OR (c.requester_id = p.id AND c.addressee_id = ${viewerId}::uuid))) AS connected,
     EXISTS (SELECT 1 FROM connections c WHERE c.status = 'pending' AND ((c.requester_id = ${viewerId}::uuid AND c.addressee_id = p.id) OR (c.requester_id = p.id AND c.addressee_id = ${viewerId}::uuid))) AS pending,
+    EXISTS (SELECT 1 FROM connections c WHERE c.status = 'pending' AND c.requester_id = ${viewerId}::uuid AND c.addressee_id = p.id) AS pending_sent,
     (SELECT count(*)::int FROM friends vf JOIN connections pc ON pc.status = 'accepted'
         AND ((pc.requester_id = p.id AND pc.addressee_id = vf.id) OR (pc.addressee_id = p.id AND pc.requester_id = vf.id))) AS mutual,
     to_jsonb(ARRAY(SELECT coalesce(fp.full_name, fp.username) FROM friends vf JOIN connections pc ON pc.status = 'accepted'
@@ -190,7 +191,7 @@ function toPersonHit(row: PersonRow, q: string): SearchHit {
         tags: [...skills.filter((value) => value.toLocaleLowerCase().includes(word)), ...skills.filter((value) => !value.toLocaleLowerCase().includes(word))].slice(0, 4),
         act: row.connected ? "Message" : row.pending ? "Pending" : "Connect",
         meta: {
-            userId: row.id, username: row.username, location: row.location, mutual, relation,
+            userId: row.id, username: row.username, location: row.location, mutual, relation, pendingSent: Boolean(row.pending_sent), fullName: row.full_name,
             relKey: row.connected ? "conn" : mutual ? "second" : "any", openCollab: Boolean(row.open_to_collaborate), headline: row.headline,
         },
     };

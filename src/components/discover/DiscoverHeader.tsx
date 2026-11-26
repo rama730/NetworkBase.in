@@ -80,7 +80,7 @@ function FilterTag({ children, onRemove, label }: { children: ReactNode; onRemov
     );
 }
 
-interface DiscoverHeaderProps {
+export interface DiscoverHeaderProps {
     query: DiscoverQuery;
     activeFilters: number;
     /** Read out when results settle: "12 projects", "No projects match". */
@@ -101,23 +101,12 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
     const phone = useMediaQuery('(max-width: 767px)');
     // Once the rail sits beside the feed the drawer is closed for good (it doesn't reopen on narrowing).
     if (railShown && peopleOpen) setPeopleOpen(false);
-    const tags = useRef<HTMLDivElement>(null);
     const scope = SCOPES.find((item) => item.id === query.view) ?? SCOPES[0]!;
     // Trending and For you rank by their own score: a sort wouldn't apply.
     const sortable = query.view === FILTER_VIEWS.ALL || query.view === FILTER_VIEWS.FOLLOWING;
     // A search ranks by relevance unless another order is picked.
     const sortLabel = (value: string) => (value === SORT_OPTIONS.NEWEST && query.q ? 'Best match' : SORT_LABELS[value]);
 
-    // Removing a tag moves focus to the next tag, or to Filters when it was the last.
-    const remove = (patch: Partial<DiscoverQuery>) => {
-        const buttons = Array.from(tags.current?.querySelectorAll<HTMLButtonElement>('[data-filter-remove]') ?? []);
-        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-        onChange(patch);
-        requestAnimationFrame(() => {
-            const next = Array.from(tags.current?.querySelectorAll<HTMLButtonElement>('[data-filter-remove]') ?? []);
-            (next[Math.min(Math.max(at, 0), next.length - 1)] ?? filtersButtonRef.current)?.focus();
-        });
-    };
 
     const searchLine = query.q ? `Results for “${query.q}”` : '';
 
@@ -191,43 +180,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                 </div>
             </div>
 
-            {activeFilters ? (
-                <div ref={tags} className="flex flex-wrap items-center gap-1.5" aria-label="Selected filters" role="group">
-                    {query.status !== WORKSPACE_STATUS.ALL ? (
-                        <FilterTag label={`stage ${projectStageLabel(query.status)}`} onRemove={() => remove({ status: WORKSPACE_STATUS.ALL })}>
-                            Stage: {projectStageLabel(query.status)}
-                        </FilterTag>
-                    ) : null}
-                    {query.type !== WORKSPACE_TYPE.ALL ? (
-                        <FilterTag label={`type ${typeLabel(query.type)}`} onRemove={() => remove({ type: WORKSPACE_TYPE.ALL })}>
-                            Type: {typeLabel(query.type)}
-                        </FilterTag>
-                    ) : null}
-                    {query.tech.map((skill) => (
-                        <FilterTag key={skill} label={`skill ${resolveClientSkill(skill).name}`} onRemove={() => remove({ tech: query.tech.filter((value) => value !== skill) })}>
-                            {resolveClientSkill(skill).name}
-                        </FilterTag>
-                    ))}
-                    {query.org ? (
-                        <FilterTag label={`organization ${query.org}`} onRemove={() => remove({ org: '' })}>In {query.org}</FilterTag>
-                    ) : null}
-                    {query.hideOpened ? (
-                        <FilterTag label="hiding workspaces you’ve viewed" onRemove={() => remove({ hideOpened: false })}>Hiding workspaces you’ve viewed</FilterTag>
-                    ) : null}
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            onClearFilters();
-                            requestAnimationFrame(() => filtersButtonRef.current?.focus());
-                        }}
-                        className="text-primary pointer-coarse:h-11"
-                    >
-                        Clear all
-                    </Button>
-                </div>
-            ) : null}
+            {activeFilters ? <DiscoverFilterTags query={query} onChange={onChange} onClearFilters={onClearFilters} filtersButtonRef={filtersButtonRef} /> : null}
 
             {people ? (
                 <Dialog open={peopleOpen} onOpenChange={setPeopleOpen}>
@@ -237,6 +190,58 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                     </DialogContent>
                 </Dialog>
             ) : null}
+        </div>
+    );
+}
+
+/** The selected filters as tags with ×, and Clear all (spec §15); Discover's header and the search results page share it. */
+export function DiscoverFilterTags({ query, onChange, onClearFilters, filtersButtonRef }: Pick<DiscoverHeaderProps, 'query' | 'onChange' | 'onClearFilters' | 'filtersButtonRef'>) {
+    const tags = useRef<HTMLDivElement>(null);
+    // Removing a tag moves focus to the next tag, or to Filters when it was the last.
+    const remove = (patch: Partial<DiscoverQuery>) => {
+        const buttons = Array.from(tags.current?.querySelectorAll<HTMLButtonElement>('[data-filter-remove]') ?? []);
+        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        onChange(patch);
+        requestAnimationFrame(() => {
+            const next = Array.from(tags.current?.querySelectorAll<HTMLButtonElement>('[data-filter-remove]') ?? []);
+            (next[Math.min(Math.max(at, 0), next.length - 1)] ?? filtersButtonRef.current)?.focus();
+        });
+    };
+    return (
+        <div ref={tags} className="flex flex-wrap items-center gap-1.5" aria-label="Selected filters" role="group">
+            {query.status !== WORKSPACE_STATUS.ALL ? (
+                <FilterTag label={`stage ${projectStageLabel(query.status)}`} onRemove={() => remove({ status: WORKSPACE_STATUS.ALL })}>
+                    Stage: {projectStageLabel(query.status)}
+                </FilterTag>
+            ) : null}
+            {query.type !== WORKSPACE_TYPE.ALL ? (
+                <FilterTag label={`type ${typeLabel(query.type)}`} onRemove={() => remove({ type: WORKSPACE_TYPE.ALL })}>
+                    Type: {typeLabel(query.type)}
+                </FilterTag>
+            ) : null}
+            {query.tech.map((skill) => (
+                <FilterTag key={skill} label={`skill ${resolveClientSkill(skill).name}`} onRemove={() => remove({ tech: query.tech.filter((value) => value !== skill) })}>
+                    {resolveClientSkill(skill).name}
+                </FilterTag>
+            ))}
+            {query.org ? (
+                <FilterTag label={`organization ${query.org}`} onRemove={() => remove({ org: '' })}>In {query.org}</FilterTag>
+            ) : null}
+            {query.hideOpened ? (
+                <FilterTag label="hiding workspaces you’ve viewed" onRemove={() => remove({ hideOpened: false })}>Hiding workspaces you’ve viewed</FilterTag>
+            ) : null}
+            <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                    onClearFilters();
+                    requestAnimationFrame(() => filtersButtonRef.current?.focus());
+                }}
+                className="text-primary pointer-coarse:h-11"
+            >
+                Clear all
+            </Button>
         </div>
     );
 }

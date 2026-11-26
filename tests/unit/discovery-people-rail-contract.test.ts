@@ -33,8 +33,8 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   // and the rail column only when it has content (people).
   assert.match(hub, /const people = hasPeople && wide === false\s*\? <><DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="compact" \/><div className="pt-4">\{legal\}<\/div><\/>/);
   // The column also stays for update cards, so an open thread has somewhere to go without resizing the feed.
-  assert.match(hub, /const showRail = wide !== false && \(hasPeople \|\| Boolean\(thread\.selectedId\) \|\| shownUpdates\.length > 0\);/);
-  assert.match(hub, /people=\{people\}/);
+  assert.match(hub, /const showRail = wide !== false && \(Boolean\(rail\) \|\| hasPeople \|\| Boolean\(thread\.selectedId\) \|\| shownUpdates\.length > 0\);/);
+  assert.match(hub, /people: rail \? null : people/);
   assert.equal(hub.match(/variant="compact"/g)?.length, 1);
 });
 

@@ -1,340 +1,484 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, LayoutGrid, Link2, List, Search, SlidersHorizontal, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useDebounce } from "use-debounce";
+import { Bell, Link2, MessageSquare, Search, SlidersHorizontal } from "lucide-react";
 
-import { BoxPreview } from "@/components/layout/header/search-box/BoxExtras";
-import { HitAvatar, KIND_LABEL, Marked } from "@/components/layout/header/search-box/BoxRow";
+import DiscoverClient from "@/components/discover/DiscoverClient";
+import { DiscoverFilterTags, type DiscoverHeaderProps } from "@/components/discover/DiscoverHeader";
 import { SettingControl } from "@/components/layout/header/search-box/SettingControl";
-import "@/components/layout/header/search-box/search-box.css";
+import { LegalLinks } from "@/components/legal/LegalLinks";
+import PersonCard, { PersonCardGrid } from "@/components/network/PersonCard";
+import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
+import { NetworkFilterChips, NetworkFilters } from "@/components/network/NetworkFilters";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { FilterPanel } from "@/components/ui/filter-panel";
+import { RailSection } from "@/components/ui/rail-section";
+import { SearchField } from "@/components/ui/SearchField";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TabMarker } from "@/components/ui/TabMarker";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import type { SuggestedProfile } from "@/app/actions/connections";
+import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/hooks/useConnections";
+import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { copyText } from "@/lib/clipboard";
 import { toast } from "@/lib/feedback";
-import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
-import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/hooks/useConnections";
+import { normalizeNetworkQuery, type NetworkBrowseQuery } from "@/lib/network/browse-query";
 import { searchGoto } from "@/lib/search/global/goto";
 import { TAB_ORDER, type SearchTab } from "@/lib/search/global/rank";
+import type { SearchContextKey } from "@/lib/search/global/parse";
 import type { GlobalSearchResult, SearchHit } from "@/lib/search/global/types";
-import { applyFilters, clearFilters, nextPeek, ORG_TYPE_LABEL, parseSearchPageState, serializeSearchPageState, SORTS, toggleFacet, type FacetKey, type SearchPageState } from "@/lib/search/global/url-state";
 import { formatDistanceToNow } from "@/lib/utils/date";
-import { TabMarker } from "@/components/ui/TabMarker";
-import { readOpened, rememberOpened } from "./opened";
-import "./search-page.css";
+import { cn } from "@/lib/utils";
 
 type Saved = { id: string; notify: "weekly" | "daily" | "off" } | null;
+type HeaderControls = { filters: ReactNode; tags?: ReactNode };
+const TABS: SearchTab[] = ["discover", "people", "msgs", "goto"];
+const CONTEXTS: SearchContextKey[] = ["discover", "network", "messages", "workspace", "org", "settings"];
 const TAB_LABEL: Record<SearchTab, string> = { discover: "Discover", people: "People", msgs: "Messages", goto: "Go to" };
-const NOTIFY: Array<"weekly" | "daily" | "off"> = ["weekly", "daily", "off"];
 const ORDER_LINE: Record<SearchTab, string> = {
     discover: "Organizations, workspaces and posts first, because you searched from Discover.",
     people: "People first, because you searched from Network.",
     msgs: "Your messages first, because you searched from Messages.",
     goto: "Settings and pages first, because you searched from Settings.",
 };
-const when = (at: string | null) => (at ? formatDistanceToNow(new Date(at), { addSuffix: true }) : "");
+const NOTIFY_LABEL = { weekly: "Weekly", daily: "Daily", off: "Off" } as const;
+/** People-tab filters keep their own address keys, apart from Discover's (`tech`, `status`…). */
+const PEOPLE_KEYS = { skills: "pskills", location: "ploc", hasMutuals: "pmutual", openToCollaborate: "popen" } as const;
 
-export default function SearchPageClient({ initialState, result, saved }: { initialState: SearchPageState; result: GlobalSearchResult | null; saved: Saved }) {
-    const router = useRouter();
-    // From the address it is showing: Back can bring a page whose filters were changed after the server drew it (review 8).
-    const [state, setState] = useState<SearchPageState>(() => ({
-        ...(typeof window === "undefined" ? initialState : parseSearchPageState(new URLSearchParams(window.location.search))), peek: null,
-    }));
-    const peekRef = useRef<HTMLDivElement>(null);
-    const [savedRow, setSavedRow] = useState<Saved>(saved);
-    const [opened, setOpened] = useState<string | null>(null);
-    const [filtersOpen, setFiltersOpen] = useState(false);
-    const [typed, setTyped] = useState(initialState.q);
-    const resultsRef = useRef<HTMLDivElement>(null);
-    const { sendRequest } = useConnectionMutations();
-    const address = serializeSearchPageState(state);
+/** Writes the address in place (Next keeps useSearchParams in step): tabs and filters never re-run the server page. */
+function writeParams(patch: Record<string, string | null>) {
+    const params = new URLSearchParams(window.location.search);
+    for (const [key, value] of Object.entries(patch)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+    }
+    window.history.replaceState(window.history.state, "", `/search?${params.toString()}`);
+}
 
-    useEffect(() => { setOpened(readOpened(window.sessionStorage, address)); }, [address]);
-    // Below 1100 px the rail sits under the results: bring quick look into view when it opens (review 6).
+async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
+    const response = await fetch(url, { signal });
+    const body = await response.json().catch(() => null) as { success?: boolean; data?: T; message?: string } | null;
+    if (!response.ok || !body?.success || !body.data) throw new Error(body?.message || "Couldn’t search just now");
+    return body.data;
+}
+
+/**
+ * The results page (global search mix), built from Discover's and Network's own parts (design spec §15, §16): the
+ * page title, underlined tabs with mono counts, the 256px search and Filters, Discover's feed and cards on the
+ * Discover tab, Network's person cards on People, and the 320px rail.
+ */
+export default function SearchPageClient({ saved: initialSaved }: { saved: Saved }) {
+    const searchParams = useSearchParams();
+    const q = searchParams.get("q") ?? "";
+    const tabParam = (searchParams.get("tab") ?? "") as SearchTab;
+    const ctxParam = (searchParams.get("ctx") ?? "") as SearchContextKey;
+    const ctx = CONTEXTS.includes(ctxParam) ? ctxParam : "discover";
+    const tabs = TAB_ORDER[ctx];
+    const tab = TABS.includes(tabParam) ? tabParam : tabs[0]!;
+    const exact = searchParams.get("exact") === "1";
+    const [saved, setSaved] = useState<Saved>(initialSaved);
+    const [typedFrom, setTypedFrom] = useState<string | null>(null);
+    const searchable = q.trim().length >= 2;
+
+    const overview = useQuery({
+        queryKey: ["global-search", "page-overview", q, ctx, exact],
+        queryFn: ({ signal }) => getJson<GlobalSearchResult>(`/api/v1/search?${new URLSearchParams({ q, ctx, per: "4", ...(exact ? { exact: "1" } : {}), log: "1" })}`, signal),
+        enabled: searchable,
+        staleTime: 60_000,
+    });
+    const result = overview.data ?? null;
+    // A typo: search the corrected words everywhere (Discover's feed reads them from the address), and say so.
     useEffect(() => {
-        if (state.peek && window.innerWidth <= 1100) peekRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }, [state.peek]);
-    const update = (next: SearchPageState) => {
-        setState(next);
-        // Filters, tabs and sorts change the address only: the results are already here (Next keeps useSearchParams in step).
-        window.history.replaceState(null, "", `/search?${serializeSearchPageState(next)}`);
-    };
-    const facet = (key: FacetKey, value: string) => update(toggleFacet(state, key, value));
-
-    const goto = useMemo(() => searchGoto(state.q, { place: null }), [state.q]);
-    const view = useMemo(() => (result ? applyFilters(result, state, goto) : null), [goto, result, state]);
-    const tabs = TAB_ORDER[state.ctx];
-    const total = view ? Object.values(view.tabCounts).reduce((sum, count) => sum + count, 0) : 0;
-    const hits = (view?.rows ?? []).flatMap((row) => (row.type === "hit" && row.hit.kind !== "goto" ? [row.hit] : []));
-    const pool = result ? [...(result.groups.people ?? []), ...(result.groups.orgs ?? []), ...(result.groups.workspaces ?? []), ...(result.groups.posts ?? []), ...(result.groups.messages ?? [])] : [];
-    const peek = state.peek ? pool.find((hit) => hit.id === state.peek) ?? null : null;
-    const top = state.tab === "discover" && result ? [...(result.groups.people ?? []), ...(result.groups.orgs ?? []), ...(result.groups.workspaces ?? [])].find((hit) => hit.score === 0) ?? null : null;
-    const showSkill = Boolean(result?.skill) && (state.tab === "discover" || state.tab === "people");
-    const railPeople = state.tab !== "people";
-    const rail = result ? (railPeople ? (result.groups.people ?? []) : [...(result.groups.orgs ?? []), ...(result.groups.workspaces ?? [])]).slice(0, 4) : [];
-    const related = Array.from(new Set([...(result?.suggestions ?? []), ...(view?.facets.find((f) => f.key === "skill")?.opts.map((o) => o.value.toLowerCase()) ?? [])]))
-        .filter((word) => word && word !== state.q.toLowerCase()).slice(0, 6);
-
-    const open = (hit: SearchHit) => {
-        if (hit.meta.external) { window.open(hit.href, "_blank", "noopener,noreferrer"); return; }
-        rememberOpened(window.sessionStorage, address, hit.id);
-        confirmAppNavigation(() => router.push(hit.href));
-    };
-    const newSearch = (q: string, extra: Record<string, string> = {}) => {
-        const params = new URLSearchParams({ q, ...extra });
-        if (state.ctx !== "discover") params.set("ctx", state.ctx);
-        confirmAppNavigation(() => router.push(`/search?${params.toString()}`));
-    };
-    const connect = async (hit: SearchHit) => {
-        try {
-            await toast.promise(sendRequest.mutateAsync({ userId: String(hit.meta.userId) }), {
-                loading: CONNECTION_COPY.sending,
-                success: (response) => getConnectionRequestSuccessMessage(response.status),
-                error: (error) => (error instanceof Error ? error.message : CONNECTION_COPY.sendFailed),
-            }).unwrap();
-        } catch { /* the shared toast reports it */ }
-    };
-    const action = (hit: SearchHit) => {
-        if (hit.kind === "people" && hit.act === "Connect") return <button type="button" className="nb-sx-btn nb-sp-pri" onClick={(e) => { e.stopPropagation(); void connect(hit); }}>Connect</button>;
-        if (hit.kind === "people" && hit.act === "Message") return <Link className="nb-sx-btn" href={`/messages?userId=${encodeURIComponent(String(hit.meta.userId))}`} onClick={(e) => e.stopPropagation()}>Message</Link>;
-        if (hit.kind === "people" && hit.act === "Pending") return <span className="nb-sx-btn" aria-disabled="true">Pending</span>;
-        if (hit.kind === "orgs" || hit.kind === "workspaces") return <Link className="nb-sx-btn" href={hit.href} onClick={(e) => { e.stopPropagation(); rememberOpened(window.sessionStorage, address, hit.id); }}>{hit.meta.mine ? "Open" : "View"}</Link>;
-        return null;
-    };
-
-    const save = async () => {
-        if (savedRow) {
-            const response = await fetch(`/api/v1/search/saved?id=${encodeURIComponent(savedRow.id)}`, { method: "DELETE" }).catch(() => null);
-            if (response?.ok) { setSavedRow(null); toast.success("Removed from saved searches"); } else toast.error("Couldn’t remove it just now");
-            return;
+        if (result?.fixedFrom && !exact && result.q !== q) {
+            setTypedFrom(result.fixedFrom);
+            writeParams({ q: result.q });
         }
-        const filters = Object.fromEntries(new URLSearchParams(address).entries());
-        delete filters.q; delete filters.tab; delete filters.more; delete filters.sort; delete filters.view;
-        const response = await fetch("/api/v1/search/saved", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: result?.q ?? state.q, tab: state.tab, filters, notify: "weekly" }) }).catch(() => null);
-        const body = await response?.json().catch(() => null) as { data?: { id: string }; message?: string } | null;
-        if (response?.ok && body?.data?.id) {
-            setSavedRow({ id: body.data.id, notify: "weekly" });
-            toast.success(`Saved. New matches for “${state.q}” reach you weekly; it’s also under Saved in the search box.`);
-        } else toast.error(body?.message ?? "Couldn’t save this search");
+    }, [exact, q, result]);
+
+    const people = useQuery({
+        queryKey: ["global-search", "page-people", q],
+        queryFn: ({ signal }) => getJson<{ people: SuggestedProfile[] }>(`/api/v1/search/people?${new URLSearchParams({ q })}`, signal).then((data) => data.people),
+        enabled: searchable,
+        staleTime: 30_000,
+    });
+    const goto = useMemo(() => searchGoto(q, { place: null }), [q]);
+    const counts: Record<SearchTab, number | null> = {
+        discover: result ? (result.counts.orgs ?? 0) + (result.counts.workspaces ?? 0) + (result.counts.posts ?? 0) : null,
+        people: people.data ? people.data.length : null,
+        msgs: result ? result.counts.messages ?? 0 : null,
+        goto: goto.length,
     };
-    const cycleNotify = async () => {
-        if (!savedRow) return;
-        const notify = NOTIFY[(NOTIFY.indexOf(savedRow.notify) + 1) % NOTIFY.length]!;
-        const response = await fetch("/api/v1/search/saved", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: savedRow.id, notify }) }).catch(() => null);
-        if (response?.ok) { setSavedRow({ ...savedRow, notify }); toast.success(`New matches: ${notify}`); } else toast.error("Couldn’t change the alerts");
+    const total = Object.values(counts).reduce<number>((sum, count) => sum + (count ?? 0), 0);
+
+    const setTab = (next: SearchTab) => writeParams({ tab: next === tabs[0] ? null : next });
+    const setQuery = (next: string) => {
+        setTypedFrom(null);
+        writeParams({ q: next.trim() || null, exact: null });
     };
 
-    const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-        // The page's own buttons and links keep Space and Enter (review 5).
-        if ((event.target as HTMLElement).closest("input, textarea, select, button, a, [contenteditable]")) return;
-        if (event.key === "Enter" && peek) { event.preventDefault(); open(peek); return; }
-        if (!["j", "k", "ArrowDown", "ArrowUp", " ", "Escape"].includes(event.key)) return;
-        event.preventDefault();
-        setState((current) => ({ ...current, peek: nextPeek(hits.map((hit) => hit.id), current.peek ?? null, event.key) }));
-    };
+    const header = (controls: HeaderControls) => (
+        <SearchHeader
+            q={q} total={total} orderLine={ORDER_LINE[tabs[0]!]} typedFrom={typedFrom}
+            onSearchInstead={() => { if (typedFrom) { writeParams({ q: typedFrom, exact: "1" }); setTypedFrom(null); } }}
+            tabs={tabs} tab={tab} counts={counts} onTab={setTab}
+            onSearch={setQuery} filters={controls.filters} tags={controls.tags}
+            saved={saved} onSaved={setSaved} skill={tab === "discover" || tab === "people" ? result?.skill ?? null : null}
+        />
+    );
 
-    if (!state.q) {
+    if (!searchable) {
         return (
-            <div data-scroll-root="route" className="nb-sp-scroll"><div className="nb-sp">
-                <h1 className="nb-sp-title">Search NetworkBase</h1>
-                <p className="nb-sp-why">Type in the box above, or press ⌘K anywhere.</p>
-            </div></div>
+            <SearchPageFrame rail={null}>
+                <header className="min-w-0">
+                    <h1 className="nb-page-title">Search</h1>
+                    <p className="nb-body mt-1 text-muted-foreground">Type at least two letters in the search at the top, or press ⌘K anywhere.</p>
+                </header>
+            </SearchPageFrame>
         );
     }
 
+    if (tab === "discover") {
+        return (
+            <DiscoverClient
+                key={`search:${q}`}
+                returnUserData={null}
+                rail={<PeopleRail people={people.data ?? null} onSeeAll={() => setTab("people")} />}
+                renderHeader={(props: DiscoverHeaderProps) => header({
+                    filters: <FiltersButton count={props.activeFilters} onClick={props.onOpenFilters} buttonRef={props.filtersButtonRef} />,
+                    tags: props.activeFilters ? <DiscoverFilterTags query={props.query} onChange={props.onChange} onClearFilters={props.onClearFilters} filtersButtonRef={props.filtersButtonRef} /> : null,
+                })}
+            />
+        );
+    }
+
+    if (tab === "people") {
+        return <PeopleTab q={q} people={people} header={header} places={result ? [...(result.groups.orgs ?? []), ...(result.groups.workspaces ?? [])] : []} onDiscover={() => setTab("discover")} />;
+    }
+
+    if (tab === "msgs") return <MessagesTab q={q} header={header} />;
+
     return (
-        <div data-scroll-root="route" className="nb-sp-scroll">
-            <div className="nb-sp">
-                <form className="nb-sp-box" onSubmit={(event) => { event.preventDefault(); if (typed.trim()) newSearch(typed.trim()); }}>
-                    <Search className="size-4 text-muted-foreground" aria-hidden />
-                    <input type="search" aria-label="Search NetworkBase" value={typed} onChange={(event) => setTyped(event.target.value)} maxLength={100} placeholder="Search people, workspaces, organizations, posts…" />
-                </form>
-
-                <header className="nb-sp-head">
-                    <div className="min-w-0">
-                        <h1 className="nb-sp-title">Results for “{state.q}”</h1>
-                        <p className="nb-sp-why">{total} results · {ORDER_LINE[tabs[0]!]}</p>
-                    </div>
-                    <div className="nb-sp-acts">
-                        <button type="button" className={savedRow ? "nb-sx-btn nb-sp-pri" : "nb-sx-btn"} onClick={() => void save()} aria-pressed={Boolean(savedRow)}>{savedRow ? "Saved search" : "Save search"}</button>
-                        {savedRow ? <button type="button" className="nb-sx-btn" onClick={() => void cycleNotify()}><Bell className="size-3.5" aria-hidden />New matches: {savedRow.notify}</button> : null}
-                        <button type="button" className="nb-sx-btn" onClick={() => { void copyText(window.location.href).then(() => toast.success("Link copied · it opens these same results; private ones drop out for others"), () => toast.error("Couldn’t copy the link")); }}><Link2 className="size-3.5" aria-hidden />Copy link</button>
-                    </div>
-                </header>
-
-                {result?.fixedFrom ? (
-                    <p className="nb-sp-typo">Showing results for <b>{result.q}</b> · <button type="button" className="nb-sx-link" onClick={() => newSearch(result.fixedFrom!, { exact: "1" })}>Search “{result.fixedFrom}” instead</button></p>
-                ) : null}
-
-                <div className="nb-sp-tabs" role="tablist" aria-label="Result kinds">
-                    <TabMarker overlap />
-                    {tabs.map((tab) => (
-                        <button key={tab} type="button" role="tab" aria-selected={state.tab === tab} className="nb-sp-tab" onClick={() => update({ ...state, tab, sort: 0, more: 0, peek: null })}>
-                            {TAB_LABEL[tab]}<span className="nb-sx-count">{view?.tabCounts[tab] ?? 0}</span>
-                        </button>
-                    ))}
-                </div>
-
-                <div className="nb-sp-bar">
-                    <button type="button" className="nb-sx-btn nb-sp-filters-btn" onClick={() => setFiltersOpen((value) => !value)} aria-expanded={filtersOpen}><SlidersHorizontal className="size-3.5" aria-hidden />Filters</button>
-                    {view?.chips.map((chip) => (
-                        <span key={`${chip.key}:${chip.value}:${chip.label}`} className="nb-sp-chip">{chip.label}<button type="button" aria-label={`Remove ${chip.label}`} onClick={() => facet(chip.key, chip.value)}><X className="size-3" aria-hidden /></button></span>
-                    ))}
-                    {view?.chips.length ? <button type="button" className="nb-sx-link" onClick={() => update(clearFilters(state))}>Clear all</button> : <span className="nb-sp-meta">No filters · pick filters on the left, or a skill</span>}
-                    <span className="nb-sp-bar-end">
-                        {SORTS[state.tab].length > 1 ? <button type="button" className="nb-sx-btn" onClick={() => update({ ...state, sort: (state.sort + 1) % SORTS[state.tab].length, more: 0 })}>Sort: {view?.sortLabel}</button> : null}
-                        <span className="nb-sx-seg" role="group" aria-label="View">
-                            <button type="button" aria-pressed={state.view === "cards"} onClick={() => update({ ...state, view: "cards" })}><LayoutGrid className="size-3.5" aria-hidden /><span className="sr-only">Cards</span></button>
-                            <button type="button" aria-pressed={state.view === "list"} onClick={() => update({ ...state, view: "list" })}><List className="size-3.5" aria-hidden /><span className="sr-only">List</span></button>
-                        </span>
-                    </span>
-                </div>
-
-                <div className="nb-sp-cols">
-                    <aside className="nb-sp-facets" data-open={filtersOpen || undefined} aria-label="Filters">
-                        {view?.facets.map((group) => group.opts.length ? (
-                            <section key={group.key} className="nb-sp-facet">
-                                {group.title ? <h2>{group.title}</h2> : null}
-                                {group.opts.map((option) => (
-                                    <button key={option.value} type="button" className="nb-sp-fopt" data-zero={option.zero || undefined} aria-pressed={option.on} onClick={() => facet(group.key, option.value)}>
-                                        <span>{option.label}</span><span className="nb-sx-count">{option.count}</span>
-                                    </button>
-                                ))}
-                            </section>
-                        ) : null)}
-                        {state.tab === "msgs" ? <p className="nb-sp-meta">Only conversations you’re in.</p> : null}
-                    </aside>
-
-                    <div className="nb-sp-main" ref={resultsRef} tabIndex={-1} onKeyDown={onKeyDown} aria-label="Results. J and K move, Space opens quick look.">
-                        {showSkill && result?.skill ? (
-                            <div className="nb-sp-skill">
-                                <span className="nb-sx-icon nb-sp-skill-ic" aria-hidden>{result.skill.name.slice(0, 2).toUpperCase()}</span>
-                                <span className="min-w-0 flex-1"><b>{result.skill.name}</b><span className="nb-sp-meta"> · {result.skill.people >= 100 ? "100+" : result.skill.people} people · {result.skill.workspaces} workspaces · {result.skill.orgs} organizations</span></span>
-                                <button type="button" className={state.skills.includes(result.skill.name) ? "nb-sx-btn nb-sp-pri" : "nb-sx-btn"} onClick={() => facet("skill", result.skill!.name)}>
-                                    {state.skills.includes(result.skill.name) ? `Filtering by ${result.skill.name}` : `Only things tagged ${result.skill.name}`}
-                                </button>
+        <SearchPageFrame rail={<RelatedRail words={result?.suggestions ?? []} onPick={setQuery} />}>
+            {header({ filters: null })}
+            <div className="pt-4">
+                {goto.length ? (
+                    <div className="nb-tool-surface divide-y divide-border">
+                        {goto.map((item) => (
+                            <div key={item.id} className="flex min-h-14 flex-wrap items-center gap-3 px-4 py-3">
+                                <span className="min-w-0 flex-1">
+                                    <span className="nb-ui-label block text-foreground">{item.title}</span>
+                                    <span className="nb-compact block text-muted-foreground">{item.sub}</span>
+                                </span>
+                                {item.meta.control === "theme" || item.meta.control === "findMe" ? <SettingControl control={item.meta.control} /> : null}
+                                <Button asChild variant="outline" size="sm"><Link href={item.href}>Open</Link></Button>
                             </div>
-                        ) : null}
-                        {top ? (
-                            <div className="nb-sp-top" data-picked={state.peek === top.id || undefined}>
-                                <HitAvatar hit={top} size={48} />
-                                <button type="button" className="nb-sp-top-tx" onClick={() => setState({ ...state, peek: top.id })}>
-                                    <span className="nb-sp-meta">Top hit · {KIND_LABEL[top.kind]}</span>
-                                    <b>{top.title}</b>
-                                    <span className="nb-sp-meta">{top.sub}{top.meta.relation ? ` · ${String(top.meta.relation)}` : ""}</span>
-                                </button>
-                                {action(top)}
-                            </div>
-                        ) : null}
-
-                        {view?.rows.map((row, index) => {
-                            if (row.type === "head") return <div key={`h:${row.label}`} className="nb-sx-glabel"><b>{row.label}</b><span className="nb-sx-count">{row.count}</span><span className="nb-sx-rule" /></div>;
-                            if (row.type === "conv") return <div key={`c:${row.label}:${index}`} className="nb-sp-conv">{row.label}</div>;
-                            const hit = row.hit;
-                            if (hit.kind === "goto") {
-                                return (
-                                    <div key={hit.id} className="nb-sp-go">
-                                        <span className="min-w-0 flex-1"><b><Marked text={hit.title} q={state.q} /></b><span className="nb-sp-meta block">{hit.sub}</span></span>
-                                        {hit.meta.control === "theme" || hit.meta.control === "findMe" ? <SettingControl control={hit.meta.control} /> : null}
-                                        <Link className="nb-sx-btn" href={hit.href}>Open</Link>
-                                    </div>
-                                );
-                            }
-                            return <ResultItem key={hit.id} hit={hit} q={state.q} list={state.view === "list"} picked={state.peek === hit.id || opened === hit.id} onPeek={() => setState({ ...state, peek: state.peek === hit.id ? null : hit.id })} onOpen={() => open(hit)} action={action(hit)} />;
-                        })}
-
-                        {view && view.tabTotal > view.shown && state.tab !== "goto" ? (
-                            <button type="button" className="nb-sx-btn nb-sp-more" onClick={() => update({ ...state, more: state.more + 1 })}>Show more · Showing {view.shown} of {view.tabTotal}</button>
-                        ) : null}
-                        {view && !view.rows.length ? (
-                            total === 0 ? (
-                                <div className="nb-sx-empty">
-                                    <b>Nothing called “{state.q}” yet</b>
-                                    <span className="nb-sx-t2">Searched people, workspaces, organizations, posts, your messages and pages.</span>
-                                    <span className="nb-sx-chips"><Link className="nb-sx-btn" href={`/workspaces/new?title=${encodeURIComponent(state.q)}`}>New workspace “{state.q}”</Link>{state.q.includes(" ") ? <button type="button" className="nb-sx-btn" onClick={() => newSearch(state.q.split(" ").slice(0, -1).join(" "))}>Try fewer words</button> : null}</span>
-                                </div>
-                            ) : (
-                                <div className="nb-sx-empty"><b>Nothing here with these filters</b><span className="nb-sx-t2">{state.tab === "people" ? "Try Anyone, or another location." : "Try Any time, or fewer skills."}</span></div>
-                            )
-                        ) : null}
+                        ))}
                     </div>
+                ) : <EmptyState icon={Search} title="No pages or settings match" description="Try a setting’s name, like Appearance or Privacy." />}
+            </div>
+        </SearchPageFrame>
+    );
+}
 
-                    <aside className="nb-sp-rail" aria-label={peek ? "Quick look" : railPeople ? "People" : "Workspaces and organizations"}>
-                        {peek ? (
-                            <div className="nb-sp-peek" ref={peekRef}>
-                                <button type="button" className="nb-sx-ib nb-sp-peek-x" aria-label="Close quick look" onClick={() => setState({ ...state, peek: null })}><X className="size-4" aria-hidden /></button>
-                                <BoxPreview hit={peek} q={state.q} action={action(peek)} onOpen={() => open(peek)} />
-                            </div>
-                        ) : rail.length ? (
-                            <section className="nb-sp-railbox">
-                                <div className="nb-sx-glabel"><b>{railPeople ? "People" : "Workspaces & orgs"}</b><span className="nb-sx-count">{railPeople ? view?.tabCounts.people : view?.tabCounts.discover}</span><span className="nb-sx-rule" /></div>
-                                {rail.map((hit) => (
-                                    <div key={hit.id} className="nb-sp-mini">
-                                        <HitAvatar hit={hit} />
-                                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => open(hit)}><b className="block truncate">{hit.title}</b><span className="nb-sp-meta block truncate">{String(hit.meta.relation ?? hit.sub)}</span></button>
-                                        {action(hit)}
-                                    </div>
-                                ))}
-                                <button type="button" className="nb-sx-btn w-full" onClick={() => update({ ...state, tab: railPeople ? "people" : "discover", sort: 0, more: 0, peek: null })}>{railPeople ? `See all ${view?.tabCounts.people ?? 0} people` : "See workspaces and posts"}</button>
-                            </section>
-                        ) : null}
-                        {related.length ? (
-                            <section className="nb-sp-railbox">
-                                <div className="nb-sx-glabel"><b>Related searches</b><span className="nb-sx-rule" /></div>
-                                <div className="nb-sx-chips">{related.map((word) => <button key={word} type="button" className="nb-sx-chip" onClick={() => newSearch(word)}>{word}</button>)}</div>
-                                <p className="nb-sp-meta">In the box: <kbd className="nb-sx-kbd">@</kbd> people · <kbd className="nb-sx-kbd">#</kbd> channels · <kbd className="nb-sx-kbd">in:</kbd> one workspace · <kbd className="nb-sx-kbd">&gt;</kbd> actions</p>
-                            </section>
-                        ) : null}
-                    </aside>
+/** Network's page frame (spec §16): 1240px, 24px gutters and top inset, the main column and the 320px sticky rail. */
+function SearchPageFrame({ children, rail }: { children: ReactNode; rail: ReactNode }) {
+    const stickyRail = useBottomStickyRail();
+    return (
+        <div data-scroll-root="route" className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter bg-background">
+            <div className="nb-network-page min-h-full bg-background px-4 sm:px-6">
+                <div className="mx-auto w-full max-w-[1240px] pb-8 pt-6">
+                    <div className="nb-network-columns">
+                        <div className="nb-network-main min-w-0">
+                            {children}
+                            <div className="nb-network-mobile-footer pt-6"><LegalLinks align="start" showCopyright className="text-[11px]" /></div>
+                        </div>
+                        <aside {...stickyRail} aria-label="About this search" className="nb-network-rail sticky self-start space-y-4">
+                            {rail}
+                            <LegalLinks align="start" showCopyright className="text-[11px]" />
+                        </aside>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-function ResultItem({ hit, q, list, picked, onPeek, onOpen, action }: { hit: SearchHit; q: string; list: boolean; picked: boolean; onPeek: () => void; onOpen: () => void; action: React.ReactNode }) {
-    const m = hit.meta;
-    if (list) {
-        return (
-            <div className="nb-sp-row" data-picked={picked || undefined} onClick={onPeek}>
-                <HitAvatar hit={hit} />
-                <span className="min-w-0 flex-1"><button type="button" className="nb-sp-name" onClick={(e) => { e.stopPropagation(); onOpen(); }}><Marked text={hit.title} q={q} /></button><span className="nb-sp-meta block truncate">{hit.why ?? hit.sub}</span></span>
-                <span className="nb-sx-kind">{KIND_LABEL[hit.kind]}</span>
-                {action}
-            </div>
-        );
-    }
+function FiltersButton({ count, onClick, buttonRef }: { count: number; onClick?: () => void; buttonRef?: DiscoverHeaderProps["filtersButtonRef"] }) {
     return (
-        <article className="nb-sp-card" data-picked={picked || undefined} onClick={onPeek}>
-            <div className="nb-sp-card-hd">
-                <HitAvatar hit={hit} size={hit.kind === "people" ? 48 : 36} />
-                <span className="min-w-0 flex-1">
-                    <button type="button" className="nb-sp-name" onClick={(e) => { e.stopPropagation(); onOpen(); }}><Marked text={hit.title} q={q} /></button>
-                    <span className="nb-sp-meta block">
-                        {hit.kind === "posts" ? `in ${String(m.place ?? "")} · ${when(hit.createdAt)}`
-                            : hit.kind === "messages" ? when(hit.createdAt)
-                                : hit.kind === "people" ? [m.headline, m.location].filter(Boolean).join(" · ")
-                                    : hit.kind === "orgs" ? `Organization${m.orgType ? ` · ${ORG_TYPE_LABEL[String(m.orgType)] ?? String(m.orgType)}` : ""}` : m.openToCollaborate ? "Open to collaborate" : "Workspace"}
-                    </span>
-                </span>
-                {m.isNew ? <span className="nb-sp-new">{hit.kind === "posts" ? "New" : "New this week"}</span> : null}
-                {hit.kind === "messages" && m.hasFile ? <span className="nb-sx-kind">File</span> : null}
+        <Button ref={buttonRef} type="button" variant="outline" onClick={onClick} aria-haspopup="dialog" className="bg-card pointer-coarse:h-11">
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            Filters
+            {count ? <span className="nb-tab-count">{count}<span className="sr-only"> active</span></span> : null}
+        </Button>
+    );
+}
+
+function SearchHeader({ q, total, orderLine, typedFrom, onSearchInstead, tabs, tab, counts, onTab, onSearch, filters, tags, saved, onSaved, skill }: {
+    q: string; total: number; orderLine: string; typedFrom: string | null; onSearchInstead: () => void;
+    tabs: SearchTab[]; tab: SearchTab; counts: Record<SearchTab, number | null>; onTab: (tab: SearchTab) => void;
+    onSearch: (q: string) => void; filters: ReactNode; tags?: ReactNode;
+    saved: Saved; onSaved: (saved: Saved) => void; skill: GlobalSearchResult["skill"];
+}) {
+    const [value, setValue] = useState(q);
+    const [debounced] = useDebounce(value, 400);
+    useEffect(() => { setValue(q); }, [q]);
+    useEffect(() => { if (debounced.trim().length >= 2 && debounced.trim() !== q) onSearch(debounced); }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const save = async () => {
+        if (saved) {
+            const response = await fetch(`/api/v1/search/saved?id=${encodeURIComponent(saved.id)}`, { method: "DELETE" }).catch(() => null);
+            if (response?.ok) { onSaved(null); toast.success("Removed from saved searches"); } else toast.error("Couldn’t remove it just now");
+            return;
+        }
+        const filters: Record<string, string> = {};
+        for (const [key, val] of new URLSearchParams(window.location.search)) if (!["q", "tab", "ctx", "exact"].includes(key)) filters[key] = val;
+        const response = await fetch("/api/v1/search/saved", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: q, tab, filters, notify: "weekly" }) }).catch(() => null);
+        const body = await response?.json().catch(() => null) as { data?: { id: string }; message?: string } | null;
+        if (response?.ok && body?.data?.id) {
+            onSaved({ id: body.data.id, notify: "weekly" });
+            toast.success(`Saved. New matches for “${q}” reach you weekly; it’s also under Saved in the search box.`);
+        } else toast.error(body?.message ?? "Couldn’t save this search");
+    };
+    const setNotify = async (notify: "weekly" | "daily" | "off") => {
+        if (!saved) return;
+        const response = await fetch("/api/v1/search/saved", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: saved.id, notify }) }).catch(() => null);
+        if (response?.ok) onSaved({ ...saved, notify }); else toast.error("Couldn’t change the alerts");
+    };
+
+    return (
+        <div className="min-w-0">
+            <header className="flex min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <div className="min-w-0">
+                    <h1 className="nb-page-title">Results for “{q}”</h1>
+                    <p className="nb-body mt-1 text-muted-foreground">{total ? `${total} ${total === 1 ? "result" : "results"} · ` : ""}{orderLine}</p>
+                    {typedFrom ? (
+                        <p className="nb-compact mt-1 text-muted-foreground">
+                            Showing results for <span className="font-medium text-foreground">{q}</span> · <button type="button" className="text-primary hover:underline" onClick={onSearchInstead}>Search “{typedFrom}” instead</button>
+                        </p>
+                    ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="outline" onClick={() => void save()} aria-pressed={Boolean(saved)} className="bg-card pointer-coarse:h-11">
+                        <Bell className="size-4" aria-hidden="true" />{saved ? "Saved search" : "Save search"}
+                    </Button>
+                    {saved ? (
+                        <Select value={saved.notify} onValueChange={(next) => void setNotify(next as "weekly" | "daily" | "off")}>
+                            <SelectTrigger aria-label="New matches" className="w-auto min-w-[150px] bg-card pointer-coarse:h-11"><span className="text-muted-foreground">New matches:</span><SelectValue /></SelectTrigger>
+                            <SelectContent>{(["weekly", "daily", "off"] as const).map((option) => <SelectItem key={option} value={option}>{NOTIFY_LABEL[option]}</SelectItem>)}</SelectContent>
+                        </Select>
+                    ) : null}
+                    <Button type="button" variant="outline" className="bg-card pointer-coarse:h-11" onClick={() => { void copyText(window.location.href).then(() => toast.success("Link copied"), () => toast.error("Couldn’t copy the link")); }}>
+                        <Link2 className="size-4" aria-hidden="true" />Copy link
+                    </Button>
+                </div>
+            </header>
+
+            {/* Network's toolbar (spec §16): underlined tabs with mono counts on the divider, then the 256px search and Filters. */}
+            <div className="nb-network-toolbar mt-4 flex min-w-0 flex-wrap-reverse items-start gap-2 border-b border-border">
+                <div className="-mb-px self-end flex max-w-full min-w-0 shrink-0 items-stretch gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Result kinds">
+                    {tabs.map((key) => {
+                        const selected = key === tab;
+                        const count = counts[key];
+                        return (
+                            <button key={key} id={`search-tab-${key}`} type="button" role="tab" aria-selected={selected} tabIndex={selected ? 0 : -1} onClick={() => onTab(key)}
+                                className={cn("nb-ui-label inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-2 py-3 transition-colors", selected ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                                {TAB_LABEL[key]}
+                                {count !== null ? <span className="nb-meta"><span aria-hidden="true">{count}</span><span className="sr-only">{count} results</span></span> : null}
+                            </button>
+                        );
+                    })}
+                    <TabMarker overlap />
+                </div>
+                <div className="nb-network-controls mb-2 flex max-w-full min-w-0 flex-wrap items-center gap-2">
+                    <SearchField value={value} onChange={setValue} onEnter={(input) => onSearch(input.value)} label="Search everything" className="w-64 max-w-full" />
+                    {filters}
+                </div>
             </div>
-            {hit.kind !== "people" ? <p className="nb-sp-text">{hit.kind === "posts" || hit.kind === "messages" ? <Marked text={hit.sub} q={q} /> : hit.sub}</p> : null}
-            {hit.kind === "people" && m.relation ? <p className="nb-sp-rel">{String(m.relation)}</p> : null}
-            {hit.tags.length || Number(m.openRoles) > 0 ? (
-                <div className="nb-sx-chips nb-sp-tags">
-                    {hit.tags.map((tag) => <span key={tag} className="nb-sx-tag">{tag}</span>)}
-                    {Number(m.openRoles) > 0 ? <span className="nb-sp-roles">{String(m.openRoles)} open {Number(m.openRoles) === 1 ? "role" : "roles"}</span> : null}
+            {tags ? <div className="mt-4">{tags}</div> : null}
+            {skill ? (
+                <div className="nb-tool-surface mt-4 flex flex-wrap items-center gap-3 p-4">
+                    <span className="min-w-0 flex-1">
+                        <span className="nb-card-title block">{skill.name}</span>
+                        <span className="nb-meta">{skill.people >= 100 ? "100+" : skill.people} people · {skill.workspaces} workspaces · {skill.orgs} organizations</span>
+                    </span>
+                    <Button asChild variant="outline" size="sm"><Link href={`/discover?tech=${encodeURIComponent(skill.name)}`}>Workspaces using {skill.name}</Link></Button>
                 </div>
             ) : null}
-            {hit.kind === "orgs" || hit.kind === "workspaces" || hit.kind === "people" ? (
-                <div className="nb-sp-foot">
-                    <span className="nb-sp-meta flex-1">{hit.kind === "people" ? (m.mutual ? `${String(m.mutual)} mutual` : "") : `${m.updatedBy ? `Updated by ${String(m.updatedBy)} · ` : ""}${String(m.followers ?? 0)} followers`}</span>
-                    {hit.why ? <span className="nb-sp-whyline">{hit.why}</span> : null}
-                    {action}
-                </div>
-            ) : null}
-        </article>
+        </div>
+    );
+}
+
+/** The Discover tab's rail: the people who match, as compact identity rows (spec §12 rail). */
+function PeopleRail({ people, onSeeAll }: { people: SuggestedProfile[] | null; onSeeAll: () => void }) {
+    if (!people?.length) return null;
+    return (
+        <RailSection title="People">
+            <div className="space-y-1">
+                {people.slice(0, 4).map((person) => (
+                    <Link key={person.id} href={person.username ? `/u/${person.username}` : `/u/${person.id}`} className="flex min-h-11 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted">
+                        <UserAvatar identity={person} size={34} roundedClassName="rounded-[5px]" />
+                        <span className="min-w-0 flex-1">
+                            <span className="nb-person-name block truncate">{person.fullName ?? person.username}</span>
+                            <span className="nb-compact block truncate text-muted-foreground">{person.headline ?? person.location ?? ""}</span>
+                        </span>
+                    </Link>
+                ))}
+                <Button type="button" variant="outline" className="mt-2 w-full bg-card" onClick={onSeeAll}>See all {people.length} people</Button>
+            </div>
+        </RailSection>
+    );
+}
+
+function RelatedRail({ words, onPick }: { words: string[]; onPick: (word: string) => void }) {
+    if (!words.length) return null;
+    return (
+        <RailSection title="Related searches">
+            <div className="flex flex-wrap gap-1.5">
+                {words.map((word) => <button key={word} type="button" className="nb-tag hover:bg-muted" onClick={() => onPick(word)}>{word}</button>)}
+            </div>
+        </RailSection>
+    );
+}
+
+function PeopleTab({ q, people, header, places, onDiscover }: {
+    q: string;
+    people: { data?: SuggestedProfile[]; isLoading: boolean; isError: boolean; refetch: () => unknown };
+    header: (controls: HeaderControls) => ReactNode;
+    places: SearchHit[];
+    onDiscover: () => void;
+}) {
+    const searchParams = useSearchParams();
+    const query: NetworkBrowseQuery = normalizeNetworkQuery("suggested", {
+        q,
+        skills: (searchParams.get(PEOPLE_KEYS.skills) ?? "").split(",").filter(Boolean),
+        location: searchParams.get(PEOPLE_KEYS.location) ?? "",
+        hasMutuals: searchParams.get(PEOPLE_KEYS.hasMutuals) === "1",
+        openToCollaborate: searchParams.get(PEOPLE_KEYS.openToCollaborate) === "1",
+    });
+    const apply = (patch: Partial<NetworkBrowseQuery>) => writeParams({
+        ...(patch.skills !== undefined ? { [PEOPLE_KEYS.skills]: patch.skills.join(",") || null } : {}),
+        ...(patch.location !== undefined ? { [PEOPLE_KEYS.location]: patch.location || null } : {}),
+        ...(patch.hasMutuals !== undefined ? { [PEOPLE_KEYS.hasMutuals]: patch.hasMutuals ? "1" : null } : {}),
+        ...(patch.openToCollaborate !== undefined ? { [PEOPLE_KEYS.openToCollaborate]: patch.openToCollaborate ? "1" : null } : {}),
+    });
+    // ponytail: the filters run on the matched people (up to 60) in the browser. Upgrade: server filters if needed.
+    const shown = (people.data ?? []).filter((person) =>
+        query.skills.every((skill) => (person.skills ?? []).some((value) => value.toLowerCase() === skill.toLowerCase()))
+        && (!query.location || (person.location ?? "").toLowerCase().includes(query.location.toLowerCase()))
+        && (!query.hasMutuals || (person.mutualConnections ?? 0) > 0)
+        && (!query.openToCollaborate || Boolean(person.openToCollaborate)));
+    const { sendRequest } = useConnectionMutations();
+    const connect = (userId: string) => toast.promise(sendRequest.mutateAsync({ userId }), {
+        loading: CONNECTION_COPY.sending,
+        success: (response) => getConnectionRequestSuccessMessage(response.status),
+        error: (error) => (error instanceof Error ? error.message : CONNECTION_COPY.sendFailed),
+    }).unwrap();
+
+    const rail = places.length ? (
+        <RailSection title="Workspaces and organizations">
+            <div className="space-y-1">
+                {places.slice(0, 4).map((place) => (
+                    <Link key={place.id} href={place.href} className="flex min-h-11 flex-col justify-center rounded-md px-2 py-1.5 hover:bg-muted">
+                        <span className="nb-ui-label truncate text-foreground">{place.title}</span>
+                        <span className="nb-meta truncate">{place.kind === "orgs" ? "Organization" : "Workspace"}</span>
+                    </Link>
+                ))}
+                <Button type="button" variant="outline" className="mt-2 w-full bg-card" onClick={onDiscover}>See workspaces and posts</Button>
+            </div>
+        </RailSection>
+    ) : null;
+
+    return (
+        <SearchPageFrame rail={rail}>
+            {header({
+                filters: <NetworkFilters tab="suggested" query={query} onApply={apply} />,
+                tags: <NetworkFilterChips query={query} onChange={apply} />,
+            })}
+            <div className="pt-4">
+                {people.isLoading ? (
+                    <div className="nb-person-card-grid grid gap-4">{[0, 1, 2, 3].map((item) => <PersonCardSkeleton key={item} />)}</div>
+                ) : people.isError ? (
+                    <EmptyState icon={Search} title="People didn’t load" description="Check your connection and try again." action={<Button type="button" variant="outline" onClick={() => void people.refetch()}>Try again</Button>} />
+                ) : shown.length ? (
+                    <PersonCardGrid items={shown} getKey={(person) => person.id} renderItem={(person, index) => <PersonCard profile={person} onConnect={connect} priority={index < 6} />} hasNextPage={false} isFetchingNextPage={false} fetchNextPage={() => undefined} loadingLabel="Loading more people" />
+                ) : (
+                    <EmptyState figure="person" title={people.data?.length ? "No one matches these filters" : `No people match “${q}”`} description={people.data?.length ? "Try fewer filters." : "People who keep their search private don’t show up here."} />
+                )}
+            </div>
+        </SearchPageFrame>
+    );
+}
+
+function MessagesTab({ q, header }: { q: string; header: (controls: HeaderControls) => ReactNode }) {
+    const [open, setOpen] = useState(false);
+    const [from, setFrom] = useState<string[]>([]);
+    const [file, setFile] = useState(false);
+    const messages = useQuery({
+        queryKey: ["global-search", "page-messages", q],
+        queryFn: ({ signal }) => getJson<GlobalSearchResult>(`/api/v1/search?${new URLSearchParams({ q, ctx: "messages", per: "50", only: "messages" })}`, signal).then((data) => data.groups.messages ?? []),
+        staleTime: 30_000,
+    });
+    const all = messages.data ?? [];
+    const authors = [...new Set(all.map((hit) => String(hit.meta.author ?? "")))].filter(Boolean);
+    const shown = all.filter((hit) => (!from.length || from.includes(String(hit.meta.author))) && (!file || hit.meta.hasFile));
+    // One heading per conversation, newest first inside it.
+    const byPlace = new Map<string, SearchHit[]>();
+    for (const hit of shown) byPlace.set(String(hit.meta.place ?? ""), [...(byPlace.get(String(hit.meta.place ?? "")) ?? []), hit]);
+    const count = from.length + Number(file);
+
+    return (
+        <SearchPageFrame rail={null}>
+            {header({
+                filters: (
+                    <FilterPanel open={open} onOpenChange={setOpen} activeFilters={count} onClear={() => { setFrom([]); setFile(false); }} trigger={<FiltersButton count={count} />}>
+                        <fieldset>
+                            <legend className="nb-ui-label mb-2">From</legend>
+                            {authors.map((author) => (
+                                <label key={author} className="flex min-h-11 cursor-pointer items-center gap-3">
+                                    <Checkbox checked={from.includes(author)} onCheckedChange={(on) => setFrom(on === true ? [...from, author] : from.filter((value) => value !== author))} />
+                                    <span className="nb-compact">{author}</span>
+                                </label>
+                            ))}
+                        </fieldset>
+                        <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                            <Checkbox checked={file} onCheckedChange={(on) => setFile(on === true)} />
+                            <span className="nb-compact">Has a file</span>
+                        </label>
+                        <p className="nb-compact text-muted-foreground">Only conversations you’re in.</p>
+                    </FilterPanel>
+                ),
+            })}
+            <div className="space-y-6 pt-4">
+                {messages.isLoading ? <p role="status" className="nb-meta">Searching your messages…</p> : null}
+                {[...byPlace].map(([place, hits]) => (
+                    <section key={place} aria-label={place}>
+                        <h2 className="nb-micro mb-2">{place}</h2>
+                        <div className="nb-tool-surface divide-y divide-border">
+                            {hits.map((hit) => (
+                                <Link key={hit.id} href={hit.href} className="flex gap-3 px-4 py-3 hover:bg-muted">
+                                    <UserAvatar identity={{ id: hit.id, fullName: hit.title, avatarUrl: hit.avatarUrl }} size={34} roundedClassName="rounded-[5px]" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="flex flex-wrap items-baseline gap-2">
+                                            <span className="nb-ui-label text-foreground">{hit.title}</span>
+                                            <span className="nb-meta">{hit.createdAt ? formatDistanceToNow(new Date(hit.createdAt), { addSuffix: true }) : ""}</span>
+                                            {hit.meta.hasFile ? <span className="nb-status text-muted-foreground">File</span> : null}
+                                        </span>
+                                        <span className="nb-compact block text-foreground">{hit.sub}</span>
+                                    </span>
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                ))}
+                {!messages.isLoading && !shown.length ? <EmptyState icon={MessageSquare} title={all.length ? "No messages match these filters" : `No messages mention “${q}”`} description="Messages search only covers conversations you’re in." /> : null}
+            </div>
+        </SearchPageFrame>
     );
 }

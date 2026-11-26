@@ -1,72 +1,65 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
-
-import { openedKey, readOpened, rememberOpened } from '../../src/components/search/opened';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 const page = () => read('src/app/(site)/(main)/search/page.tsx');
 const client = () => read('src/components/search/SearchPageClient.tsx');
 
-test('the page is server-rendered for a signed-in person, from the same search as the box', () => {
-  const source = page();
-  assert.match(source, /redirect\(`\/login\?next=\$\{encodeURIComponent\(/);
-  assert.match(source, /runGlobalSearch\(\{[^}]*perKind: 60/);
-  assert.match(source, /logSearch\(/);
-  assert.match(source, /parseSearchPageState\(/);
+test('the page is for a signed-in person; the tabs load like Discover and Network do', () => {
+  assert.match(page(), /redirect\(`\/login\?next=\$\{encodeURIComponent\(/);
+  assert.match(client(), /\/api\/v1\/search\/people\?/);
+  assert.match(client(), /log: "1"/);
 });
 
-test('the page follows the boards: tabs by page, facets, sort, cards or list, quick look, save, copy link, related', () => {
+// Design spec §15/§16 (2026-11-27, the user: the page didn't follow the design specification): Discover's and
+// Network's own parts, not look-alikes.
+test('the Discover tab is the Discover feed itself, under the results header', () => {
   const source = client();
-  assert.match(source, /TAB_ORDER\[state\.ctx\]/);
-  assert.match(source, /Results for “\{state\.q\}”/);
-  assert.match(source, /Save search/);
-  assert.match(source, /New matches: \{/);
-  assert.match(source, /copyText\(/);
-  assert.match(source, /Showing \{view\.shown\} of \{view\.tabTotal\}/);
-  assert.match(source, /Related searches/);
-  assert.match(source, /Only things tagged/);
-  assert.match(source, /nextPeek\(/);
-  assert.match(source, /Clear all/);
-  // Filters change the address without asking the server again (Next keeps useSearchParams in step).
-  assert.match(source, /window\.history\.replaceState\(/);
-  assert.match(source, /data-scroll-root="route"/);
+  assert.match(source, /<DiscoverClient[\s\S]*?renderHeader=/);
+  assert.match(source, /<DiscoverFilterTags /);
+  assert.match(read('src/components/discover/DiscoverClient.tsx'), /renderHeader\?: \(props: DiscoverHeaderProps\) => ReactNode/);
 });
 
-test('no header band and no coloured edge accents', () => {
-  const css = read('src/components/search/search-page.css');
-  assert.doesNotMatch(client(), /band/i);
-  assert.doesNotMatch(css, /border-left: [2-4]px solid|inset [2-4]px 0 0/);
+test('the People tab is Network’s person card, grid and filters', () => {
+  const source = client();
+  assert.match(source, /<PersonCard profile=\{person\}/);
+  assert.match(source, /<PersonCardGrid /);
+  assert.match(source, /<NetworkFilters tab="suggested"/);
+  assert.match(source, /<NetworkFilterChips /);
+  assert.match(read('src/lib/search/global/people-cards.ts'), /readPersonCardDetails\(/);
 });
 
-test('back puts you where you were: the opened card is marked again', () => {
-  const store = new Map<string, string>();
-  const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
-  rememberOpened(storage, 'q=react&tab=people', 'person:1');
-  assert.equal(readOpened(storage, 'q=react&tab=people'), 'person:1');
-  assert.equal(readOpened(storage, 'q=react'), null);
-  assert.equal(openedKey('q=react'), 'nb-search-opened:q=react');
-  assert.match(client(), /rememberOpened\(/);
-  assert.match(client(), /readOpened\(/);
+test('header and toolbar follow spec §16: page title, underlined tabs with mono counts, 256px search, Filters, 1240px, 320px rail', () => {
+  const source = client();
+  assert.match(source, /<h1 className="nb-page-title">Results for “\{q\}”<\/h1>/);
+  assert.match(source, /className="nb-network-toolbar /);
+  assert.match(source, /<TabMarker overlap \/>/);
+  assert.match(source, /<span className="nb-meta"><span aria-hidden="true">\{count\}<\/span>/);
+  assert.match(source, /<SearchField value=\{value\}[^\n]*className="w-64 max-w-full" \/>/);
+  assert.match(source, /max-w-\[1240px\]/);
+  assert.match(source, /className="nb-network-rail sticky self-start space-y-4"/);
+  assert.match(source, /<RailSection title=/);
 });
 
-// Phase 3 review 4: what is saved is what was searched (shortcuts parsed, typos corrected).
-test('save stores the searched words and the page looks them up the same way', () => {
-  assert.match(client(), /query: result\?\.q \?\? state\.q/);
-  assert.match(page(), /lower\(\$\{result\.q\}\)/);
+test('nothing the spec rules out: no Best match label, no sort cycle, no grid/list toggle, no look-alike cards or styles', () => {
+  const source = client();
+  assert.doesNotMatch(source, /Sort: |Best match|aria-label="View"|LayoutGrid|nb-sp-/);
+  assert.equal(existsSync('src/components/search/search-page.css'), false);
+  assert.doesNotMatch(source, /band/i);
 });
 
-// Phase 3 review 5: the page's own buttons and links keep Space and Enter.
-test('quick look keys leave buttons and links alone', () => {
-  assert.match(client(), /closest\("input, textarea, select, button, a, \[contenteditable\]"\)/);
-});
-
-// Phase 3 review 6: on a phone or tablet quick look comes into view.
-test('quick look scrolls into view when the rail sits below the results', () => {
-  assert.match(client(), /peekRef\.current\?\.scrollIntoView\(/);
-});
-
-// Phase 3 review 8: Back shows the filters the address holds, not the first page's.
-test('the page reads its state from the address it is showing', () => {
-  assert.match(client(), /parseSearchPageState\(new URLSearchParams\(window\.location\.search\)\)/);
+test('the box follows spec §31: 640px dialog, 11px micro labels, 13px titles, 12px mono metadata, 16px kind icons', () => {
+  const css = read('src/components/layout/header/search-box/search-box.css');
+  const box = read('src/components/layout/header/CommandPalette.tsx');
+  const row = read('src/components/layout/header/search-box/BoxRow.tsx');
+  assert.match(css, /width: min\(640px, calc\(100vw - 32px\)\)/);
+  assert.match(css, /border-radius: 12px; box-shadow: 0 18px 44px -16px rgba\(13, 17, 20, \.26\)/);
+  assert.match(css, /\.nb-sx-icon svg \{ width: 16px; height: 16px; \}/);
+  assert.match(css, /\.nb-sx-row:hover, \.nb-sx-row\[data-active\] \{ background: var\(--sidebar-accent\); \}/);
+  assert.match(box, /className="nb-sx-glabel nb-micro"/);
+  assert.match(row, /"nb-sx-t1 nb-ui-label"/);
+  assert.match(row, /"nb-sx-t2 nb-meta"/);
+  assert.doesNotMatch(css, /1040px|720px|10\.5px|13\.5px|11\.5px/);
+  assert.doesNotMatch(box, /BoxPreview/);
 });

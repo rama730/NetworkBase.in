@@ -26,7 +26,7 @@ import { contextFromPath, type SearchKind } from "@/lib/search/global/parse";
 import type { SearchHit } from "@/lib/search/global/types";
 import { BoxRow, HitAvatar, KIND_LABEL, Marked } from "./search-box/BoxRow";
 import { SettingControl } from "./search-box/SettingControl";
-import { BoxExtras, BoxPreview, useBoxExtras } from "./search-box/BoxExtras";
+import { BoxExtras, useBoxExtras } from "./search-box/BoxExtras";
 import { buildBoxGroups, type BoxGroupKind } from "./search-box/groups";
 import { acceptsSuggestion, isStoredHit } from "./search-box/recent";
 import "./search-box/search-box.css";
@@ -108,7 +108,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         setRecents(readRecentGlobalSearches(recentSearchOwnerId, RECENT_SCOPE));
         // The box hangs under the top bar's search cell (Main board), clear of the window's edge.
         const cell = document.querySelector(".nb-cell-search")?.getBoundingClientRect();
-        const width = Math.min(window.innerWidth >= 1100 ? 1040 : 720, window.innerWidth - 32);
+        const width = Math.min(640, window.innerWidth - 32);
         setLeft(cell ? Math.max(16, Math.min(cell.left, window.innerWidth - width - 16)) : null);
     }, [initialActiveIndex, initialQuery, isOpen, recentSearchOwnerId]);
 
@@ -281,7 +281,6 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
     const viewed = recents.flatMap((item) => (item.kind === "preview" && isStoredHit(item.preview) ? [{ key: item.key, hit: item.preview }] : []));
 
     const placeholder = place && inPlace ? `Search ${place.name}, or everywhere` : "Search people, workspaces, organizations, posts…";
-    const showPreview = Boolean(active) && typeof window !== "undefined" && window.innerWidth >= 1100;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -333,7 +332,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                             {staffCommand ? (
                                 <button type="button" className="nb-sx-row nb-sx-row-main" onClick={() => { onClose(); router.push(staffCommand.href); }}>
                                     <span className="nb-sx-icon" aria-hidden><ShieldCheck className="size-4" /></span>
-                                    <span className="nb-sx-tx"><span className="nb-sx-t1">{staffCommand.label}</span><span className="nb-sx-t2">Staff</span></span>
+                                    <span className="nb-sx-tx"><span className="nb-sx-t1 nb-ui-label">{staffCommand.label}</span><span className="nb-sx-t2 nb-meta">Staff</span></span>
                                 </button>
                             ) : null}
 
@@ -341,12 +340,12 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                 <>
                                     {recentQueries.length ? (
                                         <section>
-                                            <div className="nb-sx-glabel"><b>Recent</b><span className="nb-sx-rule" /><button type="button" className="nb-sx-link" onClick={clearRecents}>Clear</button></div>
+                                            <div className="nb-sx-glabel nb-micro"><b>Recent</b><span className="nb-sx-rule" /><button type="button" className="nb-sx-link" onClick={clearRecents}>Clear</button></div>
                                             {recentQueries.map((recent) => (
                                                 <div key={recent.key} className="nb-sx-row">
                                                     <button type="button" className="nb-sx-row-main" onClick={() => setText(recent.label)} aria-label={`Use recent search ${recent.label}`}>
                                                         <span className="nb-sx-icon" aria-hidden><History className="size-4" /></span>
-                                                        <span className="nb-sx-tx"><span className="nb-sx-t1">{recent.label}</span></span>
+                                                        <span className="nb-sx-tx"><span className="nb-sx-t1 nb-ui-label">{recent.label}</span></span>
                                                     </button>
                                                     <button type="button" className="nb-sx-ib" onClick={() => removeRecent(recent.key)} aria-label={`Remove ${recent.label} from recent searches`}><X className="size-3.5" aria-hidden /></button>
                                                 </div>
@@ -355,12 +354,12 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                     ) : null}
                                     {viewed.length ? (
                                         <section>
-                                            <div className="nb-sx-glabel"><b>Recently viewed</b><span className="nb-sx-rule" /></div>
+                                            <div className="nb-sx-glabel nb-micro"><b>Recently viewed</b><span className="nb-sx-rule" /></div>
                                             {viewed.slice(0, 3).map(({ key, hit }) => (
                                                 <div key={key} className="nb-sx-row">
                                                     <button type="button" className="nb-sx-row-main" onClick={() => openHit(hit)}>
                                                         <HitAvatar hit={hit} />
-                                                        <span className="nb-sx-tx"><span className="nb-sx-t1">{hit.title}</span><span className="nb-sx-t2">{hit.sub}</span></span>
+                                                        <span className="nb-sx-tx"><span className="nb-sx-t1 nb-ui-label">{hit.title}</span><span className="nb-sx-t2 nb-meta">{hit.sub}</span></span>
                                                     </button>
                                                     <span className="nb-sx-kind">{KIND_LABEL[hit.kind]}</span>
                                                     <button type="button" className="nb-sx-ib" onClick={() => removeRecent(key)} aria-label={`Remove ${hit.title} from recently viewed`}><X className="size-3.5" aria-hidden /></button>
@@ -370,9 +369,9 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                     ) : null}
                                     <BoxExtras extras={extras} onPick={(value) => setText(value)} onOpenSaved={(href) => confirmAppNavigation(() => { router.push(href); onClose(); })} />
                                     <section>
-                                        <div className="nb-sx-glabel"><b>Search only</b><span className="nb-sx-rule" /></div>
+                                        <div className="nb-sx-glabel nb-micro"><b>Search only</b><span className="nb-sx-rule" /></div>
                                         <div className="nb-sx-chips">
-                                            {ONLY_CHIPS.map((item) => <button key={item.only} type="button" className="nb-sx-chip" onClick={() => setChip({ kind: "only", only: item.only })}>{item.label}</button>)}
+                                            {ONLY_CHIPS.map((item) => <button key={item.only} type="button" className="nb-tag nb-sx-chip" onClick={() => setChip({ kind: "only", only: item.only })}>{item.label}</button>)}
                                         </div>
                                         <p className="nb-sx-hint"><kbd className="nb-sx-kbd">@</kbd> people · <kbd className="nb-sx-kbd">#</kbd> channels · <kbd className="nb-sx-kbd">in:</kbd> one workspace · <kbd className="nb-sx-kbd">&gt;</kbd> actions and settings</p>
                                     </section>
@@ -393,7 +392,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                             {result.suggestions.map((word) => (
                                                 <button key={word} type="button" className="nb-sx-row nb-sx-row-main nb-sx-suggest" onClick={() => setText(word)}>
                                                     <span className="nb-sx-icon" aria-hidden><Search className="size-3.5" /></span>
-                                                    <span className="nb-sx-tx"><span className="nb-sx-t1">{word.toLowerCase().startsWith(q.toLowerCase()) ? <>{word.slice(0, q.length)}<b>{word.slice(q.length)}</b></> : word}</span></span>
+                                                    <span className="nb-sx-tx"><span className="nb-sx-t1 nb-ui-label">{word.toLowerCase().startsWith(q.toLowerCase()) ? <>{word.slice(0, q.length)}<b>{word.slice(q.length)}</b></> : word}</span></span>
                                                     <kbd className="nb-sx-kbd" aria-hidden>tab</kbd>
                                                 </button>
                                             ))}
@@ -407,7 +406,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                     {invite ? (
                                             <div className="nb-sx-row">
                                                 <span className="nb-sx-icon" aria-hidden>@</span>
-                                                <span className="nb-sx-tx"><span className="nb-sx-t1">Invite {invite}</span><span className="nb-sx-t2">Copy a sign-up link to send them</span></span>
+                                                <span className="nb-sx-tx"><span className="nb-sx-t1 nb-ui-label">Invite {invite}</span><span className="nb-sx-t2 nb-meta">Copy a sign-up link to send them</span></span>
                                                 <button type="button" className="nb-sx-btn" onClick={() => { void copyText(`${window.location.origin}/signup?ref=invite`).then(() => toast.success("Invite link copied"), () => toast.error("Couldn’t copy the link")); }}>Copy invite link</button>
                                             </div>
                                         ) : null}
@@ -421,11 +420,11 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                         {box?.best ? (
                                             <div role="group" aria-label="Best match" className="nb-sx-best" data-active={active?.id === box.best.id || undefined} onMouseMove={() => setActiveIndex(flat.indexOf(box.best!))}>
                                                 <div id={domId(box.best)} role="option" aria-selected={active?.id === box.best.id} className="nb-sx-row-main" onClick={() => openHit(box.best!)}>
-                                                    <HitAvatar hit={box.best} size={40} />
+                                                    <HitAvatar hit={box.best} size={34} />
                                                     <span className="nb-sx-tx">
-                                                        <span className="nb-sx-best-t"><Marked text={box.best.title} q={q} /> <span className="nb-sx-kind">{KIND_LABEL[box.best.kind]}</span></span>
-                                                        <span className="nb-sx-t2">{box.best.sub}</span>
-                                                        {box.best.meta.relation ? <span className="nb-sx-t2">{String(box.best.meta.relation)}</span> : null}
+                                                        <span className="nb-sx-best-t nb-person-name"><Marked text={box.best.title} q={q} /> <span className="nb-sx-kind">{KIND_LABEL[box.best.kind]}</span></span>
+                                                        <span className="nb-sx-t2 nb-meta">{box.best.sub}</span>
+                                                        {box.best.meta.relation ? <span className="nb-sx-t2 nb-meta">{String(box.best.meta.relation)}</span> : null}
                                                     </span>
                                                     <span className="nb-sx-end">{rowAction(box.best, true)}<span className="nb-sx-kind">Best match</span></span>
                                                 </div>
@@ -433,7 +432,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                         ) : null}
                                         {box?.groups.map((group) => (
                                             <div key={group.kind} role="group" aria-labelledby={`nb-sx-g-${group.kind}`}>
-                                                <div className="nb-sx-glabel" role="none"><b id={`nb-sx-g-${group.kind}`}>{group.label}</b><span className="nb-sx-count" aria-hidden="true">{group.count}</span><span className="nb-sx-rule" /></div>
+                                                <div className="nb-sx-glabel nb-micro" role="none"><b id={`nb-sx-g-${group.kind}`}>{group.label}</b><span className="nb-sx-count" aria-hidden="true">{group.count}</span><span className="nb-sx-rule" /></div>
                                                 {group.rows.map((hit) => (
                                                     <BoxRow key={hit.id} hit={hit} q={q} active={active?.id === hit.id} domId={domId(hit)} onHover={() => setActiveIndex(flat.indexOf(hit))} onOpen={() => openHit(hit)} action={rowAction(hit, true)} />
                                                 ))}
@@ -453,7 +452,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                     {nothing ? (
                                         <div className="nb-sx-empty">
                                             <b>Nothing called “{q}” yet</b>
-                                            <span className="nb-sx-t2">Searched people, workspaces, organizations, posts, your messages and pages.</span>
+                                            <span className="nb-sx-t2 nb-meta">Searched people, workspaces, organizations, posts, your messages and pages.</span>
                                             <span className="nb-sx-chips">
                                                 <button type="button" className="nb-sx-btn" onClick={() => confirmAppNavigation(() => { router.push(`/workspaces/new?title=${encodeURIComponent(q)}`); onClose(); })}>New workspace “{q}”</button>
                                                 {q.includes(" ") ? <button type="button" className="nb-sx-btn" onClick={() => setText(q.split(" ").slice(0, -1).join(" "))}>Try fewer words</button> : null}
@@ -463,7 +462,6 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                 </>
                             )}
                         </div>
-                        {showPreview && active ? <BoxPreview hit={active} q={q} action={rowAction(active)} onOpen={() => openHit(active)} /> : null}
                     </div>
 
                     <div className="nb-sx-foot">

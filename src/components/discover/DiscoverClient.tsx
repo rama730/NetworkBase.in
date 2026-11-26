@@ -1,7 +1,7 @@
 'use client';
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Bell, Compass, Plus, Search, Sparkles } from 'lucide-react';
@@ -21,7 +21,7 @@ import ProjectCard from '@/components/workspaces/WorkspaceCard';
 import WorkspaceCardSkeleton from '@/components/workspaces/WorkspaceCardSkeleton';
 import DiscoverUpdateCard from '@/components/discover/DiscoverUpdateCard';
 import DiscoverUpdateCardSkeleton from '@/components/discover/DiscoverUpdateCardSkeleton';
-import DiscoverHeader from '@/components/discover/DiscoverHeader';
+import DiscoverHeader, { type DiscoverHeaderProps } from '@/components/discover/DiscoverHeader';
 import { DiscoverFiltersPanel } from '@/components/discover/DiscoverFiltersPanel';
 import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
 import { DiscoverRail } from '@/components/discover/DiscoverRail';
@@ -65,6 +65,13 @@ interface DiscoverClientProps {
     initialUpdate?: DiscoverUpdateView | null;
     initialUpdateId?: string | null;
     initialPeopleSuggestions?: ConnectionFeedPage<DiscoverConnectionItem>;
+    /**
+     * The search results page (global search mix): the same feed, filters and cards under its own header. Gets the
+     * props Discover's header would, so search, Filters and the filter tags behave exactly as on Discover.
+     */
+    renderHeader?: (props: DiscoverHeaderProps) => ReactNode;
+    /** The results page's rail (people who match) in place of suggested people. */
+    rail?: ReactNode;
 }
 
 type FeedPage = { projects: Workspace[]; nextCursor?: string; hasMore: boolean };
@@ -131,6 +138,8 @@ export default function DiscoverClient({
     initialUpdate,
     initialUpdateId,
     initialPeopleSuggestions,
+    renderHeader,
+    rail,
 }: DiscoverClientProps) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
@@ -231,7 +240,7 @@ export default function DiscoverClient({
     useDocumentTitlePrefix(thread.selected?.projectName ? `Update · ${thread.selected.projectName}` : null); // R8
     // Signed-out viewers have no people to suggest, but keep the rail column anyway when updates are showing, so
     // opening a thread doesn't squeeze the feed from under the cursor.
-    const showRail = wide !== false && (hasPeople || Boolean(thread.selectedId) || shownUpdates.length > 0);
+    const showRail = wide !== false && (Boolean(rail) || hasPeople || Boolean(thread.selectedId) || shownUpdates.length > 0);
 
     const pageIds = useMemo(() => (data?.pages ?? []).map((page) => page.projects.map((project) => project.id)), [data]);
     const followed = useUserFollowedWorkspaces(viewerId, pageIds);
@@ -486,17 +495,17 @@ export default function DiscoverClient({
                 <div className={showRail ? 'nb-discover-columns' : 'nb-discover-columns nb-discover-columns--single'}>
                     <div className="min-w-0">
                         <div data-testid="discover-header-shell" className="mb-[18px]">
-                            <DiscoverHeader
-                                query={urlFilters}
-                                activeFilters={activeFilters}
-                                announcement={announcement}
-                                loading={isQueryTransition}
-                                onChange={updateUrlFilters}
-                                onClearFilters={() => clearFilters({ keepSearch: true })}
-                                onOpenFilters={() => setFiltersOpen(true)}
-                                filtersButtonRef={filtersButton}
-                                people={people}
-                            />
+                            {(renderHeader ?? ((props: DiscoverHeaderProps) => <DiscoverHeader {...props} />))({
+                                query: urlFilters,
+                                activeFilters,
+                                announcement,
+                                loading: isQueryTransition,
+                                onChange: updateUrlFilters,
+                                onClearFilters: () => clearFilters({ keepSearch: true }),
+                                onOpenFilters: () => setFiltersOpen(true),
+                                filtersButtonRef: filtersButton,
+                                people: rail ? null : people,
+                            })}
                         </div>
                         <h2 ref={feedHeading} id="discover-feed" tabIndex={-1} className="sr-only">Workspaces and updates</h2>
                         {feed}
@@ -522,7 +531,7 @@ export default function DiscoverClient({
                                 <p role="status" className="nb-waiting nb-meta"><PixelBeat />Loading update…</p>
                             ) : (
                                 <>
-                                    {hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null}
+                                    {rail ?? (hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null)}
                                     <div className="pt-2">{legal}</div>
                                 </>
                             )}

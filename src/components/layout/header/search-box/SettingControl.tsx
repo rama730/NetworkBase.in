@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { useTheme } from "@/components/providers/theme-provider";
 import { usePrivacySettings } from "@/hooks/useSettingsQueries";
+import { SegChoice } from "@/components/settings/mix/parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -19,32 +20,38 @@ export function SettingControl({ control, inline = false }: { control: "theme" |
     const privacy = usePrivacySettings();
     const current = findMe ?? privacy.data?.settings.searchVisibility ?? null;
 
+    const pickTheme = (value: "dark" | "light" | "system") => {
+        setThemeWithTransition(value);
+        toast.success(`Appearance: ${value} · saved`);
+    };
+    const pickFindMe = async (value: string) => {
+        const response = await fetch("/api/v1/privacy", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ searchVisibility: value }) }).catch(() => null);
+        if (!response?.ok) { toast.error("Couldn’t save that. Open Settings › Privacy to try again."); return; }
+        setFindMe(value);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.settings.privacy() });
+        toast.success(`Who can find me in search: ${FIND_ME.find(([key]) => key === value)?.[2] ?? value} · saved`);
+    };
+    // Outside a result row: Settings' own segmented control (the clay marker slides to the choice).
+    if (!inline) {
+        return control === "theme"
+            ? <SegChoice label="Theme" value={theme as "dark" | "light" | "system"} options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }, { value: "system", label: "System" }]} onChange={pickTheme} />
+            : <SegChoice label="Who can find me in search" value={current as "everyone" | "my_places" | "connections" | null} options={FIND_ME.map(([value, short]) => ({ value, label: short }))} onChange={(value) => void pickFindMe(value)} />;
+    }
     const Tag = (inline ? "span" : "button") as "button";
     const tagProps = (pressed: boolean) => (inline ? { "data-pressed": pressed, "aria-hidden": true } : { type: "button" as const, "aria-pressed": pressed });
     if (control === "theme") {
         return (
             <span className="nb-sx-seg" {...(inline ? { "aria-hidden": true } : { role: "group", "aria-label": "Theme" })}>
                 {(["dark", "light", "system"] as const).map((value) => (
-                    <Tag key={value} {...tagProps(theme === value)} onClick={(event) => {
-                        event.stopPropagation();
-                        setThemeWithTransition(value);
-                        toast.success(`Appearance: ${value} · saved`);
-                    }}>{value[0]!.toUpperCase() + value.slice(1)}</Tag>
+                    <Tag key={value} {...tagProps(theme === value)} onClick={(event) => { event.stopPropagation(); pickTheme(value); }}>{value[0]!.toUpperCase() + value.slice(1)}</Tag>
                 ))}
             </span>
         );
     }
     return (
         <span className="nb-sx-seg" {...(inline ? { "aria-hidden": true } : { role: "group", "aria-label": "Who can find me in search" })}>
-            {FIND_ME.map(([value, short, long]) => (
-                <Tag key={value} {...tagProps(current === value)} onClick={async (event) => {
-                    event.stopPropagation();
-                    const response = await fetch("/api/v1/privacy", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ searchVisibility: value }) }).catch(() => null);
-                    if (!response?.ok) { toast.error("Couldn’t save that. Open Settings › Privacy to try again."); return; }
-                    setFindMe(value);
-                    void queryClient.invalidateQueries({ queryKey: queryKeys.settings.privacy() });
-                    toast.success(`Who can find me in search: ${long} · saved`);
-                }}>{short}</Tag>
+            {FIND_ME.map(([value, short]) => (
+                <Tag key={value} {...tagProps(current === value)} onClick={(event) => { event.stopPropagation(); void pickFindMe(value); }}>{short}</Tag>
             ))}
         </span>
     );

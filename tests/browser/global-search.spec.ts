@@ -5,7 +5,7 @@ import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
 // Global search mix (canvas BPugBoaWtuZ5UtgayjDNmT): the box and the results page as built, with a fixture answer.
-const css = ['src/components/layout/header/search-box/search-box.css', 'src/components/search/search-page.css'].map((f) => readFileSync(f, 'utf8')).join('\n');
+const css = readFileSync('src/components/layout/header/search-box/search-box.css', 'utf8');
 const hit = (kind: string, title: string, extra: Record<string, unknown> = {}) => ({
   id: `${kind}:${title}`, kind, title, sub: '', href: `/${kind}/${encodeURIComponent(title)}`, why: null, score: 3, createdAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
   avatarUrl: null, tags: [], act: null, meta: {}, ...extra,
@@ -29,6 +29,12 @@ const result = {
   counts: { orgs: 1, workspaces: 2, posts: 1, people: 2, messages: 1 },
 };
 
+// Network's person card shape (SuggestedProfile), as /api/v1/search/people returns it.
+const people = [
+  { id: 'p1', username: 'ananya', fullName: 'Ananya Rao', avatarUrl: null, headline: 'Frontend developer', location: 'Chennai', connectionStatus: 'none', canConnect: true, skills: ['React', 'Figma'], mutualConnections: 2, openToCollaborate: true },
+  { id: 'p2', username: 'sana', fullName: 'Sana Mirza', avatarUrl: null, headline: 'React Native developer', location: 'Hyderabad', connectionStatus: 'connected', canConnect: false, skills: ['React Native'], mutualConnections: 5 },
+];
+
 async function open(page: Page, query: string, options: { theme?: 'dark'; width?: number } = {}) {
   await page.setViewportSize({ width: options.width ?? 1280, height: 900 });
   await openApp(page, 'tests/browser/global-search.fixture.tsx', {
@@ -36,6 +42,7 @@ async function open(page: Page, query: string, options: { theme?: 'dark'; width?
     head: `window.__result=${JSON.stringify(result)};document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.textContent=${JSON.stringify(css)};document.head.appendChild(s);});`,
     beforeGoto: async (p) => {
       await p.route('**/api/v1/search?**', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: result }) }));
+      await p.route('**/api/v1/search/people?**', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { people } }) }));
       await p.route('**/api/v1/search/saved', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { saved: [{ id: 's1', query: 'react', tab: 'discover', filters: {}, notify: 'weekly', newCount: 3 }], trending: ['hackathon', 'next.js 16'] } }) }));
     },
   });
@@ -64,28 +71,30 @@ test('the box from Network puts people first; the empty box shows saved and tren
   expect(await axeViolations(page)).toEqual([]);
 });
 
-test('the results page: tabs, filters with counts, quick look keys, list view', async ({ page }) => {
-  await open(page, 'surface=page&q=react');
-  await expect(page.getByRole('heading', { name: 'Results for “react”' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /Discover/ })).toHaveAttribute('aria-selected', 'true');
-  await page.getByRole('button', { name: /Only things tagged React/ }).click();
-  await expect(page.getByText('Skill: React')).toBeVisible();
-  await page.screenshot({ path: 'test-results/global-search/page-discover.png', fullPage: true });
-  await page.locator('.nb-sp-main').focus();
-  await page.keyboard.press('j');
-  await expect(page.getByRole('complementary', { name: 'Quick look' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await page.getByRole('tab', { name: /People/ }).click();
-  await page.getByRole('button', { name: /Sort: Best match/ }).click();
-  await expect(page.getByRole('button', { name: /Sort: Most mutuals/ })).toBeVisible();
+test('the results page follows the design spec: page title, Network toolbar, person cards, rail', async ({ page }) => {
+  await open(page, 'surface=page&q=react&tab=people');
+  const title = page.getByRole('heading', { name: 'Results for “react”' });
+  await expect(title).toBeVisible();
+  // Spec §04 page title: Instrument Sans 600, 30px.
+  expect(await title.evaluate((el) => { const s = getComputedStyle(el); return [s.fontSize, s.fontWeight]; })).toEqual(['30px', '600']);
+  await expect(page.getByRole('tab', { name: /People/ })).toHaveAttribute('aria-selected', 'true');
+  // Spec §16: the 256px search beside Filters on the tab divider.
+  expect(await page.getByRole('search').evaluate((el) => el.getBoundingClientRect().width)).toBe(256);
+  await expect(page.getByRole('button', { name: /^Filters/ })).toBeVisible();
+  // Spec §12: Network's own person card at its 176px floor.
+  const cards = page.locator('[data-slot="person-card"]');
+  await expect(cards).toHaveCount(2);
+  expect(await cards.first().evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(176);
   await page.screenshot({ path: 'test-results/global-search/page-people.png', fullPage: true });
   expect(await axeViolations(page)).toEqual([]);
+  // The harness's useSearchParams doesn't follow history.replaceState (Next's does), so the tab is opened by address.
+  await open(page, 'surface=page&q=react&tab=msgs');
+  await expect(page.getByRole('heading', { name: '#frontend' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/global-search/page-messages.png', fullPage: true });
 });
 
 test('dark and phone', async ({ page }) => {
-  await open(page, 'surface=page&q=react', { theme: 'dark' });
-  await page.screenshot({ path: 'test-results/global-search/page-dark.png', fullPage: true });
-  await open(page, 'surface=page&q=react', { width: 390 });
+  await open(page, 'surface=page&q=react&tab=people', { width: 390 });
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
   await page.screenshot({ path: 'test-results/global-search/page-phone.png', fullPage: true });

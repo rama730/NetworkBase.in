@@ -18,7 +18,7 @@ export function Marked({ text, q }: { text: string; q: string }) {
     return <>{a}{m ? <mark>{m}</mark> : null}{b}</>;
 }
 
-export function HitAvatar({ hit, size = 28 }: { hit: SearchHit; size?: number }) {
+export function HitAvatar({ hit, size = 26 }: { hit: SearchHit; size?: number }) {
     if (hit.kind === "people") {
         return <UserAvatar identity={{ id: hit.meta.userId, fullName: hit.title, avatarUrl: hit.avatarUrl }} size={size} roundedClassName="rounded-[4px]" />;
     }
@@ -57,8 +57,8 @@ export function BoxRow({ hit, q, active, domId, onHover, onOpen, action }: RowPr
             <div id={domId} role="option" aria-selected={active} className="nb-sx-row-main" onClick={onOpen}>
                 <HitAvatar hit={hit} />
                 <span className="nb-sx-tx">
-                    <span className="nb-sx-t1"><Marked text={hit.title} q={q} /></span>
-                    <span className="nb-sx-t2">{hit.kind === "posts" || hit.kind === "messages" ? <Marked text={second} q={q} /> : second}</span>
+                    <span className="nb-sx-t1 nb-ui-label"><Marked text={hit.title} q={q} /></span>
+                    <span className="nb-sx-t2 nb-meta">{hit.kind === "posts" || hit.kind === "messages" ? <Marked text={second} q={q} /> : second}</span>
                 </span>
                 <span className="nb-sx-end">
                     {action}
