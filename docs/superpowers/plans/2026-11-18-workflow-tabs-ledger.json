@@ -1200,7 +1200,7 @@
       "milestone": "B4",
       "status": "live-pending",
       "test": "tests/unit/company-directory.test.ts; tests/db/company-directory.test.ts; tests/browser/company-people.spec.ts",
-      "evidence": "K2a,b,d live (01ed43ac8, 75cc98714, f6dcc106c): Directory, my card (off hours), org chart + Reports to, Counts, Import people, Settings → Directory — checked live except Import send (would email real addresses). K2c Who's out + time-off types NOT built: needs a migration (Away type) queued behind another session's 0148–0150 not in prod."
+      "evidence": "K2a,b,d live (01ed43ac8, 75cc98714, f6dcc106c): Directory, my card (off hours), org chart + Reports to, Counts, Import people, Settings → Directory — checked live except Import send (would email real addresses). K2c Who's out + time-off types NOT built: needs a migration (Away type) queued behind another session's 0148–0150 not in prod. | revisit 2026-12-03: K2c Who's out needs a migration; build it once the messages migrations are live in prod."
     },
     {
       "key": "B4.3",
@@ -1238,9 +1238,9 @@
       "text": "B5.1 M1 Community home, Code of conduct, joining (34.2)",
       "kind": "unit",
       "milestone": "B5",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/community-front-door.test.ts; tests/db/community-front-door.test.ts; tests/browser/community-front-door.spec.ts",
-      "evidence": "Pushed 2026-11-26 (81c6fe5b8, a7ebd139e, b0a6582b6, c15d9e6e3, 3734b6046, 80c43f00b): CoC four parts + numbered rules, rules summary on About, I agree (again on a new version), Getting started 14 days, Settings → Joining, agree + join questions in both join paths, Updates post/edit/comment wait for agreement. Live check blocked: the test account owns 5 organizations (limit) — needs a slot. Not built: posting gate in chat, first-day DM limit (Messages is being rebuilt by another session), report names a rule, welcome post."
+      "evidence": "Pushed 2026-11-26 (81c6fe5b8, a7ebd139e, b0a6582b6, c15d9e6e3, 3734b6046, 80c43f00b): CoC four parts + numbered rules, rules summary on About, I agree (again on a new version), Getting started 14 days, Settings → Joining, agree + join questions in both join paths, Updates post/edit/comment wait for agreement. Live check blocked: the test account owns 5 organizations (limit) — needs a slot. Not built: posting gate in chat, first-day DM limit (Messages is being rebuilt by another session), report names a rule, welcome post. | LIVE 2026-11-26 on wt-test-b5-community (Chrome, test account): About shows the 5 numbered rules + Read the full Code of conduct; Overview I agree → toast, Getting started (tick saves); Settings → Joining saves a join question; owner posts Updates. Live-check fixes 7af62d16c (org starter doc named for its type, not README.md — wizard communities had no Code of conduct to read), f7ee3a82a (owner/admins not asked to agree), 21f1a3c8b (settings under Joining), 9314d04d0 (class guide + Teacher hint only for education). Member join/agree and posting block need a second account: covered by tests/db + browser spec. Note: organizations start with the starter doc off (report 34.5), so a community has rules only after the owner picks the Code of conduct template (or writes one) and publishes it."
     },
     {
       "key": "B5.2",
