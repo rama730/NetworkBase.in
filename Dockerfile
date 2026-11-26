@@ -61,7 +61,7 @@ RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
     INNGEST_SIGNING_KEY=build-only \
     INNGEST_EXECUTION_ROLE=web \
     RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA \
-    NODE_OPTIONS=--max-old-space-size=4096 \
+    NODE_OPTIONS=--max-old-space-size=6144 \
     npm run build
 
 FROM base AS runner
