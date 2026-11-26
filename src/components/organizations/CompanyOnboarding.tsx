@@ -13,7 +13,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { KIND_WORD, PHASES, WHO_WORD, type PlanStep, type StepKind, type StepWho } from "@/lib/organizations/onboarding-plan";
+import { KIND_WORD, PHASES, whoWords, type PlanStep, type StepKind, type StepWho } from "@/lib/organizations/onboarding-plan";
 
 // Report 33.5 (plan B4.4, K4): Start here for new people, Members → Onboarding, and Settings → Onboarding plan.
 
@@ -23,15 +23,17 @@ export function StartHere({ orgId }: { orgId: string }) {
   const q = useQuery({ queryKey: ["start-here", orgId], queryFn: () => readStartHereAction(orgId), staleTime: 30_000 });
   const [answer, setAnswer] = useState("");
   const o = q.data?.success ? q.data.onboarding : null;
+  const lab = q.data?.success ? q.data.lab : false;
+  const WHO_WORD = whoWords(lab ? "research" : null);
   if (!o || o.complete) return null;
   const refresh = () => void client.invalidateQueries({ queryKey: ["start-here", orgId] });
   const tick = async (taskId: string) => { const r = await updateTaskStatusAction(taskId, "done", orgId); if (!r.success) return void toast.error("Couldn’t tick it."); refresh(); };
-  const send = async () => { const r = await answerHowsItGoingAction(orgId, answer); if (!r.success) return void toast.error(r.error); toast.success("Thanks — your line manager will read it"); refresh(); };
+  const send = async () => { const r = await answerHowsItGoingAction(orgId, answer); if (!r.success) return void toast.error(r.error); toast.success(lab ? "Thanks — your supervisor will read it" : "Thanks — your line manager will read it"); refresh(); };
   return (
     <OrgCard title={`Start here · ${o.day}`} testId="start-here" action={<span className="font-mono text-[13px]">{o.done} of {o.total} steps · {o.total ? Math.round((o.done / o.total) * 100) : 0}%</span>}>
       <div className="space-y-3 text-[13px]">
         {o.note ? <p className="whitespace-pre-wrap">{o.note}</p> : null}
-        <p className="text-muted-foreground">{o.manager ? `Reports to ${o.manager}` : null}{o.manager && o.buddy ? " · " : null}
+        <p className="text-muted-foreground">{o.manager ? (lab ? `Supervisor: ${o.manager}` : `Reports to ${o.manager}`) : null}{o.manager && o.buddy ? " · " : null}
           {o.buddy ? <>Your buddy: {o.buddy.name} <Link href={`/messages?userId=${encodeURIComponent(o.buddy.id)}`} className="nb-link">Message</Link></> : null}</p>
         {PHASES.map((phase) => {
           const steps = o.steps.filter((s) => s.phase === phase && (s.mine || s.who !== "person"));
@@ -52,7 +54,7 @@ export function StartHere({ orgId }: { orgId: string }) {
               </ul>
               {steps.some((s) => s.mine && s.kind === "answer" && !s.done) && !o.answered ? (
                 <span className="mt-2 flex flex-wrap gap-2">
-                  <textarea className="nb-textarea min-w-[260px] flex-1" rows={2} maxLength={2000} value={answer} onChange={(e) => setAnswer(e.target.value)} aria-label="How’s it going?" placeholder="How’s it going? A few words for your line manager." />
+                  <textarea className="nb-textarea min-w-[260px] flex-1" rows={2} maxLength={2000} value={answer} onChange={(e) => setAnswer(e.target.value)} aria-label="How’s it going?" placeholder={`How’s it going? A few words for your ${lab ? "supervisor" : "line manager"}.`} />
                   <button type="button" className={FORM_PRIMARY_CLASS} disabled={!answer.trim()} onClick={() => void send()}>Send</button>
                 </span>
               ) : null}
@@ -71,6 +73,7 @@ export function OnboardingBoard({ orgId }: { orgId: string }) {
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading onboarding…</p>;
   if (!q.data?.success) return <ErrorNotice what="Onboarding" onRetry={() => void q.refetch()} />;
   const d = q.data;
+  const WHO_WORD = whoWords(d.lab ? "research" : null);
   const refresh = () => void client.invalidateQueries({ queryKey: ["onboarding-board", orgId] });
   const run = async (r: Promise<{ success: boolean; error?: string }>, ok: string) => { const x = await r; if (!x.success) return void toast.error(x.error ?? "Couldn’t save."); toast.success(ok); refresh(); };
   const names = new Map(d.staff.map((s) => [s.id, s.name]));
@@ -106,6 +109,7 @@ export function OnboardingPlanSettings({ orgId }: { orgId: string }) {
   const [on, setOn] = useState<boolean | null>(null);
   const d = q.data?.success ? q.data : null;
   if (!d) return null;
+  const WHO_WORD = whoWords(d.lab ? "research" : null);
   const rows = [...(plan ?? d.plan)].sort((a, b) => a.day - b.day);
   const isOn = on ?? d.on;
   const set = (id: string, patch: Partial<PlanStep>) => setPlan(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));

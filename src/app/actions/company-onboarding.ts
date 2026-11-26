@@ -5,8 +5,8 @@ import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
-import { ensureOnboarding, makeStepTask, readPlan, type OnboardingRecord } from "@/lib/organizations/company-onboarding-server";
-import { STARTER_PLAN, dayLabel, dueFor, onboardingDone, phaseOf, validPlan, type PlanStep } from "@/lib/organizations/onboarding-plan";
+import { ensureOnboarding, labDefault, makeStepTask, readPlan as readPlanRaw, type OnboardingRecord } from "@/lib/organizations/company-onboarding-server";
+import { starterPlanFor, dayLabel, dueFor, onboardingDone, phaseOf, validPlan, type PlanStep } from "@/lib/organizations/onboarding-plan";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -18,24 +18,27 @@ import { isLooseUuid } from "@/lib/validations/uuid";
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You can’t do that here." };
 
+const readPlan = (ctx: { settings: unknown; type: string | null; created: string }) => readPlanRaw(ctx.settings, labDefault(ctx.type, ctx.created));
+
 async function company(orgId: string) {
   if (!isLooseUuid(orgId)) return null;
   const { userId } = await getViewerAuthContext();
   if (!userId) return null;
   const a = await getWorkspaceAccessById(orgId, userId);
-  const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; owner: string; note: string | null }>(sql`
-    SELECT org_type AS type, org_settings AS settings, owner_id AS owner, welcome_note AS note FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (!w || w.type !== "company" || !(a.isOwner || a.isMember)) return null;
+  const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; owner: string; note: string | null; created: string }>(sql`
+    SELECT org_type AS type, org_settings AS settings, owner_id AS owner, welcome_note AS note, created_at::text AS created FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
+  // B6.1b: a research lab's New people plan works the same way (on by default; the manager is the Supervisor).
+  if (!w || (w.type !== "company" && w.type !== "research") || !(a.isOwner || a.isMember)) return null;
   const reportsTo = ((w.settings as { staffGrowth?: { reportsTo?: Record<string, string> } } | null)?.staffGrowth?.reportsTo ?? {}) as Record<string, string>;
-  return { userId, admin: a.isOwner || a.memberRole === "admin", settings: w.settings, owner: w.owner, note: w.note, reportsTo };
+  return { userId, admin: a.isOwner || a.memberRole === "admin", settings: w.settings, owner: w.owner, note: w.note, reportsTo, type: w.type, created: w.created };
 }
 
 /** Settings → Onboarding plan (admins): the plan (the starter until saved) and whether it's on. */
 export async function readOnboardingPlanAction(orgId: string) {
   const ctx = await company(orgId);
   if (!ctx?.admin) return DENIED;
-  const p = readPlan(ctx.settings);
-  return { success: true as const, on: Boolean(p.enabledAt), plan: p.plan.length ? p.plan : STARTER_PLAN };
+  const p = readPlan(ctx);
+  return { success: true as const, on: Boolean(p.enabledAt), plan: p.plan.length ? p.plan : starterPlanFor(ctx.type), lab: ctx.type === "research" };
 }
 
 /** Save the plan; switching it on starts onboarding for people who join from now on — never for people already here. */
@@ -43,7 +46,7 @@ export async function saveOnboardingPlanAction(orgId: string, input: { plan: unk
   const ctx = await company(orgId);
   if (!ctx?.admin) return DENIED;
   if (!validPlan(input?.plan) || typeof input.on !== "boolean") return { success: false, error: "Each step needs a day from −14 to 90, who it’s for and a title." };
-  const p = readPlan(ctx.settings);
+  const p = readPlan(ctx);
   const enabledAt = input.on ? p.enabledAt ?? new Date().toISOString() : null;
   await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('onboarding', ${JSON.stringify({ enabledAt, plan: input.plan })}::jsonb) WHERE id = ${orgId}::uuid`);
   return { success: true };
@@ -68,11 +71,11 @@ export async function readStartHereAction(orgId: string) {
   const ctx = await company(orgId);
   if (!ctx) return DENIED;
   const rec = await ensureOnboarding(orgId, ctx.userId);
-  if (!rec) return { success: true as const, onboarding: null };
-  const steps = await stepsOf(orgId, rec, readPlan(ctx.settings).plan, ctx.userId);
+  if (!rec) return { success: true as const, onboarding: null, lab: ctx.type === "research" };
+  const steps = await stepsOf(orgId, rec, readPlan(ctx).plan, ctx.userId);
   const people = new Map(Array.from(await db.execute<{ id: string; name: string }>(sql`SELECT id, coalesce(full_name, username, 'Someone') AS name FROM profiles WHERE id IN (${rec.buddy ?? ctx.userId}::uuid, ${ctx.reportsTo[ctx.userId] ?? ctx.userId}::uuid)`)).map((p) => [p.id, p.name]));
   const done = steps.filter((s) => s.done).length;
-  return { success: true as const, onboarding: { start: rec.start, day: dayLabel(rec.start, new Date().toISOString().slice(0, 10)), done, total: steps.length, steps,
+  return { success: true as const, lab: ctx.type === "research", onboarding: { start: rec.start, day: dayLabel(rec.start, new Date().toISOString().slice(0, 10)), done, total: steps.length, steps,
     complete: onboardingDone(steps), note: ctx.note, buddy: rec.buddy ? { id: rec.buddy, name: people.get(rec.buddy) ?? "Your buddy" } : null,
     manager: ctx.reportsTo[ctx.userId] ? people.get(ctx.reportsTo[ctx.userId]!) ?? null : null, answered: Boolean(rec.answer) } };
 }
@@ -84,7 +87,7 @@ export async function readOnboardingBoardAction(orgId: string) {
   const rows = Array.from(await db.execute<{ user_id: string; name: string; rec: OnboardingRecord }>(sql`
     SELECT m.user_id, coalesce(p.full_name, p.username, 'Someone') AS name, m.view_prefs->'onboarding' AS rec FROM workspace_members m JOIN profiles p ON p.id = m.user_id
     WHERE m.workspace_id = ${orgId}::uuid AND m.view_prefs->'onboarding' IS NOT NULL ORDER BY m.joined_at DESC LIMIT 200`));
-  const plan = readPlan(ctx.settings).plan;
+  const plan = readPlan(ctx).plan;
   const today = new Date().toISOString().slice(0, 10);
   const visible = rows.filter((r) => ctx.admin || ctx.reportsTo[r.user_id] === ctx.userId || r.rec.buddy === ctx.userId);
   if (!visible.length && !ctx.admin) return DENIED;
@@ -99,7 +102,7 @@ export async function readOnboardingBoardAction(orgId: string) {
   }
   const staff = ctx.admin || people.length ? Array.from(await db.execute<{ id: string; name: string }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' ORDER BY 2`)) : [];
-  return { success: true as const, admin: ctx.admin, me: ctx.userId, people, staff: staff.map((s) => ({ id: s.id, name: s.name })) };
+  return { success: true as const, lab: ctx.type === "research", admin: ctx.admin, me: ctx.userId, people, staff: staff.map((s) => ({ id: s.id, name: s.name })) };
 }
 
 async function record(orgId: string, userId: string) {
@@ -117,7 +120,7 @@ export async function setOnboardingStartAction(orgId: string, userId: string, st
   if (!ctx?.admin || !isLooseUuid(userId) || !z.string().date().safeParse(start).success) return DENIED;
   const r = await record(orgId, userId);
   if (!r) return { success: false, error: "They haven’t started onboarding." };
-  const plan = readPlan(ctx.settings).plan;
+  const plan = readPlan(ctx).plan;
   for (const s of r.rec.steps) {
     const step = plan.find((p) => p.id === s.stepId);
     if (step && s.taskId) await db.execute(sql`UPDATE tasks SET due_date = ${`${dueFor(start, step.day)}T17:00:00Z`}::timestamptz, updated_at = now() WHERE id = ${s.taskId}::uuid AND workspace_id = ${orgId}::uuid AND status <> 'done'`);
@@ -135,7 +138,7 @@ export async function setBuddyAction(orgId: string, userId: string, buddy: strin
   if (!staff?.ok) return { success: false, error: "Pick people in the company." };
   const r = await record(orgId, userId);
   if (!r) return { success: false, error: "They haven’t started onboarding." };
-  const plan = readPlan(ctx.settings).plan;
+  const plan = readPlan(ctx).plan;
   const steps = [];
   for (const s of r.rec.steps) {
     if (s.who !== "buddy") { steps.push(s); continue; }
@@ -155,7 +158,7 @@ export async function answerHowsItGoingAction(orgId: string, answer: string): Pr
   if (!text || text.length > 2000) return { success: false, error: "Write a few words, up to 2,000 characters." };
   const r = await record(orgId, ctx.userId);
   if (!r) return DENIED;
-  const step = r.rec.steps.find((s) => s.who === "person" && readPlan(ctx.settings).plan.find((p) => p.id === s.stepId)?.kind === "answer");
+  const step = r.rec.steps.find((s) => s.who === "person" && readPlan(ctx).plan.find((p) => p.id === s.stepId)?.kind === "answer");
   if (step?.taskId) {
     const { updateTaskStatusAction } = await import("@/app/actions/task");
     await updateTaskStatusAction(step.taskId, "done", orgId).catch(() => undefined);

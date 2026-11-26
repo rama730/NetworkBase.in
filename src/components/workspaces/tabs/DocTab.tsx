@@ -129,11 +129,15 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
     }
 
     // Report 33.2 layer 11: an empty company handbook shows its four sections, each with Add a page.
-    if (!hasDocs && canEdit && orgDocs?.mode === "org" && orgDocs.orgType === "company") {
+    // Report 35.2 call 3 (B6.1b): a lab's guide starts the same way with six lab sections; Safety pages are Required reading.
+    if (!hasDocs && canEdit && orgDocs?.mode === "org" && (orgDocs.orgType === "company" || orgDocs.orgType === "research")) {
+        const lab = orgDocs.orgType === "research";
         return (
-            <section aria-label="Handbook" className="mx-auto max-w-2xl space-y-3 py-8" data-testid="empty-handbook">
-                <p className="nb-card-title text-foreground">Your handbook</p>
-                <p className="nb-compact text-muted-foreground">Four sections to start. Each page stays a draft until you publish it.</p>
+            <section aria-label={lab ? "Lab guide" : "Handbook"} className="mx-auto max-w-2xl space-y-3 py-8" data-testid="empty-handbook">
+                <p className="nb-card-title text-foreground">{lab ? "Write your lab guide" : "Your handbook"}</p>
+                <p className="nb-compact text-muted-foreground">{lab
+                    ? "Six sections to start. Pages in Safety and training are Required reading. Each page stays a draft until you publish it."
+                    : "Four sections to start. Each page stays a draft until you publish it."}</p>
                 <ul className="divide-y divide-border rounded-md border border-border">
                     {orgDocs.groups.map((g) => (
                         <li key={g.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[13px]">

@@ -18,6 +18,16 @@ export const COMPANY_DOC_GROUPS: DocGroup[] = [
   { id: "policies", name: "Policies" },
 ];
 
+/** Report 35.2 call 3 (B6.1b): a lab's guide is the same sectioned handbook with lab sections. */
+export const RESEARCH_DOC_GROUPS: DocGroup[] = [
+  { id: "welcome", name: "Welcome" },
+  { id: "how", name: "How we work" },
+  { id: "computing", name: "Computing and data" },
+  { id: "safety", name: "Safety and training" },
+  { id: "writing", name: "Writing and authorship" },
+  { id: "leaving", name: "Leaving the lab" },
+];
+
 /** Org options kept in project_docs.settings.org (report §19.3, §19.11). */
 export type OrgDocOptions = {
   group: string;
@@ -39,7 +49,7 @@ export function readDocGroups(value: unknown, orgType?: string | null): DocGroup
   const groups = Array.isArray(value)
     ? value.filter((g): g is DocGroup => Boolean(g) && typeof g.id === "string" && typeof g.name === "string" && g.name.trim().length > 0)
     : [];
-  return groups.length ? groups : orgType === "company" ? COMPANY_DOC_GROUPS : DEFAULT_DOC_GROUPS;
+  return groups.length ? groups : orgType === "company" ? COMPANY_DOC_GROUPS : orgType === "research" ? RESEARCH_DOC_GROUPS : DEFAULT_DOC_GROUPS;
 }
 
 export function readOrgDocOptions(value: unknown, groups: DocGroup[] = DEFAULT_DOC_GROUPS): OrgDocOptions {

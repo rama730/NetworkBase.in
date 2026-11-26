@@ -217,6 +217,8 @@ export async function updateOrgDocOptionsAction(orgId: string, docId: string, in
     // A template moves to the Templates group unless a group is chosen too (report §37.4).
     if (patch.template === true && patch.group === undefined && readDocGroups((org?.orgSettings as { docGroups?: unknown } | null)?.docGroups, org?.orgType).some((g) => g.id === 'templates')) patch.group = 'templates';
     if (patch.owner && !(await pageOwners(orgId)).some((p) => p.id === patch.owner)) return { success: false, error: 'Pick someone in the organization as the owner.' };
+    // Report 35.2 call 3 (B6.1b): a page placed in a lab guide's Safety and training is Required reading unless said otherwise.
+    if (org?.orgType === 'research' && patch.group === 'safety' && patch.required === undefined) patch.required = true;
     if (sprintId !== undefined) {
         const [sprint] = sprintId ? await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
             .where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, orgId))).limit(1) : [];

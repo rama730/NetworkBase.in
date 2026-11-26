@@ -15,6 +15,21 @@ export const STARTER_PLAN: PlanStep[] = [
 ];
 
 export const WHO_WORD: Record<StepWho, string> = { person: "New person", manager: "Line manager", buddy: "Buddy" };
+
+/** Report 35.2 (B6.1b): a lab's New people plan — on by default; the manager is the person's Supervisor. */
+export const LAB_STARTER_PLAN: PlanStep[] = [
+  { id: "read-guide", day: 0, who: "person", kind: "read", title: "Read the lab guide: Welcome", required: true },
+  { id: "safety", day: 0, who: "person", kind: "read", title: "Read Safety and training and sign off", required: true },
+  { id: "accounts", day: 1, who: "person", kind: "do", title: "Set up your accounts, computing and data access", required: true },
+  { id: "first-supervision", day: 3, who: "manager", kind: "meet", title: "First supervision meeting with {name}", required: true },
+  { id: "reading-group", day: 7, who: "person", kind: "do", title: "Join the reading group", required: false },
+  { id: "workspace", day: 7, who: "person", kind: "do", title: "Make your workspace from a template (Thesis or Project)", required: true },
+  { id: "hows-it-going", day: 30, who: "person", kind: "answer", title: "How’s it going?", required: true },
+];
+export const starterPlanFor = (orgType: string | null | undefined) => (orgType === "research" ? LAB_STARTER_PLAN : STARTER_PLAN);
+export const whoWords = (orgType: string | null | undefined): Record<StepWho, string> => (orgType === "research" ? { ...WHO_WORD, manager: "Supervisor" } : WHO_WORD);
+/** Types whose people get a New people plan (company: when switched on; research: on unless switched off). */
+export const ONBOARDING_TYPES = ["company", "research"] as const;
 export const KIND_WORD: Record<StepKind, string> = { read: "Read", do: "Do", meet: "Meet", answer: "Answer" };
 
 /** Phases (call: Before day 1 · Day 1 · Week 1 · Month 1 · Month 2 · Month 3), counted from the start date (day 0 = Day 1). */
