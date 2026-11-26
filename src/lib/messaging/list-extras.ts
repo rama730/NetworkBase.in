@@ -7,8 +7,11 @@ import { chatRows, jsonParam, uuidArray } from "@/lib/messaging/server";
 import { previewIds, previewText } from "@/lib/messaging/tokens";
 import type { ChatChannelSummary } from "@/lib/messaging/types";
 
-/** Names for the people and channels some bodies mention, looked up in one round trip. */
-export async function previewNames(bodies: string[]) {
+/**
+ * Names for the people and channels some bodies mention, looked up in one round trip. Channel names only for channels
+ * the reader is in (`viewerId`); with no single reader (a live alert to several people) channels stay "#channel".
+ */
+export async function previewNames(bodies: string[], viewerId: string | null) {
   const users = new Set<string>();
   const channels = new Set<string>();
   for (const body of bodies) {
@@ -20,7 +23,11 @@ export async function previewNames(bodies: string[]) {
     users.size ? chatRows<{ id: string; name: string | null }>(sql`
       SELECT id, coalesce(nullif(full_name, ''), username) AS name FROM profiles WHERE id = ANY(${uuidArray([...users])}) AND deleted_at IS NULL
     `) : [],
-    channels.size ? chatRows<{ id: string; name: string | null }>(sql`SELECT id, name FROM chat_channels WHERE id = ANY(${uuidArray([...channels])})`) : [],
+    channels.size && viewerId ? chatRows<{ id: string; name: string | null }>(sql`
+      SELECT c.id, c.name FROM chat_channels c
+      JOIN chat_channel_members m ON m.channel_id = c.id AND m.user_id = ${viewerId}::uuid
+      WHERE c.id = ANY(${uuidArray([...channels])})
+    `) : [],
   ]);
   const names = new Map(people.map((p) => [p.id, p.name ?? undefined]));
   const roomNames = new Map(rooms.map((r) => [r.id, r.name ?? undefined]));
@@ -28,10 +35,10 @@ export async function previewNames(bodies: string[]) {
 }
 
 /** Row previews say "@Ann" and "#design", never their stored codes (`<@id>`, `<#id>`, `<!here>`). */
-export async function withReadablePreviews<T extends Pick<ChatChannelSummary, "last_preview">>(channels: T[]): Promise<T[]> {
+export async function withReadablePreviews<T extends Pick<ChatChannelSummary, "last_preview">>(viewerId: string, channels: T[]): Promise<T[]> {
   const raw = channels.map((c) => c.last_preview).filter((p): p is string => Boolean(p));
   if (!raw.length) return channels;
-  const { nameOf, channelNameOf } = await previewNames(raw);
+  const { nameOf, channelNameOf } = await previewNames(raw, viewerId);
   return channels.map((c) => (c.last_preview ? { ...c, last_preview: previewText(c.last_preview, nameOf, channelNameOf) } : c));
 }
 

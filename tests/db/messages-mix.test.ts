@@ -234,3 +234,15 @@ test("bootstrap: previews name the people and channels a message mentions", asyn
   const row = (boot as { data: { channels: Array<{ id: string; last_preview: string | null }> } }).data.channels.find((c) => c.id === channelId)!;
   assert.equal(row.last_preview, "ping @Bea Preview @here");
 });
+
+test("bootstrap previews never name a channel the reader isn't in", async () => {
+  const [a, b] = await people(2);
+  const [secret] = await sql`INSERT INTO chat_channels (kind, name, created_by) VALUES ('private', 'secret-plans', ${a!}) RETURNING id`;
+  as(a!);
+  const channelId = ((await members.getOrCreateDm({ userId: b! })) as { channelId: string }).channelId;
+  await send(channelId, `see <#${secret!.id}>`);
+  as(b!);
+  const boot = await read.bootstrap({});
+  const row = (boot as { data: { channels: Array<{ id: string; last_preview: string | null }> } }).data.channels.find((c) => c.id === channelId)!;
+  assert.equal(row.last_preview, "see #channel");
+});

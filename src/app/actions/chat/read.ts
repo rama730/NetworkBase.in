@@ -35,7 +35,7 @@ export async function bootstrap(input: { since?: string | null } = {}) {
       chatRows<{ muted_id: string }>(sql`SELECT muted_id FROM user_mutes WHERE muter_id = ${user.id}::uuid`),
     ]);
     const listed = await withApplicationMeta(data.channels, user.id);
-    const [named, counted] = await Promise.all([withReadablePreviews(listed), withUnreadCounts(listed)]);
+    const [named, counted] = await Promise.all([withReadablePreviews(user.id, listed), withUnreadCounts(listed)]);
     const counts = new Map(counted.map((c) => [c.id, c.unread_count]));
     const channels = withBlockState(named.map((c) => (counts.get(c.id) === undefined ? c : { ...c, unread_count: counts.get(c.id) })), user.id, blocks);
     const blockedIds = blocks.filter((b) => b.blocker_id === user.id).map((b) => b.blocked_id);

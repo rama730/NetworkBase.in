@@ -119,7 +119,7 @@ export function publishSentMessage(input: {
   runAfterResponse(async () => {
     // Top-level messages carry the row's new preview (names, not codes), so lists update without a reload.
     const top = message.thread_root_seq === null;
-    const preview = top ? await previewNames([message.body]).then(({ nameOf, channelNameOf }) => previewText(message.body, nameOf, channelNameOf).slice(0, 140) || (message.attachments.length ? "Attachment" : undefined)).catch(() => undefined) : undefined;
+    const preview = top ? await previewNames([message.body], null).then(({ nameOf, channelNameOf }) => previewText(message.body, nameOf, channelNameOf).slice(0, 140) || (message.attachments.length ? "Attachment" : undefined)).catch(() => undefined) : undefined;
     const events: ServerBroadcast[] = [
       { topic: channelTopic(message.channel_id), event: "message.new", payload: message as unknown as Record<string, unknown> },
       ...notify.map((userId) => ({
