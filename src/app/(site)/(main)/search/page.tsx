@@ -26,11 +26,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
 
     const state = parseSearchPageState(params);
     const { text, scope } = parseSearchInput(state.q);
-    const [result, saved] = text ? await Promise.all([
-        runGlobalSearch({ viewerId: user.id, q: text, ctx: state.ctx, place: null, scope, perKind: 60, exact: state.exact }),
-        db.execute(sql`SELECT id, notify FROM saved_searches WHERE user_id = ${user.id}::uuid AND lower(query) = lower(${text}) AND tab = ${state.tab} ORDER BY created_at LIMIT 1`)
-            .then((rows) => (rows as unknown as Array<{ id: string; notify: "weekly" | "daily" | "off" }>)[0] ?? null).catch(() => null),
-    ]) : [null, null];
+    const result = text ? await runGlobalSearch({ viewerId: user.id, q: text, ctx: state.ctx, place: null, scope, perKind: 60, exact: state.exact }) : null;
+    // Saved under the words that were searched (a typo corrected, a shortcut parsed), the same way Save stores them.
+    const saved = result ? await db.execute(sql`SELECT id, notify FROM saved_searches WHERE user_id = ${user.id}::uuid AND lower(query) = lower(${result.q}) AND tab = ${state.tab} ORDER BY created_at LIMIT 1`)
+        .then((rows) => (rows as unknown as Array<{ id: string; notify: "weekly" | "daily" | "off" }>)[0] ?? null).catch(() => null) : null;
     if (result) void logSearch(user.id, result.q);
 
     return <SearchPageClient key={`${text}|${state.exact}`} initialState={state} result={result} saved={saved} />;

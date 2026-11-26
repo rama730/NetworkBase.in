@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, afterEach, before, test } from "node:test";
 
 import { closeAppDb, createProject, createUser, loadAppModule, sql } from "./_helpers";
@@ -30,26 +31,41 @@ async function newWorkspace(owner: string, title: string) {
   await sql`UPDATE workspaces SET title = ${title} WHERE id = ${id}`;
 }
 
-test("a daily alert is due after 25 hours, not after 23", async () => {
-  const late = await setup("daily", 25);
+// Phase 3 review 1: a run that starts a little earlier than yesterday's still sends (an hour of slack).
+test("a daily alert is due after 23.5 hours, not after 22", async () => {
+  const late = await setup("daily", 23.5);
   await newWorkspace(late.owner, `${late.t} fresh`);
-  const early = await setup("daily", 23);
+  const early = await setup("daily", 22);
   await newWorkspace(early.owner, `${early.t} fresh`);
   const due = await alerts.collectDueAlerts(new Date());
-  assert.ok(due.some((item) => item.savedId === late.id && item.count === 1));
-  assert.ok(!due.some((item) => item.savedId === early.id));
-  const [after] = await sql`SELECT last_notified_at > now() - interval '1 minute' AS moved FROM saved_searches WHERE id = ${late.id}`;
-  assert.equal(after!.moved, true);
+  assert.ok(due.some((item) => item.id === late.id));
+  assert.ok(!due.some((item) => item.id === early.id));
+  // Phase 3 review 2: collecting moves nothing; a row moves only once its notice is sent.
+  const [still] = await sql`SELECT last_notified_at < now() - interval '1 hour' AS old FROM saved_searches WHERE id = ${late.id}`;
+  assert.equal(still!.old, true);
 });
 
-test("weekly waits seven days; off never; nothing new sends nothing", async () => {
+test("weekly waits about seven days; off never; nothing new sends nothing", async () => {
   const weekly = await setup("weekly", 24 * 6);
   await newWorkspace(weekly.owner, `${weekly.t} fresh`);
   const off = await setup("off", 24 * 30);
   await newWorkspace(off.owner, `${off.t} fresh`);
-  const quiet = await setup("daily", 48);
   const due = await alerts.collectDueAlerts(new Date());
-  for (const id of [weekly.id, off.id, quiet.id]) assert.ok(!due.some((item) => item.savedId === id));
+  for (const id of [weekly.id, off.id]) assert.ok(!due.some((item) => item.id === id));
+  const quiet = await setup("daily", 48);
+  const sent = await alerts.sendAlert(due.find((item) => item.id === quiet.id) ?? (await alerts.collectDueAlerts(new Date())).find((item) => item.id === quiet.id)!, new Date());
+  assert.equal(sent, "nothing-new");
+  const [moved] = await sql`SELECT last_notified_at > now() - interval '1 minute' AS moved FROM saved_searches WHERE id = ${quiet.id}`;
+  assert.equal(moved!.moved, true);
+});
+
+// Phase 3 review 3: a saved Discover search counts only organizations, workspaces and posts (no people or messages search).
+test("the count for a Discover search reads only the kinds that tab shows", () => {
+  const source = readFileSync("src/lib/search/global/saved.ts", "utf8");
+  assert.doesNotMatch(source, /runGlobalSearch/);
+  assert.match(source, /searchPlaces\(/);
+  // Batches of 25 to a step: a slow search can't stall the run, and steps stay few on the Inngest plan.
+  assert.match(readFileSync("src/inngest/functions/saved-search-alerts.ts", "utf8"), /step\.run\(`saved-search-alerts-\$\{index\}`/);
 });
 
 test("the job sends one notice linking to the results, and clears old searches from the log", async () => {

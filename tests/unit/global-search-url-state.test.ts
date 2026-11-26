@@ -105,3 +105,25 @@ test('quick look keys: j/k wrap, Space toggles, Esc closes', () => {
   assert.equal(nextPeek(ids, 'b', 'Escape'), null);
   assert.equal(nextPeek([], null, 'j'), null);
 });
+
+// Phase 3 review 7: counts follow every other filter you picked; an option with nothing left goes grey.
+test('facet counts update as you pick (each facet counts with the others applied)', () => {
+  const view = applyFilters(result, parseSearchPageState(new URLSearchParams('q=react&updated=week')), [], now);
+  const open = view.facets.find((f) => f.key === 'open')!.opts[0]!;
+  assert.equal(open.count, 1);
+  const month = applyFilters(result, parseSearchPageState(new URLSearchParams('q=react&skill=Vue')), [], now);
+  const week = month.facets.find((f) => f.key === 'updated')!.opts.find((o) => o.value === 'week')!;
+  assert.equal(week.count, 0);
+  assert.equal(week.zero, true);
+});
+
+// Phase 3 review 9: one head per conversation, however the messages interleave.
+test('messages are grouped under their conversation even when they interleave', () => {
+  const mixed: GlobalSearchResult = { ...result, groups: { messages: [
+    hit('messages', 'a', { meta: { place: '#one' } }), hit('messages', 'b', { meta: { place: '#two' } }),
+    hit('messages', 'c', { meta: { place: '#one' } }), hit('messages', 'd', { meta: { place: '#two' } }),
+  ] }, counts: { messages: 4 } };
+  const view = applyFilters(mixed, parseSearchPageState(new URLSearchParams('q=x&tab=msgs')), [], now);
+  assert.deepEqual(view.rows.filter((r) => r.type === 'conv').map((r) => r.type === 'conv' && r.label), ['#one', '#two']);
+  assert.deepEqual(view.rows.filter((r) => r.type === 'hit').map((r) => r.type === 'hit' && r.hit.title), ['a', 'c', 'b', 'd']);
+});

@@ -49,3 +49,24 @@ test('back puts you where you were: the opened card is marked again', () => {
   assert.match(client(), /rememberOpened\(/);
   assert.match(client(), /readOpened\(/);
 });
+
+// Phase 3 review 4: what is saved is what was searched (shortcuts parsed, typos corrected).
+test('save stores the searched words and the page looks them up the same way', () => {
+  assert.match(client(), /query: result\?\.q \?\? state\.q/);
+  assert.match(page(), /lower\(\$\{result\.q\}\)/);
+});
+
+// Phase 3 review 5: the page's own buttons and links keep Space and Enter.
+test('quick look keys leave buttons and links alone', () => {
+  assert.match(client(), /closest\("input, textarea, select, button, a, \[contenteditable\]"\)/);
+});
+
+// Phase 3 review 6: on a phone or tablet quick look comes into view.
+test('quick look scrolls into view when the rail sits below the results', () => {
+  assert.match(client(), /peekRef\.current\?\.scrollIntoView\(/);
+});
+
+// Phase 3 review 8: Back shows the filters the address holds, not the first page's.
+test('the page reads its state from the address it is showing', () => {
+  assert.match(client(), /parseSearchPageState\(new URLSearchParams\(window\.location\.search\)\)/);
+});

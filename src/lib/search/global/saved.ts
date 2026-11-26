@@ -6,8 +6,8 @@ import { db } from "@/lib/db";
 import { isUuid } from "@/lib/messaging/server";
 import { normalizeSearchQuery } from "@/lib/search/query";
 
-import { runGlobalSearch } from "./run";
-import type { GlobalSearchResult, SearchHit } from "./types";
+import { searchMessageHits, searchPeople, searchPlaces, searchPosts } from "./kinds";
+import type { SearchHit } from "./types";
 
 export type SavedTab = "discover" | "people" | "msgs" | "goto";
 export type SavedNotify = "weekly" | "daily" | "off";
@@ -16,22 +16,21 @@ export type SavedSearch = { id: string; query: string; tab: SavedTab; filters: R
 export const MAX_SAVED_SEARCHES = 20;
 const rows = <T>(result: unknown) => result as unknown as T[];
 
-const KINDS_FOR_TAB: Record<SavedTab, Array<SearchHit["kind"]>> = {
-    discover: ["orgs", "workspaces", "posts"],
-    people: ["people"],
-    msgs: ["messages"],
-    goto: [],
-};
 
-/** Matches made after `since`, with the same rule as the box and the page (Review Focus 4). */
+/**
+ * Matches made after `since`, with the same rule as the box and the page (Review Focus 4), reading only the kinds the
+ * saved tab shows (review 3): no people or message search for a Discover search, no skill card or suggestions.
+ */
 export async function countNewMatches(viewerId: string, query: string, tab: SavedTab, since: Date): Promise<number> {
-    if (!KINDS_FOR_TAB[tab].length) return 0;
-    const result: GlobalSearchResult = await runGlobalSearch({
-        viewerId, q: query, ctx: tab === "people" ? "network" : tab === "msgs" ? "messages" : "discover", place: null,
-        scope: tab === "people" ? { kind: "only", only: "people" } : tab === "msgs" ? { kind: "only", only: "messages" } : null, perKind: 60, exact: true,
-    });
+    const q = normalizeSearchQuery(query);
+    if (q.length < 2) return 0;
+    const reads: Array<Promise<SearchHit[]>> = tab === "discover"
+        ? [searchPlaces(viewerId, q, "organization", 60), searchPlaces(viewerId, q, "workspace", 60), searchPosts(viewerId, q, 12)]
+        : tab === "people" ? [searchPeople(viewerId, q, 60)]
+            : tab === "msgs" ? [searchMessageHits(viewerId, q, 50)] : [];
     // ponytail: the NEW count ignores the saved filters and counts the first 60 of each kind. Upgrade: filter server side.
-    return KINDS_FOR_TAB[tab].reduce((sum, kind) => sum + (result.groups[kind] ?? []).filter((hit) => hit.createdAt && new Date(hit.createdAt) > since).length, 0);
+    const found = (await Promise.all(reads)).flat();
+    return found.filter((hit) => hit.createdAt && new Date(hit.createdAt) > since).length;
 }
 
 /** Your saved searches, newest first, each with what's new since you last opened it (capped at 99). */

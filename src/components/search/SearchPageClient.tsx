@@ -17,7 +17,7 @@ import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/ho
 import { searchGoto } from "@/lib/search/global/goto";
 import { TAB_ORDER, type SearchTab } from "@/lib/search/global/rank";
 import type { GlobalSearchResult, SearchHit } from "@/lib/search/global/types";
-import { applyFilters, clearFilters, nextPeek, ORG_TYPE_LABEL, serializeSearchPageState, SORTS, toggleFacet, type FacetKey, type SearchPageState } from "@/lib/search/global/url-state";
+import { applyFilters, clearFilters, nextPeek, ORG_TYPE_LABEL, parseSearchPageState, serializeSearchPageState, SORTS, toggleFacet, type FacetKey, type SearchPageState } from "@/lib/search/global/url-state";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { TabMarker } from "@/components/ui/TabMarker";
 import { readOpened, rememberOpened } from "./opened";
@@ -36,7 +36,11 @@ const when = (at: string | null) => (at ? formatDistanceToNow(new Date(at), { ad
 
 export default function SearchPageClient({ initialState, result, saved }: { initialState: SearchPageState; result: GlobalSearchResult | null; saved: Saved }) {
     const router = useRouter();
-    const [state, setState] = useState<SearchPageState>({ ...initialState, peek: null });
+    // From the address it is showing: Back can bring a page whose filters were changed after the server drew it (review 8).
+    const [state, setState] = useState<SearchPageState>(() => ({
+        ...(typeof window === "undefined" ? initialState : parseSearchPageState(new URLSearchParams(window.location.search))), peek: null,
+    }));
+    const peekRef = useRef<HTMLDivElement>(null);
     const [savedRow, setSavedRow] = useState<Saved>(saved);
     const [opened, setOpened] = useState<string | null>(null);
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -46,6 +50,10 @@ export default function SearchPageClient({ initialState, result, saved }: { init
     const address = serializeSearchPageState(state);
 
     useEffect(() => { setOpened(readOpened(window.sessionStorage, address)); }, [address]);
+    // Below 1100 px the rail sits under the results: bring quick look into view when it opens (review 6).
+    useEffect(() => {
+        if (state.peek && window.innerWidth <= 1100) peekRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, [state.peek]);
     const update = (next: SearchPageState) => {
         setState(next);
         // Filters, tabs and sorts change the address only: the results are already here (Next keeps useSearchParams in step).
@@ -102,7 +110,7 @@ export default function SearchPageClient({ initialState, result, saved }: { init
         }
         const filters = Object.fromEntries(new URLSearchParams(address).entries());
         delete filters.q; delete filters.tab; delete filters.more; delete filters.sort; delete filters.view;
-        const response = await fetch("/api/v1/search/saved", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: state.q, tab: state.tab, filters, notify: "weekly" }) }).catch(() => null);
+        const response = await fetch("/api/v1/search/saved", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: result?.q ?? state.q, tab: state.tab, filters, notify: "weekly" }) }).catch(() => null);
         const body = await response?.json().catch(() => null) as { data?: { id: string }; message?: string } | null;
         if (response?.ok && body?.data?.id) {
             setSavedRow({ id: body.data.id, notify: "weekly" });
@@ -117,7 +125,8 @@ export default function SearchPageClient({ initialState, result, saved }: { init
     };
 
     const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-        if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
+        // The page's own buttons and links keep Space and Enter (review 5).
+        if ((event.target as HTMLElement).closest("input, textarea, select, button, a, [contenteditable]")) return;
         if (event.key === "Enter" && peek) { event.preventDefault(); open(peek); return; }
         if (!["j", "k", "ArrowDown", "ArrowUp", " ", "Escape"].includes(event.key)) return;
         event.preventDefault();
@@ -252,7 +261,7 @@ export default function SearchPageClient({ initialState, result, saved }: { init
 
                     <aside className="nb-sp-rail" aria-label={peek ? "Quick look" : railPeople ? "People" : "Workspaces and organizations"}>
                         {peek ? (
-                            <div className="nb-sp-peek">
+                            <div className="nb-sp-peek" ref={peekRef}>
                                 <button type="button" className="nb-sx-ib nb-sp-peek-x" aria-label="Close quick look" onClick={() => setState({ ...state, peek: null })}><X className="size-4" aria-hidden /></button>
                                 <BoxPreview hit={peek} q={state.q} action={action(peek)} onOpen={() => open(peek)} />
                             </div>

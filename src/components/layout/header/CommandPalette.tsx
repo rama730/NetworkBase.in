@@ -133,10 +133,10 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
     const emailHit = result?.email?.kind === "person" ? result.email.hit : null;
     const invite = result?.email?.kind === "invite" ? result.email.address : null;
     // "See all" is an option at the end of its group, so ↑↓ reach it and the listbox holds only options (axe).
-    const seeAllRows = useMemo(() => new Map((box?.groups ?? []).filter((group) => group.hasMore).map((group) => [group.kind, {
+    const seeAllRows = useMemo(() => new Map<BoxGroupKind, SearchHit>((box?.groups ?? []).filter((group) => group.hasMore).map((group) => [group.kind, {
         id: `seeall:${group.kind}`, kind: "goto", title: `See all ${group.count} ${group.label.toLowerCase()}`, sub: "", href: "/search",
         why: null, score: 4, createdAt: null, avatarUrl: null, tags: [], act: null, meta: { seeAll: group.kind },
-    } satisfies SearchHit])), [box]);
+    }])), [box]);
     const flat = useMemo(() => [
         ...(emailHit ? [emailHit] : []),
         ...(box?.best ? [box.best] : []),

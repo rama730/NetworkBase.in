@@ -132,19 +132,23 @@ export function applyFilters(result: GlobalSearchResult, s: SearchPageState, got
         people: result.groups.people ?? [], msgs: result.groups.messages ?? [],
     };
     const tabCounts = { discover: base.orgs.length + base.spaces.length + base.posts.length, people: base.people.length, msgs: base.msgs.length, goto: goto.length };
-    let { orgs, spaces, posts, people, msgs } = base;
-    const has = (hit: SearchHit) => s.skills.every((skill) => hit.tags.includes(skill));
-    if (s.skills.length) { orgs = orgs.filter(has); spaces = spaces.filter(has); people = people.filter(has); posts = posts.filter((p) => s.skills.some((skill) => p.sub.toLowerCase().includes(skill.toLowerCase()))); }
-    spaces = spaces.filter((hit) => within(s, hit, now));
-    posts = posts.filter((hit) => within(s, hit, now));
-    if (s.open) spaces = spaces.filter((hit) => hit.meta.openToCollaborate);
-    if (s.roles) spaces = spaces.filter((hit) => Number(hit.meta.openRoles) > 0);
-    if (s.otype.length) orgs = orgs.filter((hit) => s.otype.includes(String(hit.meta.orgType)));
-    if (s.rel !== "any") people = people.filter((hit) => hit.meta.relKey === s.rel);
-    if (s.loc.length) people = people.filter((hit) => s.loc.includes(String(hit.meta.location)));
-    if (s.popen) people = people.filter((hit) => hit.meta.openCollab);
-    if (s.from.length) msgs = msgs.filter((hit) => s.from.includes(String(hit.meta.author)));
-    if (s.file) msgs = msgs.filter((hit) => hit.meta.hasFile);
+    // Every filter but `except`: a facet counts what the other picked filters leave (round two item 1, review 7).
+    const filtered = (except: FacetKey | null) => {
+        let { orgs, spaces, posts, people, msgs } = base;
+        const has = (hit: SearchHit) => s.skills.every((skill) => hit.tags.includes(skill));
+        if (except !== "skill" && s.skills.length) { orgs = orgs.filter(has); spaces = spaces.filter(has); people = people.filter(has); posts = posts.filter((p) => s.skills.some((skill) => p.sub.toLowerCase().includes(skill.toLowerCase()))); }
+        if (except !== "updated") { spaces = spaces.filter((hit) => within(s, hit, now)); posts = posts.filter((hit) => within(s, hit, now)); }
+        if (except !== "open" && s.open) spaces = spaces.filter((hit) => hit.meta.openToCollaborate);
+        if (except !== "roles" && s.roles) spaces = spaces.filter((hit) => Number(hit.meta.openRoles) > 0);
+        if (except !== "otype" && s.otype.length) orgs = orgs.filter((hit) => s.otype.includes(String(hit.meta.orgType)));
+        if (except !== "rel" && s.rel !== "any") people = people.filter((hit) => hit.meta.relKey === s.rel);
+        if (except !== "loc" && s.loc.length) people = people.filter((hit) => s.loc.includes(String(hit.meta.location)));
+        if (except !== "popen" && s.popen) people = people.filter((hit) => hit.meta.openCollab);
+        if (except !== "from" && s.from.length) msgs = msgs.filter((hit) => s.from.includes(String(hit.meta.author)));
+        if (except !== "file" && s.file) msgs = msgs.filter((hit) => hit.meta.hasFile);
+        return { orgs, spaces, posts, people, msgs };
+    };
+    let { orgs, spaces, posts, people, msgs } = filtered(null);
 
     const sortName = SORTS[s.tab][s.sort % SORTS[s.tab].length]!;
     const by = (fn: (hit: SearchHit) => number) => (a: SearchHit, b: SearchHit) => fn(b) - fn(a);
@@ -176,11 +180,15 @@ export function applyFilters(result: GlobalSearchResult, s: SearchPageState, got
         for (const hit of people.slice(0, limit)) rows.push({ type: "hit", hit });
     } else if (s.tab === "msgs") {
         tabTotal = msgs.length;
-        let last = "";
+        // One head per conversation, in the order each first appears; the sort holds inside it (review 9).
+        const byPlace = new Map<string, SearchHit[]>();
         for (const hit of msgs.slice(0, limit)) {
             const place = String(hit.meta.place ?? "");
-            if (place !== last) { rows.push({ type: "conv", label: place }); last = place; }
-            rows.push({ type: "hit", hit });
+            byPlace.set(place, [...(byPlace.get(place) ?? []), hit]);
+        }
+        for (const [place, hits] of byPlace) {
+            rows.push({ type: "conv", label: place });
+            for (const hit of hits) rows.push({ type: "hit", hit });
         }
     } else {
         tabTotal = goto.length;
@@ -189,26 +197,33 @@ export function applyFilters(result: GlobalSearchResult, s: SearchPageState, got
     const shown = rows.filter((row) => row.type === "hit").length;
 
     const facets: Facet[] = [];
-    const discoverAll = [...base.orgs, ...base.spaces];
+    const cut = (key: FacetKey) => filtered(key);
     if (s.tab === "discover") {
-        facets.push({ key: "kind", title: "Show", opts: [opt("all", "Everything", tabCounts.discover, s.kind === "all"), opt("orgs", "Organizations", base.orgs.length, s.kind === "orgs"), opt("spaces", "Workspaces", base.spaces.length, s.kind === "spaces"), opt("posts", "Posts", base.posts.length, s.kind === "posts")] });
-        facets.push({ key: "skill", title: "Skills", opts: skillOpts(discoverAll, s) });
-        const dated = [...base.spaces, ...base.posts];
+        const all = cut("kind");
+        facets.push({ key: "kind", title: "Show", opts: [opt("all", "Everything", all.orgs.length + all.spaces.length + all.posts.length, s.kind === "all"), opt("orgs", "Organizations", all.orgs.length, s.kind === "orgs"), opt("spaces", "Workspaces", all.spaces.length, s.kind === "spaces"), opt("posts", "Posts", all.posts.length, s.kind === "posts")] });
+        const forSkill = cut("skill");
+        facets.push({ key: "skill", title: "Skills", opts: skillOpts([...forSkill.orgs, ...forSkill.spaces], s) });
+        const forUpdated = cut("updated");
+        const dated = [...forUpdated.spaces, ...forUpdated.posts];
         facets.push({ key: "updated", title: "Updated", opts: [opt("any", "Any time", dated.length, s.updated === "any"), opt("week", "Past week", dated.filter((h) => age(h, now) <= 7).length, s.updated === "week"), opt("month", "Past month", dated.filter((h) => age(h, now) <= 31).length, s.updated === "month")] });
-        facets.push({ key: "open", title: "Workspace", opts: [opt("1", "Open to collaborate", base.spaces.filter((h) => h.meta.openToCollaborate).length, s.open)] });
-        facets.push({ key: "roles", title: "", opts: [opt("1", "Has open roles", base.spaces.filter((h) => Number(h.meta.openRoles) > 0).length, s.roles)] });
-        const types = countBy(base.orgs, (hit) => [String(hit.meta.orgType ?? "")]);
-        facets.push({ key: "otype", title: "Organization type", opts: [...types.entries()].map(([value, count]) => opt(value, ORG_TYPE_LABEL[value] ?? value, count, s.otype.includes(value))) });
+        facets.push({ key: "open", title: "Workspace", opts: [opt("1", "Open to collaborate", cut("open").spaces.filter((h) => h.meta.openToCollaborate).length, s.open)] });
+        facets.push({ key: "roles", title: "", opts: [opt("1", "Has open roles", cut("roles").spaces.filter((h) => Number(h.meta.openRoles) > 0).length, s.roles)] });
+        const types = countBy(cut("otype").orgs, (hit) => [String(hit.meta.orgType ?? "")]);
+        const typeKeys = new Set([...countBy(base.orgs, (hit) => [String(hit.meta.orgType ?? "")]).keys()]);
+        facets.push({ key: "otype", title: "Organization type", opts: [...typeKeys].map((value) => opt(value, ORG_TYPE_LABEL[value] ?? value, types.get(value) ?? 0, s.otype.includes(value))) });
     } else if (s.tab === "people") {
-        facets.push({ key: "rel", title: "Who", opts: [opt("any", "Anyone", base.people.length, s.rel === "any"), opt("conn", "Your connections", base.people.filter((h) => h.meta.relKey === "conn").length, s.rel === "conn"), opt("second", "Friends of connections", base.people.filter((h) => h.meta.relKey === "second").length, s.rel === "second")] });
-        facets.push({ key: "skill", title: "Skills", opts: skillOpts(base.people, s) });
-        const locs = countBy(base.people, (hit) => [String(hit.meta.location ?? "")]);
-        facets.push({ key: "loc", title: "Location", opts: [...locs.entries()].map(([value, count]) => opt(value, value, count, s.loc.includes(value))) });
-        facets.push({ key: "popen", title: "Status", opts: [opt("1", "Open to collaborate", base.people.filter((h) => h.meta.openCollab).length, s.popen)] });
+        const forRel = cut("rel").people;
+        facets.push({ key: "rel", title: "Who", opts: [opt("any", "Anyone", forRel.length, s.rel === "any"), opt("conn", "Your connections", forRel.filter((h) => h.meta.relKey === "conn").length, s.rel === "conn"), opt("second", "Friends of connections", forRel.filter((h) => h.meta.relKey === "second").length, s.rel === "second")] });
+        facets.push({ key: "skill", title: "Skills", opts: skillOpts(cut("skill").people, s) });
+        const locs = countBy(cut("loc").people, (hit) => [String(hit.meta.location ?? "")]);
+        const locKeys = [...countBy(base.people, (hit) => [String(hit.meta.location ?? "")]).keys()];
+        facets.push({ key: "loc", title: "Location", opts: locKeys.map((value) => opt(value, value, locs.get(value) ?? 0, s.loc.includes(value))) });
+        facets.push({ key: "popen", title: "Status", opts: [opt("1", "Open to collaborate", cut("popen").people.filter((h) => h.meta.openCollab).length, s.popen)] });
     } else if (s.tab === "msgs") {
-        const from = countBy(base.msgs, (hit) => [String(hit.meta.author ?? "")]);
-        facets.push({ key: "from", title: "From", opts: [...from.entries()].map(([value, count]) => opt(value, value, count, s.from.includes(value))) });
-        facets.push({ key: "file", title: "Has", opts: [opt("1", "A file", base.msgs.filter((h) => h.meta.hasFile).length, s.file)] });
+        const from = countBy(cut("from").msgs, (hit) => [String(hit.meta.author ?? "")]);
+        const fromKeys = [...countBy(base.msgs, (hit) => [String(hit.meta.author ?? "")]).keys()];
+        facets.push({ key: "from", title: "From", opts: fromKeys.map((value) => opt(value, value, from.get(value) ?? 0, s.from.includes(value))) });
+        facets.push({ key: "file", title: "Has", opts: [opt("1", "A file", cut("file").msgs.filter((h) => h.meta.hasFile).length, s.file)] });
     }
     for (const facet of facets) facet.opts = facet.opts.filter((o) => o.label);
 
