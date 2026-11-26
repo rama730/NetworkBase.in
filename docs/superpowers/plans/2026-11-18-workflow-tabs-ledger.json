@@ -1288,9 +1288,9 @@
       "text": "B6.1 R1 Lab home, guide, people (35.2)",
       "kind": "unit",
       "milestone": "B6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/lab.test.ts; tests/db/lab.test.ts; tests/browser/lab.spec.ts",
+      "evidence": "Pushed 2026-11-26: d719f8b88 B6.1a–b (positions in view_prefs.lab, People by position with supervisor, lab home Reach the PI + office hours, Settings → Lab, lab guide sections with Safety Required reading, New people plan on by default for labs with Supervisor), 8f1b1c3ac onboarding parity, 24852ca0b B6.1c (Finish in the lab + Leaving plan, Finished ending, lab_alumni 0160 applied in prod, public lab page), 823070793 review (Researcher vs Researcher). Live check waits for a research org: the test account owns 5 orgs (limit). Publications on About wait for R2 (B6.3)."
     },
     {
       "key": "B6.2",
