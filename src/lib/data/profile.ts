@@ -25,7 +25,8 @@ import { getConnectionStatsForUser } from '@/lib/connections/stats'
 
 // Presence columns (0184) are read only through app/actions/presence.ts, never with the profile.
 type PresenceColumns = 'showActivity' | 'statusEmoji' | 'statusText' | 'statusExpiresAt' | 'statusSetAt' | 'statusPausesNotifications' | 'statusVisibility'
-type StandardProfile = Omit<Profile, 'workspaceLayout' | PresenceColumns> & { hasRecoveryCodes: boolean }
+// Who can find me in search (0163) is read and saved through /api/v1/privacy, not the bootstrap profile.
+type StandardProfile = Omit<Profile, 'workspaceLayout' | PresenceColumns | 'searchVisibility' | 'findableByEmail'> & { hasRecoveryCodes: boolean }
 
 function toBootstrapProfile(
     profile: Pick<
