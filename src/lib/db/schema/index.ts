@@ -1443,6 +1443,27 @@ export const staffObservations = pgTable("staff_observations", {
   readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("staff_observations_workspace_idx").on(t.projectId, t.day), index("staff_observations_observed_idx").on(t.observedId)]);
+
+/** Plan B5.3 (report 34.4, 0155): a community event's online link (Going only) and place limit, beside its `event` item. */
+export const communityEvents = pgTable("community_events", {
+  taskId: uuid("task_id").primaryKey().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  onlineLink: text("online_link"),
+  placeLimit: integer("place_limit"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("community_events_workspace_idx").on(t.projectId)]);
+
+/** RSVPs (0155): Going · Waitlisted · Can't go; first come for the waitlist; private ones counted, never named. */
+export const communityRsvps = pgTable("community_rsvps", {
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  state: text("state").$type<"going" | "waitlisted" | "cant_go">().notNull(),
+  private: boolean("private").default(false).notNull(),
+  checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+  respondedAt: timestamp("responded_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.taskId, t.userId] }), index("community_rsvps_waitlist_idx").on(t.taskId, t.state, t.respondedAt),
+  index("community_rsvps_user_idx").on(t.userId), index("community_rsvps_workspace_idx").on(t.projectId)]);
 /** B2.4b (0140, report 31.4 calls 8–9): syllabus topics, each learner's own stage, and private mistakes. Server only. */
 export const prepTopics = pgTable("prep_topics", {
   id: uuid("id").primaryKey().defaultRandom(),

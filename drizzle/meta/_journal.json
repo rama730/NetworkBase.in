@@ -1079,6 +1079,13 @@
       "when": 1795619603600,
       "tag": "0154_team_channel_names",
       "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1795691982971,
+      "tag": "0155_community_events",
+      "breakpoints": true
     }
   ]
 }

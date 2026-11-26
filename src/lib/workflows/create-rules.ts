@@ -8,6 +8,7 @@ import { keyResultFieldsSchema, objectiveFieldsSchema } from "@/lib/workflows/go
 import { ideaFieldsSchema } from "@/lib/workflows/ideas";
 import { lessonFieldsSchema } from "@/lib/workflows/learning-path";
 import { eventFieldsSchema } from "@/lib/organizations/school-events";
+import { communityEventSchema } from "@/lib/organizations/community-events";
 import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
 import { isOnBoard } from "@/lib/workflows/rules";
 import { WORKFLOW_TYPES, workflowType } from "@/lib/workflows/types";
@@ -70,5 +71,6 @@ export const sprintApplies = (type: string, stage: string | null) => type === "t
 
 /** Each type's own fields (its round writes them; none yet), checked the same way in the module and on the server. */
 const TYPE_FIELDS: Record<string, z.ZodType<Record<string, unknown>>> = { bug: bugFieldsSchema, request: requestFieldsSchema, content: contentFieldsSchema, roadmap_item: roadmapFieldsSchema,
-  objective: objectiveFieldsSchema, key_result: keyResultFieldsSchema, idea: ideaFieldsSchema, class_lesson: lessonFieldsSchema, event: eventFieldsSchema as unknown as z.ZodType<Record<string, unknown>> };
+  objective: objectiveFieldsSchema, key_result: keyResultFieldsSchema, idea: ideaFieldsSchema, class_lesson: lessonFieldsSchema, // B5.3 (report 34.4): a community event carries its own fields (kind "community"); a school one the S1 fields.
+  event: z.union([communityEventSchema, eventFieldsSchema]) as unknown as z.ZodType<Record<string, unknown>> };
 export const typeFieldsSchema = (type: string) => TYPE_FIELDS[type] ?? z.object({}).strict();

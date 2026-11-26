@@ -1157,6 +1157,20 @@ async function isEducationOrg(projectId: string) {
   return row?.kind === "organization" && typeProfile(row.orgType as Parameters<typeof typeProfile>[0]).schools;
 }
 
+/** B5.3 (report 34.4 layer 2): a community member with the Host label (given by organisers) adds events too. */
+async function isCommunityHost(projectId: string, userId: string) {
+  const [row] = Array.from(await db.execute<{ ok: boolean }>(sql`
+    SELECT true AS ok FROM workspaces w JOIN workspace_members m ON m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role = 'member'
+    WHERE w.id = ${projectId}::uuid AND w.kind = 'organization' AND w.org_type = 'community' AND m.view_prefs->'community'->'labels' ? 'host'`));
+  return Boolean(row?.ok);
+}
+
+/** B5.3 (report 34.4): every community has Events, so its events need no workflow. */
+async function isCommunityOrg(projectId: string) {
+  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  return row?.kind === "organization" && row.orgType === "community";
+}
+
 async function isCompanyOrg(projectId: string) {
   const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
   return row?.kind === "organization" && row.orgType === "company";
@@ -1171,7 +1185,7 @@ async function checkNewItemType(projectId: string, userId: string, type: string,
   // B1.2 (report 30.3): every Education class has the Term plan, so its lessons need no workflow.
   const classLesson = type === "class_lesson" && await isEducationClass(projectId);
   // B3.1b (report 32.2 call 3): every Education school and class has a calendar, so its events need no workflow.
-  const schoolEvent = type === "event" && await isEducationOrg(projectId);
+  const schoolEvent = type === "event" && (await isEducationOrg(projectId) || await isCommunityOrg(projectId));
   // B4.3 (report 33.4 call 1): a company writes its goals with no workflow to add.
   const companyGoal = (type === "objective" || type === "key_result") && await isCompanyOrg(projectId);
   if (!classLesson && !schoolEvent && !companyGoal && (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id))) {
@@ -1258,7 +1272,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     if (!access.project) throw new Error("Workspace not found");
     const ownerOrAdmin = access.isOwner || access.memberRole === "admin";
     // Decision 87: an organization's board takes tasks from the roles create_org_tasks allows (owners and admins).
-    if (access.project.kind === "organization" && !orgCan(orgRoleOf(access.memberRole, access.isOwner), "create_org_tasks")) {
+    if (access.project.kind === "organization" && !orgCan(orgRoleOf(access.memberRole, access.isOwner), "create_org_tasks")
+      && !(validated.itemType === "event" && access.isMember && await isCommunityHost(validated.projectId, user.id))) {
       throw new Error("Only owners and admins add tasks here.");
     }
     // Member settings Part 4: the owner may have turned "Create tasks" off for this role (a bug report isn't a task).
