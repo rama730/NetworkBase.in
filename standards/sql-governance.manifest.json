@@ -169,7 +169,8 @@
     "drizzle/0164_lab_equipment.sql",
     "drizzle/0165_global_search.sql",
     "drizzle/0166_lab_library.sql",
-    "drizzle/0167_lab_reading_group.sql"
+    "drizzle/0167_lab_reading_group.sql",
+    "drizzle/0168_lab_meeting.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

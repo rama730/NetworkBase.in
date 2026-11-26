@@ -13691,6 +13691,15 @@ PERSON · Meera · PhD student (2024)       Supervisor Dr. Rao · Co-supervisor 
 8. Concerns go to the supervisor, the PI or the institution's contact, never to the person they're about.
 9. The PI's Overview shows counts only, never a ranking.
 
+**Build calls (B6.5a, 2026-11-27):**
+1. **One session model for both:** the lab meeting uses the reading group's sessions with a kind (0168), so its talk rotation skips Away and its swaps need a yes, with the same code. The two rotations never mix. Like the reading group, it is not an 11.6 meeting page (the lab's pages carry org publishing rules).
+2. **Where:** a Lab meeting card on the lab's Overview. The PI or a Researcher sets it up: day, time and the talk presenters in turn. A new slot or order remakes only meetings with no talk title, no updates and no open swap.
+3. **Coming up** (call 1): paper deadlines in the 14 days after the meeting (never private papers), how many experiments are running, and the next reading group.
+4. **Updates round** (call 2): one optional block per person (Since last time, Next, Stuck on). The box opens 2 days before and stays open until the meeting is finished. Anyone Away that day shows as Away, and an empty block shows as Not filled. There is no attendance field anywhere (server test). Saving an empty block clears it.
+5. **The talk:** its presenter or a lead sets the title (slides go in Files); announcements are a lead's. After the start time, the presenter or a lead finishes it with decisions and action items as notes. Past meetings keep their talk and notes.
+6. **Notices** (hourly): "You give the talk on …" 7 days before, and "The updates box is open" to members 2 days before, each once. They link to the lab's Overview.
+7. **Next:** B6.5b covers supervision (a private running check-in per pair, rhythm) and milestones from a template per position, counted from each person's start. B6.5c covers the annual review, the development plan, concern routing and the PI's counts card.
+
 ### 35.7 Research: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |

@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { readLabSettings, type LabSettings } from "@/lib/organizations/lab";
+import { readLabSettings, type LabSettings, type SessionKind } from "@/lib/organizations/lab";
 import { nextPresenter, nextSlots, noticesDue, pickBy } from "@/lib/organizations/lab-reading-group";
 
 // Report 35.4 (plan B6.4b, R3 calls 6–7, layer 15): reading group upkeep and notices. Server only.
@@ -25,25 +25,25 @@ async function activeOrder(tx: typeof db, orgId: string, order: string[]) {
  * The next 4 sessions exist, each with a presenter from the rotation (call 6: after the last presenter, skipping anyone
  * Away that day or no longer in the lab). Made under a lock per lab, so two readers never make the same slot twice.
  */
-export async function ensureSessions(orgId: string, settings: LabSettings, tz: string, now = new Date()) {
-  const rg = settings.readingGroup;
+export async function ensureSessions(orgId: string, settings: LabSettings, tz: string, now = new Date(), kind: SessionKind = "reading_group") {
+  const rg = kind === "lab_meeting" ? settings.labMeeting : settings.readingGroup;
   if (!rg.on) return;
   const slots = nextSlots(rg.weekday, rg.time, tz, now, AHEAD);
   if (!slots.length) return;
   await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`lab-reading:${orgId}`}))`);
     const have = new Set(Array.from(await tx.execute<{ at: string }>(sql`
-      SELECT to_char(starts_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND starts_at >= ${slots[0]}::timestamptz`)).map((r) => r.at));
+      SELECT to_char(starts_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND kind = ${kind} AND starts_at >= ${slots[0]}::timestamptz`)).map((r) => r.at));
     const missing = slots.filter((s) => !have.has(s));
     if (!missing.length) return;
     const order = await activeOrder(tx as never, orgId, rg.order);
     for (const at of missing) {
       const [last] = Array.from(await tx.execute<{ id: string | null }>(sql`
-        SELECT presenter_id AS id FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND starts_at < ${at}::timestamptz AND presenter_id IS NOT NULL ORDER BY starts_at DESC LIMIT 1`));
+        SELECT presenter_id AS id FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND kind = ${kind} AND starts_at < ${at}::timestamptz AND presenter_id IS NOT NULL ORDER BY starts_at DESC LIMIT 1`));
       const away = new Set(order.length ? Array.from(await tx.execute<{ id: string }>(sql`
         SELECT DISTINCT user_id AS id FROM org_member_away WHERE org_id = ${orgId}::uuid AND starts_at < ${at}::timestamptz + interval '2 hours' AND ends_at > ${at}::timestamptz`)).map((r) => r.id) : []);
       const presenter = nextPresenter(order, last?.id ?? null, (id) => away.has(id));
-      await tx.execute(sql`INSERT INTO lab_reading_sessions (org_id, starts_at, presenter_id) VALUES (${orgId}::uuid, ${at}::timestamptz, ${presenter}::uuid) ON CONFLICT DO NOTHING`);
+      await tx.execute(sql`INSERT INTO lab_reading_sessions (org_id, kind, starts_at, presenter_id) VALUES (${orgId}::uuid, ${kind}, ${at}::timestamptz, ${presenter}::uuid) ON CONFLICT DO NOTHING`);
     }
   });
 }
@@ -54,11 +54,12 @@ async function members(orgId: string) {
     SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer' AND completed_at IS NULL LIMIT 500`)).map((r) => r.id);
 }
 
-export async function tell(userIds: string[], actor: string | null, title: string, slug: string, orgId: string, key: string) {
+/** `where` "" sends people to the lab's Overview (the lab meeting card); by default, the reading group. */
+export async function tell(userIds: string[], actor: string | null, title: string, slug: string, orgId: string, key: string, where = "?tab=docs&library=group") {
   for (const u of new Set(userIds)) {
     if (u === actor) continue;
     await createNotification({ recipientUserId: u, actorUserId: actor, kind: "project_task_activity", category: "tasks", importance: "more", title,
-      href: `/org/${encodeURIComponent(slug)}?tab=docs&library=group`, entityRefs: { projectId: orgId, projectSlug: slug }, dedupeKey: `${key}:${u}` }).catch(() => undefined);
+      href: `/org/${encodeURIComponent(slug)}${where}`, entityRefs: { projectId: orgId, projectSlug: slug }, dedupeKey: `${key}:${u}` }).catch(() => undefined);
   }
 }
 
@@ -72,24 +73,41 @@ export async function sendReadBefore(sessionId: string, actor: string | null) {
   await tell(await members(s.org), actor, `Read before the reading group on ${DAY_WORDS.format(new Date(s.at))}: ${s.title ?? "a paper"}`, s.slug ?? s.org, s.org, `lab-read-before:${sessionId}`);
 }
 
-/** Hourly (layer 15): make the coming sessions, tell the next presenter 7 days ahead, Pick by tomorrow, and the PI when it's late. */
+/**
+ * Hourly (layer 15): make the coming sessions; reading group — the next presenter 7 days ahead, Pick by tomorrow, and the
+ * PI when it's late; lab meeting (B6.5a) — the talk's presenter 7 days ahead and "updates box open" to members 2 days before.
+ */
 export async function readingGroupNotices(now = new Date()) {
   const labs = Array.from(await db.execute<{ id: string; slug: string | null; owner: string; tz: string | null; settings: unknown }>(sql`
     SELECT id, slug, owner_id AS owner, time_zone AS tz, org_settings AS settings FROM workspaces
     WHERE kind = 'organization' AND org_type = 'research' AND deleted_at IS NULL AND deletion_scheduled_at IS NULL AND suspended_at IS NULL AND status <> 'archived'
-      AND coalesce((org_settings->'lab'->'readingGroup'->>'on')::boolean, false) LIMIT 500`));
+      AND (coalesce((org_settings->'lab'->'readingGroup'->>'on')::boolean, false) OR coalesce((org_settings->'lab'->'labMeeting'->>'on')::boolean, false)) LIMIT 500`));
   let sent = 0;
   for (const l of labs) {
     const settings = readLabSettings(l.settings);
-    await ensureSessions(l.id, settings, l.tz || "UTC", now).catch(() => undefined);
-    const open = Array.from(await db.execute<{ id: string; starts_at: string; presenter: string | null; source: string | null; next_at: string | null; pick_at: string | null; late_at: string | null }>(sql`
-      SELECT id, starts_at::text, presenter_id AS presenter, source_id AS source, next_notice_at::text AS next_at, pick_notice_at::text AS pick_at, late_notice_at::text AS late_at
+    await ensureSessions(l.id, settings, l.tz || "UTC", now, "reading_group").catch(() => undefined);
+    await ensureSessions(l.id, settings, l.tz || "UTC", now, "lab_meeting").catch(() => undefined);
+    const open = Array.from(await db.execute<{ id: string; kind: SessionKind; starts_at: string; presenter: string | null; source: string | null; next_at: string | null; pick_at: string | null; late_at: string | null; updates_at: string | null }>(sql`
+      SELECT id, kind, starts_at::text, presenter_id AS presenter, source_id AS source, next_notice_at::text AS next_at, pick_notice_at::text AS pick_at, late_notice_at::text AS late_at,
+        updates_notice_at::text AS updates_at
       FROM lab_reading_sessions WHERE org_id = ${l.id}::uuid AND done_at IS NULL AND starts_at > ${now.toISOString()}::timestamptz AND starts_at < ${now.toISOString()}::timestamptz + interval '8 days'`));
     for (const s of open) {
-      const due = noticesDue({ startsAt: new Date(s.starts_at).toISOString(), sourceId: s.source, nextNoticeAt: s.next_at, pickNoticeAt: s.pick_at, lateNoticeAt: s.late_at }, settings.readingGroup.pickDays, now);
       const day = DAY_WORDS.format(new Date(s.starts_at));
       const slug = l.slug ?? l.id;
       // Each notice is claimed by its own column first, so a rerun of the hour never sends it twice.
+      if (s.kind === "lab_meeting") {
+        if (!settings.labMeeting.on) continue;
+        const starts = Date.parse(s.starts_at);
+        if (s.presenter && now.getTime() >= starts - 7 * 86_400_000 && (await claim(s.id, "next_notice_at"))) {
+          await tell([s.presenter], null, `You give the talk at the lab meeting on ${day}`, slug, l.id, `lab-mtg-next:${s.id}`, MEETING_HREF); sent++;
+        }
+        if (now.getTime() >= starts - 2 * 86_400_000 && (await claim(s.id, "updates_notice_at"))) {
+          await tell(await members(l.id), null, `The updates box is open for the lab meeting on ${day}`, slug, l.id, `lab-mtg-updates:${s.id}`, MEETING_HREF); sent++;
+        }
+        continue;
+      }
+      if (!settings.readingGroup.on) continue;
+      const due = noticesDue({ startsAt: new Date(s.starts_at).toISOString(), sourceId: s.source, nextNoticeAt: s.next_at, pickNoticeAt: s.pick_at, lateNoticeAt: s.late_at }, settings.readingGroup.pickDays, now);
       if (due.next && s.presenter && (await claim(s.id, "next_notice_at"))) { await tell([s.presenter], null, `You present at the reading group on ${day}`, slug, l.id, `lab-rg-next:${s.id}`); sent++; }
       if (due.pickTomorrow && s.presenter && (await claim(s.id, "pick_notice_at"))) {
         await tell([s.presenter], null, `Pick the reading group paper by tomorrow (${DAY_WORDS.format(new Date(pickBy(new Date(s.starts_at).toISOString(), settings.readingGroup.pickDays)))})`, slug, l.id, `lab-rg-pick:${s.id}`); sent++;
@@ -100,7 +118,9 @@ export async function readingGroupNotices(now = new Date()) {
   return { sent };
 }
 
-async function claim(id: string, column: "next_notice_at" | "pick_notice_at" | "late_notice_at") {
+const MEETING_HREF = "";  // the lab's Overview, where the Lab meeting card lives
+
+async function claim(id: string, column: "next_notice_at" | "pick_notice_at" | "late_notice_at" | "updates_notice_at") {
   const col = sql.raw(column);
   const [r] = Array.from(await db.execute<{ id: string }>(sql`UPDATE lab_reading_sessions SET ${col} = now() WHERE id = ${id}::uuid AND ${col} IS NULL RETURNING id`));
   return Boolean(r);

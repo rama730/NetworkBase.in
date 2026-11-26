@@ -222,7 +222,7 @@ export async function readLibraryCardAction(orgId: string) {
   // B6.4b: the next reading group session, for This week.
   const [next] = Array.from(await db.execute<{ at: string; presenter: string | null; title: string | null }>(sql`
     SELECT r.starts_at::text AS at, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = r.presenter_id) AS presenter, (SELECT title FROM literature_sources WHERE id = r.source_id) AS title
-    FROM lab_reading_sessions r WHERE r.org_id = ${orgId}::uuid AND r.done_at IS NULL AND r.starts_at > now() ORDER BY r.starts_at LIMIT 1`));
+    FROM lab_reading_sessions r WHERE r.org_id = ${orgId}::uuid AND r.kind = 'reading_group' AND r.done_at IS NULL AND r.starts_at > now() ORDER BY r.starts_at LIMIT 1`));
   return { success: true as const, admin: ctx.admin, total: r?.total ?? 0, toRead: r?.to_read ?? 0, reading: r?.reading ?? 0,
     next: next ? { at: new Date(next.at).toISOString(), presenter: next.presenter, title: next.title } : null };
 }

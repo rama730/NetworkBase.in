@@ -973,6 +973,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Only the paper’s member authors change its author list.": {"title": "Only the paper’s member authors change its author list.", "type": "warning"},
   "The draft is a document in this workspace.": {"title": "The draft is a document in this workspace.", "type": "warning"},
   "Link a draft you can edit.": {"title": "Link a draft you can edit.", "type": "warning"},
+  "The updates box opens 2 days before the meeting.": {"title": "The updates box opens 2 days before the meeting.", "type": "warning"},
   "Only people in the lab add to its Library.": {"title": "Only people in the lab add to its Library.", "type": "warning"},
   "Say why it’s excluded.": {"title": "Say why it’s excluded.", "type": "warning"},
   "Pick a day, a time and at least one presenter.": {"title": "Pick a day, a time and at least one presenter.", "type": "warning"},

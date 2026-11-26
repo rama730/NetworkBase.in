@@ -33,8 +33,8 @@ async function lab(orgId: string) {
 /** An open session of this lab, locked for a change. */
 async function sessionOf(tx: typeof db, orgId: string, id: string) {
   if (!isLooseUuid(id)) return null;
-  const [s] = Array.from(await tx.execute<{ id: string; presenter: string | null; source: string | null; starts_at: string; done_at: string | null }>(sql`
-    SELECT id, presenter_id AS presenter, source_id AS source, starts_at::text, done_at::text FROM lab_reading_sessions WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid FOR UPDATE`));
+  const [s] = Array.from(await tx.execute<{ id: string; kind: "reading_group" | "lab_meeting"; presenter: string | null; source: string | null; starts_at: string; done_at: string | null }>(sql`
+    SELECT id, kind, presenter_id AS presenter, source_id AS source, starts_at::text, done_at::text FROM lab_reading_sessions WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid FOR UPDATE`));
   return s ?? null;
 }
 
@@ -45,14 +45,14 @@ export async function readReadingGroupAction(orgId: string) {
   const ctx = await lab(orgId);
   if (!ctx) return DENIED;
   const rg = ctx.settings.readingGroup;
-  if (rg.on) await ensureSessions(orgId, ctx.settings, ctx.tz).catch(() => undefined);
+  if (rg.on) await ensureSessions(orgId, ctx.settings, ctx.tz, new Date(), "reading_group").catch(() => undefined);
   const sessions = Array.from(await db.execute<{ id: string; starts_at: string; presenter: string | null; presenter_name: string | null; source: string | null; title: string | null;
     notes: string; done_at: string | null; read_before_at: string | null; swap: { id: string; from: string; to: string; toName: string | null } | null }>(sql`
     SELECT r.id, r.starts_at::text, r.presenter_id AS presenter, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = r.presenter_id) AS presenter_name,
       r.source_id AS source, (SELECT title FROM literature_sources WHERE id = r.source_id) AS title, r.notes, r.done_at::text, r.read_before_at::text,
       (SELECT jsonb_build_object('id', x.id, 'from', x.from_id, 'to', x.to_id, 'toName', (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = x.to_id))
          FROM lab_reading_swaps x WHERE x.session_id = r.id AND x.state = 'asked') AS swap
-    FROM lab_reading_sessions r WHERE r.org_id = ${orgId}::uuid AND (r.done_at IS NULL AND r.starts_at > now() - interval '1 day' OR r.done_at > now() - interval '120 days')
+    FROM lab_reading_sessions r WHERE r.org_id = ${orgId}::uuid AND r.kind = 'reading_group' AND (r.done_at IS NULL AND r.starts_at > now() - interval '1 day' OR r.done_at > now() - interval '120 days')
     ORDER BY r.starts_at LIMIT 30`));
   const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
@@ -92,11 +92,11 @@ export async function saveReadingGroupAction(orgId: string, input: unknown): Pro
       WHERE id = ${orgId}::uuid`);
     // A new slot, order or switch-off: open sessions nobody has picked a paper for are made again (or dropped).
     if (!rg.on || before.weekday !== rg.weekday || before.time !== rg.time || before.order.join() !== rg.order.join()) {
-      await tx.execute(sql`DELETE FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND done_at IS NULL AND source_id IS NULL AND starts_at > now()
+      await tx.execute(sql`DELETE FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND kind = 'reading_group' AND done_at IS NULL AND source_id IS NULL AND starts_at > now()
         AND NOT EXISTS (SELECT 1 FROM lab_reading_swaps x WHERE x.session_id = lab_reading_sessions.id AND x.state = 'asked')`);
     }
   });
-  if (rg.on) await ensureSessions(orgId, { ...ctx.settings, readingGroup: rg }, ctx.tz).catch(() => undefined);
+  if (rg.on) await ensureSessions(orgId, { ...ctx.settings, readingGroup: rg }, ctx.tz, new Date(), "reading_group").catch(() => undefined);
   return { success: true };
 }
 
@@ -106,7 +106,7 @@ export async function pickReadingAction(orgId: string, sessionId: string, source
   if (!ctx || ctx.blocked || !isLooseUuid(sourceId)) return DENIED;
   const ok = await db.transaction(async (tx) => {
     const s = await sessionOf(tx as never, orgId, sessionId);
-    if (!s || s.done_at || !(ctx.admin || s.presenter === ctx.userId)) return false;
+    if (!s || s.done_at || s.kind !== "reading_group" || !(ctx.admin || s.presenter === ctx.userId)) return false;
     const [src] = Array.from(await tx.execute<{ id: string }>(sql`SELECT id FROM literature_sources WHERE id = ${sourceId}::uuid AND workspace_id = ${orgId}::uuid`));
     if (!src) return false;
     await tx.execute(sql`UPDATE lab_reading_sessions SET source_id = ${sourceId}::uuid WHERE id = ${sessionId}::uuid`);
@@ -128,11 +128,13 @@ export async function askSwapAction(orgId: string, sessionId: string, toId: stri
     if (!ok?.ok) return "denied";
     const [made] = Array.from(await tx.execute<{ id: string }>(sql`
       INSERT INTO lab_reading_swaps (session_id, from_id, to_id) VALUES (${sessionId}::uuid, ${ctx.userId}::uuid, ${toId}::uuid) ON CONFLICT DO NOTHING RETURNING id`));
-    return made ? { at: s.starts_at } : "open";
+    return made ? { at: s.starts_at, kind: s.kind } : "open";
   });
   if (out === "open") return { success: false, error: "A swap is already waiting for an answer." };
   if (out === "denied") return DENIED;
-  await tell([toId], ctx.userId, `Can you present at the reading group on ${DAY_WORDS.format(new Date(out.at))}? Answer in the Library.`, ctx.slug, orgId, `lab-rg-swap:${sessionId}:${Date.now()}`);
+  const meeting = out.kind === "lab_meeting";
+  await tell([toId], ctx.userId, meeting ? `Can you give the talk at the lab meeting on ${DAY_WORDS.format(new Date(out.at))}? Answer on the lab’s Overview.` : `Can you present at the reading group on ${DAY_WORDS.format(new Date(out.at))}? Answer in the Library.`,
+    ctx.slug, orgId, `lab-rg-swap:${sessionId}:${Date.now()}`, meeting ? "" : undefined);
   return { success: true };
 }
 
@@ -153,16 +155,16 @@ export async function answerSwapAction(orgId: string, swapId: string, accept: bo
     await tx.execute(sql`UPDATE lab_reading_swaps SET state = ${accept ? "accepted" : "declined"}, answered_at = now() WHERE id = ${swapId}::uuid`);
     if (accept) {
       const [mine] = Array.from(await tx.execute<{ id: string }>(sql`
-        SELECT id FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND presenter_id = ${ctx.userId}::uuid AND done_at IS NULL AND starts_at > ${s.starts_at}::timestamptz ORDER BY starts_at LIMIT 1 FOR UPDATE`));
+        SELECT id FROM lab_reading_sessions WHERE org_id = ${orgId}::uuid AND kind = ${s.kind} AND presenter_id = ${ctx.userId}::uuid AND done_at IS NULL AND starts_at > ${s.starts_at}::timestamptz ORDER BY starts_at LIMIT 1 FOR UPDATE`));
       await tx.execute(sql`UPDATE lab_reading_sessions SET presenter_id = ${ctx.userId}::uuid, next_notice_at = NULL, pick_notice_at = NULL WHERE id = ${x.session}::uuid`);
       if (mine) await tx.execute(sql`UPDATE lab_reading_sessions SET presenter_id = ${x.from}::uuid, next_notice_at = NULL, pick_notice_at = NULL WHERE id = ${mine.id}::uuid`);
     }
-    return { from: x.from, at: s.starts_at };
+    return { from: x.from, at: s.starts_at, kind: s.kind };
   });
   if (out === "stale") return { success: false, error: "That swap no longer applies." };
   if (!out) return DENIED;
-  await tell([out.from], ctx.userId, accept ? `Your reading group swap for ${DAY_WORDS.format(new Date(out.at))} was accepted` : `Your reading group swap for ${DAY_WORDS.format(new Date(out.at))} was declined`,
-    ctx.slug, orgId, `lab-rg-swap-answer:${swapId}`);
+  const what = out.kind === "lab_meeting" ? "lab meeting talk" : "reading group";
+  await tell([out.from], ctx.userId, `Your ${what} swap for ${DAY_WORDS.format(new Date(out.at))} was ${accept ? "accepted" : "declined"}`, ctx.slug, orgId, `lab-rg-swap-answer:${swapId}`, out.kind === "lab_meeting" ? "" : undefined);
   return { success: true };
 }
 

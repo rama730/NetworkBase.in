@@ -44,6 +44,19 @@ async function open(page: Page, admin: boolean, view = 'people') {
       answerSwapAction: async (_o: string, id: string, yes: boolean) => { calls.push(['answer', id, yes]); return { success: true }; },
       addSessionToLabNotesAction: async (_o: string, id: string) => { calls.push(['toNotes', id]); return { success: true }; },
       suggestSourceAction: async () => ({ success: true }),
+      readLabMeetingAction: async () => ({ success: true, me: 'u1', admin, tz: 'Asia/Kolkata', settings: { on: true, weekday: 4, time: '11:00', order: ['u1', 'u2'] },
+        people: [{ id: 'u1', name: 'Dr. Rao' }, { id: 'u2', name: 'Mei' }, { id: 'u3', name: 'Arjun' }], updatesOpen: true,
+        next: { id: 'm1', startsAt: '2099-12-03T05:30:00.000Z', presenter: { id: 'u1', name: 'Dr. Rao' }, talk: '', announcements: 'Lab dinner Friday', notes: '', done: false, swap: null, mine: true, canRun: true },
+        upcoming: [{ id: 'm1', startsAt: '2099-12-03T05:30:00.000Z', presenter: { id: 'u1', name: 'Dr. Rao' }, talk: '', announcements: '', notes: '', done: false, swap: null, mine: true, canRun: true },
+          { id: 'm2', startsAt: '2099-12-10T05:30:00.000Z', presenter: { id: 'u2', name: 'Mei' }, talk: '', announcements: '', notes: '', done: false, swap: null, mine: false, canRun: false }],
+        past: [{ id: 'm0', startsAt: '2026-11-26T05:30:00.000Z', presenter: { id: 'u2', name: 'Mei' }, talk: 'Depth at dusk', announcements: '', notes: 'Decided: rerun run 7', done: true, swap: null, mine: false, canRun: false }],
+        round: [{ id: 'u1', name: 'Dr. Rao', state: 'not_filled', sinceLast: '', next: '', stuckOn: '' }, { id: 'u2', name: 'Mei', state: 'filled', sinceLast: 'run 7 done', next: 'depth eval', stuckOn: 'GPU queue' },
+          { id: 'u3', name: 'Arjun', state: 'away', sinceLast: '', next: '', stuckOn: '' }],
+        comingUp: { papers: [{ title: 'ICCV paper', deadline: '2099-12-07' }], running: 3, readingGroup: { at: '2099-12-01T10:30:00.000Z', title: 'NeRF in the Dark' } } }),
+      saveMyUpdateAction: async (_o: string, id: string, v: unknown) => { calls.push(['update', id, v]); return { success: true }; },
+      saveTalkAction: async (_o: string, id: string, v: unknown) => { calls.push(['talk', id, v]); return { success: true }; },
+      saveLabMeetingAction: async () => ({ success: true }),
+      finishReadingAction: async () => ({ success: true }),
       readProtocolsAction: async () => ({ success: true, slug: 'vision-lab', protocols: [{ id: 'p1', title: 'Capture rig setup', slug: 'rig', owner: 'Arjun', reviewBy: null, approved: 1, draft: 2, needsTraining: true, trained: false }] }),
       readProtocolAction: async () => ({ success: true, pageDraft: false, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
         versions: [{ id: 'v2', version: 2, state: 'draft', by: null, at: null, created: '2026-11-20', content: admin ? '## Steps\n1. Power on' : '' }, { id: 'v1', version: 1, state: 'approved', by: 'Dr. Rao', at: '2026-10-02T10:00:00Z', created: '2026-10-01', content: '' }],
@@ -363,6 +376,29 @@ test('B6.4b Reading group: the presenter picks (suggestions marked) and asks a s
   await expect.poll(() => calls(page)).toContainEqual(['answer', 'x1', true]);
   await page.getByTestId('lab-reading-past').getByRole('button', { name: 'Add to lab notes' }).click();
   await expect.poll(() => calls(page)).toContainEqual(['toNotes', 'r0']);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B6.5a Lab meeting: Coming up, the updates round with Away and Not filled as words, my optional update, the talk title; past notes', async ({ page }) => {
+  await open(page, false, 'meeting');
+  const card = page.getByTestId('lab-meeting');
+  await expect(card).toContainText('Lab meeting · every Thursday at 11:00');
+  await expect(page.getByTestId('lab-meeting-coming-up')).toContainText('ICCV paper due');
+  await expect(page.getByTestId('lab-meeting-coming-up')).toContainText('3 experiments running');
+  await expect(page.getByTestId('lab-meeting-coming-up')).toContainText('Reading group');
+  const round = page.getByTestId('lab-meeting-round');
+  await expect(round.getByRole('heading', { name: 'Arjun Away' })).toBeVisible();
+  await expect(round).toContainText('Stuck onGPU queue');
+  const mine = page.getByTestId('lab-meeting-my-update');
+  await mine.getByLabel('Since last time').fill('rig calibrated');
+  await mine.getByRole('button', { name: 'Save my update' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['update', 'm1', { sinceLast: 'rig calibrated', next: '', stuckOn: '' }]);
+  const talk = page.getByTestId('lab-meeting-talk');
+  await talk.getByLabel('Talk title').fill('Calibrating in the dark');
+  await talk.getByRole('button', { name: 'Save' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['talk', 'm1', { talk: 'Calibrating in the dark', announcements: 'Lab dinner Friday' }]);
+  await expect(card).toContainText('Then: Mei');
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });

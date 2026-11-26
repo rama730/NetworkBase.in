@@ -1805,8 +1805,22 @@ export const labReadingSessions = pgTable("lab_reading_sessions", {
   lateNoticeAt: timestamp("late_notice_at", { withTimezone: true }),
   readBeforeAt: timestamp("read_before_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => [unique("lab_reading_sessions_one_per_slot").on(t.orgId, t.startsAt), index("lab_reading_sessions_presenter_idx").on(t.presenterId).where(sql`presenter_id IS NOT NULL`),
+  /** B6.5a (0168): the same sessions carry the lab meeting (kind), its talk, announcements and the updates-box notice. */
+  kind: text("kind").default("reading_group").notNull(),
+  talkTitle: text("talk_title").default("").notNull(),
+  announcements: text("announcements").default("").notNull(),
+  updatesNoticeAt: timestamp("updates_notice_at", { withTimezone: true }),
+}, (t) => [unique("lab_reading_sessions_one_per_slot").on(t.orgId, t.kind, t.startsAt), index("lab_reading_sessions_presenter_idx").on(t.presenterId).where(sql`presenter_id IS NOT NULL`),
   index("lab_reading_sessions_source_idx").on(t.sourceId).where(sql`source_id IS NOT NULL`), index("lab_reading_sessions_open_idx").on(t.startsAt).where(sql`done_at IS NULL`)]);
+/** B6.5a (0168): the lab meeting's updates round — one optional block per person; never attendance. */
+export const labMeetingUpdates = pgTable("lab_meeting_updates", {
+  sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  sinceLast: text("since_last").default("").notNull(),
+  next: text("next").default("").notNull(),
+  stuckOn: text("stuck_on").default("").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.sessionId, t.userId] }), index("lab_meeting_updates_user_idx").on(t.userId)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),
