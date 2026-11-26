@@ -13077,6 +13077,14 @@ PAPER (in Meera's thesis workspace)
    - **Back to Drafting** from review or Withdrawn asks the PI again.
    - **About** gives the year from the publish date.
 
+**Build calls (B6.3b, 2026-11-27):**
+1. **Draft document:** a paper names one document in its workspace as its draft (Edit paper → Draft document). Ask for internal review freezes it as a new document version ("Sent for internal review: <title>"), so the review matches what was read. Versions only grow, so the frozen text stays even as the draft changes. The paper's history notes "Draft vN".
+2. **Review queue:** the lab's Review queue (Tasks → Review) opens with an Internal review section for the PI: each paper waiting, its authors and venue, the frozen draft to read, then Approve for submission or Return with notes. Nothing shows for other organizations. The lab Papers card links to it.
+3. **Who reads the frozen draft:** whoever sees the paper and can read its workspace. A private workspace's draft stays inside it (server test).
+4. **Reviews and response** is a document template (Learning and research) with a table per reviewer (comment, response, change) and a summary of changes.
+5. **Not built:** the optional co-author step ("Then approved by") waits until a lab asks for it. Today the PI's approval is the only step.
+6. **Live-check fixes (B6.3a):** Mark submitted waits for the PI's approval, Approve hides once given, the venue is prefilled, "Back to drafting" replaces "Start drafting" after review, the first author has no Up and the last has no Down, and the Deadline label sits above its field.
+
 ### 35.4 R3 · Shared library and reading group (agreed 2026-11-17)
 **References** (35.1, plus 12 searches for reading lists, paper notes, journal clubs and bibliographies: 100 templates, 32 rated; 5 more screens studied; no rated journal-club template exists, so the reading group follows the pattern):
 

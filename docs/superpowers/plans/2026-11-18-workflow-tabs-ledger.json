@@ -1300,7 +1300,7 @@
       "milestone": "B6",
       "status": "live",
       "test": "tests/db/lab-protocols.test.ts; tests/db/lab-notebook.test.ts; tests/db/lab-equipment.test.ts; tests/unit/lab-notebook.test.ts; tests/unit/lab-equipment.test.ts; tests/browser/lab.spec.ts",
-      "evidence": "B6.2a LIVE 2026-11-26 (b407970cb, 0161 in prod): Protocol + Data management plan templates in a lab's Documents; WT Capture rig protocol → Ask to approve → v1 Draft with its frozen text → Approve v1 → Needs training saved → lab home lists it under Trainings you still need; Protocols card shows v1 Approved, Needs training: not yet. Sign-off needs a second account: DB-tested. B6.2b LIVE (9b11e7919, 0162 applied from the push worktree): on WT Lab thesis, experiment WT Depth at 0.1 lux, entry WT Night run 7 with deviations and results (Open until midnight, lab zone), Run this protocol → Protocol – WT Capture rig v1 filled the title and marked Not trained. B6.2c LIVE (287fc6fef, 0164 from the worktree): WT Capture rig A needs training → no Book for the untrained; WT GPU server booked Fri 08:00 with .ics and Cancel, Report a problem → Out of order since Nov 26 with booking paused and a Fix task → Fixed reopens booking → booking cancelled. Entry lock and amendments after midnight, training sign-off and others' bookings need time or a second account: DB-tested."
+      "evidence": "B6.2a LIVE 2026-11-26 (b407970cb, 0161 in prod): Protocol + Data management plan templates in a lab's Documents; WT Capture rig protocol → Ask to approve → v1 Draft with its frozen text → Approve v1 → Needs training saved → lab home lists it under Trainings you still need; Protocols card shows v1 Approved, Needs training: not yet. Sign-off needs a second account: DB-tested. B6.2b LIVE (9b11e7919, 0162 applied from the push worktree): on WT Lab thesis, experiment WT Depth at 0.1 lux, entry WT Night run 7 with deviations and results (Open until midnight, lab zone), Run this protocol → Protocol – WT Capture rig v1 filled the title and marked Not trained. B6.2c LIVE (287fc6fef, 0164 from the worktree): WT Capture rig A needs training → no Book for the untrained; WT GPU server booked Fri 08:00 with .ics and Cancel, Report a problem → Out of order since Nov 26 with booking paused and a Fix task → Fixed reopens booking → booking cancelled. Entry lock + amendment LIVE-checked 2026-11-27: WT Night run 7 showed Locked after the lab’s midnight, Add an amendment saved below it with Amended. Training sign-off and others' bookings need time or a second account: DB-tested."
     },
     {
       "key": "B6.3",
@@ -1308,9 +1308,9 @@
       "text": "B6.3 R2 Papers and publications (35.3) — Depends: W5 (B1.8), S3 frozen hand-in (B3.3).",
       "kind": "unit",
       "milestone": "B6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/lab-papers.test.ts; tests/db/lab-papers.test.ts; tests/browser/lab.spec.ts",
+      "evidence": "B6.3a LIVE 2026-11-27 (687c45b39, no migration; live-check fixes 0f78bd2fe): on WT Lab thesis, paper WT Low-light depth from event cameras with an outside author → Confirm the author list → Drafting → Mark submitted refused (internal review first) → Ask for internal review → Approve for submission → Submitted → Revising → resubmitted on the same approval → Accepted → Published; history lists every step; lab Overview Papers card lists it; About → Selected publications shows it with 2026. Generic task code refuses papers (lock, delete, export, counts): DB-tested. Left: B6.3b frozen draft in the PI’s Review queue + Reviews and response template; B6.3c BibTeX import + Add to my profile. Revisit 2026-11-28."
     },
     {
       "key": "B6.4",
