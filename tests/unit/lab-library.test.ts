@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { parseRis, readingWord, themeRows } from "../../src/lib/organizations/lab-library";
+import { parseRis, readingWord, screeningCounts, themeRows } from "../../src/lib/organizations/lab-library";
 
 // Report 35.4 (B6.4a): themes with Thin under 3 and Disagrees counts; Extracted; RIS read in the browser.
 test("themes: the lab's order first, Thin under 3, Disagrees counted", () => {
@@ -27,4 +27,9 @@ test("RIS: TY … ER records with authors, year, DOI, journal; a record without 
   assert.equal(sources.length, 1);
   assert.deepEqual(sources[0], { title: "NeRF in the Dark", authors: "Mildenhall, Ben; Hedman, Peter", year: 2022, link: "https://example.org/nerf", doi: "10.1/nerf", venue: "CVPR", keyIssues: ["low-light"], summary: null });
   assert.deepEqual(errors, ["entry 2: no title"]);
+});
+
+test("screening counts match the rows: found is all, screened is past Found", () => {
+  const rows = [{ screening: "found" as const }, { screening: "screened" as const }, { screening: "included" as const }, { screening: "excluded" as const }, { screening: "included" as const }, { screening: null }];
+  assert.deepEqual(screeningCounts(rows), { found: 5, screened: 4, included: 2, excluded: 1 });
 });

@@ -67,3 +67,11 @@ export function parseRis(text: string): { sources: Source[]; errors: string[] } 
   flush(n);
   return { sources, errors };
 }
+
+/** B6.4c (call 5): a systematic review's screening states. */
+export const SCREEN_WORDS = { found: "Found", screened: "Screened", included: "Included", excluded: "Excluded" } as const;
+/** The flow in words: found is every screened row, screened is everything past Found; included and excluded add up to it. */
+export function screeningCounts(rows: Array<{ screening: keyof typeof SCREEN_WORDS | null }>) {
+  const n = (s: keyof typeof SCREEN_WORDS) => rows.filter((r) => r.screening === s).length;
+  return { found: rows.filter((r) => r.screening).length, screened: n("screened") + n("included") + n("excluded"), included: n("included"), excluded: n("excluded") };
+}

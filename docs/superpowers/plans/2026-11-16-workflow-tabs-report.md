@@ -13284,6 +13284,12 @@ READING GROUP · every Tuesday 16:00                              Next presenter
 6. **Notices** (layer 15, hourly job): "You present on …" 7 days before, "Pick by tomorrow" once, and "waiting for a paper" to the PI after the pick-by time. Each is claimed by its own column, so a rerun of the hour never sends it twice. The Overview's Library card shows the next session.
 7. **Never** a count of who read or presented most.
 
+**Build calls (B6.4c, 2026-11-27):**
+1. **Thesis lists link, never copy** (call 1): in a workspace inside a lab, each Literature row shows "In the lab's Library" or "Add to the lab's Library", and "Link all to the lab's Library" links every unlinked row. The server matches the lab's record by DOI, then by title; with no match it makes one lab source. Only people active in the lab can add to its Library. The source page lists the theses that link it (B6.4a), and those rows keep it from being removed.
+2. **Systematic review** (call 5) is a switch on a workspace's Literature view. On, every row starts at Found, and new rows do too. Each row moves Found → Screened → Included, or Excluded with a reason (required).
+3. **Counts in words**, which always match the rows: "N found, N screened, N included, N excluded". Found is every row in the review; screened is everything past Found.
+4. **Not built:** citing library sources from R2 papers (papers keep their own author and venue fields) and a merge for duplicate sources. Both wait until a lab asks.
+
 ### 35.5 R4 · Lab notebook, protocols and equipment (agreed 2026-11-17)
 **References** (35.1, plus 20 searches for protocols, SOPs, experiments, booking, inventory and training: 154 templates, 41 rated; 5 more screens studied):
 

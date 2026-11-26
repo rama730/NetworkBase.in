@@ -3,17 +3,20 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { addSourcesAction, deleteSourceAction, readLiteratureAction, type LiteratureRow } from "@/app/actions/literature";
+import { addSourcesAction, deleteSourceAction, linkToLabLibraryAction, readLiteratureAction, setScreeningAction, setSystematicReviewAction, type LiteratureRow } from "@/app/actions/literature";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { saveBlob } from "@/lib/download";
 import { toast } from "@/lib/feedback";
+import { SCREEN_WORDS, screeningCounts } from "@/lib/organizations/lab-library";
 import { parseBibtex, toBibtex } from "@/lib/workflows/literature";
 import { cn } from "@/lib/utils";
 
 // Report 30.6 W5 (plan B1.8b): Literature — a table of sources, by key issue or by year; add one, paste BibTeX, export.
 type Group = "table" | "issue" | "year";
 const LINK = "nb-touch-target text-[13px] font-medium text-primary underline-offset-2 hover:underline";
+// B6.4c (report 35.4 call 5): a systematic review's screening.
+type Screen = keyof typeof SCREEN_WORDS;
 
 export function LiteratureView({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
   const client = useQueryClient();
@@ -37,6 +40,12 @@ export function LiteratureView({ projectId, canEdit }: { projectId: string; canE
     toast.success(`${done}: ${r.added} added${r.skipped ? `, ${r.skipped} already in the list` : ""}`);
     await refresh();
   };
+  const linkToLab = async (ids: string[]) => {
+    const r = await linkToLabLibraryAction(projectId, ids);
+    if (!r.success) return void toast.error(r.error);
+    toast.success(`${r.linked} linked to the lab’s Library`);
+    await refresh();
+  };
   const importBib = async () => {
     const { sources, errors } = parseBibtex(paste ?? "");
     errors.forEach((e) => toast.warning(e));
@@ -57,6 +66,7 @@ export function LiteratureView({ projectId, canEdit }: { projectId: string; canE
     <section aria-label="Literature" className="space-y-3 text-[13px]" data-testid="literature-view">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="nb-section-title">Literature <span className="nb-meta font-mono">{q.data.rows.length}</span></h2>
+        {q.data.lab ? <a className={LINK} href={`/org/${encodeURIComponent(q.data.lab.orgId)}?tab=docs&library=all`}>The lab’s Library</a> : null}
         <div className="flex flex-wrap items-center gap-2">
           <div role="group" aria-label="Show" className="flex gap-1">
             {(["table", "issue", "year"] as const).map((g) => (
@@ -72,6 +82,8 @@ export function LiteratureView({ projectId, canEdit }: { projectId: string; canE
         <div className="flex flex-wrap gap-2">
           {draft === null ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft({ title: "", authors: "", year: "", link: "", keyIssues: "" })}>Add a source</button> : null}
           {paste === null ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setPaste("")}>Paste BibTeX</button> : null}
+          {q.data.lab && q.data.rows.some((r) => !r.labSourceId) ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void linkToLab(q.data.success ? q.data.rows.filter((r) => !r.labSourceId).map((r) => r.id) : [])}>Link all to the lab’s Library</button> : null}
+          <label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={q.data.systematic} onChange={(e) => void setSystematicReviewAction(projectId, e.target.checked).then((r) => { if (r.success) void refresh(); else toast.error(r.error); })} />Systematic review</label>
         </div>
       ) : null}
       {draft ? (
@@ -90,6 +102,8 @@ export function LiteratureView({ projectId, canEdit }: { projectId: string; canE
           <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void importBib()}>Add from BibTeX</button><button type="button" className={LINK} onClick={() => setPaste(null)}>Cancel</button></span>
         </div>
       ) : null}
+      {q.data.systematic ? (() => { const c = screeningCounts(q.data.success ? q.data.rows : []); return (
+        <p className="text-[13px]" data-testid="screening-counts">{c.found} found, {c.screened} screened, {c.included} included, {c.excluded} excluded</p>); })() : null}
       {rows.length === 0 ? <p className="nb-empty-state text-muted-foreground">{q.data.rows.length ? "No sources match." : "No sources yet. Add one, or paste BibTeX."}</p> : groups.map(([name, list]) => (
         <div key={name || "all"} className="space-y-1">
           {name ? <h3 className="nb-micro">{name} <span className="font-mono">{list.length}</span></h3> : null}
@@ -100,6 +114,9 @@ export function LiteratureView({ projectId, canEdit }: { projectId: string; canE
                   {r.link ? <a href={r.link} target="_blank" rel="noreferrer noopener" className="font-medium hover:underline">{r.title}</a> : <span className="font-medium">{r.title}</span>}
                   <span className="block text-muted-foreground">{[r.authors, r.year, r.doi ? `doi ${r.doi}` : null].filter(Boolean).join(" · ")}</span>
                   {r.keyIssues.length ? <span className="mt-0.5 flex flex-wrap gap-1">{r.keyIssues.map((k) => <span key={k} className="nb-tag">{k}</span>)}</span> : null}
+                  {q.data.success && q.data.lab ? (r.labSourceId ? <span className="block text-muted-foreground">In the lab’s Library</span>
+                    : canEdit ? <button type="button" className={LINK} onClick={() => void linkToLab([r.id])}>Add to the lab’s Library<span className="sr-only"> {r.title}</span></button> : null) : null}
+                  {q.data.success && q.data.systematic ? <Screening row={r} canEdit={canEdit} onSave={(state, reason) => void setScreeningAction(projectId, r.id, { state, reason }).then((x) => { if (x.success) void refresh(); else toast.error(x.error); })} /> : null}
                 </span>
                 {canEdit ? <button type="button" className={LINK} onClick={() => void deleteSourceAction(projectId, r.id).then(() => refresh())}>Remove<span className="sr-only"> {r.title}</span></button> : null}
               </li>
@@ -108,5 +125,19 @@ export function LiteratureView({ projectId, canEdit }: { projectId: string; canE
         </div>
       ))}
     </section>
+  );
+}
+
+function Screening({ row, canEdit, onSave }: { row: LiteratureRow; canEdit: boolean; onSave: (state: Screen, reason: string) => void }) {
+  const [state, setState] = useState<Screen>(row.screening ?? "found");
+  const [reason, setReason] = useState(row.excludeReason ?? "");
+  if (!canEdit) return <span className="block">{SCREEN_WORDS[row.screening ?? "found"]}{row.excludeReason ? `: ${row.excludeReason}` : ""}</span>;
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-2">
+      <select className="nb-select" aria-label={`Screening for ${row.title}`} value={state} onChange={(e) => { const v = e.target.value as Screen; setState(v); if (v !== "excluded") onSave(v, ""); }}>
+        {(Object.keys(SCREEN_WORDS) as Screen[]).map((k) => <option key={k} value={k}>{SCREEN_WORDS[k]}</option>)}</select>
+      {state === "excluded" ? <><Input value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} aria-label={`Why ${row.title} is excluded`} placeholder="Why it’s excluded" className="h-8 w-[220px]" />
+        <button type="button" className={LINK} disabled={!reason.trim()} onClick={() => onSave("excluded", reason)}>Save</button></> : null}
+    </span>
   );
 }

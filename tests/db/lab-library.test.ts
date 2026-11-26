@@ -100,6 +100,40 @@ test("35.4: library for members; duplicates found; my reading stays mine; themes
   const zero = lib.success ? lib.rows.find((r) => r.title === "Zero-DCE")! : null;
   viewerId = student!;
   assert.ok((await li.removeSourceAction(org, zero!.id)).success, "the person who added it removes it");
+  // B6.4c: a thesis list links rows to the lab's Library (matching DOI or title, else a new lab source); screening.
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${student!}, 'owner') ON CONFLICT DO NOTHING`;
+  const litA = await loadAppModule(() => import("../../src/app/actions/literature"));
+  viewerId = student!;
+  assert.ok((await litA.addSourcesAction(ws, [{ title: "Some NeRF paper", doi: "10.1/NERF" }, { title: "Brand new paper" }])).success);
+  const thesis = await litA.readLiteratureAction(ws);
+  assert.ok(thesis.success && thesis.lab !== null);
+  const unlinked = thesis.success ? thesis.rows.filter((r) => !r.labSourceId).map((r) => r.id) : [];
+  assert.equal(unlinked.length, 2);
+  const linkedNow = await litA.linkToLabLibraryAction(ws, unlinked);
+  assert.ok(linkedNow.success && linkedNow.linked === 2);
+  const [byDoi] = await sql`SELECT lab_source_id FROM literature_sources WHERE workspace_id = ${ws} AND title = 'Some NeRF paper'`;
+  assert.equal(byDoi!.lab_source_id, nerf!.id, "the same DOI points at the lab's record, no copy");
+  const [made] = await sql`SELECT count(*)::int AS n FROM literature_sources WHERE workspace_id = ${org} AND title = 'Brand new paper'`;
+  assert.equal(made!.n, 1, "a new paper becomes one lab source");
+  assert.ok((await litA.setSystematicReviewAction(ws, true)).success);
+  const screened = await litA.readLiteratureAction(ws);
+  assert.ok(screened.success && screened.systematic && screened.rows.every((r) => r.screening === "found"));
+  const first = screened.success ? screened.rows[0]!.id : "";
+  assert.match(String((await litA.setScreeningAction(ws, first, { state: "excluded", reason: "" }) as { error?: string }).error), /why/);
+  assert.ok((await litA.setScreeningAction(ws, first, { state: "excluded", reason: "Not low-light" })).success);
+  const lib2 = await import("../../src/lib/organizations/lab-library");
+  const after2 = await litA.readLiteratureAction(ws);
+  const counts = after2.success ? lib2.screeningCounts(after2.rows) : null;
+  assert.deepEqual(counts, { found: after2.success ? after2.rows.length : -1, screened: 1, included: 0, excluded: 1 }, "screening counts match the rows");
+  // Someone outside the lab who writes in the workspace can't add to the lab's Library.
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${outsider!}, 'member')`;
+  viewerId = outsider!;
+  await litA.addSourcesAction(ws, [{ title: "Outsider paper" }]);
+  const o = await litA.readLiteratureAction(ws);
+  const oid = o.success ? o.rows.find((r) => r.title === "Outsider paper")!.id : "";
+  assert.match(String((await litA.linkToLabLibraryAction(ws, [oid]) as { error?: string }).error), /people in the lab/);
+  viewerId = researcher!;
+
   // Security review: the thesis Literature actions never reach the lab's own sources.
   const lit = await loadAppModule(() => import("../../src/app/actions/literature"));
   assert.equal((await lit.readLiteratureAction(org)).success, false);
