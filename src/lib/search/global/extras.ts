@@ -14,6 +14,7 @@ import type { SearchSkillCard } from "./types";
 const rows = <T>(result: unknown) => result as unknown as T[];
 /** "Trending" and suggestions need this many different people, so one person's searches never show (plan R3). */
 export const TRENDING_MIN_PEOPLE = 3;
+export const SKILL_PEOPLE_CAP = 100;
 
 /** People near the viewer: anyone who shares a workspace or org with them (Trending and popular searches use only these). */
 const nearCte = (viewerId: string) => sql`near AS (
@@ -36,9 +37,10 @@ export async function skillCard(q: string, viewerId: string): Promise<SearchSkil
             ORDER BY (lower(sk.name) = ${value}) DESC LIMIT 1
         )
         SELECT s.name,
-          (SELECT count(*)::int FROM profiles p
+          -- Counted up to SKILL_PEOPLE_CAP (shown as "100+"), so the privacy rule runs on at most that many people.
+          (SELECT count(*)::int FROM (SELECT 1 FROM profiles p
              WHERE EXISTS (SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(p.skills) = 'array' THEN p.skills ELSE '[]'::jsonb END) v(x) WHERE lower(v.x) = lower(s.name))
-               AND ${peopleFindableSql(viewerId)}) AS people,
+               AND ${peopleFindableSql(viewerId)} LIMIT ${SKILL_PEOPLE_CAP}) capped) AS people,
           (SELECT count(*)::int FROM workspace_skills ws JOIN workspaces w ON w.id = ws.workspace_id
              WHERE ws.skill_id = s.id AND w.kind = 'workspace' AND w.visibility = 'public' AND w.deleted_at IS NULL AND w.status <> 'draft'
                AND w.discover_hidden_at IS NULL AND w.suspended_at IS NULL) AS workspaces,

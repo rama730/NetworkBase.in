@@ -200,7 +200,7 @@ export default function SearchPageClient({ initialState, result, saved }: { init
                         {showSkill && result?.skill ? (
                             <div className="nb-sp-skill">
                                 <span className="nb-sx-icon nb-sp-skill-ic" aria-hidden>{result.skill.name.slice(0, 2).toUpperCase()}</span>
-                                <span className="min-w-0 flex-1"><b>{result.skill.name}</b><span className="nb-sp-meta"> · {result.skill.people} people · {result.skill.workspaces} workspaces · {result.skill.orgs} organizations</span></span>
+                                <span className="min-w-0 flex-1"><b>{result.skill.name}</b><span className="nb-sp-meta"> · {result.skill.people >= 100 ? "100+" : result.skill.people} people · {result.skill.workspaces} workspaces · {result.skill.orgs} organizations</span></span>
                                 <button type="button" className={state.skills.includes(result.skill.name) ? "nb-sx-btn nb-sp-pri" : "nb-sx-btn"} onClick={() => facet("skill", result.skill!.name)}>
                                     {state.skills.includes(result.skill.name) ? `Filtering by ${result.skill.name}` : `Only things tagged ${result.skill.name}`}
                                 </button>

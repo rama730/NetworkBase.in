@@ -191,14 +191,27 @@ function toPersonHit(row: PersonRow, q: string): SearchHit {
 /** People the viewer may find (0163 rule), connections and strangers alike. */
 export async function searchPeople(viewerId: string, q: string, limit: number): Promise<SearchHit[]> {
     if (!tokenizeSearchQuery(q).length) return [];
+    // Matches first (cheap), then the privacy rule on those only, then each row's mutuals and shared place for the
+    // rows shown. ponytail: the rule sees the best 400 matches; a hidden 401st can't be replaced. Upgrade if counts matter.
     const result = await timed(sql`
-        WITH ${friendsCte(viewerId)}
+        WITH ${friendsCte(viewerId)},
+        candidates AS MATERIALIZED (
+            SELECT p.id, LEAST(${nameRank(sql`p.full_name`, q)}, CASE WHEN lower(p.username) = ${normalizeSearchQuery(q).toLowerCase()} THEN 0 ELSE 4 END) AS rank,
+                   p.followers_count AS followers, p.created_at AS created
+            FROM profiles p
+            WHERE ${personMatch(q)} AND p.deleted_at IS NULL AND p.onboarding_status = 'completed'
+            ORDER BY rank, followers DESC NULLS LAST, created DESC
+            LIMIT 400
+        ),
+        shown AS MATERIALIZED (
+            SELECT c.* FROM candidates c JOIN profiles p ON p.id = c.id
+            WHERE ${peopleFindableSql(viewerId)}
+            ORDER BY c.rank, c.followers DESC NULLS LAST, c.created DESC
+            LIMIT ${limit}
+        )
         SELECT ${personSelect(viewerId)}
-        FROM profiles p
-        WHERE ${personMatch(q)} AND ${peopleFindableSql(viewerId)}
-        ORDER BY LEAST(${nameRank(sql`p.full_name`, q)}, CASE WHEN lower(p.username) = ${normalizeSearchQuery(q).toLowerCase()} THEN 0 ELSE 4 END),
-                 p.followers_count DESC NULLS LAST, p.created_at DESC
-        LIMIT ${limit}`);
+        FROM shown JOIN profiles p ON p.id = shown.id
+        ORDER BY shown.rank, shown.followers DESC NULLS LAST, shown.created DESC`);
     return rows<PersonRow>(result).map((row) => toPersonHit(row, q)).sort((a, b) => a.score - b.score);
 }
 
