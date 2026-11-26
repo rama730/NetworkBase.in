@@ -618,6 +618,15 @@ export async function updateWorkspaceVisibilityAction(
       };
     }
 
+    // B5.5a (report 34.6 call 3): a chapter is never more visible than its community (Set by the community).
+    if (nextVisibility === "public") {
+      const [link] = await db.select({ chapterOf: sql<string | null>`${workspaces.orgSettings}->>'chapterOf'` }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+      if (link?.chapterOf) {
+        const [parent] = await db.select({ visibility: workspaces.visibility, title: workspaces.title }).from(workspaces).where(eq(workspaces.id, link.chapterOf)).limit(1);
+        if (parent && parent.visibility !== "public") return { success: false, errorCode: "INVALID_INPUT", message: `Set by ${parent.title}: a chapter is private while its community is.` };
+      }
+    }
+
     if (nextVisibility === "public") {
       const [restriction] = await db.select({ at: workspaces.restrictedAt }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
       if (restriction?.at) {
@@ -690,6 +699,11 @@ export async function updateWorkspaceVisibilityAction(
           updatedAt: new Date(),
         })
         .where(and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id)));
+      // B5.5a (report 34.6 edge): a community made private makes every chapter private too (the cap).
+      if (nextVisibility === "private") {
+        await tx.update(workspaces).set({ visibility: "private", updatedAt: new Date() })
+          .where(and(sql`${workspaces.orgSettings}->>'chapterOf' = ${projectId}`, sql`${workspaces.visibility} <> 'private'`));
+      }
       await markWorkspaceCollaboratorsSummaryStale(projectId, tx);
 
       await tx.insert(workspaceNodeEvents).values({

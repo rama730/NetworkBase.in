@@ -167,6 +167,13 @@ async function joinOrg(
       maxMembers: orgMemberCap(org.maxCollaborators),
       request: request ? { status: request.status, updatedAt: request.updatedAt, decidedBySelf: request.decisionBy === userId } : null,
     });
+    // B5.5a (report 34.6 call 4): a chapter takes only members of its community; joining the community never joins a chapter.
+    const chapterOf = (org.orgSettings as { chapterOf?: unknown } | null)?.chapterOf;
+    if (typeof chapterOf === "string" && !(Boolean(membership) || org.ownerId === userId)) {
+      const [inCommunity] = await tx.select({ id: workspaceMembers.id }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, chapterOf), eq(workspaceMembers.userId, userId), inArray(workspaceMembers.role, ["member", "admin", "owner"]))).limit(1);
+      if (!inCommunity) throw new CommunityJoinError("Join the community first: its chapters are for its members.");
+    }
     const summary = { id: org.id, title: org.title, slug: org.slug };
     // Report 34.2 calls 1–2 (B5.1b): a community asks for agreement (and, when approving joins, the join answers) first.
     let communityAnswers: Record<string, string> = {};

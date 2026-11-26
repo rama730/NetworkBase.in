@@ -28,7 +28,10 @@ async function community(orgId: string) {
 }
 
 /** The Code of conduct: the org's document whose title starts with it; its rules from the version members read. */
-async function codeOfConduct(orgId: string) {
+async function codeOfConduct(chapterOrCommunity: string) {
+  // B5.5a (report 34.6 call 3): a chapter's rules are its community's, locked; it never has its own.
+  const [link] = Array.from(await db.execute<{ parent: string | null }>(sql`SELECT org_settings->>'chapterOf' AS parent FROM workspaces WHERE id = ${chapterOrCommunity}::uuid`));
+  const orgId = link?.parent && isLooseUuid(link.parent) ? link.parent : chapterOrCommunity;
   const [d] = Array.from(await db.execute<{ id: string; slug: string; version: number; content: string | null }>(sql`
     SELECT d.id, d.slug, coalesce((d.settings->'org'->>'readVersion')::int, 0) AS version,
       v.content
