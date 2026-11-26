@@ -13061,6 +13061,22 @@ PAPER (in Meera's thesis workspace)
 10. Private papers are seen only by their authors and the PI.
 11. No per-person counts, h-index or rankings.
 
+**Build calls (B6.3a, 2026-11-27):**
+1. **A paper is a `paper` item** (new type, never on the board) in a workspace inside a lab, with its details in the item's fields: one of six kinds, typed venue and deadline, link, DOI, ordered authors, private, and "show this preprint publicly". It has its own Papers card on the workspace Overview and its own actions, not the Tasks board or the generic stage menu.
+2. **Authors** are people in the lab or the workspace (not Viewers), or typed outside names that are never contacted. Each member author confirms the exact list. Any change to who or the order asks everyone again (confirmations are kept against a key of the list).
+3. **Stages** are Idea → Drafting → Internal review → Submitted → Revising → Accepted → Published, plus Withdrawn (which can return to Drafting). Submitted is refused until every member author has confirmed. With the lab's internal review on (Settings → Lab, on by default), a Paper also needs the PI's "Approve for submission" for that same list. Talks, posters, datasets and software skip internal review. Rejected is a history entry (with venue and note) and the paper lands back in Drafting. A resubmission from Revising doesn't ask again.
+4. **Internal review (first step):** the PI approves or returns with notes, from the paper's card. The lab Papers card lists "Waiting for your internal review". The frozen draft in the Review queue is B6.3b.
+5. **Who sees what:** the lab Papers card on the lab Overview shows every workspace's papers to lab members. A private paper shows only to its authors and the PI. Members are told when a paper is submitted, accepted, rejected or published; the PI is told when one waits for internal review.
+6. **About's Selected publications** lists Published papers and marked preprints, never private ones, newest first, with authors, venue, year, link and DOI. Unpublished titles never reach it (server test). Add past papers (BibTeX) and Add to my profile are B6.3c.
+7. Review fixes:
+   - **Papers stay out of generic task code.** The shared write lock refuses them ("Change papers from the workspace's Papers"), and so does task delete. The shared task-reader filter leaves them out of every task reader: CLI list and detail, search, the calendar's No date list, task detail and activity. Task export and open-task counts skip them too.
+   - **Submitted:** every move into it, a resubmission too, needs the current list confirmed. The PI's approval holds for that list and kind.
+   - **Locked after sending:** from Submitted on, the authors and kind stay as sent.
+   - **Privacy:** only member authors change Private or a preprint's public flag, and a withdrawn preprint leaves About. Edits and moves are limited to papers the person can see.
+   - **Confirming:** lab members confirm from the lab's Papers card even when the workspace is private to them.
+   - **Back to Drafting** from review or Withdrawn asks the PI again.
+   - **About** gives the year from the publish date.
+
 ### 35.4 R3 · Shared library and reading group (agreed 2026-11-17)
 **References** (35.1, plus 12 searches for reading lists, paper notes, journal clubs and bibliographies: 100 templates, 32 rated; 5 more screens studied; no rated journal-club template exists, so the reading group follows the pattern):
 
