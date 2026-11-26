@@ -111,3 +111,8 @@ test('json-ld html cannot close its script tag', () => {
   assert.match(html, /\\u003c\/script/);
   assert.equal(html.includes('</script'), false);
 });
+
+test('a reference label with $ patterns stays literal (no replace-pattern expansion)', () => {
+  const out = readmeToPublicMarkdown('A {% ref.contributors id="u1" label="$`$&$\'" %} B');
+  assert.equal(out, "A $`$&$' B");
+});

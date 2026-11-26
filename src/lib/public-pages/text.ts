@@ -25,9 +25,10 @@ const day = (iso: string | null) => iso?.slice(0, 10) ?? '';
 
 /** README as plain markdown: app-only smart blocks dropped, inline references read as their label. */
 export function readmeToPublicMarkdown(content: string): string {
-  let out = content;
-  for (const block of parseWorkspaceDocSmartBlocks(content)) out = out.replace(block.raw, '');
-  for (const ref of parseWorkspaceDocInlineReferences(content)) out = out.replace(ref.raw, ref.label);
+  let out = content.slice(0, PUBLIC_MARKDOWN_LIMIT * 2);
+  // Function replacements: a label like "$&" must stay literal, never expand.
+  for (const block of parseWorkspaceDocSmartBlocks(out)) out = out.replace(block.raw, () => '');
+  for (const ref of parseWorkspaceDocInlineReferences(out)) out = out.replace(ref.raw, () => ref.label);
   return cap(out.replace(/\n{3,}/g, '\n\n').trim());
 }
 
