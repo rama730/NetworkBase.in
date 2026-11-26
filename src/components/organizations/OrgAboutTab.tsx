@@ -168,7 +168,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                                     <span className="min-w-0 flex-1">
                                         {l.username ? <Link href={`/u/${l.username}`} className="block truncate font-medium hover:underline">{l.name}</Link> : <span className="block truncate font-medium">{l.name}</span>}
                                         {/* Live-fix 21: the role word, then their title ("Teacher · Course Instructor"). */}
-                                        <span className="block truncate text-[12px] text-muted-foreground">{[roleName(l.role), l.title].filter(Boolean).join(' · ')}</span>
+                                        <span className="block truncate text-[12px] text-muted-foreground">{[roleName(l.role), l.title && l.title.trim().toLowerCase() !== roleName(l.role).toLowerCase() ? l.title : null].filter(Boolean).join(' · ')}</span>
                                     </span>
                                     {data.card.kind !== 'visitor' ? <MessageUserLink userId={l.id} className="nb-link shrink-0" /> : null}
                                 </li>
