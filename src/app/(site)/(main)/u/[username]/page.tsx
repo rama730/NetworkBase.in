@@ -11,6 +11,7 @@ import { genericSharePreview, isShareCrawler, shareOrigin } from '@/lib/sharing/
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { getProfileWorkspacesWithOpenRolesAction } from '@/app/actions/workspace';
 import { ProfileRouteSkeleton } from '@/components/profile/v2/ProfileRouteSkeleton';
+import { PublicProfileArticle } from '@/components/public-pages/PublicProfileArticle';
 
 export const dynamicParams = true; // Allow new profiles to be generated on demand
 
@@ -54,9 +55,7 @@ async function ResolvedPublicProfile({
     const { username } = await params;
 
     if (isShareCrawler((await headers()).get('user-agent'))) {
-        const preview = await readSharePreview(new URL(`/u/${encodeURIComponent(username)}`, shareOrigin()).href);
-        if (preview?.state === 'ready' && new URL(preview.url).pathname !== `/u/${username}`) permanentRedirect(new URL(preview.url).pathname);
-        return <article className="p-6"><h1>{preview?.title ?? 'Profile on NetworkBase'}</h1><p>{preview?.description ?? 'Open this profile on NetworkBase.'}</p>{preview?.portfolio ? <p>{preview.portfolio}</p> : null}{preview?.skills.length ? <p>{preview.skills.join(', ')}</p> : null}<a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
+        return <PublicProfileArticle username={username} />;
     }
 
     const route = await readPublicProfileRoute(username);

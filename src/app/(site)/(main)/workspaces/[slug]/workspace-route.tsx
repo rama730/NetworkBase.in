@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { PublicWorkspaceArticle } from '@/components/public-pages/PublicWorkspaceArticle';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
@@ -122,9 +123,9 @@ async function ResolvedProjectDashboard({
 }) {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     if (isShareCrawler((await headers()).get('user-agent'))) {
-        // Audit N54: the preview of the address that was shared (/org/... for an organization).
-        const preview = await readSharePreview(new URL(`${base}/${encodeURIComponent(slug)}`, shareOrigin()).href);
-        return <article className="p-6"><h1>{preview?.title ?? 'Workspace on NetworkBase'}</h1><p>{preview?.description ?? 'Open this workspace on NetworkBase.'}</p><a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
+        // Audit N54: the address that was shared (/org/... for an organization). Search + AI findability: the full
+        // public content a signed-out person sees, as one plain page.
+        return <PublicWorkspaceArticle base={base} slug={slug} />;
     }
     // Old assignment links (report §42.10 problem 11): Tasks, with the exact copy open in its own workspace.
     if (firstParam(_searchParams?.tab) === "assignments") {
