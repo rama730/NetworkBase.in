@@ -950,6 +950,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "They can join when their pause ends.": {"title": "They can join when their pause ends.", "type": "warning"},
   "They’re no longer in the community, so they can’t join.": {"title": "They’re no longer in the community, so they can’t join.", "type": "warning"},
   "This poll is closed.": {"title": "This poll is closed.", "type": "warning"},
+  "A group has up to 3 open polls; pick or wait for one first.": {"title": "A group has up to 3 open polls; pick or wait for one first.", "type": "warning"},
   "You host 5 groups here already.": {"title": "You host 5 groups here already.", "type": "warning"},
   "You’ve started a lot just now. Try again in a while.": {"title": "You’ve started a lot just now. Try again in a while.", "type": "warning"},
   "Join the community first: its chapters are for its members.": {"title": "Join the community first: its chapters are for its members.", "type": "warning"},
