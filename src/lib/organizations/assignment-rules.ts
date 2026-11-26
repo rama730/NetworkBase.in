@@ -13,7 +13,9 @@ export type AssignmentTarget =
   | { mode: "each_child" }
   | { mode: "children"; projectIds: string[] }
   /** B1.3b (report 30.9 call 5): the students in these sections of the class. */
-  | { mode: "sections"; sectionIds: string[] };
+  | { mode: "sections"; sectionIds: string[] }
+  /** B5.4a (report 34.5 call 1): a community challenge — copies only for people who Join; never Missing or Overdue. */
+  | { mode: "optional" };
 
 /** Stored on the master. */
 export type AssignmentSettings = {

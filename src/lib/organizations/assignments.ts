@@ -223,6 +223,8 @@ export async function resolveRecipients(executor: Executor, orgId: string, targe
   // Guests never get copies; owners and admins only when picked by name or by the admin role.
   const assignable = (userId: string) => roleOf.has(userId) && roleOf.get(userId) !== "viewer";
 
+  // B5.4a: an optional challenge has no copies until people Join.
+  if (target.mode === "optional") return [];
   if (target.mode === "everyone") return members.filter((m) => m.role === "member").map((m) => ({ projectId: orgId, assigneeId: m.userId }));
   if (target.mode === "role") return members.filter((m) => m.role === target.role || (target.role === "admin" && m.role === "owner")).map((m) => ({ projectId: orgId, assigneeId: m.userId }));
   // B1.3b (report 30.9 call 5): the students now in the picked sections (one copy each, even in two picked sections).

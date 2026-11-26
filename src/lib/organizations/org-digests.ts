@@ -138,7 +138,8 @@ async function digestNeedsYou(org: { id: string; ownerId: string; title: string 
   const lines = (await readNeedsYou(viewer, now)).filter((row) => row.kind !== "review" && row.kind !== "requests").map((row) => row.label);
   const ending = await db.execute<{ name: string; missing: number }>(sql`
     SELECT s.name, (SELECT count(DISTINCT c.assignee_id)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-      WHERE m.sprint_id = s.id AND ${openMaster} AND c.deleted_at IS NULL AND c.excused_at IS NULL AND ${notHandedIn}) AS missing
+      WHERE m.sprint_id = s.id AND ${openMaster} AND c.deleted_at IS NULL AND c.excused_at IS NULL AND ${notHandedIn}
+        AND m.assignment_settings->'target'->>'mode' IS DISTINCT FROM 'optional') AS missing
     FROM workspace_sprints s WHERE s.workspace_id = ${org.id} AND s.status = 'active'
       AND (s.end_date AT TIME ZONE coalesce(nullif((SELECT time_zone FROM workspaces WHERE id = ${org.id}), ''), 'UTC'))::date = ${nextDate(today)}::date`);
   for (const s of ending) lines.push(`${s.name} ends tomorrow${s.missing ? ` · ${s.missing} ${s.missing === 1 ? "person has" : "people have"} missing work` : ""}`);

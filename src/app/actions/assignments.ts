@@ -74,6 +74,7 @@ const targetSchema: z.ZodType<AssignmentTarget> = z.union([
     z.object({ mode: z.literal('each_child') }),
     z.object({ mode: z.literal('children'), projectIds: z.array(z.string().uuid()).min(1).max(200) }),
     z.object({ mode: z.literal('sections'), sectionIds: z.array(z.string().uuid()).min(1, 'Pick a section.').max(50) }),
+    z.object({ mode: z.literal('optional') }),
 ]);
 
 const createSchema = z.object({
@@ -203,6 +204,11 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     if (data.thenApprovedBy) {
         if (!orgCan(orgRoleOf(viewer.role), 'set_reviewers')) return DENIED;
         if ('error' in await checkReviewers(data.projectId, [data.thenApprovedBy])) return { success: false, error: 'Then approved by is one of the organization’s admins.' };
+    }
+    // B5.4a (report 34.5 call 1): optional (join-only) assignments are a community's challenges.
+    if (data.target.mode === 'optional') {
+        const [o] = await db.select({ orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, data.projectId)).limit(1);
+        if (o?.orgType !== 'community') return { success: false, error: 'Optional challenges are for communities.' };
     }
     if (data.publish) {
         const [org] = await db.select({ reviewDefault: workspaces.taskReviewRequired }).from(workspaces).where(eq(workspaces.id, data.projectId)).limit(1);
@@ -1348,6 +1354,8 @@ export async function addAssignmentStepAction(masterId: string, title: string): 
 export async function remindCopiesAction(masterId: string, copyIds?: string[]): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
     const ctx = await adminOfMaster(masterId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
+    // B5.4a (report 34.5, M1): an optional challenge sends no reminders to take part.
+    if ((ctx.master.assignmentSettings as AssignmentSettings | null)?.target?.mode === 'optional') return { success: false, error: 'Challenges send no reminders: taking part is a choice.' };
     const open = await db.select({ id: tasks.id }).from(tasks).where(and(
         eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`NOT ${handedInSql}`,
         ...(copyIds?.length ? [inArray(tasks.id, copyIds.slice(0, 2000))] : []),
