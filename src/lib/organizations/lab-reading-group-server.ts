@@ -58,7 +58,7 @@ export async function tell(userIds: string[], actor: string | null, title: strin
   for (const u of new Set(userIds)) {
     if (u === actor) continue;
     await createNotification({ recipientUserId: u, actorUserId: actor, kind: "project_task_activity", category: "tasks", importance: "more", title,
-      href: `/org/${encodeURIComponent(slug)}?tab=docs&view=library&lib=group`, entityRefs: { projectId: orgId, projectSlug: slug }, dedupeKey: `${key}:${u}` }).catch(() => undefined);
+      href: `/org/${encodeURIComponent(slug)}?tab=docs&library=group`, entityRefs: { projectId: orgId, projectSlug: slug }, dedupeKey: `${key}:${u}` }).catch(() => undefined);
   }
 }
 

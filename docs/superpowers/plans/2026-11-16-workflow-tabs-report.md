@@ -13266,7 +13266,7 @@ READING GROUP · every Tuesday 16:00                              Next presenter
 9. BibTeX and RIS are read in the browser; no reference-manager sync or DOI lookups.
 
 **Build calls (B6.4a, 2026-11-27):**
-1. **Where it lives:** Documents → Library (`?tab=docs&view=library`) for the lab's members, never Viewers or visitors. The lab Overview has a Library card with the count, your own To read and Reading, and Open the Library. The PI's first look says "Add your lab's key papers".
+1. **Where it lives:** Documents → Library (`?tab=docs&library=all`) for the lab's members, never Viewers or visitors. The lab Overview has a Library card with the count, your own To read and Reading, and Open the Library. The PI's first look says "Add your lab's key papers".
 2. **One record per paper:** a lab source is a `literature_sources` row whose workspace is the lab (W5's record moved up), with venue, code available and data available added (0166). `lab_source_id` on a thesis row links it to the lab's source (used by B6.4c); a source a thesis links can't be removed.
 3. **Adding:** + Add (fields) or Paste BibTeX or RIS. The browser reads either one (RIS is new: TY…ER, AU, PY, DO, JO/T2, KW). Rows are ticked one by one; ones already in the library (same title, or same DOI) are marked and can't be ticked, and the server skips them too. Up to 200 a paste and 5,000 a lab.
 4. **Lab notes:** four shared sections (Research question, Method, Key findings, Limitations), each showing who wrote it last. An empty section is removed. Writers' names stay after they leave.

@@ -13,6 +13,8 @@ export const TAB_STATE_PARAMS: Record<string, readonly string[]> = {
   tasks: ["rqlate", "rqmine", "rqq", "rqsort", "rtq", "rtsort", "rtlate", "team"],
   files: ["ofstatus", "ofq", "ofonly", "ofsort", "ofdir", "ofphase", "ofmq", "ofstate", "offq"],
   sprints: ["tlby", "tlmine"],
+  // B6.4a: a lab's Library in Documents (?tab=docs&library=all|group).
+  readme: ["library"],
 };
 
 type HistoryWin = {

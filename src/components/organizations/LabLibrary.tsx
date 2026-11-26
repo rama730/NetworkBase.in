@@ -16,7 +16,7 @@ import { toast } from "@/lib/feedback";
 import { NOTE_SECTIONS, parseRis, READING_STATES, readingWord, type LabSourceInput, type NoteSection, type ReadingState } from "@/lib/organizations/lab-library";
 import { parseBibtex, sourceKey } from "@/lib/workflows/literature";
 
-// Report 35.4 (plan B6.4a, R3): the lab's Library at Documents → Library (?view=library): All, Themes, My reading; a source
+// Report 35.4 (plan B6.4a, R3): the lab's Library at Documents → Library (?tab=docs&library=all): All, Themes, My reading; a source
 // opens in place with its signed lab notes, my private reading and its themes. Nothing counts or ranks people's reading.
 const key = (orgId: string, tab: string, q: string) => ["lab-library", orgId, tab, q] as const;
 const safe = <T,>(p: Promise<T>) => p.catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
@@ -25,8 +25,8 @@ const TABS: Record<Tab, string> = { all: "All", themes: "Themes", mine: "My read
 const avail = (v: boolean | null, what: string) => (v === null ? null : `${what} ${v ? "available" : "not available"}`);
 
 export function LabLibrary({ orgId }: { orgId: string }) {
-  // B6.4b: notices link to ?lib=group.
-  const [tab, setTab] = useState<Tab>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lib") === "group" ? "group" : "all"));
+  // B6.4b: notices link to ?library=group.
+  const [tab, setTab] = useState<Tab>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("library") === "group" ? "group" : "all"));
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState<"form" | "paste" | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -243,7 +243,7 @@ export function LabLibraryCard({ orgId, slug }: { orgId: string; slug: string })
   const q = useQuery({ queryKey: ["lab-library-card", orgId], queryFn: () => readLibraryCardAction(orgId), staleTime: 60_000 });
   const d = q.data?.success ? q.data : null;
   if (!d) return null;
-  const href = `/org/${encodeURIComponent(slug)}?tab=docs&view=library`;
+  const href = `/org/${encodeURIComponent(slug)}?tab=docs&library=all`;
   return (
     <OrgCard title="Library" testId="lab-library-card" action={<a className={FORM_SECONDARY_CLASS + " inline-flex items-center"} href={href}>Open the Library</a>}>
       <p className="text-[13px]">{d.total ? `${d.total} ${d.total === 1 ? "source" : "sources"}` : d.admin ? "Add your lab’s key papers: paste BibTeX or RIS in the Library." : "No sources yet."}
