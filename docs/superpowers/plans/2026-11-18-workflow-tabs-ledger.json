@@ -1258,9 +1258,9 @@
       "text": "B5.3 M3 Events and meetups (34.4) — Depends: S1 event item (B3).",
       "kind": "unit",
       "milestone": "B5",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/community-events.test.ts; tests/db/community-events.test.ts; tests/browser/community-events.spec.ts",
-      "evidence": "B5.3a pushed 2026-11-26 (1672e94fb, c7c11b7a7, security fe3b03596; 0155 community_events + community_rsvps applied in prod): Sprints → Events, + Event (organisers, Hosts), event page, Going/Can't go, first-come waitlist, private RSVPs, link only for Going/hosts/organisers, cancel/move notices. LIVE-checked 2026-11-26 on wt-test-b5-community: added WT Hack night (Hybrid, limit 2), Going → 1 going · 1 place left, Can't go → 0 going, Edit limit 5; link only on community_events (not on the item). B5.3b pushed (f2ed6e97d check-in + reminders + next event card, d2ee204dc Calendar, fc201a493 live nits). Not built yet: My events, Settings → Events, Call for talks, slides/recaps in Past, channel post on publish. revisit 2026-11-28."
+      "evidence": "B5.3a pushed 2026-11-26 (1672e94fb, c7c11b7a7, security fe3b03596; 0155 community_events + community_rsvps applied in prod): Sprints → Events, + Event (organisers, Hosts), event page, Going/Can't go, first-come waitlist, private RSVPs, link only for Going/hosts/organisers, cancel/move notices. LIVE-checked 2026-11-26 on wt-test-b5-community: added WT Hack night (Hybrid, limit 2), Going → 1 going · 1 place left, Can't go → 0 going, Edit limit 5; link only on community_events (not on the item). B5.3b pushed (f2ed6e97d check-in + reminders + next event card, d2ee204dc Calendar, fc201a493 live nits). Not built yet: My events, Settings → Events, Call for talks, slides/recaps in Past, channel post on publish. | B5.3c–d LIVE 2026-11-26 (6ecba3afd My events + links after, 89f107a14 talks, 0156 prod; reviews 266746435, 81dfb3d52): checked in Chrome — Calendar (Dec 3 event), + Event above tabs, RSVP filled state, Next event card, host check-in (checked_in_at saved), Propose a talk → Accept 19:15 → Talks + run of show, My events in My work (List view). Slides/recordings after an event: DB-tested (needs an ended event). Not built (build calls 34.4): Settings → Events, channel post on publish."
     },
     {
       "key": "B5.4",
@@ -1268,9 +1268,9 @@
       "text": "B5.4 M4 Rituals, challenges, showcases (34.5) — Depends: A7.4 scheduled Updates, C4 Showcase card (B2.5).",
       "kind": "unit",
       "milestone": "B5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/community-challenges.test.ts; tests/db/community-rituals.test.ts; tests/unit/community-rituals.test.ts; tests/browser/community-challenges.spec.ts; tests/browser/community-rituals.spec.ts",
+      "evidence": "Pushed 2026-11-26: 9bd0e062c challenges (optional target), 0ac584671 entries/Featured/Showcase (0157), d98c98732 prompts (0158), 243336f4c rituals + 798220ed6 (post as saving organiser), reviews b9f82a1e4, 5e1b87d1c. LIVE-checked: Start a challenge (WT Build a CLI, 0 copies, optional target), prompts by day (Day 2 hidden until Opens on), Current challenge card on Overview. Join/hand in/Feature/Showcase need a member account: DB-tested. Rituals live check pending. revisit 2026-11-28."
     },
     {
       "key": "B5.5",
