@@ -444,7 +444,7 @@ export function OrgPeopleSection({ orgId, organization, role, handle, onOpenSect
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Role names</p>
-                        <p className={helpClass}>{isOwner ? 'For example Teacher / TA / Student / Viewer. What each role can do always comes from the role.' : OWNER_ONLY}</p>
+                        <p className={helpClass}>{isOwner ? `${typeProfile(organization.type).schools ? 'For example Teacher / TA / Student / Viewer.' : 'Rename them to fit your group.'} What each role can do always comes from the role.` : OWNER_ONLY}</p>
                         <div className="mt-2 grid max-w-md gap-3 sm:grid-cols-2">
                             {TABLE_ROLES.map(([, key]) => (
                                 <label key={key}><span className={labelClass}>{BASE[key]}</span>

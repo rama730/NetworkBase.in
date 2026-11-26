@@ -321,7 +321,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'company' ? <AskTeamCard orgId={orgId} base={base} /> : null}
                 {data.getStarted.length ? (
                     // Report §7.2, decision 7: three cards while the organization is empty, each opening the real form.
-                    <OrgCard title="Get started" action={<Link href="/help/running-a-class" className="nb-link text-[13px]">Running a class on NetworkBase</Link>}>
+                    <OrgCard title="Get started" action={typeProfile(orgType).schools ? <Link href="/help/running-a-class" className="nb-link text-[13px]">Running a class on NetworkBase</Link> : undefined}>
                         <ul className="grid gap-2 sm:grid-cols-3">
                             {data.getStarted.map((card) => {
                                 const [label, href, Icon] = card === 'invite' ? ['Invite people', `${base}?tab=members`, UserPlus] as const
