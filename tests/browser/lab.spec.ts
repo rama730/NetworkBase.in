@@ -16,8 +16,18 @@ async function open(page: Page, admin: boolean, view = 'people') {
         people: [person('u1', 'Dr. Rao', 'pi', 2015, 'pi'), person('u2', 'Mei', 'phd', 2023), person('u3', 'Arjun', 'phd', 2024), person('u4', 'Sam', null, null)] }),
       setLabPositionAction: async (_o: string, id: string, v: unknown) => { calls.push(['position', id, v]); return { success: true }; },
       readLabHomeAction: async () => ({ success: true, admin, welcome: 'We study how machines see.', officeHours: 'Thursdays 15:00, room 204', contact: { id: 'u1', name: 'Dr. Rao' }, people: 9, projects: 14 }),
-      readLabSettingsAction: async () => ({ success: true, owner: 'u1', leads: [{ id: 'u1', name: 'Dr. Rao' }],
-        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '' } }),
+      readLabSettingsAction: async () => ({ success: true, owner: 'u1', pi: true, leads: [{ id: 'u1', name: 'Dr. Rao' }],
+        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '', protocolApprovers: 'pi' } }),
+      readProtocolsAction: async () => ({ success: true, slug: 'vision-lab', protocols: [{ id: 'p1', title: 'Capture rig setup', slug: 'rig', owner: 'Arjun', reviewBy: null, approved: 1, draft: 2, needsTraining: true, trained: false }] }),
+      readProtocolAction: async () => ({ success: true, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
+        versions: [{ id: 'v2', version: 2, state: 'draft', by: null, at: null, created: '2026-11-20', content: admin ? '## Steps\n1. Power on' : '' }, { id: 'v1', version: 1, state: 'approved', by: 'Dr. Rao', at: '2026-10-02T10:00:00Z', created: '2026-10-01', content: '' }],
+        people: [{ id: 'u1', name: 'Dr. Rao', trained: true, signedAt: null, trainer: null }, { id: 'u3', name: 'Mei', trained: false, signedAt: null, trainer: null }] }),
+      askApproveProtocolAction: async () => { calls.push(['ask']); return { success: true, version: 2 }; },
+      approveProtocolAction: async (_o: string, _d: string, v: number, seen: string) => { calls.push(['approve', v, seen]); return { success: true }; },
+      retireProtocolAction: async () => ({ success: true }),
+      saveProtocolSettingsAction: async () => ({ success: true }),
+      signOffTrainingAction: async (_o: string, _d: string, id: string, on: boolean) => { calls.push(['signoff', id, on]); return { success: true }; },
+      readMyTrainingsAction: async () => ({ success: true, trainings: [{ id: 'p1', title: 'Capture rig setup', trained: false }] }),
       saveLabSettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
       startFinishAction: async (_o: string, id: string, v: unknown) => { calls.push(['finish', id, v]); return { success: true }; },
       cancelFinishAction: async () => ({ success: true }),
@@ -104,4 +114,28 @@ test('The public lab page: research areas, people under positions, alumni, Join 
   await expect(about.getByRole('link', { name: 'Message the PI' })).toHaveAttribute('href', '/messages?userId=u1');
   await expect(about).not.toContainText('@');
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('Protocols: the card shows Approved and Draft versions and my training', async ({ page }) => {
+  await open(page, false, 'protocols');
+  const card = page.getByTestId('lab-protocols');
+  await expect(card).toContainText('v1 Approved');
+  await expect(card).toContainText('v2 Draft');
+  await expect(card).toContainText('Needs training: not yet');
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('A protocol page: the PI approves v2 and signs Mei off; members only ask to approve', async ({ page }) => {
+  await open(page, true, 'protocol');
+  const panel = page.getByTestId('protocol-panel');
+  await panel.getByRole('button', { name: 'Approve v2' }).click();
+  await expect(panel.getByTestId('protocol-draft-text')).toBeVisible();
+  await expect.poll(() => calls(page)).toContainEqual(['approve', 2, '2026-11-20']);
+  await page.getByTestId('protocol-trainings').getByLabel('Mei').check();
+  await expect.poll(() => calls(page)).toContainEqual(['signoff', 'u3', true]);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+  await open(page, false, 'protocol');
+  await expect(page.getByRole('button', { name: /Approve v/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Update the draft to approve' })).toBeVisible();
 });

@@ -95,5 +95,5 @@ test("Learning, Non-profit, Games (15.3, 17.7, 22.2, 24.4) and the full list of 
   assert.deepEqual(heads(md("impact-report")), ["A letter", "Numbers", "Stories", "Finances", "Thank you"]);
   assert.deepEqual(heads(md("game-design-document")), ["Overview", "High level", "Features", "Detail docs", "Moodboard"]);
   assert.deepEqual(heads(md("character-profile")), ["Portrait", "Basics", "Appearance", "Personality", "Backstory", "Relationships", "Quotes", "Art references"]);
-  assert.equal(DOC_TEMPLATES.length, 35, "every template of 26.3, plus the Syllabus (30.2) and the company Handbook page and Process (33.2)");
+  assert.equal(DOC_TEMPLATES.length, 37, "every template of 26.3, plus the Syllabus (30.2), the company Handbook page and Process (33.2), and the lab Protocol and Data management plan (35.5)");
 });

@@ -22,12 +22,14 @@ export const labSettingsSchema = z.object({
   about: z.object({ areas: z.boolean(), people: z.boolean(), alumni: z.boolean(), publications: z.boolean(), joinUs: z.boolean() }).strict(),
   researchAreas: z.array(z.string().trim().min(1).max(60)).max(8),
   joinUs: z.string().trim().max(400),
+  /** B6.2a: who approves protocols — the PI, or Researchers too. */
+  protocolApprovers: z.enum(["pi", "researchers"]),
 }).strict();
 export type LabSettings = z.infer<typeof labSettingsSchema>;
 
 export const DEFAULT_LAB: LabSettings = {
   positions: DEFAULT_POSITIONS, officeHours: "", contactId: null, plans: { leaving: true },
-  about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "",
+  about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "", protocolApprovers: "pi",
 };
 
 export function readLabSettings(orgSettings: unknown): LabSettings {

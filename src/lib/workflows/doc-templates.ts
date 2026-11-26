@@ -13,6 +13,8 @@ export const TEMPLATE_GROUPS = [
   { id: "games", label: "Games and stories" },
   // Report 33.2 (B4.1b): company handbook pages and processes, offered in a company's Documents only.
   { id: "company", label: "Company handbook" },
+  // Report 35.5 (B6.2a): a research lab's protocols and data management plan, offered in a lab's Documents only.
+  { id: "research", label: "Lab documents" },
 ] as const;
 export type TemplateGroup = (typeof TEMPLATE_GROUPS)[number]["id"];
 
@@ -736,6 +738,50 @@ _Links, or Files videos for screen recordings._
 ## Revision history
 | Date | What changed | By |
 |---|---|---|
+` },
+);
+
+DOC_TEMPLATES.push(
+  // 35.5 layer 3: a protocol — Approved versions are what people run; Steps become the run's checklist.
+  { id: "protocol", name: "Protocol", group: "research", line: "A method with approved versions; Run this protocol starts a notebook entry.",
+    body: `## Purpose
+_What this protocol is for and what it produces._
+
+## Safety
+_Hazards, protective equipment, and who to call._
+
+## Materials
+
+## Equipment
+
+## Steps
+1. Prepare
+2. Run
+3. Record results and clean up
+
+## Notes
+_Tips, and what usually goes wrong._
+
+## References
+_Methods papers and links. Outside storage links are never fetched._
+` },
+  // 35.5 layer 3: the lab's data management plan, owned by the PI.
+  { id: "data-management-plan", name: "Data management plan", group: "research", line: "What data the lab keeps, where, how it's named, backed up, shared and kept.",
+    body: `## What data we collect
+
+## Where it's stored
+_Files here, or outside storage named by link (never fetched)._
+
+## Naming
+
+## Backups
+
+## Who can see it
+
+## How long we keep it
+
+## When someone leaves
+_Hand over per the Leaving plan: where the data lives, and who owns it now._
 ` },
 );
 

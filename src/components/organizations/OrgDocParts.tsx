@@ -35,6 +35,7 @@ import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { cn } from '@/lib/utils'
 import { NotYetDialog, StatusBadge } from '@/components/organizations/org-ui'
+import { ProtocolPanel } from '@/components/organizations/LabProtocols'
 import { fieldError, fieldHint, fieldLabel } from '@/lib/organizations/display'
 import { Notice } from '@/components/ui/notice'
 
@@ -279,6 +280,8 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
             </p>
             {data.mode === 'org' ? <ReviewLine data={data} doc={doc} canReview={canPublish} /> : null}
             {data.mode === 'org' && doc.kind === 'process' && data.canRun ? <RunProcessButton orgId={data.orgId} docId={doc.id} /> : null}
+            {/* Report 35.5 (B6.2a): a lab protocol's versions, approval and training. */}
+            {data.mode === 'org' && doc.kind === 'protocol' && data.orgType === 'research' && data.canRun ? <ProtocolPanel orgId={data.orgId} docId={doc.id} /> : null}
             {admin ? (
                 <Dialog open={optionsOpen} onOpenChange={setOptionsOpen}>
                     <DialogContent>

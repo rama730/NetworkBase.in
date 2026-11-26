@@ -126,7 +126,7 @@ export async function readLabSettingsAction(orgId: string) {
     SELECT p.id, p.full_name AS name, p.username FROM workspace_members m JOIN profiles p ON p.id = m.user_id
     WHERE m.workspace_id = ${orgId}::uuid AND m.role IN ('owner', 'admin') AND m.completed_at IS NULL ORDER BY coalesce(p.full_name, p.username) LIMIT 50`));
   const settings = leads.some((l) => l.id === ctx.settings.contactId) ? ctx.settings : { ...ctx.settings, contactId: null };
-  return { success: true as const, settings, owner: ctx.owner, leads: leads.map((l) => ({ id: l.id, name: l.name ?? l.username ?? "Someone" })) };
+  return { success: true as const, settings, pi: ctx.userId === ctx.owner, owner: ctx.owner, leads: leads.map((l) => ({ id: l.id, name: l.name ?? l.username ?? "Someone" })) };
 }
 
 export async function saveLabSettingsAction(orgId: string, input: unknown): Promise<{ success: true } | Failure> {
@@ -135,6 +135,8 @@ export async function saveLabSettingsAction(orgId: string, input: unknown): Prom
   const parsed = labSettingsSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Check the lab settings: up to 12 positions, each named." };
   const d = parsed.data;
+  // Review: only the PI decides who approves protocols.
+  if (d.protocolApprovers !== ctx.settings.protocolApprovers && ctx.userId !== ctx.owner) return { success: false, error: "Only the PI decides who approves protocols." };
   if (new Set(d.positions.map((p) => p.id)).size !== d.positions.length) return { success: false, error: "Check the lab settings: up to 12 positions, each named." };
   if (looksLikeContact(d.officeHours)) return { success: false, error: "Office hours is a time and place, not an email or phone number." };
   if (d.contactId && d.contactId !== ctx.owner && !(await stillLead(orgId, d.contactId))) return { success: false, error: "Reach the PI goes to the PI or one of the lab’s Researchers." };

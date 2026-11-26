@@ -1479,6 +1479,37 @@ export const labAlumni = pgTable("lab_alumni", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.projectId, t.userId] }), index("lab_alumni_user_idx").on(t.userId)]);
+/** B6.2a (0161): a lab protocol's settings, its versions (Draft → Approved → Retired; frozen text) and training sign-offs. */
+export const labProtocols = pgTable("lab_protocols", {
+  docId: uuid("doc_id").primaryKey().references(() => workspaceDocuments.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  needsTraining: boolean("needs_training").default(false).notNull(),
+  trainers: jsonb("trainers").$type<string[]>().default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_protocols_workspace_idx").on(t.projectId)]);
+export const labProtocolVersions = pgTable("lab_protocol_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  docId: uuid("doc_id").notNull().references(() => workspaceDocuments.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  state: text("state").$type<"draft" | "approved" | "retired">().notNull(),
+  content: text("content").notNull(),
+  requestedBy: uuid("requested_by").references(() => profiles.id, { onDelete: "set null" }),
+  approvedBy: uuid("approved_by").references(() => profiles.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [unique().on(t.docId, t.version), uniqueIndex("lab_protocol_versions_one_approved").on(t.docId).where(sql`state = 'approved'`),
+  uniqueIndex("lab_protocol_versions_one_draft").on(t.docId).where(sql`state = 'draft'`), index("lab_protocol_versions_workspace_idx").on(t.projectId),
+  index("lab_protocol_versions_requested_by_idx").on(t.requestedBy).where(sql`requested_by IS NOT NULL`), index("lab_protocol_versions_approved_by_idx").on(t.approvedBy).where(sql`approved_by IS NOT NULL`)]);
+export const labTrainings = pgTable("lab_trainings", {
+  docId: uuid("doc_id").notNull().references(() => workspaceDocuments.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  trainerId: uuid("trainer_id").references(() => profiles.id, { onDelete: "set null" }),
+  signedAt: timestamp("signed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.docId, t.userId] }), index("lab_trainings_user_idx").on(t.userId), index("lab_trainings_workspace_idx").on(t.projectId),
+  index("lab_trainings_trainer_idx").on(t.trainerId).where(sql`trainer_id IS NOT NULL`)]);
 export const groupPollVotes = pgTable("group_poll_votes", {
   pollId: uuid("poll_id").notNull().references(() => groupPolls.id, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),

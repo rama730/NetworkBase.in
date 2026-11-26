@@ -8,6 +8,7 @@ import { StartHere } from '@/components/organizations/CompanyOnboarding'
 import { AskTeamCard } from '@/components/organizations/CompanyRequests'
 import { CommunityFrontDoor } from '@/components/organizations/CommunityFrontDoor'
 import { LabHomeCard } from '@/components/organizations/Lab'
+import { LabProtocolsCard } from '@/components/organizations/LabProtocols'
 import { SchoolAttentionCard } from '@/components/organizations/SchoolParts'
 import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
@@ -281,6 +282,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {/* Report 34.2 (B5.1): a community's I agree and Getting started come first for members. */}
                 {/* Report 35.2 (B6.1a): a lab's Overview is the lab home. */}
                 {orgType === 'research' ? <LabHomeCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
+                {orgType === 'research' ? <LabProtocolsCard orgId={orgId} /> : null}
                 {orgType === 'community' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
                 {orgType === 'community' ? <NextEventCard orgId={orgId} base={base} /> : null}
                 {orgType === 'community' ? <CurrentChallengeCard orgId={orgId} base={base} /> : null}

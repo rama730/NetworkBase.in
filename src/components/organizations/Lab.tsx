@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FlaskConical, GraduationCap, MessageSquare } from "lucide-react";
 
+import { readMyTrainingsAction } from "@/app/actions/lab-protocols";
 import { cancelFinishAction, readLabAboutAction, readLabAlumniAction, readLabHomeAction, readLabPeopleAction, readLabSettingsAction, readMyAlumniAction, saveLabSettingsAction, saveMyAlumniAction, setLabPositionAction, setLabSupervisorAction, startFinishAction, type LabPerson } from "@/app/actions/lab";
 import { OnboardingBoard } from "@/components/organizations/CompanyOnboarding";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
@@ -118,6 +119,8 @@ function PersonRow({ orgId, p, me, admin, pi, positions, leads }: { orgId: strin
 /** The lab home (Overview, call 1): welcome, Reach the PI with office hours, People · Projects. */
 export function LabHomeCard({ orgId, slug }: { orgId: string; slug: string }) {
   const q = useQuery({ queryKey: ["lab-home", orgId], queryFn: () => readLabHomeAction(orgId), staleTime: 60_000 });
+  const t = useQuery({ queryKey: ["lab-my-trainings", orgId], queryFn: () => readMyTrainingsAction(orgId), staleTime: 60_000 });
+  const needed = t.data?.success ? t.data.trainings.filter((x) => !x.trained) : [];
   if (!q.data?.success) return null;
   const d = q.data;
   return (
@@ -131,6 +134,7 @@ export function LabHomeCard({ orgId, slug }: { orgId: string; slug: string }) {
             {d.officeHours ? <span className="text-muted-foreground">Office hours: {d.officeHours}</span> : null}
           </p>
         ) : null}
+        {needed.length ? <p data-testid="lab-trainings-needed"><span className="font-medium">Trainings you still need:</span> {needed.map((x) => x.title).join(", ")}. A trainer signs you off.</p> : null}
         <p className="flex flex-wrap gap-4">
           <Link href={`/org/${encodeURIComponent(slug)}?tab=members`} className="nb-link"><span className="font-mono">{d.people}</span> {d.people === 1 ? "person" : "people"}</Link>
           <Link href={`/org/${encodeURIComponent(slug)}?tab=projects`} className="nb-link"><span className="font-mono">{d.projects}</span> {d.projects === 1 ? "project" : "projects"}</Link>
@@ -145,10 +149,10 @@ export function LabSettingsCard({ orgId }: { orgId: string }) {
   const q = useQuery({ queryKey: ["lab-settings", orgId], queryFn: () => readLabSettingsAction(orgId), staleTime: 30_000 });
   if (q.isPending) return <p role="status" className="nb-waiting text-[13px] text-muted-foreground"><PixelBeat />Loading lab settings…</p>;
   if (!q.data?.success) return null;
-  return <LabSettingsForm orgId={orgId} initial={q.data.settings} owner={q.data.owner} leads={q.data.leads} onSaved={() => void q.refetch()} />;
+  return <LabSettingsForm orgId={orgId} initial={q.data.settings} owner={q.data.owner} pi={q.data.pi} leads={q.data.leads} onSaved={() => void q.refetch()} />;
 }
 
-function LabSettingsForm({ orgId, initial, owner, leads, onSaved }: { orgId: string; initial: LabSettings; owner: string; leads: Array<{ id: string; name: string }>; onSaved: () => void }) {
+function LabSettingsForm({ orgId, initial, owner, pi, leads, onSaved }: { orgId: string; initial: LabSettings; owner: string; pi: boolean; leads: Array<{ id: string; name: string }>; onSaved: () => void }) {
   const [f, setF] = useState(initial);
   const [areas, setAreas] = useState(initial.researchAreas.join(", "));
   const save = async () => {
@@ -178,6 +182,10 @@ function LabSettingsForm({ orgId, initial, owner, leads, onSaved }: { orgId: str
           <select className="nb-select mt-1 block" value={f.contactId ?? owner} onChange={(e) => setF({ ...f, contactId: e.target.value === owner ? null : e.target.value })}>
             {leads.map((l) => <option key={l.id} value={l.id}>{l.name}{l.id === owner ? " (PI)" : ""}</option>)}
           </select></label>
+        {pi ? <label className="block">Who approves protocols
+          <select className="nb-select mt-1 block" value={f.protocolApprovers} onChange={(e) => setF({ ...f, protocolApprovers: e.target.value as LabSettings["protocolApprovers"] })}>
+            <option value="pi">The PI</option><option value="researchers">The PI and Researchers</option>
+          </select></label> : <p>Protocols are approved by {f.protocolApprovers === "pi" ? "the PI" : "the PI and Researchers"} (the PI decides).</p>}
         <label className="block">Office hours (optional)<Input value={f.officeHours} maxLength={120} onChange={(e) => setF({ ...f, officeHours: e.target.value })} placeholder="Thursdays 15:00 to 16:00, room 204" className="mt-1" /></label>
         <fieldset className="space-y-1">
           <legend className="font-medium">Plans</legend>
