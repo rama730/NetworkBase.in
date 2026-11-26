@@ -26,3 +26,17 @@ test("llms.txt names the tools, the packs, the rules and the docs", () => {
   assert.match(text, /\[History, branches and merge requests\]\([^)]*\/docs\/files\/branches\)/);
   assert.ok(text.length < 20_000, `${text.length} characters`);
 });
+
+// Search + AI findability (Task 7): llms.txt tells AI readers where public pages and their markdown copies live.
+test("llms.txt lists the public page addresses and the .md copies", () => {
+  const text = llmsText();
+  assert.match(text, /\n## Public pages\n/);
+  for (const line of [
+    "- Workspaces: https://networkbase.in/workspaces/<slug>",
+    "- Organizations: https://networkbase.in/org/<handle>",
+    "- People: https://networkbase.in/u/<username>",
+    "- Add .md to any of these for a markdown copy.",
+    "- Sitemap: https://networkbase.in/sitemap.xml",
+  ]) assert.ok(text.includes(line), line);
+  assert.ok(text.indexOf("## Public pages") < text.indexOf("## Working with NetworkBase"));
+});
