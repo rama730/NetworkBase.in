@@ -116,6 +116,8 @@ export async function savePaperAction(workspaceId: string, paperId: string | nul
     if (!p) return "denied";
     const author = memberAuthors(p.fields.authors ?? []).includes(ctx.userId);
     if (!(ctx.writer || author)) return "denied";
+    // Review: with member authors on it, only they change who the authors are (a writer can't add themselves and take over privacy).
+    if (!author && memberAuthors(p.fields.authors ?? []).length && authorListKey(rest.authors) !== authorListKey(p.fields.authors ?? [])) return "authors";
     // Review: from Submitted on, the author list and kind are what was sent.
     if (LOCKED_STAGES.includes(p.stage) && (authorListKey(rest.authors) !== authorListKey(p.fields.authors ?? []) || rest.kind !== p.fields.kind)) return "locked";
     // Review: only its member authors decide privacy and whether a preprint goes public (call 8).
@@ -123,6 +125,7 @@ export async function savePaperAction(workspaceId: string, paperId: string | nul
     await tx.execute(sql`UPDATE tasks SET title = ${title}, type_fields = ${JSON.stringify(fields)}::jsonb, updated_at = now() WHERE id = ${paperId}::uuid`);
     return "ok";
   });
+  if (done === "authors") return { success: false, error: "Only the paper’s member authors change its author list." };
   if (done === "locked") return { success: false, error: "Once it’s submitted, the authors and kind stay as sent. Withdraw it or move it to Revising first." };
   return done === "ok" ? { success: true, id: paperId } : DENIED;
 }

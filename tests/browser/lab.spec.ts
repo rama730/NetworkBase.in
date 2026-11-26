@@ -212,7 +212,7 @@ test('Equipment: Out of order shows paused with no Book; Book picks a slot; Repo
 test('Papers: authors with confirmations, history with the rejection, Confirm and Ask for internal review; About lists publications', async ({ page }) => {
   await open(page, false, 'papers');
   const paper = page.getByTestId('lab-paper');
-  await expect(paper).toContainText('Dr. Rao (not confirmed), A. Collaborator, Mei ✓');
+  await expect(paper).toContainText('Dr. Rao (not confirmed), A. Collaborator, Mei (confirmed)');
   await expect(paper).toContainText('Waiting for Dr. Rao to confirm');
   await paper.getByRole('button', { name: 'Confirm the author list' }).click();
   await expect.poll(() => calls(page)).toContainEqual(['confirm', 'pp1']);

@@ -57,7 +57,7 @@ function PaperRow({ workspaceId, p, people, me }: { workspaceId: string; p: Pape
         {p.venue ? <span className="text-muted-foreground">{p.venue}</span> : null}
         {p.deadline ? <span className="font-mono text-muted-foreground">due {p.deadline}</span> : null}
       </p>
-      <p>{p.authors.map((a, i) => <span key={i}>{i ? ", " : ""}{a.name}{"userId" in a ? (a.confirmed ? " ✓" : " (not confirmed)") : ""}</span>)}</p>
+      <p>{p.authors.map((a, i) => <span key={i}>{i ? ", " : ""}{a.name}{"userId" in a ? (a.confirmed ? " (confirmed)" : " (not confirmed)") : ""}</span>)}</p>
       {p.reviewed && p.stage === "internal_review" ? <p className="text-foreground">Approved for submission by the PI.</p> : null}
       {p.history.length ? <details><summary className="cursor-pointer text-muted-foreground">History</summary><ol className="mt-1 space-y-0.5">{p.history.map((h, i) => (
         <li key={i}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(h.at))} · {h.stage === "rejected" ? "Rejected" : PAPER_STAGE_WORDS[h.stage]}{h.venue ? ` · ${h.venue}` : ""}{h.note ? ` · ${h.note}` : ""}</li>))}</ol></details> : null}

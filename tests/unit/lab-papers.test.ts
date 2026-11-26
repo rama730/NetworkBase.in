@@ -27,7 +27,8 @@ test("call 3 + 6: stage moves; internal review before submitting a paper; reject
   assert.equal(moveProblem(ready, "submitted", "rejected", true), null);
   assert.match(String(moveProblem(ready, "idea", "published", true)), /can’t go/);
   assert.match(String(moveProblem(base(), "revising", "submitted", true)), /confirms/, "a resubmission still needs the current list confirmed");
-  assert.equal(moveProblem(ready, "revising", "submitted", true), null, "…but not internal review again");
+  assert.equal(moveProblem({ ...ready, review: { approvedBy: A, at: "x", listKey: key, kind: "paper" } }, "revising", "submitted", true), null, "…and the approval still holds when nothing changed");
+  assert.match(String(moveProblem(ready, "revising", "submitted", true)), /internal review/, "changed since the approval: the PI looks again");
   assert.match(String(moveProblem({ ...ready, kind: "paper", review: { approvedBy: A, at: "x", listKey: key, kind: "preprint" } }, "drafting", "submitted", true)), /internal review/, "an approval binds to its kind");
 });
 

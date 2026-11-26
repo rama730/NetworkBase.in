@@ -68,8 +68,8 @@ export function moveProblem(f: PaperFields, from: PaperStage, to: PaperStage | "
   if (to === "submitted") {
     // Review: every move into Submitted, a resubmission too, needs the current list confirmed.
     if (!allConfirmed(f)) return "Every member author confirms the author list before it’s submitted.";
-    // The PI's approval holds for this list and this kind; a resubmission from Revising doesn't need it again.
-    if (from !== "revising" && reviewOn && f.kind === "paper" && !(f.review && f.review.listKey === authorListKey(f.authors) && (f.review.kind ?? "paper") === f.kind)) {
+    // The PI's approval holds for this list and this kind — a resubmission from Revising too, so changes there ask again.
+    if (reviewOn && f.kind === "paper" && !(f.review && f.review.listKey === authorListKey(f.authors) && (f.review.kind ?? "paper") === f.kind)) {
       return "It goes through internal review before it’s submitted.";
     }
   }

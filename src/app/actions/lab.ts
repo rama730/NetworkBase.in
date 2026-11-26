@@ -278,7 +278,7 @@ export async function readLabAboutAction(orgId: string) {
     ORDER BY a.end_year DESC LIMIT 200`)) : [];
   const positions = s.positions;
   const { readLabPublications } = await import("@/lib/organizations/lab-papers-server");
-  const publications = s.about.publications ? await readLabPublications(orgId) : [];
+  const publications = s.about.publications ? await readLabPublications(orgId, userId ?? null) : [];
   const contactId = (await stillLead(orgId, s.contactId)) ? s.contactId! : w.owner;
   return { success: true as const, signedIn: Boolean(userId), contactId, isContact: userId === contactId,
     areas: s.about.areas ? s.researchAreas : [], joinUs: s.about.joinUs ? s.joinUs || null : null,

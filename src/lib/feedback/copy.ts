@@ -970,6 +970,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "It isn’t waiting for internal review.": {"title": "It isn’t waiting for internal review.", "type": "warning"},
   "Every member author confirms the author list before it’s submitted.": {"title": "Every member author confirms the author list before it’s submitted.", "type": "warning"},
   "It goes through internal review before it’s submitted.": {"title": "It goes through internal review before it’s submitted.", "type": "warning"},
+  "Only the paper’s member authors change its author list.": {"title": "Only the paper’s member authors change its author list.", "type": "warning"},
   "Once it’s submitted, the authors and kind stay as sent. Withdraw it or move it to Revising first.": {"title": "Once it’s submitted, the authors and kind stay as sent. Withdraw it or move it to Revising first.", "type": "warning"},
   "Check equipment booking: hours that end after they start, and a weekly cap of at least one slot.": {"title": "Check equipment booking: hours that end after they start, and a weekly cap of at least one slot.", "type": "warning"},
   "You’ve booked your {v1} hours this week. The next slot opens next week.": {"title": "You’ve booked your {v1} hours this week. The next slot opens next week.", "type": "warning"},
