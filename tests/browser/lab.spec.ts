@@ -185,7 +185,7 @@ test('Equipment: Out of order shows paused with no Book; Book picks a slot; Repo
   const rows = page.getByTestId('lab-equipment-row');
   await expect(rows.nth(1)).toContainText('Booking is paused');
   await expect(rows.nth(1).getByRole('button', { name: /^Book/ })).toHaveCount(0);
-  await expect(rows.nth(0).getByRole('link', { name: 'Add to calendar (.ics)' })).toHaveAttribute('href', /^data:text\/calendar/);
+  await expect(rows.nth(0).getByRole('button', { name: 'Add to calendar (.ics)' })).toBeVisible();
   await rows.nth(0).getByRole('button', { name: 'Book Capture rig A' }).click();
   const strip = page.getByTestId('lab-book-strip');
   await strip.getByRole('group', { name: 'Day' }).getByRole('button').nth(1).click();

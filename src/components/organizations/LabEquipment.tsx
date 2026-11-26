@@ -8,6 +8,7 @@ import { bookEquipmentAction, cancelBookingAction, readEquipmentAction, reportEq
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
+import { saveBlob } from "@/lib/download";
 import { toast } from "@/lib/feedback";
 import { bookingIcs, daySlots, EQUIPMENT_STATUS, type EquipmentStatus } from "@/lib/organizations/lab-equipment";
 import { addDaysToDay, formatInZone, todayInZone, zoneName } from "@/lib/organizations/zoned-time";
@@ -75,7 +76,7 @@ function EquipmentRow({ orgId, e, d }: { orgId: string; e: Item; d: Data }) {
       {e.status !== "available" && e.bookable ? <p className="text-muted-foreground">Booking is paused until it’s Available again.</p> : null}
       {mine.length ? <ul className="space-y-0.5" aria-label={`Your bookings of ${e.name}`}>{mine.map((b) => (
         <li key={b.id} className="flex flex-wrap items-center gap-2">Your booking: {when(b.start)} to {formatInZone(b.end, { hour: "numeric", minute: "2-digit" }, d.tz)}
-          <a className="nb-link" download={`${e.name}.ics`} href={`data:text/calendar;charset=utf-8,${encodeURIComponent(bookingIcs({ id: b.id, start: b.start, end: b.end, equipment: e.name, place: e.place || null, lab: d.lab }))}`}>Add to calendar (.ics)</a>
+          <button type="button" className="nb-link" onClick={() => saveBlob(new Blob([bookingIcs({ id: b.id, start: b.start, end: b.end, equipment: e.name, place: e.place || null, lab: d.lab })], { type: "text/calendar" }), `${e.name}.ics`)}>Add to calendar (.ics)</button>
           <button type="button" className="nb-link" onClick={() => void cancel(b.id)}>Cancel<span className="sr-only"> booking of {e.name}</span></button></li>))}</ul> : null}
       <span className="flex flex-wrap gap-2">
         {e.bookable && e.status === "available" && e.trained && !booking ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => setBooking(true)}>Book<span className="sr-only"> {e.name}</span></button> : null}
