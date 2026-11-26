@@ -6,6 +6,7 @@ import { CalendarDays, MapPin, Users, Video } from "lucide-react";
 
 import { cancelCommunityEventAction, checkInCommunityAction, decideTalkAction, proposeTalkAction, readEventTalksAction, saveEventLinksAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
 import { StatusBadge } from "@/components/organizations/org-ui";
+import { CommunityRituals } from "@/components/organizations/CommunityRituals";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
@@ -28,16 +29,16 @@ const when = (start: string, end: string) => {
 };
 
 /** A community's Sprints: Events first, the sprints themselves a click away. */
-export function CommunitySprints({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [view, setView] = useState<"events" | "sprints">("events");
+export function CommunitySprints({ orgId, me, children }: { orgId: string; me?: string | null; children: ReactNode }) {
+  const [view, setView] = useState<"events" | "rituals" | "sprints">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "rituals" ? "rituals" : "events"));
   return (
     <div className="space-y-4">
       <div className="flex gap-1 text-[13px]" role="group" aria-label="Sprints views">
-        {(["events", "sprints"] as const).map((v) => (
-          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "events" ? "Events" : "Sprints"}</button>
+        {(["events", "rituals", "sprints"] as const).map((v) => (
+          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "events" ? "Events" : v === "rituals" ? "Rituals" : "Sprints"}</button>
         ))}
       </div>
-      {view === "events" ? <CommunityEvents orgId={orgId} /> : children}
+      {view === "events" ? <CommunityEvents orgId={orgId} /> : view === "rituals" ? <CommunityRituals orgId={orgId} me={me ?? null} /> : children}
     </div>
   );
 }

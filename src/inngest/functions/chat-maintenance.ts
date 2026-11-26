@@ -93,6 +93,8 @@ export const chatDue = inngest.createFunction(
       await step.run("community-event-reminders", async () => (await import("@/lib/organizations/community-server")).notifyCommunityEventReminders());
       // B5.4c (report 34.5 call 10): a challenge prompt opened — one line a day to the people who joined.
       await step.run("challenge-prompts", async () => (await import("@/lib/organizations/community-server")).notifyChallengePrompts());
+      // B5.4d (report 34.5 call 7): community rituals post on schedule as Updates naming their host.
+      await step.run("community-rituals", async () => (await import("@/lib/organizations/community-server")).postDueRituals());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

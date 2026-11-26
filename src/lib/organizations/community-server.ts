@@ -89,3 +89,58 @@ export async function notifyChallengePrompts() {
   }
   return { sent: rows.length };
 }
+
+/**
+ * B5.4d (report 34.5 calls 7–8): post due rituals as Updates naming their host. Each due post is claimed (its
+ * occurrence written as lastPostedFor, under the row lock) before posting, so it goes out at most once. A host who
+ * left, or a post that fails, pauses the ritual and tells the organisers. Hourly job step.
+ */
+export async function postDueRituals() {
+  const { dueRitual } = await import("@/lib/organizations/rituals");
+  const { runAsUser } = await import("@/lib/server/acting-as");
+  const { createWorkspaceUpdateAction } = await import("@/app/actions/workspace/updates");
+  const { createNotification } = await import("@/lib/notifications/service");
+  type R = import("@/lib/organizations/rituals").Ritual;
+  const orgs = Array.from(await db.execute<{ id: string }>(sql`
+    SELECT id FROM workspaces WHERE kind = 'organization' AND org_type = 'community' AND deleted_at IS NULL AND status = 'active'
+      AND jsonb_array_length(coalesce(org_settings->'community'->'rituals', '[]'::jsonb)) > 0 LIMIT 2000`));
+  let posted = 0;
+  for (const { id } of orgs) {
+    const now = new Date();
+    const claimed = await db.transaction(async (tx) => {
+      const [w] = Array.from(await tx.execute<{ rituals: R[]; tz: string | null; slug: string | null; title: string; owner: string }>(sql`
+        SELECT org_settings->'community'->'rituals' AS rituals, time_zone AS tz, slug, title, owner_id AS owner FROM workspaces WHERE id = ${id}::uuid FOR UPDATE`));
+      if (!w || !Array.isArray(w.rituals)) return null;
+      const due = w.rituals.map((r) => ({ r, d: dueRitual(r, now, w.tz || null) })).filter((x): x is { r: R; d: { at: string; post: string } } => Boolean(x.d));
+      if (!due.length) return null;
+      const ids = new Set(due.map((x) => x.r.id));
+      const rituals = w.rituals.map((r) => (ids.has(r.id) ? { ...r, lastPostedFor: due.find((x) => x.r.id === r.id)!.d.at } : r));
+      await tx.execute(sql`UPDATE workspaces SET org_settings = org_settings || jsonb_build_object('community', coalesce(org_settings->'community', '{}'::jsonb) || jsonb_build_object('rituals', ${JSON.stringify(rituals)}::jsonb)) WHERE id = ${id}::uuid`);
+      return { w, due };
+    });
+    if (!claimed) continue;
+    for (const { r, d } of claimed.due) {
+      const [host] = Array.from(await db.execute<{ name: string | null; username: string | null }>(sql`
+        SELECT p.full_name AS name, p.username FROM workspace_members m JOIN profiles p ON p.id = m.user_id
+        WHERE m.workspace_id = ${id}::uuid AND m.user_id = ${r.hostId}::uuid AND m.role IN ('member', 'admin', 'owner')`));
+      const hostName = host?.name ?? host?.username ?? null;
+      const when = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: claimed.w.tz || "UTC" }).format(new Date(d.at));
+      const content = r.kind === "ama"
+        ? `**Ask me anything with ${hostName}** · questions are open now; ${hostName} answers on ${when}. Ask in the comments and like the questions you want answered.${r.prompt ? `\n\n${r.prompt}` : ""}`
+        : `**${r.name}** · hosted by ${hostName}${r.prompt ? `\n\n${r.prompt}` : ""}`;
+      const result = host ? await runAsUser(r.hostId, () => createWorkspaceUpdateAction(id, { content, updateType: "discussion", visibility: "members" }))
+        .catch((e: unknown) => ({ success: false as const, error: e instanceof Error ? e.message : "Couldn’t post" })) : { success: false as const, error: "The host is no longer a member." };
+      if (result.success) { posted += 1; continue; }
+      // Edge (layer 12): no host left, or the post couldn't go out — pause it and tell the organisers.
+      await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{community,rituals}', (
+        SELECT jsonb_agg(CASE WHEN x->>'id' = ${r.id} THEN x || '{"paused": true}'::jsonb ELSE x END) FROM jsonb_array_elements(org_settings->'community'->'rituals') x)) WHERE id = ${id}::uuid`);
+      const organisers = Array.from(await db.execute<{ id: string }>(sql`SELECT ${claimed.w.owner}::uuid AS id UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${id}::uuid AND role = 'admin'`));
+      for (const o of organisers) {
+        await createNotification({ recipientUserId: o.id, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "more",
+          title: `${r.name} is paused: ${(!result.success && result.error) || "it couldn’t be posted"}`, href: `/org/${encodeURIComponent(claimed.w.slug ?? id)}?tab=sprints&view=rituals`,
+          entityRefs: { projectId: id, projectSlug: claimed.w.slug }, dedupeKey: `ritual-paused:${id}:${r.id}:${d.at}` }).catch(() => undefined);
+      }
+    }
+  }
+  return { posted };
+}
