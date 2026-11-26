@@ -58,7 +58,8 @@ test("live-fix 19–21: About has Edit details and Edit on the welcome note, a t
   assert.match(about, /editHref=\{viewer === 'admin'/);
   assert.match(source("src/components/organizations/org-ui.tsx"), /aria-label="Edit welcome note"/);
   assert.match(about, /stages === 'timeline' \|\| stages === 'single'/);
-  assert.match(about, /\[roleName\(l\.role\), l\.title\]\.filter\(Boolean\)\.join\(' · '\)/);
+  // B6.1 live fix: a title that is the role's name isn't repeated ("PI · PI").
+  assert.match(about, /\[roleName\(l\.role\), l\.title && l\.title\.trim\(\)\.toLowerCase\(\) !== roleName\(l\.role\)\.toLowerCase\(\) \? l\.title : null\]\.filter\(Boolean\)\.join\(' · '\)/);
   assert.match(about, /<UserAvatar /);
   assert.match(source("src/components/workspaces/dashboard/WorkspaceOverviewCard.tsx"), /isCreator && onEdit && editLabel/);
   assert.match(source("src/app/actions/org-dashboard.ts"), /leaders: Array<\{ id: string; name: string; username: string \| null; avatarUrl: string \| null;/);
