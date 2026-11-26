@@ -30,7 +30,8 @@ async function company(orgId: string) {
   // B6.1b: a research lab's New people plan works the same way (on by default; the manager is the Supervisor).
   if (!w || (w.type !== "company" && w.type !== "research") || !(a.isOwner || a.isMember)) return null;
   const reportsTo = ((w.settings as { staffGrowth?: { reportsTo?: Record<string, string> } } | null)?.staffGrowth?.reportsTo ?? {}) as Record<string, string>;
-  return { userId, admin: a.isOwner || a.memberRole === "admin", settings: w.settings, owner: w.owner, note: w.note, reportsTo, type: w.type, created: w.created };
+  // Review parity (lab.ts): an archived, suspended or deleting org reads but takes no changes.
+  return { userId, blocked: Boolean(a.writeBlocked), admin: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, settings: w.settings, owner: w.owner, note: w.note, reportsTo, type: w.type, created: w.created };
 }
 
 /** Settings → Onboarding plan (admins): the plan (the starter until saved) and whether it's on. */
@@ -70,7 +71,7 @@ async function stepsOf(orgId: string, rec: OnboardingRecord, plan: PlanStep[], v
 export async function readStartHereAction(orgId: string) {
   const ctx = await company(orgId);
   if (!ctx) return DENIED;
-  const rec = await ensureOnboarding(orgId, ctx.userId);
+  const rec = ctx.blocked ? await record(orgId, ctx.userId).then((r) => r?.rec ?? null) : await ensureOnboarding(orgId, ctx.userId);
   if (!rec) return { success: true as const, onboarding: null, lab: ctx.type === "research" };
   const steps = await stepsOf(orgId, rec, readPlan(ctx).plan, ctx.userId);
   const people = new Map(Array.from(await db.execute<{ id: string; name: string }>(sql`SELECT id, coalesce(full_name, username, 'Someone') AS name FROM profiles WHERE id IN (${rec.buddy ?? ctx.userId}::uuid, ${ctx.reportsTo[ctx.userId] ?? ctx.userId}::uuid)`)).map((p) => [p.id, p.name]));
@@ -132,6 +133,7 @@ export async function setOnboardingStartAction(orgId: string, userId: string, st
 /** Pick the buddy (admins or the line manager): the buddy's steps go to them (made now, or moved if already made). */
 export async function setBuddyAction(orgId: string, userId: string, buddy: string): Promise<{ success: true } | Failure> {
   const ctx = await company(orgId);
+  if (ctx?.blocked) return DENIED;
   if (!ctx || !isLooseUuid(userId) || !isLooseUuid(buddy) || !(ctx.admin || ctx.reportsTo[userId] === ctx.userId)) return DENIED;
   if (buddy === userId) return { success: false, error: "Pick someone else as the buddy." };
   const [staff] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${buddy}::uuid AND role <> 'viewer') AS ok`));
@@ -153,6 +155,7 @@ export async function setBuddyAction(orgId: string, userId: string, buddy: strin
 /** How's it going? (call 7): the new person's written answer; read by their line manager and admins; no score. */
 export async function answerHowsItGoingAction(orgId: string, answer: string): Promise<{ success: true } | Failure> {
   const ctx = await company(orgId);
+  if (ctx?.blocked) return DENIED;
   const text = typeof answer === "string" ? answer.trim() : "";
   if (!ctx) return DENIED;
   if (!text || text.length > 2000) return { success: false, error: "Write a few words, up to 2,000 characters." };
