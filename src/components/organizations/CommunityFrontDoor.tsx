@@ -90,7 +90,7 @@ export function JoiningSettings({ orgId }: { orgId: string }) {
   const box = (key: "agreeRequired" | "welcomePost" | "firstDayLimit", label: string) =>
     <label className="flex items-center gap-2"><input type="checkbox" className="nb-check" checked={v[key]} onChange={(e) => setS({ ...v, [key]: e.target.checked })} />{label}</label>;
   return (
-    <SettingsCard title="Joining" headingLevel={2} description="How people join: agreeing to the Code of conduct, up to 3 join questions, and a short Getting started list for the first 14 days.">
+    <SettingsCard title="Code of conduct and first days" headingLevel={2} description="How people join: agreeing to the Code of conduct, up to 3 join questions, and a short Getting started list for the first 14 days.">
       <div className="space-y-3 text-[13px]" data-testid="joining-settings">
         {box("agreeRequired", "Agree to the Code of conduct before joining")}
         <fieldset className="space-y-1.5"><legend className="font-medium">Join questions <span className="font-normal text-muted-foreground">(optional to answer in instant join; required when you approve joins)</span></legend>

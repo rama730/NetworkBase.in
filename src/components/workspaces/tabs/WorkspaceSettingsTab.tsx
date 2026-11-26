@@ -1462,7 +1462,6 @@ function ProjectSettingsContent({
                 {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <CompanySettingsCard orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <DirectorySettingsCard orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <OnboardingPlanSettings orgId={projectId} /> : null}
-                {organization && sections.some((s) => s.id === "org-profile") && organization.type === "community" ? <JoiningSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /><AttendanceSettingsCard orgId={projectId} /><MentoringSettingsCard orgId={projectId} /><MarkingSettingsCard orgId={projectId} /><ExamSettingsCard orgId={projectId} /></> : null}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
@@ -1570,6 +1569,8 @@ function ProjectSettingsContent({
                     </section>
                 )}
                 {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} handle={project?.slug ?? null} />}
+                {/* B5.1 live check: the community's joining terms sit with Joining, not under Organization profile. */}
+                {organization && sections.some((s) => s.id === "org-access") && organization.type === "community" ? <JoiningSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-projects") && typeProfile(organization.type).schools ? <OrgSchoolCard orgId={projectId} isSchool={organization.isSchool} /> : null}
