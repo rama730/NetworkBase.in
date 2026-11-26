@@ -1288,9 +1288,9 @@
       "text": "B6.1 R1 Lab home, guide, people (35.2)",
       "kind": "unit",
       "milestone": "B6",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/lab.test.ts; tests/db/lab.test.ts; tests/browser/lab.spec.ts",
-      "evidence": "Pushed 2026-11-26: d719f8b88 B6.1a–b (positions in view_prefs.lab, People by position with supervisor, lab home Reach the PI + office hours, Settings → Lab, lab guide sections with Safety Required reading, New people plan on by default for labs with Supervisor), 8f1b1c3ac onboarding parity, 24852ca0b B6.1c (Finish in the lab + Leaving plan, Finished ending, lab_alumni 0160 applied in prod, public lab page), 823070793 review (Researcher vs Researcher). Live check waits for a research org: the test account owns 5 orgs (limit). Publications on About wait for R2 (B6.3). revisit 2026-11-28."
+      "evidence": "Pushed 2026-11-26: d719f8b88 B6.1a–b (positions in view_prefs.lab, People by position with supervisor, lab home Reach the PI + office hours, Settings → Lab, lab guide sections with Safety Required reading, New people plan on by default for labs with Supervisor), 8f1b1c3ac onboarding parity, 24852ca0b B6.1c (Finish in the lab + Leaving plan, Finished ending, lab_alumni 0160 applied in prod, public lab page), 823070793 review (Researcher vs Researcher). Publications on About wait for R2 (B6.3). LIVE-checked 2026-11-26 in Chrome on wt-test-b6-lab (wt-test-b5-community soft-deleted as -x2 to free a slot, user's OK): lab home card, Write your lab guide (six sections; a Safety page saved as Required reading), People by position (PI, since 2015), Settings → Lab saved (office hours, research areas, Join us), public About sections, Alumni and New people views. Live fixes aa2b432c8, af1640e93 (Message links, no Message the PI to the PI, no repeated PI, lab wording). Finish in the lab, alumni yes and supervisors need a second account: DB-tested."
     },
     {
       "key": "B6.2",
