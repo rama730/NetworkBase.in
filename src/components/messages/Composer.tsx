@@ -792,9 +792,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   // The server counts the encoded body (mentions as tokens), so the counter does too.
   const length = value.length > CHAT_MAX_BODY * 0.8 ? encode(value).length : value.length;
   const tooLong = length > CHAT_MAX_BODY;
-  const failedFile = uploads.some((u) => u.error);
+  // A file Retry can fix wins; otherwise the refused one (wrong type, too big) only asks to be removed.
+  const failedFile = uploads.find((u) => u.error && !u.refused) ?? uploads.find((u) => u.error) ?? null;
   const canSend = Boolean(plain.trim() || uploads.length) && !failedFile && !tooLong && !queued;
-  const sendBlockedReason = tooLong ? `Shorten it to ${CHAT_MAX_BODY.toLocaleString()} characters` : failedFile ? "Retry or remove the failed file" : queued ? "Sends when the upload finishes" : "Type a message to send";
+  const sendBlockedReason = tooLong ? `Shorten it to ${CHAT_MAX_BODY.toLocaleString()} characters` : failedFile?.refused ? "Remove the file that can’t be sent" : failedFile ? "Retry or remove the failed file" : queued ? "Sends when the upload finishes" : "Type a message to send";
   // Queued while files uploaded: send as soon as the last one is ready (or stop if one failed).
   useEffect(() => {
     if (!queued) return;

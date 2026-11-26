@@ -56,3 +56,8 @@ test('chat files: one list of types for the upload check and the storage bucket'
   assert.deepEqual(listed, [...CHAT_FILE_TYPES].sort(), 'the bucket allows exactly the app list');
   assert.match(src('src/app/api/v1/chat/attachments/presign/route.ts'), /if \(!chatFileTypeAllowed\(mimeType\)\) return jsonError\(/);
 });
+
+test('a file refused for its type says to remove it, never to retry', () => {
+  const composer = src('src/components/messages/Composer.tsx');
+  assert.match(composer, /failedFile\?\.refused \? "Remove the file that can’t be sent" : failedFile \? "Retry or remove the failed file"/);
+});
