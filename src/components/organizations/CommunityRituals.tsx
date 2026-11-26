@@ -18,7 +18,7 @@ import type { Ritual } from "@/lib/organizations/rituals";
 // an Update naming its host. Organisers add, pause and remove them; members see what's coming.
 const key = (orgId: string) => ["community-rituals", orgId] as const;
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const full = (iso: string) => new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+const full = (iso: string) => new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(new Date(iso));
 
 export function CommunityRituals({ orgId, me }: { orgId: string; me: string | null }) {
   const client = useQueryClient();
@@ -29,8 +29,8 @@ export function CommunityRituals({ orgId, me }: { orgId: string; me: string | nu
   const d = q.data;
   const refresh = () => void client.invalidateQueries({ queryKey: key(orgId) });
   const pause = async (r: (typeof d.rituals)[number], paused: boolean) => {
-    const { host: _h, repeat: _r, next: _n, lastPostedFor: _l, createdAt: _c, ...rest } = r;
-    const res = await saveRitualAction(orgId, { ...rest, paused });
+    // Only the fields a ritual is saved with (the list carries its post history and names too).
+    const res = await saveRitualAction(orgId, { id: r.id, name: r.name, kind: r.kind, freq: r.freq, weekday: r.weekday, time: r.time, hostId: r.hostId, prompt: r.prompt, leadDays: r.leadDays, paused });
     if (!res.success) return void toast.error(res.error);
     toast.success(paused ? "Paused" : "Running again");
     refresh();

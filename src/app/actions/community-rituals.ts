@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { nextAt, repeatWords, ritualSchema, type Ritual } from "@/lib/organizations/rituals";
+import { zoneName } from "@/lib/organizations/zoned-time";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -35,7 +36,9 @@ export async function readRitualsAction(orgId: string) {
   const names = ids.length ? new Map(Array.from(await db.execute<{ id: string; name: string | null; username: string | null }>(sql`
     SELECT id, full_name AS name, username FROM profiles WHERE id = ANY(${`{${ids.join(",")}}`}::uuid[])`)).map((p) => [p.id, p.name ?? p.username ?? "Someone"])) : new Map<string, string>();
   const now = new Date();
-  return { success: true as const, canEdit: ctx.organiser, rituals: rituals.map((r) => ({ ...r, host: names.get(r.hostId) ?? "Former member", repeat: repeatWords(r), next: r.paused ? null : nextAt(r, now, ctx.tz) })) };
+  // The repeat is in the community's zone, so it says which (live check: "17:00" read beside a Next shown in the viewer's zone).
+  const zone = ctx.tz ? zoneName(ctx.tz) : "UTC";
+  return { success: true as const, canEdit: ctx.organiser, zone, rituals: rituals.map((r) => ({ ...r, host: names.get(r.hostId) ?? "Former member", repeat: `${repeatWords(r)} ${zone}`, next: r.paused ? null : nextAt(r, now, ctx.tz) })) };
 }
 
 /** Add or change a ritual (organisers); the host must be a member. A changed schedule never re-posts what already went out. */
