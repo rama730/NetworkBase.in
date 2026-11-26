@@ -116,11 +116,11 @@ export function upsertMessage(pages: MessagePages, message: ChatMessageView): Me
   return [[...newest, message], ...older];
 }
 
-/** `userId` keeps a poll's voter list in step when the message has one (never made up for one that doesn't). */
-export function applyReaction(reactions: ChatReactionView[], emoji: string, on: boolean, mine: boolean, userId?: string): ChatReactionView[] {
+/** `userId` keeps a poll's voter list in step when the message has one (never made up for one that doesn't); `poll` starts one on a fresh poll. */
+export function applyReaction(reactions: ChatReactionView[], emoji: string, on: boolean, mine: boolean, userId?: string, poll = false): ChatReactionView[] {
   const existing = reactions.find((r) => r.emoji === emoji);
   const voters = (r: ChatReactionView) => (r.user_ids && userId ? { user_ids: on ? [userId, ...r.user_ids.filter((id) => id !== userId)] : r.user_ids.filter((id) => id !== userId) } : {});
-  const tracked = reactions.some((r) => Array.isArray(r.user_ids));
+  const tracked = poll || reactions.some((r) => Array.isArray(r.user_ids));
   if (on) {
     if (existing) return reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count + 1, me: r.me || mine, ...voters(r) } : r));
     return [...reactions, { emoji, count: 1, me: mine, ...(tracked && userId ? { user_ids: [userId] } : {}) }];

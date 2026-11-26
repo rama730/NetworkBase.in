@@ -183,10 +183,12 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm .nb-chat-section-acts { display: flex; flex: none; gap: 2px; }
 @media (pointer: fine) {
   /* Shown on hover over the rule (opacity on the buttons), so a long name keeps its room. */
-  .nbm .nb-chat-section-acts { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); background: var(--card); }
+  .nbm .nb-chat-section-acts { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); background: transparent; }
+  /* The fill appears with the buttons, so a long name's count isn't hidden behind an empty strip. */
+  .nbm section:hover > .nb-chat-section-title .nb-chat-section-acts, .nbm section:focus-within > .nb-chat-section-title .nb-chat-section-acts { background: var(--card); }
   .nbm .nb-chat-section-acts .nb-icon-button { min-width: 24px; min-height: 24px; }
 }
-.nbm-menu { min-width: 248px; padding: 4px 0; border-color: var(--nbm-line); border-radius: 6px; background: var(--card); box-shadow: var(--nbm-shadow-pop); font-size: 13px; }
+.nbm-menu { min-width: 248px; max-height: var(--radix-dropdown-menu-content-available-height, 80vh); overflow-y: auto; padding: 4px 0; border-color: var(--nbm-line); border-radius: 6px; background: var(--card); box-shadow: var(--nbm-shadow-pop); font-size: 13px; }
 .nbm-menu [data-slot="dropdown-menu-item"], .nbm-menu [data-slot="dropdown-menu-radio-item"], .nbm-menu [data-slot="dropdown-menu-checkbox-item"], .nbm-menu [data-slot="dropdown-menu-sub-trigger"] { gap: 10px; min-height: 32px; padding-top: 0; padding-bottom: 0; padding-right: 12px; border-radius: 0; font-size: 13px; }
 .nbm-menu [data-slot="dropdown-menu-item"], .nbm-menu [data-slot="dropdown-menu-sub-trigger"] { padding-left: 12px; }
 .nbm-menu [data-slot="dropdown-menu-radio-item"], .nbm-menu [data-slot="dropdown-menu-checkbox-item"] { padding-left: 30px; }
@@ -377,7 +379,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-poll-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; }
 .nbm-poll-head .nbm-tag { display: inline-flex; align-items: center; gap: 5px; }
 .nbm-poll-q { margin: 6px 14px 8px; font-size: 15px; font-weight: 600; color: var(--foreground); }
-.nbm-poll-opt { display: grid; grid-template-columns: 28px minmax(0, 1fr) 52px auto; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border-top: 1px solid var(--nbm-line); text-align: left; transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-poll-opt { display: grid; grid-template-columns: 28px minmax(0, 1fr) 52px 64px; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border-top: 1px solid var(--nbm-line); text-align: left; transition: background-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-poll-opt:hover:not([aria-disabled="true"]) { background: var(--nbm-soft); }
 .nbm-poll-opt[aria-disabled="true"] { cursor: default; }
 .nbm-poll-num { font-family: system-ui, sans-serif; font-size: 15px; }
@@ -386,7 +388,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-poll-track { display: block; height: 6px; background: var(--nbm-soft); }
 .nbm-poll-bar { display: block; height: 100%; background: color-mix(in srgb, var(--foreground) 22%, transparent); transition: width var(--nbm-m3) var(--nbm-ease), background-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-poll-opt[aria-pressed="true"] .nbm-poll-bar { background: var(--nbm-brand); }
-.nbm-poll-count { grid-column: -2; font: 500 11.5px/1 var(--nbm-mono); color: var(--foreground); white-space: nowrap; }
+.nbm-poll-count { grid-column: -2; text-align: right; font: 500 11.5px/1 var(--nbm-mono); color: var(--foreground); white-space: nowrap; }
 .nbm-poll-count i { font-style: normal; color: var(--nbm-fg2); }
 .nbm-poll-foot { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--nbm-line); background: var(--nbm-soft); font: 500 10.5px/1.3 var(--nbm-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--nbm-fg2); }
 @media (pointer: coarse) { .nbm-poll-opt { min-height: 48px; } }
@@ -551,7 +553,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 /* ================= Note tab (Phase 7 Task 28) ================= */
 .nbm-note-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 16px 0 20px; border-bottom: 1px solid var(--nbm-line); background: var(--card); }
 @media (max-width: 639px) { .nbm-note-idle { display: none; } }
-.nbm-note-copy { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12.5px; font-weight: 500; transition: background-color var(--nbm-m1) var(--nbm-ease); }
+.nbm-note-copy { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--nbm-line); border-radius: 5px; font-size: 12.5px; font-weight: 500; transition: background-color var(--nbm-m1) var(--nbm-ease); }
 .nbm-note-copy:hover { background: var(--nbm-soft); }
 @media (pointer: coarse) { .nbm-note-copy { height: 44px; } }
 .nbm-note { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; width: 100%; max-width: 720px; margin: 0 auto; padding: 32px 24px 32px 0; }
@@ -800,3 +802,10 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-viewer-thumb-dur, .nbm-viewer-thumb-idx { position: absolute; bottom: 2px; padding: 1px 3px; border-radius: 2px; background: var(--nbm-media-veil); font: 500 9.5px/1.2 var(--nbm-mono); }
 .nbm-viewer-thumb-dur { left: 2px; }
 .nbm-viewer-thumb-idx { right: 2px; }
+
+/* Live check (2026-11-26): one clear × in the search field; choice cells under their label; the note bar keeps Copy link whole. */
+.nbm-find::-webkit-search-cancel-button { display: none; }
+.nbm-drow > .nbm-drow-label + .nbm-seg-wrap { display: flex; width: fit-content; }
+.nbm-note-bar .nbm-tag { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nbm-note-bar > :last-child { flex: none; }
+.nbm .nb-chat-swipe-actions[aria-hidden="true"] { visibility: hidden; }

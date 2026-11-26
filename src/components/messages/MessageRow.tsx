@@ -367,11 +367,11 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const toggleReaction = async (emoji: string) => {
     if (pending) return;
     const on = !message.reactions.some((r) => r.emoji === emoji && r.me);
-    if (on) noteReaction(emoji);
-    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, on, true, ctx.meId ?? undefined) })));
+    if (on && !pollParts(message.body)) noteReaction(emoji);
+    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, on, true, ctx.meId ?? undefined, Boolean(pollParts(m.body))) })));
     const result = await react({ channelId: ctx.channelId, seq: message.seq, emoji, on });
     if (!result.success) {
-      update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, !on, true, ctx.meId ?? undefined) })));
+      update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, !on, true, ctx.meId ?? undefined, Boolean(pollParts(m.body))) })));
       toast.error(chatErrorMessage(result.error));
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.reactors(ctx.channelId, message.seq) });
@@ -409,7 +409,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!result.success) {
       update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, ...previous })));
       toast.error(chatErrorMessage(result.error));
-    }
+    } else void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(ctx.channelId) });
   };
   // From the confirm dialog: a failure throws, so the dialog stays open and says why.
   const remove = async () => {
@@ -466,6 +466,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, pinned: nextPinned })));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(ctx.channelId) });
+    // A reply pinned from its thread lives in the thread's list too.
+    void queryClient.invalidateQueries({ queryKey: ["chat-v3", "thread", ctx.channelId] });
     if (nextPinned && ctx.openPinsTab) toast.success("Pinned to the conversation", { action: { label: "View pins", onClick: () => ctx.openPinsTab?.() } });
     else toast.success(nextPinned ? "Pinned to the conversation" : "Unpinned");
   };

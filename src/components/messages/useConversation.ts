@@ -24,6 +24,7 @@ import { formatChatTime, personName } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { pruneTypers, shouldSendTyping, withoutTyper, type Typers } from "@/lib/messaging/typing";
 import { applyReaction, patchPages, upsertMessage, type MessagePages } from "@/lib/messaging/timeline";
+import { pollParts } from "@/lib/messaging/poll";
 import { storedFailedSends } from "@/components/messages/failed-sends";
 import type { ChatCardView, ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -193,7 +194,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
               // This tab already shows its own reaction; one made on another device still needs applying.
               if (mine && Boolean(m.reactions.find((r) => r.emoji === payload.emoji)?.me) === on) return m;
               // Live voters: only your own id; others' faces come from the server's list, which leaves out anyone blocked either way.
-              return { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine, mine && typeof payload.user_id === "string" ? payload.user_id : undefined) };
+              return { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine, mine && typeof payload.user_id === "string" ? payload.user_id : undefined, Boolean(pollParts(m.body))) };
             }));
             break;
           }

@@ -74,7 +74,8 @@ function useFeedbackOwner() {
     };
     const act = (event: Event) => {
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('[data-feedback-portal]')) return;
+      // A menu or popover opened from a pane renders outside it: picking from it is still acting in that pane.
+      if (target?.closest('[data-feedback-portal], [data-radix-popper-content-wrapper]')) return;
       const next = target?.closest<HTMLElement>('[data-chat-pane]') ?? null;
       if (next !== acted) { acted = next; schedule(); }
     };

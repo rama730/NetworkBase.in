@@ -60,6 +60,11 @@ test('live votes add only your own face; others come from the server, which leav
 
 test('a poll option keeps number, bar, faces and count on one row', () => {
   const css = read('src/components/messages/messages-mix.css');
-  assert.match(css, /\.nbm-poll-opt \{ display: grid; grid-template-columns: 28px minmax\(0, 1fr\) 52px auto;/);
+  assert.match(css, /\.nbm-poll-opt \{ display: grid; grid-template-columns: 28px minmax\(0, 1fr\) 52px 64px;/);
   assert.match(css, /\.nbm-poll-count \{ grid-column: -2;/);
+});
+
+test('the first vote on a fresh poll shows your face at once (no option had a voter list yet)', () => {
+  assert.deepEqual(applyReaction([], '2️⃣', true, true, 'me', true), [{ emoji: '2️⃣', count: 1, me: true, user_ids: ['me'] }]);
+  assert.deepEqual(applyReaction([], '👍', true, true, 'me'), [{ emoji: '👍', count: 1, me: true }], 'not a poll: no voter list made up');
 });

@@ -153,7 +153,8 @@
     "drizzle/0147_staff_observations.sql",
     "drizzle/0148_general_thread_replies.sql",
     "drizzle/0149_chat_attachment_media.sql",
-    "drizzle/0150_chat_seen.sql"
+    "drizzle/0150_chat_seen.sql",
+    "drizzle/0151_chat_media_fixes.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

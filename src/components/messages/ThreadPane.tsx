@@ -36,6 +36,7 @@ import { channelTopic } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, showInConversationHref, threadHref } from "@/lib/messaging/routes";
 import { applyReaction, upsertMessage } from "@/lib/messaging/timeline";
+import { pollParts } from "@/lib/messaging/poll";
 import type { ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
@@ -211,7 +212,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
         // This tab already shows its own reaction; one made on another device still needs applying.
         patch((m) => (mine && Boolean(m.reactions.find((r) => r.emoji === payload.emoji)?.me) === on
           ? null
-          : { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine, mine && typeof payload.user_id === "string" ? payload.user_id : undefined) }), seq);
+          : { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine, mine && typeof payload.user_id === "string" ? payload.user_id : undefined, Boolean(pollParts(m.body))) }), seq);
       }
     });
     return subscription.unsubscribe;

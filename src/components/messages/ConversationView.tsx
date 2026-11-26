@@ -754,7 +754,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                   type="button"
                   onClick={() => openDetails("members")}
                   className="nbm-faces"
-                  aria-label={`${channel.member_count} members`}
+                  aria-label={`${channel.member_count} ${channel.member_count === 1 ? "member" : "members"}`}
                   title="Members"
                 >
                   <span className="nbm-faces-stack">

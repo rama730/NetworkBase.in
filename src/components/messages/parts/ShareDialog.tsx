@@ -24,13 +24,14 @@ export function ShareDialog({ channelId, seq, onClose }: { channelId: string; se
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [active, setActive] = useState(0);
+  const projects = useMemo(() => new Map((data?.projects ?? []).map((p) => [p.id, p.title])), [data?.projects]);
   // Not the conversation the message is already in.
   const options = useMemo(() => (data?.channels ?? [])
     .filter((c) => !c.channel_archived_at && !c.archived_at && c.id !== channelId)
-    .map((c) => ({ channel: c, title: channelTitle(c, meId) }))
-    .filter((o) => !query || o.title.toLowerCase().includes(query.toLowerCase()))
+    .map((c) => ({ channel: c, title: channelTitle(c, meId), place: c.project_id ? projects.get(c.project_id) ?? null : null }))
+    .filter((o) => !query || `${o.title} ${o.place ?? ""}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => (b.channel.last_message_at ?? "").localeCompare(a.channel.last_message_at ?? ""))
-    .slice(0, 30), [channelId, data?.channels, meId, query]);
+    .slice(0, 30), [channelId, data?.channels, meId, query, projects]);
   // ↑/↓ move through the list from the search box, Enter picks (no tabbing through 30 rows).
   const onKeys = (event: React.KeyboardEvent) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -76,11 +77,12 @@ export function ShareDialog({ channelId, seq, onClose }: { channelId: string; se
           className="pointer-coarse:h-11"
         />
         <ul id="share-options" className="app-scroll app-scroll-y max-h-56 space-y-px" role="listbox" aria-label="Share to">
-          {options.map(({ channel, title }, index) => (
+          {options.map(({ channel, title, place }, index) => (
             <li key={channel.id} id={`share-option-${channel.id}`} role="option" aria-selected={target === channel.id}>
               <button type="button" tabIndex={-1} onClick={() => setTarget(channel.id)} onMouseEnter={() => setActive(index)} className={`flex min-h-[34px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] pointer-coarse:min-h-11 ${target === channel.id ? "bg-accent text-accent-foreground" : index === active ? "bg-muted" : "hover:bg-muted"}`}>
                 {channel.kind === "dm" || counterpart(channel) ? <UserAvatar identity={channel.dm_user ?? counterpart(channel)} size={20} /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="text-muted-foreground" />}
                 <span className="truncate">{title}</span>
+                {place ? <span className="nbm-lrow-meta ml-auto max-w-[40%] flex-none truncate">{place}</span> : null}
               </button>
             </li>
           ))}

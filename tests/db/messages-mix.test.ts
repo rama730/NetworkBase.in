@@ -147,3 +147,22 @@ test("listFiles: the Photos filter and the (seq, idx) cursor run", async () => {
   assert.equal(paged.success, true, JSON.stringify(paged));
   assert.deepEqual((paged as { files: unknown[]; next: unknown }).files, []);
 });
+
+test("media extras: a photo's thumbnail, pixel preview, length and waveform are saved with it", async () => {
+  const [a, b] = await people(2);
+  as(a!);
+  const channelId = ((await members.getOrCreateDm({ userId: b! })) as { channelId: string }).channelId;
+  const [photo, thumb] = [randomUUID(), randomUUID()];
+  for (const [id, mime] of [[photo, "image/png"], [thumb, "image/webp"]] as const) {
+    await sql`INSERT INTO storage_assets(id, owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, expires_at, metadata)
+      VALUES (${id}, ${a!}, 'chat-attachments', ${id}, 'chat_attachment:file', 'verified', ${mime}, 64, ${mime}, 64, now(), now() + interval '1 hour', ${sql.json({ filename: "photo.png", width: 800, height: 520 })})`;
+  }
+  const preview = "0a1f8c".repeat(144);
+  const sent = await messages.sendMessage({ channelId, body: "photo", clientId: randomUUID(), assetIds: [photo], media: { [photo]: { thumbAssetId: thumb, preview, durationMs: 4200, peaks: [0, 50, 100] } } });
+  assert.equal(sent.success, true, JSON.stringify(sent));
+  const [row] = await sql`SELECT thumb_asset_id, preview, duration_ms, peaks FROM chat_attachments WHERE channel_id = ${channelId} AND asset_id = ${photo}`;
+  assert.deepEqual({ ...row }, { thumb_asset_id: thumb, preview, duration_ms: 4200, peaks: [0, 50, 100] });
+  for (const bad of ["0a".repeat(431), "zz".repeat(432)]) {
+    await assert.rejects(sql`UPDATE chat_attachments SET preview = ${bad} WHERE channel_id = ${channelId} AND asset_id = ${photo}`, /chat_attachments_media_check/);
+  }
+});
