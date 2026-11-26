@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   integer,
   bigint,
+  bigserial,
   smallint,
   foreignKey,
   primaryKey,
@@ -234,6 +235,9 @@ export const profiles = pgTable(
     connectionPrivacy: text("connection_privacy", {
       enum: ["everyone", "mutuals_only", "nobody"],
     }).default("everyone"),
+    /** Who can find me in search (0163): everyone, people in my workspaces and orgs, or only my connections. */
+    searchVisibility: text("search_visibility", { enum: ["everyone", "my_places", "connections"] }).default("everyone").notNull(),
+    findableByEmail: boolean("findable_by_email").default(false).notNull(),
     onboardingStatus: text("onboarding_status", {
       enum: ["not_started", "in_progress", "completed"],
     })
@@ -586,6 +590,41 @@ export const userBlocks = pgTable(
     notSelf: check("user_blocks_not_self", sql`${t.blockerId} <> ${t.blockedId}`),
     sourceCheck: check("user_blocks_source_check", sql`${t.source} IN ('profile', 'message', 'comment', 'person_card', 'member_list', 'report', 'settings', 'legacy')`),
     noteCheck: check("user_blocks_note_check", sql`${t.note} IS NULL OR char_length(${t.note}) <= 500`),
+  }),
+);
+
+/** Saved searches with new-match alerts (global search mix, 0163). */
+export const savedSearches = pgTable(
+  "saved_searches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    query: text("query").notNull(),
+    tab: text("tab", { enum: ["discover", "people", "msgs", "goto"] }).default("discover").notNull(),
+    filters: jsonb("filters").$type<Record<string, unknown>>().default({}).notNull(),
+    notify: text("notify", { enum: ["weekly", "daily", "off"] }).default("weekly").notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+    lastNotifiedAt: timestamp("last_notified_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userQueryIdx: uniqueIndex("saved_searches_user_query_idx").on(t.userId, sql`lower(${t.query})`, t.tab, t.filters),
+    alertIdx: index("saved_searches_alert_idx").on(t.lastNotifiedAt).where(sql`${t.notify} <> 'off'`),
+  }),
+);
+
+/** Results-page searches, for "Trending near you" (0163). Cleared after 30 days. */
+export const searchQueryLog = pgTable(
+  "search_query_log",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    query: text("query").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    createdIdx: index("search_query_log_created_idx").on(t.createdAt),
+    userIdx: index("search_query_log_user_idx").on(t.userId, t.createdAt),
   }),
 );
 
