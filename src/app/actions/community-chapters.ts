@@ -8,8 +8,10 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { createNotification } from "@/lib/notifications/service";
-import { chapterFlags, proposalSchema, readChapterSettings, type ChapterProposal } from "@/lib/organizations/chapters";
-import { pauseActive } from "@/lib/organizations/community";
+import { chapterFlags, KIT_DOC_BUDGET, KIT_DOC_KEYS, kitSettings, proposalSchema, readChapterKit, readChapterSettings, type ChapterProposal, type KitDoc } from "@/lib/organizations/chapters";
+import { pauseActive, readCommunitySettings } from "@/lib/organizations/community";
+import { ritualSchema } from "@/lib/organizations/rituals";
+import { getOrBuildWorkspaceDocPublishMetadata } from "@/lib/workspaces/doc";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { accountOrgLimit } from "@/lib/organizations/members";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
@@ -74,14 +76,18 @@ export async function proposeChapterAction(orgId: string, input: unknown): Promi
 export async function readChaptersAction(orgId: string) {
   const ctx = await community(orgId);
   if (!ctx) return DENIED;
-  const rows = Array.from(await db.execute<{ id: string; title: string; slug: string | null; settings: unknown; created: string; members: number; organisers: number; last_activity: string | null; next_event: string | null; status: string }>(sql`
+  const rows = Array.from(await db.execute<{ id: string; title: string; slug: string | null; settings: unknown; created: string; members: number; organisers: number; last_activity: string | null; next_event: string | null; status: string; events_90d: number; open_reports: number }>(sql`
     SELECT c.id, c.title, c.slug, c.org_settings AS settings, c.created_at::text AS created, c.status,
       (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = c.id AND m.role <> 'viewer') AS members,
       (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = c.id AND m.role IN ('owner', 'admin')) AS organisers,
       greatest(
         (SELECT max(u.created_at) FROM workspace_updates u WHERE u.workspace_id = c.id AND u.deleted_at IS NULL),
         (SELECT max((t.type_fields->>'start')::timestamptz) FROM tasks t WHERE t.workspace_id = c.id AND t.item_type = 'event' AND t.deleted_at IS NULL AND t.type_fields->>'kind' = 'community' AND (t.type_fields->>'start')::timestamptz <= now()))::text AS last_activity,
-      (SELECT min(t.type_fields->>'start') FROM tasks t WHERE t.workspace_id = c.id AND t.item_type = 'event' AND t.deleted_at IS NULL AND t.stage <> 'cancelled' AND t.type_fields->>'kind' = 'community' AND (t.type_fields->>'start')::timestamptz > now()) AS next_event
+      (SELECT min(t.type_fields->>'start') FROM tasks t WHERE t.workspace_id = c.id AND t.item_type = 'event' AND t.deleted_at IS NULL AND t.stage <> 'cancelled' AND t.type_fields->>'kind' = 'community' AND (t.type_fields->>'start')::timestamptz > now()) AS next_event,
+      (SELECT count(*)::int FROM tasks t WHERE t.workspace_id = c.id AND t.item_type = 'event' AND t.deleted_at IS NULL AND t.stage <> 'cancelled' AND t.type_fields->>'kind' = 'community'
+        AND (t.type_fields->>'start')::timestamptz BETWEEN now() - interval '90 days' AND now()) AS events_90d,
+      (SELECT count(*)::int FROM moderation_cases mc WHERE mc.org_id = c.id AND mc.state IN ('open', 'in_review') AND mc.merged_into IS NULL
+        AND mc.routed_to = 'org' AND mc.severity <> 'urgent' AND coalesce((mc.snapshot->>'privateConversation')::boolean, false) = false) AS open_reports
     FROM workspaces c WHERE c.kind = 'organization' AND c.org_settings->>'chapterOf' = ${orgId} AND c.deleted_at IS NULL
     ORDER BY c.title LIMIT 500`));
   const now = new Date();
@@ -91,7 +97,7 @@ export async function readChaptersAction(orgId: string) {
     return { id: r.id, title: r.title, slug: r.slug, kind: ch.kind === "topic" ? "topic" as const : "local" as const, place: ch.place ?? null, members: r.members, nextEvent: r.next_event,
       closed: r.status === "archived",
       // Flags and organiser counts are for community organisers only (calls 6–7, 11).
-      ...(ctx.organiser ? { organisers: r.organisers, lastActivity: r.last_activity, needsCoOrganiser: flags.needsCoOrganiser, dormant: flags.dormant } : {}) };
+      ...(ctx.organiser ? { organisers: r.organisers, lastActivity: r.last_activity, events90d: r.events_90d, openReports: r.open_reports, needsCoOrganiser: flags.needsCoOrganiser, dormant: flags.dormant } : {}) };
   });
   const all = proposalsOf(ctx.raw.settings);
   const proposals = all.filter((p) => p.state === "proposed" && (ctx.organiser || p.by === ctx.userId));
@@ -124,7 +130,9 @@ export async function decideChapterProposalAction(orgId: string, proposalId: str
       const limit = await accountOrgLimit(tx, p.by, "own");
       if (limit) return { error: "The proposer already owns 5 organizations, so this chapter can’t be theirs yet." } as const;
       const handle = `${p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "chapter"}-${randomUUID().slice(0, 4)}`;
-      const settings = { version: 1, chapterOf: orgId, chapter: { kind: p.kind, place: p.place } };
+      // B5.5d: the chapter starts from the community's Chapter kit (frozen when organisers saved it).
+      const kit = readChapterKit(w!.settings);
+      const settings = { version: 1, chapterOf: orgId, chapter: { kind: p.kind, place: p.place }, ...kitSettings(kit, p.by, new Date()) };
       const [made] = Array.from(await tx.execute<{ id: string }>(sql`
         INSERT INTO workspaces (owner_id, title, slug, key, current_task_number, kind, org_type, visibility, status, org_settings, description, time_zone, join_code, join_code_enabled)
         VALUES (${p.by}::uuid, ${p.name}, ${handle}, ${`${generateWorkspaceKey(p.name)}${randomUUID().slice(0, 3).toUpperCase()}`}, 0, 'organization', 'community',
@@ -136,6 +144,18 @@ export async function decideChapterProposalAction(orgId: string, proposalId: str
         await tx.execute(sql`INSERT INTO workspace_members (workspace_id, user_id, role)
           SELECT ${chapterId}::uuid, m.user_id, 'admin' FROM workspace_members m WHERE m.workspace_id = ${orgId}::uuid AND m.user_id = ${p.coOrganiserId}::uuid AND m.role IN ('member', 'admin', 'owner')
           ON CONFLICT DO NOTHING`);
+      }
+      for (const d of kit?.docs ?? []) {
+        const meta = getOrBuildWorkspaceDocPublishMetadata(d.content);
+        const [doc] = Array.from(await tx.execute<{ id: string }>(sql`
+          INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${chapterId}::uuid, ${d.slug}, ${d.filename}, ${JSON.stringify(d.settings ?? {})}::jsonb)
+          ON CONFLICT DO NOTHING RETURNING id`));
+        if (!doc) continue;
+        const [v] = Array.from(await tx.execute<{ id: string }>(sql`
+          INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, excerpt, headings, quality_report, content_hash, change_summary, co_authors, created_by)
+          VALUES (${chapterId}::uuid, ${doc.id}::uuid, 1, ${meta.content}, ${meta.excerpt}, ${JSON.stringify(meta.headings)}::jsonb, ${JSON.stringify(meta.qualityReport)}::jsonb, ${meta.contentHash},
+            'From the Chapter kit', '[]'::jsonb, ${p.by}::uuid) RETURNING id`));
+        await tx.execute(sql`UPDATE workspace_documents SET published_version_id = ${v!.id}::uuid WHERE id = ${doc.id}::uuid`);
       }
       await syncWorkspaceChat(tx as never, chapterId, null, "ensure_default");
     }
@@ -161,5 +181,44 @@ export async function saveChapterSettingsAction(orgId: string, input: unknown): 
   if (!parsed.success) return { success: false, error: "Dormant after is 30 to 730 days." };
   await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('community', coalesce(org_settings->'community', '{}'::jsonb)
     || jsonb_build_object('chapters', ${JSON.stringify(parsed.data)}::jsonb)), updated_at = now() WHERE id = ${orgId}::uuid`);
+  return { success: true };
+}
+
+/** Settings → Chapter kit (organisers): what's in the kit now, and the community's documents that can go in it. */
+export async function readChapterKitAction(orgId: string) {
+  const ctx = await community(orgId);
+  if (!ctx?.organiser) return DENIED;
+  const kit = readChapterKit(ctx.raw.settings);
+  const docs = Array.from(await db.execute<{ id: string; filename: string; size: number }>(sql`
+    SELECT d.id, d.filename, length(v.content)::int AS size FROM workspace_documents d JOIN workspace_document_versions v ON v.id = d.published_version_id
+    WHERE d.workspace_id = ${orgId}::uuid AND lower(d.filename) NOT LIKE '%code of conduct%' AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft'
+    ORDER BY d.filename LIMIT 50`));
+  return { success: true as const, budget: KIT_DOC_BUDGET, docs,
+    kit: kit ? { savedAt: kit.savedAt, docs: kit.docs.map((d) => d.filename), docIds: kit.docs.map((d) => d.sourceId).filter((x): x is string => Boolean(x)), gettingStarted: kit.gettingStarted.length, rituals: kit.rituals.length } : null };
+}
+
+const kitSchema = z.object({ docIds: z.array(z.string().uuid()).max(5) }).strict();
+
+/** Save the kit: freezes the chosen documents' published text, Getting started and rituals as they are now. */
+export async function saveChapterKitAction(orgId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  const parsed = kitSchema.safeParse(input);
+  if (!ctx?.organiser || !parsed.success) return DENIED;
+  const ids = [...new Set(parsed.data.docIds)];
+  const rows = ids.length ? Array.from(await db.execute<{ id: string; slug: string; filename: string; content: string | null; settings: Record<string, unknown> | null }>(sql`
+    SELECT d.id, d.slug, d.filename, v.content, d.settings FROM workspace_documents d JOIN workspace_document_versions v ON v.id = d.published_version_id
+    WHERE d.workspace_id = ${orgId}::uuid AND d.id = ANY(${`{${ids.join(",")}}`}::uuid[]) AND lower(d.filename) NOT LIKE '%code of conduct%'
+      AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft'`)) : [];
+  if (rows.length !== ids.length) return DENIED;
+  // Review: only the document's layout travels — never who's invited, answers, motions or the community's own ids.
+  const layout = (x: Record<string, unknown> | null) => Object.fromEntries(Object.entries(x ?? {}).filter(([k]) => KIT_DOC_KEYS.includes(k)));
+  const docs: KitDoc[] = rows.map((r) => ({ sourceId: r.id, slug: r.slug, filename: r.filename, content: r.content ?? "", settings: layout(r.settings) }));
+  if (docs.reduce((n, d) => n + d.content.length, 0) > KIT_DOC_BUDGET) return { success: false, error: "The kit’s documents can be up to 40,000 characters together." };
+  const rituals = ((ctx.raw.settings as { community?: { rituals?: unknown[] } } | null)?.community?.rituals ?? [])
+    .map((r) => { const { lastPostedFor: _l, createdAt: _c, savedBy: _s, resumedAt: _r, ...rest } = r as Record<string, unknown>; return ritualSchema.safeParse(rest); })
+    .flatMap((r) => (r.success ? [r.data] : [])).slice(0, 10);
+  const kit = { docs, gettingStarted: readCommunitySettings(ctx.raw.settings).gettingStarted, rituals, savedAt: new Date().toISOString() };
+  await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('community', coalesce(org_settings->'community', '{}'::jsonb)
+    || jsonb_build_object('chapterKit', ${JSON.stringify(kit)}::jsonb)), updated_at = now() WHERE id = ${orgId}::uuid`);
   return { success: true };
 }

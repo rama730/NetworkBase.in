@@ -197,7 +197,7 @@ export async function readPerson(handleOrId: string) {
     SELECT a.id, a.action, a.rule, a.created_at::text, a.ends_at::text, a.strike, a.strike_expires_at::text, a.lifted_at::text, a.reversed_at::text, a.undone_at::text, c.number::int AS case_number
     FROM moderation_actions a LEFT JOIN moderation_cases c ON c.id = a.case_id WHERE a.subject_id = ${p.id} ORDER BY a.created_at DESC LIMIT 100`);
   const cases = await db.execute<{ id: string; number: number; reason: ReportReason; state: string; outcome: string | null; label: string | null; created_at: string; decided_at: string | null; appeal_state: string | null; leased: boolean }>(sql`
-    SELECT c.id, c.number::int AS number, c.reason, c.state, c.outcome, c.snapshot->>'label' AS label, c.created_at::text, c.decided_at::text,
+    SELECT c.id, c.org_id, c.number::int AS number, c.reason, c.state, c.outcome, c.snapshot->>'label' AS label, c.created_at::text, c.decided_at::text,
            (SELECT ap.state FROM moderation_appeals ap WHERE ap.case_id = c.id) AS appeal_state,
            (c.assignee_id IS NOT NULL AND c.claimed_until > now() AND c.claim_seen_at > now() - interval '2 minutes') AS leased
     FROM moderation_cases c WHERE c.subject_id = ${p.id} ORDER BY c.created_at DESC LIMIT 50`);
@@ -254,14 +254,20 @@ export async function readVerification(orgId?: string) {
  * Members → Reports for an org's owners and admins (11.6): their open cases, never reporters' names, urgent cases,
  * DMs or anything about the viewer.
  */
-export async function readOrgCases(orgId: string, viewerId: string) {
-  const rows = await db.execute<{ id: string; number: number; reason: ReportReason; target_kind: ReportTargetKind; label: string | null; href: string | null; reports: number; org_deadline_at: string | null; created_at: string; details: string | null; content: string | null }>(sql`
-    SELECT c.id, c.number::int AS number, c.reason, c.target_kind, c.snapshot->>'label' AS label, c.snapshot->>'href' AS href, c.org_deadline_at::text, c.created_at::text,
+export async function readOrgCases(orgId: string, viewerId: string, withChapters = false) {
+  // B5.5d (report 34.6 call 5): a community's organisers also get their chapters' cases once passed up to them.
+  const scope = withChapters
+    ? sql`(c.org_id = ${orgId} OR (c.org_id IN (SELECT w.id FROM workspaces w WHERE w.kind = 'organization' AND w.org_settings->>'chapterOf' = ${orgId}::text)
+        AND EXISTS (SELECT 1 FROM moderation_events e WHERE e.case_id = c.id AND e.kind = 'passed_to_community')))`
+    // A chapter's case passed up is the community's now: the chapter's own consoles stop showing it.
+    : sql`c.org_id = ${orgId} AND NOT EXISTS (SELECT 1 FROM moderation_events e WHERE e.case_id = c.id AND e.kind = 'passed_to_community')`;
+  const rows = await db.execute<{ id: string; org_id: string; number: number; reason: ReportReason; target_kind: ReportTargetKind; label: string | null; href: string | null; reports: number; org_deadline_at: string | null; created_at: string; details: string | null; content: string | null }>(sql`
+    SELECT c.id, c.org_id, c.number::int AS number, c.reason, c.target_kind, c.snapshot->>'label' AS label, c.snapshot->>'href' AS href, c.org_deadline_at::text, c.created_at::text,
            (SELECT count(*)::int FROM content_reports r WHERE r.case_id = c.id) AS reports,
            (SELECT string_agg(r.details, ' · ') FROM content_reports r WHERE r.case_id = c.id AND r.details IS NOT NULL) AS details,
            coalesce(c.snapshot->>'content', c.snapshot->>'message', c.snapshot->>'description') AS content
     FROM moderation_cases c
-    WHERE c.org_id = ${orgId} AND c.routed_to = 'org' AND c.state IN ('open', 'in_review') AND c.severity <> 'urgent'
+    WHERE ${scope} AND c.routed_to = 'org' AND c.state IN ('open', 'in_review') AND c.severity <> 'urgent'
       AND coalesce((c.snapshot->>'privateConversation')::boolean, false) = false AND c.subject_id IS DISTINCT FROM ${viewerId} AND c.merged_into IS NULL
       -- A report involving someone this moderator is in a block with goes to another moderator first (Blocking B37, D4).
       AND NOT app_private.review_hidden_by_block(${viewerId}::uuid, c.subject_id, ${orgId}::uuid)

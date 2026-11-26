@@ -7,6 +7,8 @@ import { profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { notifyOrg } from "@/lib/organizations/notify";
 import { moveGroupWorkToLead } from "@/lib/organizations/assignments";
+import { pauseActive } from "@/lib/organizations/community";
+import { accountOrgLimit } from "@/lib/organizations/members";
 
 // Account deletion and organizations (report §30.7): owners of an org can't delete their account; child projects
 // a person leads never go with the account. They pass to a project admin → unit lead → the org owner.
@@ -84,4 +86,33 @@ export async function handOverOwnedOrgs(executor: Executor, userId: string) {
     else unresolved++;
   }
   return unresolved;
+}
+
+/**
+ * B5.5d (report 34.6 call 6): when a chapter's owner leaves, its longest-serving co-organiser takes over; with none,
+ * the community's owner, else its longest-serving admin. Each must still be in the community, not paused there and
+ * under the ownership limit (review); otherwise the next one is tried. Returns the new owner, or null.
+ */
+export async function chapterTakeover(executor: Executor, chapterId: string, leaving: string) {
+  const [c] = await executor.execute<{ parent: string | null; pauses: Record<string, { until: string }> | null }>(sql`
+    SELECT p.id::text AS parent, p.org_settings->'community'->'pauses' AS pauses
+    FROM workspaces w JOIN workspaces p ON p.id::text = w.org_settings->>'chapterOf' AND p.deleted_at IS NULL
+    WHERE w.id = ${chapterId}::uuid AND w.owner_id = ${leaving}::uuid AND w.deleted_at IS NULL`);
+  if (!c?.parent) return null;
+  const candidates = await executor.execute<{ id: string }>(sql`
+    SELECT id FROM (
+      SELECT m.user_id AS id, 1 AS tier, m.joined_at FROM workspace_members m WHERE m.workspace_id = ${chapterId}::uuid AND m.role = 'admin'
+      UNION ALL SELECT owner_id, 2, NULL FROM workspaces WHERE id = ${c.parent}::uuid
+      UNION ALL SELECT m.user_id, 3, m.joined_at FROM workspace_members m WHERE m.workspace_id = ${c.parent}::uuid AND m.role = 'admin') x
+    WHERE id <> ${leaving}::uuid
+      AND EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${c.parent}::uuid AND pm.user_id = x.id AND pm.role IN ('member', 'admin', 'owner'))
+      AND EXISTS (SELECT 1 FROM profiles pr WHERE pr.id = x.id AND pr.deleted_at IS NULL)
+    ORDER BY tier, joined_at NULLS FIRST LIMIT 20`);
+  for (const { id } of candidates) {
+    if (pauseActive(c.pauses?.[id] ?? null, new Date())) continue;
+    if (await accountOrgLimit(executor, id, "own")) continue;
+    await makeOwner(executor, chapterId, leaving, id, { leadHandover: { from: leaving, at: new Date().toISOString() } });
+    return id;
+  }
+  return null;
 }

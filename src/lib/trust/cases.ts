@@ -34,9 +34,13 @@ async function isOrgLeader(executor: Executor, orgId: string, userId: string | n
   return Boolean(row?.ok);
 }
 
-async function routeTo(executor: Executor, target: ReportTarget, severity: Severity, reason: ReportReason): Promise<"org" | "staff"> {
-  if (!target.orgId || target.privateConversation || severity === "urgent" || STAFF_ONLY_REASONS.includes(reason) || !ORG_ROUTABLE.includes(target.kind)) return "staff";
-  return (await isOrgLeader(executor, target.orgId, target.subjectId)) ? "staff" : "org";
+async function routeTo(executor: Executor, target: ReportTarget, severity: Severity, reason: ReportReason): Promise<{ routedTo: "org" | "staff"; orgId: string | null }> {
+  if (!target.orgId || target.privateConversation || severity === "urgent" || STAFF_ONLY_REASONS.includes(reason) || !ORG_ROUTABLE.includes(target.kind)) return { routedTo: "staff", orgId: target.orgId };
+  if (!(await isOrgLeader(executor, target.orgId, target.subjectId))) return { routedTo: "org", orgId: target.orgId };
+  // B5.5d: about a chapter's organiser → filed on its community (its organisers judge it), unless they lead there too.
+  const [ch] = await executor.execute<{ parent: string | null }>(sql`
+    SELECT p.id AS parent FROM workspaces w JOIN workspaces p ON p.id::text = w.org_settings->>'chapterOf' AND p.deleted_at IS NULL WHERE w.id = ${target.orgId}`);
+  return ch?.parent && !(await isOrgLeader(executor, ch.parent, target.subjectId)) ? { routedTo: "org", orgId: ch.parent } : { routedTo: "staff", orgId: target.orgId };
 }
 
 /** Two reporters count as independent when neither account is under 7 days old and they aren't connected (T10). */
@@ -124,10 +128,10 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
       if (severity !== open.severity) await logModerationEvent(tx, { caseId, actorId: null, kind: "severity_raised", data: { from: open.severity, to: severity, reason: input.reason } });
     } else {
       severity = rule.severity;
-      const routedTo = await routeTo(tx, target, severity, input.reason);
+      const { routedTo, orgId: caseOrgId } = await routeTo(tx, target, severity, input.reason);
       const { deadlineAt, orgDeadlineAt } = deadlinesFor(severity, now, routedTo === "org");
       const [created] = await tx.insert(moderationCases).values({
-        targetKind: input.kind, targetId: input.targetId, targetSeq: target.seq, workspaceId: target.workspaceId, orgId: target.orgId,
+        targetKind: input.kind, targetId: input.targetId, targetSeq: target.seq, workspaceId: target.workspaceId, orgId: caseOrgId,
         subjectId: target.subjectId, severity, reason: input.reason, routedTo, deadlineAt, orgDeadlineAt,
         snapshot: { ...target.snapshot, label: target.label, href: target.href, privateConversation: target.privateConversation },
       }).returning({ id: moderationCases.id, number: moderationCases.number });

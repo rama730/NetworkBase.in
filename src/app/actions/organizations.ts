@@ -16,6 +16,7 @@ import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { transactionThen } from '@/lib/db/after-commit';
+import { chapterTakeover } from '@/lib/organizations/succession';
 import { orgHandleHolds, profiles, workspaceMembers, workspaces, workspaceSprints, roleApplications, applicationEvents } from '@/lib/db/schema';
 import { cleanMainWord, renamedSprint, sprintWords } from '@/lib/organizations/sprint-words';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
@@ -593,16 +594,25 @@ export async function readLeavePreviewAction(orgId: string): Promise<{ success: 
 export async function leaveOrgAction(orgId: string): Promise<{ success: true } | Failure> {
     const viewer = await orgViewer(orgId, 'read');
     if (!viewer || viewer.role === 'visitor') return DENIED;
-    if (orgGrant(viewer.role, 'leave') !== 'yes') return { success: false, error: 'Transfer ownership before you leave.' };
+    // B5.5d: a chapter's owner may leave; a co-organiser or the community's organisers take it over (chapterTakeover).
+    const owner = orgGrant(viewer.role, 'leave') !== 'yes';
+    const [chapter] = owner ? Array.from(await db.execute<{ parent: string | null }>(sql`SELECT org_settings->>'chapterOf' AS parent FROM workspaces WHERE id = ${orgId}::uuid`)) : [];
+    if (owner && !chapter?.parent) return { success: false, error: 'Transfer ownership before you leave.' };
     const led = await ledChildWorkspaces(db, orgId, viewer.userId);
     if (led.length > 0) return { success: false, error: `You own ${led.length} ${led.length === 1 ? 'workspace' : 'workspaces'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
+    let next: string | null = null;
     // Leaving the org removes you from its projects too (report §14.4, §20.7).
-    const seats = await transactionThen((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
+    const seats = await transactionThen(async (tx) => {
+        if (owner && !(next = await chapterTakeover(tx, orgId, viewer.userId))) return null;
+        return removeFromOrg(tx, orgId, viewer.userId, viewer.userId);
+    });
+    if (!seats) return { success: false, error: 'Nobody can take this chapter over yet. Make someone a co-organiser first.' };
     await notifySeatsReopened(orgId, seats);
     revalidateOrg(viewer.slug, orgId);
     const org = await orgLabel(orgId);
     const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'Someone';
     if (org) await notifyOrg({ orgId, eventKey: 'org.member_left', actorId: viewer.userId, title: `${name} left ${org.title}`, href: orgHref(org, '?tab=members'), sourceEventId: `left:${viewer.userId}:${Date.now()}` });
+    if (org && next) await notifyOrg({ orgId, eventKey: 'org.role_changed', to: [next], title: `You’re the owner of ${org.title} now`, href: orgHref(org, '?tab=members'), sourceEventId: `takeover:${orgId}:${Date.now()}` });
     return { success: true };
 }
 

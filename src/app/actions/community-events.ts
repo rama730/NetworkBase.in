@@ -38,11 +38,12 @@ async function community(orgId: string) {
 }
 
 type EventRow = { id: string; title: string; description: string | null; stage: string; fields: CommunityEventFields; place_limit: number | null; link: string | null;
-  going: number; waitlisted: number; mine: string | null; mine_private: boolean | null; position: number | null };
+  going: number; waitlisted: number; mine: string | null; mine_private: boolean | null; position: number | null; workspace_id: string };
 
-async function events(orgId: string, userId: string | null, where: ReturnType<typeof sql>) {
+async function events(orgId: string | ReturnType<typeof sql>, userId: string | null, where: ReturnType<typeof sql>) {
+  const scope = typeof orgId === "string" ? sql`t.workspace_id = ${orgId}::uuid` : orgId;
   return Array.from(await db.execute<EventRow>(sql`
-    SELECT t.id, t.title, t.description, t.stage, t.type_fields AS fields, e.place_limit, e.online_link AS link,
+    SELECT t.id, t.workspace_id, t.title, t.description, t.stage, t.type_fields AS fields, e.place_limit, e.online_link AS link,
       (SELECT count(*)::int FROM community_rsvps r WHERE r.task_id = t.id AND r.state = 'going') AS going,
       (SELECT count(*)::int FROM community_rsvps r WHERE r.task_id = t.id AND r.state = 'waitlisted') AS waitlisted,
       (SELECT r.state FROM community_rsvps r WHERE r.task_id = t.id AND r.user_id = ${userId}::uuid) AS mine,
@@ -50,7 +51,7 @@ async function events(orgId: string, userId: string | null, where: ReturnType<ty
       (SELECT count(*)::int + 1 FROM community_rsvps r, community_rsvps me WHERE me.task_id = t.id AND me.user_id = ${userId}::uuid AND me.state = 'waitlisted'
         AND r.task_id = t.id AND r.state = 'waitlisted' AND r.responded_at < me.responded_at) AS position
     FROM tasks t LEFT JOIN community_events e ON e.task_id = t.id
-    WHERE t.workspace_id = ${orgId}::uuid AND t.item_type = 'event' AND t.deleted_at IS NULL AND t.type_fields->>'kind' = 'community' AND ${where}
+    WHERE ${scope} AND t.item_type = 'event' AND t.deleted_at IS NULL AND t.type_fields->>'kind' = 'community' AND ${where}
     ORDER BY t.type_fields->>'start' LIMIT 200`));
 }
 
@@ -75,6 +76,29 @@ export async function readCommunityEventsAction(orgId: string, when: "upcoming" 
   const rows = await events(orgId, ctx.userId, ctx.member ? timing : sql`${timing} AND t.type_fields->>'who' = 'public' AND t.stage <> 'cancelled'`);
   const list = (when === "past" ? rows.reverse() : rows).map((r) => shape(r, ctx, now));
   return { success: true as const, member: ctx.member, canCreate: ctx.member && (ctx.organiser || ctx.host), events: list };
+}
+
+/** Sprints → Calendar: one month of this community's events plus every open chapter's public events (M3; filterable by chapter). */
+export async function readCommunityCalendarAction(orgId: string, month: string) {
+  const ctx = await community(orgId);
+  if (!ctx || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return DENIED;
+  const from = new Date(`${month}-01T00:00:00Z`);
+  const inMonth = sql`(t.type_fields->>'start')::timestamptz >= ${new Date(from.getTime() - 7 * 864e5).toISOString()}::timestamptz
+    AND (t.type_fields->>'start')::timestamptz < ${new Date(from.getTime() + 45 * 864e5).toISOString()}::timestamptz`;
+  const now = new Date();
+  const own = (await events(orgId, ctx.userId, ctx.member ? inMonth : sql`${inMonth} AND t.type_fields->>'who' = 'public' AND t.stage <> 'cancelled'`))
+    .map((r) => ({ ...shape(r, ctx, now), chapter: null as { id: string; title: string; slug: string | null } | null }));
+  // Chapter rows are public events only, shown as a visitor would see them: no link, no editing; they open on the chapter's page.
+  const chapters = Array.from(await db.execute<{ id: string; title: string; slug: string | null }>(sql`
+    SELECT w.id, w.title, w.slug FROM workspaces w WHERE w.kind = 'organization' AND w.org_settings->>'chapterOf' = ${orgId} AND w.deleted_at IS NULL AND w.status <> 'archived'
+      AND w.suspended_at IS NULL
+      -- Review: a private chapter (and its events) only for its own members.
+      AND (w.visibility = 'public' OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${ctx.userId}::uuid AND m.role <> 'viewer'))
+    ORDER BY w.title LIMIT 500`));
+  const byId = new Map(chapters.map((c) => [c.id, c]));
+  const theirs = chapters.length ? (await events(sql`t.workspace_id = ANY(${`{${chapters.map((c) => c.id).join(",")}}`}::uuid[])`, ctx.userId, sql`${inMonth} AND t.type_fields->>'who' = 'public' AND t.stage <> 'cancelled'`))
+    .map((r) => ({ ...shape(r, { userId: ctx.userId, organiser: false, member: false }, now), chapter: byId.get(r.workspace_id) ?? null })) : [];
+  return { success: true as const, chapters, events: [...own, ...theirs] };
 }
 
 /** The event page: details, RSVP, run of show and who's going (members only; private RSVPs counted, named only to hosts). */

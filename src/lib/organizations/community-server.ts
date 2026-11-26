@@ -154,3 +154,45 @@ export async function postDueRituals() {
   }
   return { posted };
 }
+
+/**
+ * B5.5d (report 34.6 call 5): a report in a chapter has three stops — the chapter's moderators, then the community's
+ * organisers, then NetworkBase at the existing org deadline. It moves up at the midpoint of the org's window (a case about
+ * a chapter organiser is filed on the community from the start: routeTo). Community organisers hear it (Normal).
+ * Runs with trust-deadlines (every 30 minutes); a chapter organiser's Pass moves it up straight away.
+ */
+export async function passChapterReportsUp() {
+  const rows = Array.from(await db.execute<{ id: string; number: number; parent: string; slug: string | null; chapter: string }>(sql`
+    SELECT c.id, c.number::int AS number, p.id AS parent, p.slug, w.title AS chapter
+    FROM moderation_cases c JOIN workspaces w ON w.id = c.org_id JOIN workspaces p ON p.id::text = w.org_settings->>'chapterOf' AND p.deleted_at IS NULL
+    WHERE c.routed_to = 'org' AND c.state IN ('open', 'in_review') AND c.merged_into IS NULL AND c.org_deadline_at > now()
+      AND NOT EXISTS (SELECT 1 FROM moderation_events e WHERE e.case_id = c.id AND e.kind = 'passed_to_community')
+      AND now() >= c.created_at + (c.org_deadline_at - c.created_at) / 2
+    LIMIT 500`));
+  for (const r of rows) await passCaseToCommunity(r.id, null, r);
+  return { passed: rows.length };
+}
+
+export async function passCaseToCommunity(caseId: string, actorId: string | null, r: { number: number; parent: string; slug: string | null; chapter: string }) {
+  const { createNotification } = await import("@/lib/notifications/service");
+  const { logModerationEvent } = await import("@/lib/trust/cases");
+  // About one of the community's own organisers: they can't judge it (T6), so NetworkBase takes it now.
+  const [lead] = Array.from(await db.execute<{ subject: string | null; leads: boolean }>(sql`
+    SELECT c.subject_id AS subject, (c.subject_id = (SELECT owner_id FROM workspaces WHERE id = ${r.parent}::uuid)
+      OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${r.parent}::uuid AND m.user_id = c.subject_id AND m.role IN ('owner', 'admin'))) AS leads
+    FROM moderation_cases c WHERE c.id = ${caseId}::uuid`));
+  if (lead?.leads) {
+    await db.execute(sql`UPDATE moderation_cases SET routed_to = 'staff', updated_at = now() WHERE id = ${caseId}::uuid`);
+    await logModerationEvent(db, { caseId, actorId, kind: "handed_to_staff", data: { why: "community_organiser" } });
+    return;
+  }
+  await logModerationEvent(db, { caseId, actorId, kind: "passed_to_community", data: { orgId: r.parent } });
+  const organisers = Array.from(await db.execute<{ id: string }>(sql`
+    SELECT owner_id AS id FROM workspaces WHERE id = ${r.parent}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${r.parent}::uuid AND role = 'admin'`));
+  for (const o of organisers) {
+    if (o.id === actorId) continue;
+    await createNotification({ recipientUserId: o.id, actorUserId: actorId, kind: "project_task_activity", category: "tasks", importance: "more",
+      title: `Report #${r.number} from ${r.chapter} is with you now`, href: `/org/${encodeURIComponent(r.slug ?? r.parent)}?tab=members&view=moderation`,
+      entityRefs: { projectId: r.parent, projectSlug: r.slug }, dedupeKey: `community-up:${caseId}` }).catch(() => undefined);
+  }
+}

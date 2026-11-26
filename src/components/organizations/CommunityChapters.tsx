@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Hash, MapPin, UsersRound } from "lucide-react";
 
-import { decideChapterProposalAction, proposeChapterAction, readChaptersAction, saveChapterSettingsAction } from "@/app/actions/community-chapters";
+import { decideChapterProposalAction, proposeChapterAction, readChapterKitAction, readChaptersAction, saveChapterKitAction, saveChapterSettingsAction } from "@/app/actions/community-chapters";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -57,7 +57,7 @@ export function CommunityChapters({ orgId }: { orgId: string }) {
               {c.kind === "topic" ? <Hash className="size-4" aria-hidden="true" /> : <MapPin className="size-4" aria-hidden="true" />}
               <span className="min-w-[160px] flex-1"><a href={`/org/${encodeURIComponent(c.slug ?? c.id)}`} className="nb-link font-medium">{c.title}</a>
                 <span className="block text-muted-foreground">{CHAPTER_KINDS[c.kind]}{c.place ? ` · ${c.place}` : ""} · <span className="font-mono">{c.members}</span> {c.members === 1 ? "member" : "members"}
-                  {"organisers" in c ? <> · <span className="font-mono">{c.organisers}</span> {c.organisers === 1 ? "organiser" : "organisers"}</> : null}
+                  {"organisers" in c ? <> · <span className="font-mono">{c.organisers}</span> {c.organisers === 1 ? "organiser" : "organisers"} · <span className="font-mono">{c.events90d}</span> {c.events90d === 1 ? "event" : "events"} in 90 days{c.openReports ? <> · <span className="font-mono">{c.openReports}</span> open {c.openReports === 1 ? "report" : "reports"}</> : null}</> : null}
                   {c.nextEvent ? ` · next event ${when(c.nextEvent)}` : ""}</span></span>
               {c.closed ? <StatusBadge state="neutral">Closed</StatusBadge> : null}
               {"needsCoOrganiser" in c && c.needsCoOrganiser ? <StatusBadge state="at_risk">Needs a co-organiser</StatusBadge> : null}
@@ -151,7 +151,40 @@ function ChapterSettings({ orgId, initial, onSaved }: { orgId: string; initial: 
       <label className="flex flex-wrap items-center gap-2">Dormant after<Input type="number" min={30} max={730} value={f.dormantDays} onChange={(x) => setF({ ...f, dormantDays: Number(x.target.value) })} className="w-[90px] font-mono" />days with no events or posts (organisers only; nothing closes on its own)</label>
       <label className="block">New chapters start with this About text<textarea className="nb-textarea mt-1 w-full" rows={3} maxLength={2000} value={f.kitAbout} onChange={(x) => setF({ ...f, kitAbout: x.target.value })} /></label>
       <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save chapter settings</button>
+      <ChapterKit orgId={orgId} />
     </fieldset>
+  );
+}
+
+/** Chapter kit (B5.5d, call 4): pick documents; saving freezes them with Getting started and rituals for new chapters. */
+function ChapterKit({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["chapter-kit", orgId], queryFn: () => readChapterKitAction(orgId), staleTime: 30_000 });
+  const [chosen, setPicked] = useState<string[] | null>(null);
+  if (q.isPending) return <p role="status" className="nb-waiting text-muted-foreground"><PixelBeat />Loading the kit…</p>;
+  if (!q.data?.success) return <ErrorNotice what="Chapter kit" onRetry={() => void q.refetch()} />;
+  const d = q.data;
+  // Starts from what's in the kit now, so saving again keeps its documents (review).
+  const picked = chosen ?? (d.kit?.docIds ?? []).filter((id) => d.docs.some((x) => x.id === id));
+  const used = d.docs.filter((x) => picked.includes(x.id)).reduce((n, x) => n + x.size, 0);
+  const save = async () => {
+    const r = await saveChapterKitAction(orgId, { docIds: picked });
+    if (!r.success) return void toast.error(r.error);
+    toast.success("Chapter kit saved. New chapters start from it.");
+    void q.refetch();
+  };
+  return (
+    <div className="space-y-2 border-t border-border pt-2" data-testid="chapter-kit">
+      <p className="font-medium">Chapter kit</p>
+      <p className="text-muted-foreground">{d.kit
+        ? `Saved ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(d.kit.savedAt))}: ${d.kit.docs.length ? d.kit.docs.join(", ") : "no documents"} · ${d.kit.gettingStarted} Getting started ${d.kit.gettingStarted === 1 ? "item" : "items"} · ${d.kit.rituals} ${d.kit.rituals === 1 ? "ritual" : "rituals"} (paused until the chapter resumes them).`
+        : "No kit saved yet. New chapters start with the About text only."} The Code of conduct is always the community’s, never copied.</p>
+      {d.docs.length ? <ul className="space-y-1">{d.docs.map((x) => (
+        <li key={x.id}><label className="flex items-center gap-2"><input type="checkbox" className="nb-check" checked={picked.includes(x.id)} disabled={!picked.includes(x.id) && picked.length >= 5}
+          onChange={(e) => setPicked(e.target.checked ? [...picked, x.id] : picked.filter((y) => y !== x.id))} />{x.filename}<span className="font-mono text-muted-foreground">{x.size.toLocaleString()} characters</span></label></li>))}</ul>
+        : <p className="text-muted-foreground">Publish documents in Documents to put them in the kit.</p>}
+      <p className={used > d.budget ? "text-destructive" : "text-muted-foreground"}><span className="font-mono">{used.toLocaleString()}</span> of <span className="font-mono">{d.budget.toLocaleString()}</span> characters, up to 5 documents</p>
+      <button type="button" className={FORM_SECONDARY_CLASS} disabled={used > d.budget} onClick={() => void save()}>Save the kit from this community</button>
+    </div>
   );
 }
 

@@ -49,6 +49,8 @@ export async function alertUrgentCase(caseId: string, reminder: boolean) {
  */
 export async function runTrustDeadlines() {
   await deliverDecisionNotices();
+  // B5.5d: a chapter's report reaches its community's organisers before NetworkBase.
+  await (await import("@/lib/organizations/community-server")).passChapterReportsUp();
   const handed = await db.execute<{ id: string }>(sql`
     UPDATE moderation_cases SET routed_to = 'staff', updated_at = now()
     WHERE routed_to = 'org' AND state IN ('open', 'in_review') AND org_deadline_at < now() RETURNING id`);

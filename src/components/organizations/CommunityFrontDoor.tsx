@@ -57,7 +57,7 @@ export function CommunityFrontDoor({ orgId, base }: { orgId: string; base: strin
           <ul className="space-y-1.5 text-[13px]">
             {d.gettingStarted.items.map((i) => ({ ...i, done: i.done || ticked.includes(i.id) })).map((i) => (
               <li key={i.id} className="flex items-center gap-2">
-                <input type="checkbox" className="nb-check" checked={i.done} disabled={i.done} aria-label={`Done: ${i.label}`} onChange={() => void tick(i.id)} />
+                <input type="checkbox" className="nb-check" checked={i.done} disabled={i.done || i.auto} aria-label={`Done: ${i.label}`} onChange={() => void tick(i.id)} />
                 <Link href={i.href.startsWith("?") ? `${base}${i.href}` : i.href} className={i.done ? "text-muted-foreground line-through" : "hover:underline"}>{i.label}</Link>
               </li>
             ))}

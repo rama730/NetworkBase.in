@@ -27,7 +27,7 @@ const joinedLabel = (iso: string | null) => (iso ? `Joined ${new Intl.DateTimeFo
 const fullDate = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(new Date(iso));
 
 export function CommunityMembers({ orgId, roster }: { orgId: string; roster: ReactNode | null }) {
-  const [view, setView] = useState<View>("directory");
+  const [view, setView] = useState<View>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "moderation" ? "moderation" : "directory"));
   const q = useQuery({ queryKey: dirKey(orgId), queryFn: () => readCommunityDirectoryAction(orgId), staleTime: 30_000 });
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading the directory…</p>;
   if (!q.data?.success) return roster ?? <ErrorNotice what="Directory" onRetry={() => void q.refetch()} />;
@@ -233,14 +233,14 @@ function Moderation({ orgId }: { orgId: string }) {
     <div className="space-y-3 text-[13px]" data-testid="community-moderation">
       {d.organiser ? <p className="text-muted-foreground">Removing and blocking are in Settings, under Moderation.</p> : null}
       {!d.rules.length ? <p className="text-muted-foreground">Publish a Code of conduct with numbered rules to moderate with a rule.</p> : null}
-      {d.cases.length ? <ul className="space-y-3" aria-label="Reports">{d.cases.map((c) => <ReportRow key={c.id} orgId={orgId} c={c} rules={d.rules} pauseHours={d.pauseHours} onDone={() => void q.refetch()} />)}</ul>
+      {d.cases.length ? <ul className="space-y-3" aria-label="Reports">{d.cases.map((c) => <ReportRow key={c.id} orgId={orgId} c={c} rules={d.rules} pauseHours={d.pauseHours} pass={d.pass} onDone={() => void q.refetch()} />)}</ul>
         : <p className="py-4 text-muted-foreground">No open reports.</p>}
     </div>
   );
 }
 
-type Case = { id: string; number: number; label: string | null; href: string | null; reports: number; content: string | null; details: string | null };
-function ReportRow({ orgId, c, rules, pauseHours, onDone }: { orgId: string; c: Case; rules: Array<{ n: number; text: string }>; pauseHours: number[]; onDone: () => void }) {
+type Case = { id: string; number: number; label: string | null; href: string | null; reports: number; content: string | null; details: string | null; chapter: string | null };
+function ReportRow({ orgId, c, rules, pauseHours, pass, onDone }: { orgId: string; c: Case; rules: Array<{ n: number; text: string }>; pauseHours: number[]; pass: "organisers" | "community" | null; onDone: () => void }) {
   const [rule, setRule] = useState(rules[0]?.n ?? 0);
   const [hours, setHours] = useState(pauseHours[0] ?? 24);
   const [busy, setBusy] = useState(false);
@@ -249,12 +249,12 @@ function ReportRow({ orgId, c, rules, pauseHours, onDone }: { orgId: string; c: 
     const r = await moderateCommunityReportAction(orgId, c.id, choice === "pause" ? { choice, rule, hours } : { choice, rule });
     setBusy(false);
     if (!r.success) return void toast.error(r.error);
-    toast.success(choice === "hide" ? "Hidden" : choice === "pause" ? "Posting paused" : "Passed to organisers");
+    toast.success(choice === "hide" ? "Hidden" : choice === "pause" ? "Posting paused" : pass === "community" ? "Passed to the community’s organisers" : "Passed to organisers");
     onDone();
   };
   return (
     <li className="space-y-2 rounded-md border border-border p-3" data-testid="community-report">
-      <p><span className="font-mono">#{c.number}</span> · {c.label ?? "Reported content"} · <span className="font-mono">{c.reports}</span> {c.reports === 1 ? "report" : "reports"}</p>
+      <p><span className="font-mono">#{c.number}</span> · {c.label ?? "Reported content"} · <span className="font-mono">{c.reports}</span> {c.reports === 1 ? "report" : "reports"}{c.chapter ? ` · from ${c.chapter}` : ""}</p>
       {c.content ? <p className="rounded-sm bg-muted px-2 py-1.5">{c.content}</p> : null}
       {c.details ? <p className="text-muted-foreground">Reporters said: {c.details}</p> : null}
       <span className="flex flex-wrap items-center gap-2">
@@ -266,7 +266,7 @@ function ReportRow({ orgId, c, rules, pauseHours, onDone }: { orgId: string; c: 
           {pauseHours.map((h) => <option key={h} value={h}>{h === 24 ? "24 hours" : "7 days"}</option>)}
         </select>
         <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy || !rules.length} onClick={() => void act("pause")}>Pause posting</button>
-        <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy || !rules.length} onClick={() => void act("pass")}>Pass to organisers</button>
+        {pass ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy || !rules.length} onClick={() => void act("pass")}>{pass === "community" ? "Pass to the community" : "Pass to organisers"}</button> : null}
       </span>
     </li>
   );

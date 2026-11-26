@@ -65,6 +65,8 @@ export type OrgDetail = {
   termEnd: string | null;
   timeZone: string | null;
   welcomeNote: string | null;
+  /** B5.5d: the community a chapter belongs to (its owner may leave; someone takes it over). */
+  chapterOf: string | null;
   childProjectCount: number;
   memberCount: number;
   suspended: boolean;
@@ -204,6 +206,7 @@ export async function readOrgDetail(
     termEnd: org.termEnd,
     timeZone: org.timeZone,
     welcomeNote: viewer.isInOrg ? org.welcomeNote : null,
+    chapterOf: typeof (settings as { chapterOf?: unknown }).chapterOf === "string" ? (settings as { chapterOf: string }).chapterOf : null,
     childProjectCount: children?.n ?? 0,
     memberCount: members?.n ?? 0,
     suspended: Boolean(org.suspendedAt),

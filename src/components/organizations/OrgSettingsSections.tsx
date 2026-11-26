@@ -170,7 +170,7 @@ export function OrgMembershipSection({ orgId, organization, role }: SectionProps
  * Management (report §22.4, decision 28): Leave is everyone's; the owner's transfer, archive, duplicate and delete
  * come in as children.
  */
-export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/discover', children }: SectionProps & { title: string; afterLeaveHref?: string; children?: ReactNode }) {
+export function OrgManagementSection({ orgId, organization, role, title, afterLeaveHref = '/discover', children }: SectionProps & { title: string; afterLeaveHref?: string; children?: ReactNode }) {
     const router = useRouter()
     const refreshSidebar = useRefreshSidebar()
     const [open, setOpen] = useState(false)
@@ -196,10 +196,11 @@ export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/di
         <Section id="org-management">
             {children}
             <SettingsCard title="Leave organization" headingLevel={2} description="Stop being a member. To come back you’ll need the current code or a new invite." danger>
-                {role === 'owner' ? (
+                {role === 'owner' && !organization.chapterOf ? (
                     <p className="text-[13px] text-muted-foreground">Transfer ownership first, under Organization management above.</p>
                 ) : (
                     <div className="space-y-2">
+                        {role === 'owner' ? <p className="text-[13px] text-muted-foreground">Your longest-serving co-organiser takes the chapter over; with none, the community’s organisers do.</p> : null}
                         <Button variant="destructive" disabled={pending} onClick={ask}>Leave {title}</Button>
                         {error ? <p role="alert" className={fieldError}>{error}</p> : null}
                     </div>

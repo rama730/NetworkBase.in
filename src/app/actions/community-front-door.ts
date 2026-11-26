@@ -70,8 +70,14 @@ export async function readMyCommunityAction(orgId: string) {
   const agreedVersion = m.prefs.agreed?.version ?? null;
   // Organisers (owner, admins) set the rules, so they aren't asked to agree to them (B5.1 live check).
   const must = coc && !ctx.organiser ? needsAgreement(ctx.settings.agreeRequired, coc.version, agreedVersion) : false;
-  const items = ctx.settings.gettingStarted;
-  const done = (m.prefs.started ?? []).filter((id) => items.some((i) => i.id === id));
+  // B5.5d (report 34.6, M1): a community with open chapters adds "Pick your chapter"; it ticks itself once you're in one.
+  const [ch] = Array.from(await db.execute<{ any: boolean; mine: boolean }>(sql`
+    SELECT EXISTS (SELECT 1 FROM workspaces c WHERE c.kind = 'organization' AND c.org_settings->>'chapterOf' = ${orgId} AND c.deleted_at IS NULL AND c.status <> 'archived') AS any,
+      EXISTS (SELECT 1 FROM workspaces c JOIN workspace_members cm ON cm.workspace_id = c.id AND cm.user_id = ${ctx.userId}::uuid AND cm.role <> 'viewer'
+        WHERE c.kind = 'organization' AND c.org_settings->>'chapterOf' = ${orgId} AND c.deleted_at IS NULL) AS mine`));
+  const pick = ch?.any ? [{ id: "chapter", label: "Pick your chapter", href: "?tab=projects&view=chapters", auto: true }] : [];
+  const items = [...ctx.settings.gettingStarted.map((i) => ({ ...i, auto: false })), ...pick];
+  const done = [...(m.prefs.started ?? []).filter((id) => ctx.settings.gettingStarted.some((i) => i.id === id)), ...(pick.length && ch?.mine ? ["chapter"] : [])];
   return { success: true as const,
     agree: must && coc ? { version: coc.version, rules: coc.rules, slug: coc.slug, again: agreedVersion !== null } : null,
     gettingStarted: showGettingStarted(m.joined, new Date(), items.length, done.length) ? { items: items.map((i) => ({ ...i, done: done.includes(i.id) })) } : null,

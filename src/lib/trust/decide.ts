@@ -40,6 +40,15 @@ export type Decision = {
 };
 /** Decide together (S12): secondary cases send no notice of their own, so the person hears once. */
 export type DecideOptions = { quiet?: boolean };
+/** B5.5d: a chapter's case passed up belongs to the community's organisers, and no longer to the chapter's. */
+async function orgMayDecide(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], caseId: string, caseOrg: string | null, orgId: string) {
+  if (!caseOrg) return false;
+  const [r] = await tx.execute<{ passed: boolean; parent: boolean }>(sql`
+    SELECT EXISTS (SELECT 1 FROM moderation_events e WHERE e.case_id = ${caseId}::uuid AND e.kind = 'passed_to_community') AS passed,
+      EXISTS (SELECT 1 FROM workspaces w WHERE w.id = ${caseOrg}::uuid AND w.org_settings->>'chapterOf' = ${orgId}::text) AS parent`);
+  return caseOrg === orgId ? !r?.passed : Boolean(r?.passed && r.parent);
+}
+
 export type Actor = { id: string; scope: "staff"; role: StaffRole } | { id: string; scope: "org"; orgId: string };
 type Result = { ok: true } | { ok: false; error: string; code?: "stale" };
 
@@ -232,7 +241,7 @@ export async function decideCase(caseId: string, actor: Actor, decision: Decisio
       await logModerationEvent(tx, { caseId: c.id, actorId: actor.id, kind: "stale_refused", data: { version: c.version } });
       return { ok: false, code: "stale", error: "This case changed while you were reviewing it. Review the latest, then try again." };
     }
-    if (actor.scope === "org" && (c.routed_to !== "org" || c.org_id !== actor.orgId)) return { ok: false, error: "This case is with NetworkBase now." };
+    if (actor.scope === "org" && (c.routed_to !== "org" || !(await orgMayDecide(tx, c.id, c.org_id, actor.orgId)))) return { ok: false, error: "This case is with NetworkBase now." };
     const now = new Date();
 
     if (decision.outcome === "no_violation") {

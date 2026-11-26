@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, MapPin, Users, Video } from "lucide-react";
 
-import { cancelCommunityEventAction, checkInCommunityAction, decideTalkAction, proposeTalkAction, readEventTalksAction, saveEventLinksAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
+import { cancelCommunityEventAction, checkInCommunityAction, decideTalkAction, proposeTalkAction, readEventTalksAction, saveEventLinksAction, readCommunityCalendarAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { CommunityRituals } from "@/components/organizations/CommunityRituals";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -230,15 +230,19 @@ export function NextEventCard({ orgId, base }: { orgId: string; base: string }) 
 
 /** Calendar (34.4 layer 4): the month grid with every event, upcoming and past; a click opens the event. */
 function EventCalendar({ orgId, onOpen }: { orgId: string; onOpen: (id: string) => void }) {
-  const up = useQuery({ queryKey: listKey(orgId, "upcoming"), queryFn: () => readCommunityEventsAction(orgId, "upcoming"), staleTime: 30_000 });
-  const past = useQuery({ queryKey: listKey(orgId, "past"), queryFn: () => readCommunityEventsAction(orgId, "past"), staleTime: 30_000 });
   const pad2 = (n: number) => String(n).padStart(2, "0");
   const localDay = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
   const today = localDay(new Date().toISOString());
   const [month, setMonth] = useState(today.slice(0, 7));
-  if (up.isPending || past.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading the calendar…</p>;
-  const all = [...(up.data?.success ? up.data.events : []), ...(past.data?.success ? past.data.events : [])];
-  const items = all.map((e) => ({ id: e.id, dueDate: `${localDay(e.start)}T00:00:00.000Z`, label: e.title, time: new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(e.start)), cancelled: e.state === "cancelled" }));
+  const [only, setOnly] = useState("all");
+  const q = useQuery({ queryKey: ["community-events", orgId, "calendar", month], queryFn: () => readCommunityCalendarAction(orgId, month), staleTime: 30_000 });
+  if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading the calendar…</p>;
+  const d = q.data?.success ? q.data : { chapters: [], events: [] };
+  const shown = d.events.filter((e) => only === "all" || (only === "here" ? !e.chapter : e.chapter?.id === only));
+  const chapterOf = new Map(shown.filter((e) => e.chapter).map((e) => [e.id, e.chapter!]));
+  const items = shown.map((e) => ({ id: e.id, dueDate: `${localDay(e.start)}T00:00:00.000Z`, label: e.chapter ? `${e.title} · ${e.chapter.title}` : e.title, time: new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(e.start)), cancelled: e.state === "cancelled" }));
+  // A chapter's event opens on the chapter's own page (its RSVP and details live there).
+  const open = (id: string) => { const c = chapterOf.get(id); if (c) window.location.assign(`/org/${encodeURIComponent(c.slug ?? c.id)}?tab=sprints`); else onOpen(id); };
   const weeks = calendarCells(month, items, today, 3);
   const title = new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
   return (
@@ -247,6 +251,9 @@ function EventCalendar({ orgId, onOpen }: { orgId: string; onOpen: (id: string) 
         <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setMonth(shiftMonth(month, -1))}>Previous month</button>
         <h3 className="nb-card-title" aria-live="polite">{title}</h3>
         <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setMonth(shiftMonth(month, 1))}>Next month</button>
+        {d.chapters.length ? <select aria-label="Show events from" value={only} onChange={(x) => setOnly(x.target.value)} className="nb-select ml-auto h-8 text-[12px]">
+          <option value="all">All chapters</option><option value="here">This community</option>
+          {d.chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select> : null}
       </div>
       <table className="w-full table-fixed border-collapse text-[12px]">
         <caption className="sr-only">{title}: events by day</caption>
@@ -259,7 +266,7 @@ function EventCalendar({ orgId, onOpen }: { orgId: string; onOpen: (id: string) 
                   <span className={cn("font-mono", d.isToday && "font-semibold text-primary")}>{d.day}</span>
                   <ul className="mt-1 space-y-0.5">
                     {d.items.map((it) => (
-                      <li key={it.id}><button type="button" className={cn("w-full truncate text-left hover:underline", it.cancelled && "line-through text-muted-foreground")} onClick={() => onOpen(it.id)}>
+                      <li key={it.id}><button type="button" className={cn("w-full truncate text-left hover:underline", it.cancelled && "line-through text-muted-foreground")} onClick={() => open(it.id)}>
                         <span className="font-mono text-muted-foreground">{it.time}</span> {it.label}{it.cancelled ? <span className="sr-only"> (cancelled)</span> : null}</button></li>
                     ))}
                     {d.more ? <li className="text-muted-foreground">{d.more} more</li> : null}
