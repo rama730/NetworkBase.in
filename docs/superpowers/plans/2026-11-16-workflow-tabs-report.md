@@ -13440,6 +13440,13 @@ LAB · Equipment                                                       Book · R
 3. **Run this protocol** lists the lab's Approved versions to the lab's own members (not its Viewers, not outsiders in one workspace) and fills Steps done from that version. The entry keeps the protocol's title and version even if the page is later removed. Running untrained only warns ("Not trained on this protocol").
 4. **Experiments** have a hypothesis, status (Planned · Running · Done · Stopped), a conclusion and an entry count. Entries pick their experiment. "Used in" waits for papers (B6.3).
 
+**Build calls (B6.2c, 2026-11-27):**
+1. **Equipment is a card on the lab Overview** (0164; numbered after another session's 0163). It holds name, place, caretaker (a lab member), status (Available · Out of order · Maintenance, with since when), the protocol it needs training on, whether it's booked in slots, and notes. The PI and Researchers add and edit it.
+2. **Booking** uses the lab's rules from Settings → Lab: bookable hours, slot length (30 minutes to 4 hours) and a weekly cap per person, all in the lab's time zone. A booking must be exactly one of the day's slots, up to 60 days ahead, with no overlap (checked under a lock per equipment) and within the cap (Monday to Sunday). Equipment that needs training can only be booked by people Trained on its protocol (server-checked). Others' bookings show as "Booked"; your own carry Add to calendar (.ics) and Cancel. Caretakers and the PI and Researchers can cancel any booking.
+3. **Report a problem** (any member): the equipment goes Out of order and booking pauses. The caretaker (or the PI when there's none) gets a "Fix …" task; people with upcoming bookings are told (Important). The caretaker or the PI and Researchers mark it Fixed (Available, which closes the reports) or start Maintenance.
+4. Deferred: repeating maintenance tasks, booking reminders an hour before, and a lab-wide Trainings matrix.
+5. B6.2b live fix: the Notebook follows the Protocols card's rule, so the PI and Researchers can run an Approved protocol whose page is still an unpublished draft. The protocol panel says to publish the page so members can run it.
+
 ### 35.6 R5 · Lab meetings and progress reviews (agreed 2026-11-17)
 **References** (18 searches for lab meetings, 1:1s, progress reports, reviews and development plans: 145 templates, 48 rated; 4 more screens studied):
 
