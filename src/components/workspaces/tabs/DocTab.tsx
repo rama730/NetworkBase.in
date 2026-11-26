@@ -29,7 +29,7 @@ export default function DocTab({
         return <OrgDocInPlace project={project} docSlug={normalizeWorkspaceDocSlug(paramDoc)} />;
     }
     // Report 35.4 (B6.4a): a research lab's Library lives in Documents (members only; it checks the lab itself).
-    if (searchParams?.get("library") && project.kind === "organization") return <LabLibrary orgId={projectId} />;
+    if (searchParams?.get("library") && project.organization) return <LabLibrary orgId={projectId} />;
     return <OwnDocs projectId={projectId} project={project} paramDoc={paramDoc ?? null} />;
 }
 
