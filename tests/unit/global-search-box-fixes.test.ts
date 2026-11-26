@@ -39,7 +39,8 @@ test('opening the box keeps the result to mark; only new words reset it', () => 
 test('the Who can find me control reads the saved value', () => {
   const control = read('src/components/layout/header/search-box/SettingControl.tsx');
   assert.match(control, /usePrivacySettings\(\)/);
-  assert.match(control, /aria-pressed=\{current === value\}/);
+  assert.match(control, /tagProps\(current === value\)/);
+  assert.match(control, /"aria-pressed": pressed/);
 });
 
 // Important 6: Tab finishes a word only when a different word is on screen.

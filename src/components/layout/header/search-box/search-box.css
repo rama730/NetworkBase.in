@@ -24,7 +24,7 @@
 .nb-sx-link { font: 500 11.5px var(--font-sans); letter-spacing: 0; text-transform: none; color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
 .nb-sx-row { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 8px 0 0; border-radius: 5px; width: 100%; }
 .nb-sx-row:hover, .nb-sx-row[data-active] { background: var(--nb-sx-sel); }
-.nb-sx-row-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; padding: 6px 8px; text-align: left; border-radius: 5px; }
+.nb-sx-row-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; padding: 6px 8px; text-align: left; border-radius: 5px; cursor: pointer; }
 .nb-sx-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .nb-sx-t1 { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nb-sx-t2 { font: 11.5px/1.35 var(--font-mono); color: var(--nb-sx-fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -32,6 +32,9 @@
 .nb-sx-kind { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border-radius: 3px; background: var(--muted); font: 500 9.5px/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nb-sx-fg2); white-space: nowrap; }
 .nb-sx-ret { opacity: 0; font: 500 11px var(--font-mono); color: var(--nb-sx-fg2); }
 .nb-sx-row[data-active] .nb-sx-ret { opacity: 1; }
+.nb-sx-best .nb-sx-row-main { flex: 1; }
+.nb-sx-more, .nb-sx-more .nb-sx-row-main { min-height: 32px; }
+.nb-sx-more .nb-sx-row-main { padding-left: 46px; }
 .nb-sx-icon { display: inline-grid; place-items: center; flex: none; border-radius: 4px; background: var(--muted); color: var(--nb-sx-fg2); font: 600 12px var(--font-mono); }
 .nb-sx-best { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 2px; margin: 2px 2px 6px; border: 1px solid var(--nb-sx-line); border-radius: 6px; }
 .nb-sx-best[data-active], .nb-sx-best:hover { background: var(--nb-sx-sel); }
@@ -42,12 +45,16 @@
 .nb-sx-seg { display: inline-flex; border: 1px solid var(--nb-sx-line); border-radius: 5px; overflow: hidden; }
 .nb-sx-seg button { height: 26px; padding: 0 8px; font-size: 12px; }
 .nb-sx-seg button + button { border-left: 1px solid var(--nb-sx-line); }
-.nb-sx-seg button[aria-pressed="true"] { background: var(--foreground); color: var(--background); }
+.nb-sx-seg > * { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; font-size: 12px; cursor: pointer; }
+.nb-sx-seg > * + * { border-left: 1px solid var(--nb-sx-line); }
+.nb-sx-seg [aria-pressed="true"], .nb-sx-seg [data-pressed="true"] { background: var(--foreground); color: var(--background); }
 .nb-sx-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 8px 8px; }
 .nb-sx-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--nb-sx-line); border-radius: 5px; background: var(--card); font-size: 12.5px; }
 .nb-sx-chip:hover { background: var(--muted); }
 .nb-sx-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: 3px; background: var(--muted); font: 500 11px var(--font-mono); }
-.nb-sx-new { flex: none; font: 600 10px var(--font-mono); letter-spacing: .08em; color: var(--nb-brand); }
+/* Text in --foreground (the brand orange at 10 px fails contrast); the orange square says "new". */
+.nb-sx-new { flex: none; display: inline-flex; align-items: center; gap: 5px; font: 600 10px var(--font-mono); letter-spacing: .08em; color: var(--foreground); }
+.nb-sx-new::before { content: ""; width: 6px; height: 6px; background: var(--nb-brand); }
 .nb-sx-hint { padding: 0 8px 6px; font-size: 12px; color: var(--nb-sx-fg2); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .nb-sx-note { padding: 6px 8px; font-size: 13px; }
 .nb-sx-banner { display: flex; align-items: center; gap: 10px; padding: 8px; margin: 2px; border: 1px solid var(--nb-sx-line); border-radius: 5px; font-size: 13px; }
@@ -71,7 +78,10 @@
 .nb-sx-facts dd { margin: 0; text-align: right; }
 .nb-sx-preview-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
 /* Phone (Phone board): a full-screen sheet, 52 px rows, Cancel. */
+/* Unlayered rules outrank Tailwind's hidden/sm:hidden, so what shows per width is decided here. */
+@media (min-width: 640px) { .nb-sx-cancel { display: none; } }
 @media (max-width: 639px) {
+  .nb-sx-esc, .nb-sx-keys { display: none; }
   .nb-sx-row, .nb-sx-row-main { min-height: 52px; }
   .nb-sx-input { height: calc(52px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); }
   .nb-sx-foot { height: calc(40px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }

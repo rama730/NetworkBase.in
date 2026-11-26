@@ -4,7 +4,7 @@ import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { History, Search, ShieldCheck, X } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "@/lib/feedback";
@@ -132,7 +132,16 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         : null, [ctx, goto, place?.name, q, result]);
     const emailHit = result?.email?.kind === "person" ? result.email.hit : null;
     const invite = result?.email?.kind === "invite" ? result.email.address : null;
-    const flat = useMemo(() => [...(emailHit ? [emailHit] : []), ...(box?.flat ?? [])], [box, emailHit]);
+    // "See all" is an option at the end of its group, so ↑↓ reach it and the listbox holds only options (axe).
+    const seeAllRows = useMemo(() => new Map((box?.groups ?? []).filter((group) => group.hasMore).map((group) => [group.kind, {
+        id: `seeall:${group.kind}`, kind: "goto", title: `See all ${group.count} ${group.label.toLowerCase()}`, sub: "", href: "/search",
+        why: null, score: 4, createdAt: null, avatarUrl: null, tags: [], act: null, meta: { seeAll: group.kind },
+    } satisfies SearchHit])), [box]);
+    const flat = useMemo(() => [
+        ...(emailHit ? [emailHit] : []),
+        ...(box?.best ? [box.best] : []),
+        ...(box?.groups ?? []).flatMap((group) => [...group.rows, ...(seeAllRows.has(group.kind) ? [seeAllRows.get(group.kind)!] : [])]),
+    ], [box, emailHit, seeAllRows]);
     const total = (box?.total ?? 0) + (emailHit ? 1 : 0);
     const active = flat[activeIndex] ?? null;
     const nothing = Boolean(q) && !search.isFetching && !search.error && !search.isFirstLoad && total === 0 && !invite && (result || actionsOnly);
@@ -161,6 +170,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
     };
 
     const openHit = (hit: SearchHit) => {
+        if (hit.meta.seeAll) { seeAll(hit.meta.seeAll as BoxGroupKind); return; }
         const go = () => {
             if (q) record(q);
             if (hit.kind !== "goto") setRecents(rememberRecentGlobalSearchPreview(recentSearchOwnerId, RECENT_SCOPE, { ...hit, id: hit.id, title: hit.title }));
@@ -204,15 +214,26 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         }
     };
 
-    const rowAction = (hit: SearchHit) => {
-        if (hit.kind === "people" && hit.act === "Connect") {
+    /** The row's main action: Connect or Message (⇧↵ on the row you're on). */
+    const mainAction = (hit: SearchHit): (() => void) | null => {
+        if (hit.kind === "people" && hit.act === "Connect") return () => void connect(hit);
+        if (hit.kind === "people" && hit.act === "Message") return () => confirmAppNavigation(() => { router.push(`/messages?userId=${encodeURIComponent(String(hit.meta.userId))}`); onClose(); });
+        return null;
+    };
+    /**
+     * In a row the action is part of the option (a listbox holds options only, axe); the preview pane has real buttons,
+     * and ⇧↵ runs it from the keyboard.
+     */
+    const rowAction = (hit: SearchHit, inline = false) => {
+        const run = mainAction(hit);
+        if (run) {
             const busy = sendRequest.isPending && sendRequest.variables?.userId === hit.meta.userId;
-            return <button type="button" className="nb-sx-btn" disabled={busy} onClick={(event) => { event.stopPropagation(); void connect(hit); }}>{busy ? "Sending…" : "Connect"}</button>;
+            const label = hit.act === "Connect" ? (busy ? "Sending…" : "Connect") : "Message";
+            return inline
+                ? <span className="nb-sx-btn" aria-hidden="true" onClick={(event) => { event.stopPropagation(); if (!busy) run(); }}>{label}</span>
+                : <button type="button" className="nb-sx-btn" disabled={busy} onClick={(event) => { event.stopPropagation(); run(); }}>{label} <kbd className="nb-sx-kbd">⇧↵</kbd></button>;
         }
-        if (hit.kind === "people" && hit.act === "Message") {
-            return <button type="button" className="nb-sx-btn" onClick={(event) => { event.stopPropagation(); confirmAppNavigation(() => { router.push(`/messages?userId=${encodeURIComponent(String(hit.meta.userId))}`); onClose(); }); }}>Message</button>;
-        }
-        if (hit.meta.control === "theme" || hit.meta.control === "findMe") return <SettingControl control={hit.meta.control} />;
+        if (hit.meta.control === "theme" || hit.meta.control === "findMe") return <SettingControl control={hit.meta.control} inline={inline} />;
         return null;
     };
 
@@ -236,7 +257,8 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
             // An input method is still choosing the word: Enter belongs to it.
             if (event.nativeEvent.isComposing) return;
             event.preventDefault();
-            if (event.metaKey || event.ctrlKey) seeAll();
+            if (event.shiftKey && active) mainAction(active)?.();
+            else if (event.metaKey || event.ctrlKey) seeAll();
             else if (active) openHit(active);
             else if (staffCommand) { onClose(); router.push(staffCommand.href); }
             else seeAll();
@@ -293,21 +315,21 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                             style={{ outline: "none", boxShadow: "none" }}
                             aria-label="Search NetworkBase"
                             role="combobox"
-                            aria-expanded={isOpen}
+                            aria-expanded={Boolean(q)}
                             aria-autocomplete="list"
                             aria-busy={search.isFetching}
-                            aria-controls="nb-sx-results"
+                            aria-controls={q ? "nb-sx-results" : undefined}
                             aria-activedescendant={active ? domId(active) : undefined}
                         />
                         {q ? <button type="button" onClick={() => setText("")} className="nb-sx-ib" aria-label="Clear search"><X className="size-4" aria-hidden /></button> : null}
-                        <button type="button" onClick={onClose} className="nb-sx-cancel sm:hidden">Cancel</button>
-                        <kbd className="nb-sx-kbd max-sm:hidden" aria-hidden>esc</kbd>
+                        <button type="button" onClick={onClose} className="nb-sx-cancel">Cancel</button>
+                        <kbd className="nb-sx-kbd nb-sx-esc" aria-hidden>esc</kbd>
                     </div>
 
                     <div className="sr-only" aria-live="polite">{q ? (search.isFetching && !result ? "Searching" : `${total} results`) : ""}</div>
 
                     <div className="nb-sx-split">
-                        <div id="nb-sx-results" role="listbox" aria-label="Search results" className="nb-sx-body">
+                        <div className="nb-sx-body">
                             {staffCommand ? (
                                 <button type="button" className="nb-sx-row nb-sx-row-main" onClick={() => { onClose(); router.push(staffCommand.href); }}>
                                     <span className="nb-sx-icon" aria-hidden><ShieldCheck className="size-4" /></span>
@@ -382,37 +404,50 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                             {[60, 72, 48].map((width) => <div key={width} className="nb-sx-row nb-sx-skel-row"><Skeleton kind="tile" className="size-7 shrink-0 rounded-[4px]" /><span className="nb-sx-tx gap-1.5"><Skeleton className="h-2.5 rounded-[2px]" style={{ width: `${width}%` }} /><Skeleton className="h-2.5 rounded-[2px]" style={{ width: `${width - 24}%` }} /></span></div>)}
                                         </div>
                                     ) : null}
-                                    <div className={search.isPlaceholder ? "nb-sx-dim" : undefined}>
-                                        {invite ? (
+                                    {invite ? (
                                             <div className="nb-sx-row">
                                                 <span className="nb-sx-icon" aria-hidden>@</span>
                                                 <span className="nb-sx-tx"><span className="nb-sx-t1">Invite {invite}</span><span className="nb-sx-t2">Copy a sign-up link to send them</span></span>
                                                 <button type="button" className="nb-sx-btn" onClick={() => { void copyText(`${window.location.origin}/signup?ref=invite`).then(() => toast.success("Invite link copied"), () => toast.error("Couldn’t copy the link")); }}>Copy invite link</button>
                                             </div>
                                         ) : null}
-                                        {emailHit ? <BoxRow hit={emailHit} q={q} active={active?.id === emailHit.id} domId={domId(emailHit)} onHover={() => setActiveIndex(0)} onOpen={() => openHit(emailHit)} action={rowAction(emailHit)} /> : null}
+                                    {/* The listbox holds only groups of options (axe: required children, no nested controls). */}
+                                    <div id="nb-sx-results" role="listbox" aria-label="Search results" className={search.isPlaceholder ? "nb-sx-dim" : undefined}>
+                                        {emailHit ? (
+                                            <div role="group" aria-label="Email address">
+                                                <BoxRow hit={emailHit} q={q} active={active?.id === emailHit.id} domId={domId(emailHit)} onHover={() => setActiveIndex(0)} onOpen={() => openHit(emailHit)} action={rowAction(emailHit, true)} />
+                                            </div>
+                                        ) : null}
                                         {box?.best ? (
-                                            <div id={domId(box.best)} role="option" aria-selected={active?.id === box.best.id} data-active={active?.id === box.best.id || undefined} className="nb-sx-best" onMouseMove={() => setActiveIndex(flat.indexOf(box.best!))}>
-                                                <button type="button" tabIndex={-1} className="nb-sx-row-main" onClick={() => openHit(box.best!)}>
+                                            <div role="group" aria-label="Best match" className="nb-sx-best" data-active={active?.id === box.best.id || undefined} onMouseMove={() => setActiveIndex(flat.indexOf(box.best!))}>
+                                                <div id={domId(box.best)} role="option" aria-selected={active?.id === box.best.id} className="nb-sx-row-main" onClick={() => openHit(box.best!)}>
                                                     <HitAvatar hit={box.best} size={40} />
                                                     <span className="nb-sx-tx">
                                                         <span className="nb-sx-best-t"><Marked text={box.best.title} q={q} /> <span className="nb-sx-kind">{KIND_LABEL[box.best.kind]}</span></span>
                                                         <span className="nb-sx-t2">{box.best.sub}</span>
                                                         {box.best.meta.relation ? <span className="nb-sx-t2">{String(box.best.meta.relation)}</span> : null}
                                                     </span>
-                                                </button>
-                                                <span className="nb-sx-end">{rowAction(box.best)}<span className="nb-sx-kind">Best match</span></span>
+                                                    <span className="nb-sx-end">{rowAction(box.best, true)}<span className="nb-sx-kind">Best match</span></span>
+                                                </div>
                                             </div>
                                         ) : null}
                                         {box?.groups.map((group) => (
-                                            <section key={group.kind} aria-label={group.label}>
-                                                <div className="nb-sx-glabel"><b>{group.label}</b><span className="nb-sx-count">{group.count}</span><span className="nb-sx-rule" />{group.hasMore ? <button type="button" className="nb-sx-link" onClick={() => seeAll(group.kind)}>See all</button> : null}</div>
+                                            <div key={group.kind} role="group" aria-labelledby={`nb-sx-g-${group.kind}`}>
+                                                <div className="nb-sx-glabel" role="none"><b id={`nb-sx-g-${group.kind}`}>{group.label}</b><span className="nb-sx-count" aria-hidden="true">{group.count}</span><span className="nb-sx-rule" /></div>
                                                 {group.rows.map((hit) => (
-                                                    <Fragment key={hit.id}>
-                                                        <BoxRow hit={hit} q={q} active={active?.id === hit.id} domId={domId(hit)} onHover={() => setActiveIndex(flat.indexOf(hit))} onOpen={() => openHit(hit)} action={rowAction(hit)} />
-                                                    </Fragment>
+                                                    <BoxRow key={hit.id} hit={hit} q={q} active={active?.id === hit.id} domId={domId(hit)} onHover={() => setActiveIndex(flat.indexOf(hit))} onOpen={() => openHit(hit)} action={rowAction(hit, true)} />
                                                 ))}
-                                            </section>
+                                                {seeAllRows.has(group.kind) ? (() => {
+                                                    const more = seeAllRows.get(group.kind)!;
+                                                    return (
+                                                        <div role="none" className="nb-sx-row nb-sx-more" data-active={active?.id === more.id || undefined} onMouseMove={() => setActiveIndex(flat.indexOf(more))}>
+                                                            <div id={domId(more)} role="option" aria-selected={active?.id === more.id} className="nb-sx-row-main" onClick={() => openHit(more)}>
+                                                                <span className="nb-sx-link">{more.title}</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })() : null}
+                                            </div>
                                         ))}
                                     </div>
                                     {nothing ? (
@@ -438,7 +473,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                             </button>
                         ) : <span>Type to search everything</span>}
                         {search.slow ? <span className="nb-sx-slow"><PixelBeat />STILL SEARCHING</span> : null}
-                        <span className="nb-sx-keys max-sm:hidden"><kbd className="nb-sx-kbd">↑↓</kbd> move <kbd className="nb-sx-kbd">↵</kbd> open <kbd className="nb-sx-kbd">tab</kbd> finish</span>
+                        <span className="nb-sx-keys"><kbd className="nb-sx-kbd">↑↓</kbd> move <kbd className="nb-sx-kbd">↵</kbd> open <kbd className="nb-sx-kbd">tab</kbd> finish</span>
                     </div>
                 </form>
                 <div ref={panelRef} hidden />

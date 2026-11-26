@@ -51,20 +51,21 @@ type RowProps = {
 
 export function BoxRow({ hit, q, active, domId, onHover, onOpen, action }: RowProps) {
     const second = hit.why ?? (hit.kind === "people" && hit.meta.relation ? `${hit.sub} · ${hit.meta.relation}` : hit.sub);
+    // A listbox holds options only (axe): the row's action is an inline label here; the preview pane has the real buttons.
     return (
-        <div id={domId} role="option" aria-selected={active} data-active={active || undefined} className="nb-sx-row" onMouseMove={onHover}>
-            <button type="button" tabIndex={-1} className="nb-sx-row-main" onClick={onOpen}>
+        <div role="none" data-active={active || undefined} className="nb-sx-row" onMouseMove={onHover}>
+            <div id={domId} role="option" aria-selected={active} className="nb-sx-row-main" onClick={onOpen}>
                 <HitAvatar hit={hit} />
                 <span className="nb-sx-tx">
                     <span className="nb-sx-t1"><Marked text={hit.title} q={q} /></span>
                     <span className="nb-sx-t2">{hit.kind === "posts" || hit.kind === "messages" ? <Marked text={second} q={q} /> : second}</span>
                 </span>
-            </button>
-            <span className="nb-sx-end">
-                {action}
-                <span className="nb-sx-kind">{KIND_LABEL[hit.kind]}</span>
-                <kbd className="nb-sx-ret" aria-hidden="true">↵</kbd>
-            </span>
+                <span className="nb-sx-end">
+                    {action}
+                    <span className="nb-sx-kind">{KIND_LABEL[hit.kind]}</span>
+                    <kbd className="nb-sx-ret" aria-hidden="true">↵</kbd>
+                </span>
+            </div>
         </div>
     );
 }
