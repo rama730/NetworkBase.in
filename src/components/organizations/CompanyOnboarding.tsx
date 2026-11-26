@@ -77,7 +77,7 @@ export function OnboardingBoard({ orgId }: { orgId: string }) {
   const refresh = () => void client.invalidateQueries({ queryKey: ["onboarding-board", orgId] });
   const run = async (r: Promise<{ success: boolean; error?: string }>, ok: string) => { const x = await r; if (!x.success) return void toast.error(x.error ?? "Couldn’t save."); toast.success(ok); refresh(); };
   const names = new Map(d.staff.map((s) => [s.id, s.name]));
-  if (!d.people.length) return <p className="py-6 text-[13px] text-muted-foreground">Nobody is onboarding. People who join after the onboarding plan is switched on in Settings show here.</p>;
+  if (!d.people.length) return <p className="py-6 text-[13px] text-muted-foreground">{d.lab ? "Nobody is starting yet. People who join the lab show here with their Start here steps." : "Nobody is onboarding. People who join after the onboarding plan is switched on in Settings show here."}</p>;
   return (
     <ul className="grid gap-3 text-[13px] sm:grid-cols-2" data-testid="onboarding-board">
       {d.people.map((p) => (
