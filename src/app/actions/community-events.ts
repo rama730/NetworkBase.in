@@ -297,13 +297,17 @@ export async function proposeTalkAction(orgId: string, eventId: string, input: u
   if (!ctx.member || !ctx.userId) return { success: false, error: "Join the community to propose a talk." };
   if (ctx.paused) return { success: false, error: "You can propose a talk when your pause ends." };
   if (!parsed.success) return { success: false, error: "Give the talk a title and a length in minutes." };
-  const [r] = Array.from(await db.execute<{ id: string }>(sql`
+  // One proposal at a time per person and event, so the cap of 3 holds (security review).
+  const [r] = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`community-talk:${eventId}:${ctx.userId}`}))`);
+    return Array.from(await tx.execute<{ id: string }>(sql`
     INSERT INTO community_talks (task_id, workspace_id, user_id, title, line, minutes)
     SELECT t.id, t.workspace_id, ${ctx.userId}::uuid, ${parsed.data.title}, ${parsed.data.line}, ${parsed.data.minutes}
     FROM tasks t WHERE t.id = ${eventId}::uuid AND t.workspace_id = ${orgId}::uuid AND t.item_type = 'event' AND t.type_fields->>'kind' = 'community'
       AND t.deleted_at IS NULL AND t.stage <> 'cancelled' AND (t.type_fields->>'start')::timestamptz > now()
       AND (SELECT count(*) FROM community_talks c WHERE c.task_id = t.id AND c.user_id = ${ctx.userId}::uuid) < 3
     RETURNING id`));
+  });
   return r ? { success: true } : { success: false, error: "This event isn’t taking talks." };
 }
 
@@ -319,6 +323,7 @@ export async function readEventTalksAction(orgId: string, eventId: string) {
     SELECT c.id, c.title, c.line, c.minutes, c.state, c.slot, c.user_id, p.full_name AS name, p.username
     FROM community_talks c JOIN profiles p ON p.id = c.user_id
     WHERE c.task_id = ${eventId}::uuid AND (c.state = 'accepted' OR c.user_id = ${ctx.userId}::uuid OR ${host})
+      AND (${host} OR c.user_id = ${ctx.userId}::uuid OR NOT app_private.blocked_between(${ctx.userId}::uuid, c.user_id))
     ORDER BY c.slot NULLS LAST, c.created_at`));
   return { success: true as const, host, talks: talks.map((t) => ({ id: t.id, title: t.title, line: t.line, minutes: t.minutes, state: t.state as "proposed" | "accepted" | "declined",
     slot: t.slot, speaker: t.name ?? t.username ?? "Someone", mine: t.user_id === ctx.userId })) };
