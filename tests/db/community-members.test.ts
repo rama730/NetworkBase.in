@@ -79,6 +79,11 @@ test("34.3 calls 1–4: every member reads the Directory; hidden members stay ou
   dir = await members.readCommunityDirectoryAction(s.id);
   assert.ok(dir.success && !dir.people.some((p) => p.id === s.a), "hidden from the directory");
 
+  // Someone in a block with the viewer (either way) isn't in their directory; organisers' People keeps everyone.
+  await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${s.c}, ${s.b})`;
+  viewerId = s.b;
+  dir = await members.readCommunityDirectoryAction(s.id);
+  assert.ok(dir.success && !dir.people.some((p) => p.id === s.c), "blocked: left out");
   for (const who of [s.viewer, s.outsider]) { viewerId = who; assert.equal((await members.readCommunityDirectoryAction(s.id)).success, false, "viewers and visitors don't read it"); }
   viewerId = s.b;
   assert.equal((await members.readCommunityPeopleAction(s.id)).success, false, "members never see People or status");
@@ -120,8 +125,12 @@ test("34.3 calls 5–7: organisers give roles; moderators Hide, Pause and Pass w
   assert.match(String(await gate.communityPostBlock(s.id, s.b)), /paused until/);
   const [log] = await sql`SELECT org_settings->'community'->'log' AS log FROM workspaces WHERE id = ${s.id}`;
   assert.ok((log!.log as Array<{ action: string; rule?: number }>).some((e) => e.action === "paused" && e.rule === 2), "logged with its rule");
+  // Leaving and rejoining doesn't end it (security review).
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${s.id} AND user_id = ${s.b}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (${s.id}, ${s.b}, 'member', now())`;
+  assert.match(String(await gate.communityPostBlock(s.id, s.b)), /paused until/);
   // The pause ends on its own.
-  await sql`UPDATE workspace_members SET view_prefs = jsonb_set(view_prefs, '{community,pause,until}', to_jsonb((now() - interval '1 minute')::text)) WHERE workspace_id = ${s.id} AND user_id = ${s.b}`;
+  await sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, ${`{community,pauses,${s.b},until}`}::text[], to_jsonb((now() - interval '1 minute')::text)) WHERE id = ${s.id}`;
   assert.doesNotMatch(String(await gate.communityPostBlock(s.id, s.b)), /paused/);
 
   // A report the moderator made never reaches them; Pass hands one to organisers only.

@@ -12,7 +12,7 @@ import { needsAgreement, pauseActive, readCommunitySettings, type CommunityLabel
 export async function communityPostBlock(orgId: string, userId: string): Promise<string | null> {
   const [r] = Array.from(await db.execute<{ type: string | null; settings: unknown; organiser: boolean; paused: string | null; agreed: number | null; current: number | null }>(sql`
     SELECT w.org_type AS type, w.org_settings AS settings,
-      (SELECT m.view_prefs->'community'->'pause'->>'until' FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid) AS paused,
+      w.org_settings->'community'->'pauses'->${userId}::text->>'until' AS paused,
       (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role IN ('owner', 'admin'))) AS organiser,
       (SELECT (m.view_prefs->'community'->'agreed'->>'version')::int FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid) AS agreed,
       (SELECT coalesce((d.settings->'org'->>'readVersion')::int, 0) FROM workspace_documents d WHERE d.workspace_id = w.id AND lower(d.filename) LIKE '%code of conduct%'

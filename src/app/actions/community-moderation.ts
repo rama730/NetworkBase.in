@@ -115,9 +115,14 @@ export async function moderateCommunityReportAction(orgId: string, caseId: strin
   if (!r.ok) return { success: false, error: r.error };
   // ponytail: an appeal that reverses the warning doesn't lift the pause; it ends on its own (24 h or 7 days).
   const pause = { until: until.toISOString(), rule, by: me.userId, at: new Date().toISOString() };
+  // Security review: pauses are kept on the community, keyed by person, so leaving and rejoining doesn't end one early.
+  // Only a member (not an organiser) is paused; ended pauses are dropped on the next write.
   const [paused] = Array.from(await db.execute<{ id: string }>(sql`
-    UPDATE workspace_members SET view_prefs = coalesce(view_prefs, '{}'::jsonb) || jsonb_build_object('community', coalesce(view_prefs->'community', '{}'::jsonb) || jsonb_build_object('pause', ${JSON.stringify(pause)}::jsonb))
-    WHERE workspace_id = ${orgId}::uuid AND user_id = ${c.subject_id}::uuid AND role = 'member' RETURNING user_id AS id`));
+    UPDATE workspaces w SET org_settings = coalesce(w.org_settings, '{}'::jsonb) || jsonb_build_object('community', coalesce(w.org_settings->'community', '{}'::jsonb)
+      || jsonb_build_object('pauses', coalesce((SELECT jsonb_object_agg(k, v) FROM jsonb_each(coalesce(w.org_settings->'community'->'pauses', '{}'::jsonb)) e(k, v) WHERE (v->>'until')::timestamptz > now()), '{}'::jsonb)
+        || jsonb_build_object(${c.subject_id}::text, ${JSON.stringify(pause)}::jsonb)))
+    WHERE w.id = ${orgId}::uuid AND EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${c.subject_id}::uuid AND m.role = 'member')
+    RETURNING ${c.subject_id}::text AS id`));
   if (paused) {
     await logCommunityAction(orgId, { by: me.userId, action: "paused", person: c.subject_id, rule, until: pause.until, caseLabel });
     await createNotification({ recipientUserId: c.subject_id, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "important",

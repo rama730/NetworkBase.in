@@ -35,7 +35,8 @@ type Prefs = { hidden?: boolean; hideCounts?: boolean; labels?: CommunityLabel[]
 type Row = { id: string; name: string | null; username: string | null; avatar_url: string | null; role: string; owner: boolean; joined: string | null;
   location: string | null; interests: unknown; skills: unknown; prefs: Prefs | null; posts: number; last_active: string | null };
 
-async function rows(orgId: string) {
+/** `viewer`: the Directory leaves out anyone the viewer is in a block with (either way); organisers' People keeps everyone. */
+async function rows(orgId: string, viewer?: string) {
   return Array.from(await db.execute<Row>(sql`
     SELECT p.id, p.full_name AS name, p.username, p.avatar_url, m.role, (w.owner_id = m.user_id) AS owner, m.joined_at::text AS joined,
       p.location, p.interests, p.skills, m.view_prefs->'community' AS prefs,
@@ -45,6 +46,7 @@ async function rows(orgId: string) {
         (SELECT max(c.created_at) FROM workspace_update_comments c WHERE c.workspace_id = w.id AND c.user_id = m.user_id AND c.deleted_at IS NULL))::text AS last_active
     FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id JOIN profiles p ON p.id = m.user_id
     WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer'
+      AND (${viewer ?? null}::uuid IS NULL OR m.user_id = ${viewer ?? null}::uuid OR NOT app_private.blocked_between(${viewer ?? null}::uuid, m.user_id))
     ORDER BY coalesce(p.full_name, p.username) LIMIT 2000`));
 }
 
@@ -64,7 +66,7 @@ export async function readCommunityDirectoryAction(orgId: string) {
   const ctx = await community(orgId);
   if (!ctx) return DENIED;
   const now = new Date();
-  const all = await rows(orgId);
+  const all = await rows(orgId, ctx.userId);
   const card = (r: Row): CommunityCard => ({
     id: r.id, name: r.name ?? r.username ?? "Someone", username: r.username, avatarUrl: r.avatar_url, place: r.location?.trim() || null,
     interests: list(r.interests), askMeAbout: list(r.skills), hereFor: hereFor(r.prefs), joined: r.joined, isNew: isNewMember(r.joined, now),
