@@ -1550,6 +1550,42 @@ export const labEntryAmendments = pgTable("lab_entry_amendments", {
   body: text("body").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("lab_entry_amendments_entry_idx").on(t.entryId, t.createdAt), index("lab_entry_amendments_author_idx").on(t.authorId).where(sql`author_id IS NOT NULL`)]);
+/** B6.2c (0164): lab equipment, bookings (no overlaps; checked under a lock) and problem reports. */
+export const labEquipment = pgTable("lab_equipment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  place: text("place").default("").notNull(),
+  caretakerId: uuid("caretaker_id").references(() => profiles.id, { onDelete: "set null" }),
+  trainingDocId: uuid("training_doc_id").references(() => workspaceDocuments.id, { onDelete: "set null" }),
+  needsTraining: boolean("needs_training").default(false).notNull(),
+  status: text("status").$type<"available" | "out_of_order" | "maintenance">().default("available").notNull(),
+  statusSince: timestamp("status_since", { withTimezone: true }).defaultNow().notNull(),
+  bookable: boolean("bookable").default(true).notNull(),
+  notes: text("notes").default("").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_equipment_workspace_idx").on(t.projectId), index("lab_equipment_caretaker_idx").on(t.caretakerId).where(sql`caretaker_id IS NOT NULL`),
+  index("lab_equipment_training_doc_idx").on(t.trainingDocId).where(sql`training_doc_id IS NOT NULL`)]);
+export const labBookings = pgTable("lab_bookings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  equipmentId: uuid("equipment_id").notNull().references(() => labEquipment.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_bookings_equipment_idx").on(t.equipmentId, t.startsAt).where(sql`cancelled_at IS NULL`), index("lab_bookings_user_idx").on(t.userId, t.startsAt)]);
+export const labEquipmentReports = pgTable("lab_equipment_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  equipmentId: uuid("equipment_id").notNull().references(() => labEquipment.id, { onDelete: "cascade" }),
+  reporterId: uuid("reporter_id").references(() => profiles.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  fixedAt: timestamp("fixed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_equipment_reports_equipment_idx").on(t.equipmentId, t.createdAt.desc()), index("lab_equipment_reports_reporter_idx").on(t.reporterId).where(sql`reporter_id IS NOT NULL`),
+  index("lab_equipment_reports_task_idx").on(t.taskId).where(sql`task_id IS NOT NULL`)]);
 export const groupPollVotes = pgTable("group_poll_votes", {
   pollId: uuid("poll_id").notNull().references(() => groupPolls.id, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),

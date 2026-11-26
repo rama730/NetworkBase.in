@@ -68,6 +68,7 @@ export function ProtocolPanel({ orgId, docId }: { orgId: string; docId: string }
         {approved && d.approver ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(retireProtocolAction(orgId, docId, approved.version), `v${approved.version} retired`)}>Retire v{approved.version}</button> : null}
         {d.canEdit ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setEditing(!editing)}>{editing ? "Close training" : "Training"}</button> : null}
       </span>
+      {approved && d.pageDraft ? <p role="status" className="text-muted-foreground">This page is still a draft, so only the PI and Researchers can run it. Publish the page from its menu so members can run it too.</p> : null}
       {draft && d.approver && draft.content ? (
         <details data-testid="protocol-draft-text"><summary className="cursor-pointer">Read v{draft.version} as it will be approved</summary>
           <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-2 font-mono text-[12px]">{draft.content}</pre></details>

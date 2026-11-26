@@ -133,7 +133,7 @@ export async function saveLabSettingsAction(orgId: string, input: unknown): Prom
   const ctx = await lab(orgId);
   if (!ctx?.admin) return DENIED;
   const parsed = labSettingsSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: "Check the lab settings: up to 12 positions, each named." };
+  if (!parsed.success) return { success: false, error: parsed.error.issues.some((i) => i.path[0] === "booking") ? "Check equipment booking: hours that end after they start, and a weekly cap of at least one slot." : "Check the lab settings: up to 12 positions, each named." };
   const d = parsed.data;
   // Review: only the PI decides who approves protocols.
   if (d.protocolApprovers !== ctx.settings.protocolApprovers && ctx.userId !== ctx.owner) return { success: false, error: "Only the PI decides who approves protocols." };

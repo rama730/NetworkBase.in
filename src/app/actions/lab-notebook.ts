@@ -42,6 +42,10 @@ async function notebook(workspaceId: string) {
   return { userId, orgId: w.org, tz: validTimeZone(w.tz) ?? "UTC", writer, labMember, labLead, blocked: Boolean(a.writeBlocked), manager: a.isOwner || a.memberRole === "admin" };
 }
 
+/** Same rule as the lab's Protocols card: a draft or leaders-only page is the PI's and Researchers' (and a draft its owner's). */
+const pageVisible = (ctx: { labLead: boolean; userId: string }) => sql`(${ctx.labLead} OR ((coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft'
+  OR d.settings->'org'->>'owner' = ${ctx.userId}::text) AND coalesce(d.settings->>'visibilityOverride', '') <> 'leaders_only'))`;
+
 type EntryRow = { id: string; author: string | null; author_name: string | null; day: string; title: string; body: Record<string, unknown>; protocol: string | null; version: number | null;
   version_state: string | null; experiment_id: string | null; experiment: string | null; untrained: boolean; written_later: boolean; locks_at: string; amendments: unknown };
 
@@ -67,7 +71,7 @@ export async function readNotebookAction(workspaceId: string) {
       EXISTS (SELECT 1 FROM lab_trainings t WHERE t.doc_id = d.id AND t.user_id = ${ctx.userId}::uuid) AS trained
     FROM lab_protocol_versions v JOIN workspace_documents d ON d.id = v.doc_id LEFT JOIN lab_protocols lp ON lp.doc_id = d.id
     WHERE v.workspace_id = ${ctx.orgId}::uuid AND v.state = 'approved' AND d.settings->>'kind' = 'protocol'
-      AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft' AND coalesce(d.settings->>'visibilityOverride', '') <> 'leaders_only'
+      AND ${pageVisible(ctx)}
     ORDER BY d.filename LIMIT 200`)) : [];
   const now = new Date();
   return { success: true as const, me: ctx.userId, writer: ctx.writer, canAmend: !ctx.blocked && (ctx.writer || ctx.labLead), tz: ctx.tz,
@@ -85,7 +89,7 @@ export async function readProtocolStepsAction(workspaceId: string, docId: string
   const [v] = Array.from(await db.execute<{ content: string; version: number; title: string }>(sql`
     SELECT v.content, v.version, regexp_replace(d.filename, '\\.md$', '') AS title FROM lab_protocol_versions v JOIN workspace_documents d ON d.id = v.doc_id
     WHERE v.doc_id = ${docId}::uuid AND v.workspace_id = ${ctx.orgId}::uuid AND v.state = 'approved' AND d.settings->>'kind' = 'protocol'
-      AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft' AND coalesce(d.settings->>'visibilityOverride', '') <> 'leaders_only'`));
+      AND ${pageVisible(ctx)}`));
   if (!v) return { success: false as const, error: "Only an Approved protocol version can be run." };
   return { success: true as const, title: v.title, version: v.version, steps: processSteps(v.content) };
 }
@@ -120,7 +124,7 @@ export async function saveEntryAction(workspaceId: string, entryId: string | nul
       SELECT v.id, v.version, regexp_replace(d.filename, '\\.md$', '') AS title, lp.needs_training AS needs, EXISTS (SELECT 1 FROM lab_trainings t WHERE t.doc_id = v.doc_id AND t.user_id = ${ctx.userId}::uuid) AS trained
       FROM lab_protocol_versions v JOIN workspace_documents d ON d.id = v.doc_id LEFT JOIN lab_protocols lp ON lp.doc_id = v.doc_id
       WHERE v.doc_id = ${d.protocolDocId}::uuid AND v.workspace_id = ${ctx.orgId}::uuid AND v.state = 'approved' AND d.settings->>'kind' = 'protocol'
-        AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft' AND coalesce(d.settings->>'visibilityOverride', '') <> 'leaders_only'`));
+        AND ${pageVisible(ctx)}`));
     if (!v) return { success: false, error: "Only an Approved protocol version can be run." };
     versionId = v.id;
     snapshot = { title: v.title.slice(0, 200), version: v.version };

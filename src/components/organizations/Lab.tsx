@@ -186,6 +186,16 @@ function LabSettingsForm({ orgId, initial, owner, pi, leads, onSaved }: { orgId:
           <select className="nb-select mt-1 block" value={f.protocolApprovers} onChange={(e) => setF({ ...f, protocolApprovers: e.target.value as LabSettings["protocolApprovers"] })}>
             <option value="pi">The PI</option><option value="researchers">The PI and Researchers</option>
           </select></label> : <p>Protocols are approved by {f.protocolApprovers === "pi" ? "the PI" : "the PI and Researchers"} (the PI decides).</p>}
+        <fieldset className="space-y-1.5">
+          <legend className="font-medium">Equipment booking</legend>
+          <span className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5">From<Input type="time" value={f.booking.from} onChange={(e) => setF({ ...f, booking: { ...f.booking, from: e.target.value } })} className="w-auto font-mono" /></label>
+            <label className="flex items-center gap-1.5">to<Input type="time" value={f.booking.to} onChange={(e) => setF({ ...f, booking: { ...f.booking, to: e.target.value } })} className="w-auto font-mono" /></label>
+            <label className="flex items-center gap-1.5">Slots of<select className="nb-select" value={f.booking.slotMinutes} onChange={(e) => setF({ ...f, booking: { ...f.booking, slotMinutes: Number(e.target.value) as LabSettings["booking"]["slotMinutes"] } })}>
+              {[30, 60, 120, 240].map((m) => <option key={m} value={m}>{m >= 60 ? `${m / 60} ${m === 60 ? "hour" : "hours"}` : `${m} minutes`}</option>)}</select></label>
+            <label className="flex items-center gap-1.5">Up to<Input type="number" min={1} max={80} value={f.booking.weeklyCapHours} onChange={(e) => setF({ ...f, booking: { ...f.booking, weeklyCapHours: Number(e.target.value) } })} className="w-[80px] font-mono" />hours a week each</label>
+          </span>
+        </fieldset>
         <label className="block">Office hours (optional)<Input value={f.officeHours} maxLength={120} onChange={(e) => setF({ ...f, officeHours: e.target.value })} placeholder="Thursdays 15:00 to 16:00, room 204" className="mt-1" /></label>
         <fieldset className="space-y-1">
           <legend className="font-medium">Plans</legend>

@@ -86,7 +86,7 @@ export async function readProtocolAction(orgId: string, docId: string) {
       AND (m.user_id = ${ctx.userId}::uuid OR NOT app_private.blocked_between(${ctx.userId}::uuid, m.user_id))
     ORDER BY coalesce(p.full_name, p.username) LIMIT 500`)) : [];
   const [mine] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM lab_trainings WHERE doc_id = ${docId}::uuid AND user_id = ${ctx.userId}::uuid) AS ok`));
-  return { success: true as const, approver: ctx.approver, canTrain, canEdit: !ctx.blocked && (ctx.admin || d.owner === ctx.userId), me: ctx.userId,
+  return { success: true as const, approver: ctx.approver, canTrain, pageDraft: d.lifecycle === "draft", canEdit: !ctx.blocked && (ctx.admin || d.owner === ctx.userId), me: ctx.userId,
     needsTraining: lp?.needs === true, trainers, trained: Boolean(mine?.ok), versions,
     people: people.map((p) => ({ id: p.id, name: p.name ?? p.username ?? "Someone", trained: p.trained, signedAt: p.signed, trainer: p.trainer })) };
 }

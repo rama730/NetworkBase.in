@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { bookingRulesSchema, DEFAULT_BOOKING } from "@/lib/organizations/lab-equipment";
+
 // Report 35.2 (plan B6.1, R1): a research lab — positions apart from permission roles, Reach the PI, office hours and
 // the lab's public page. Pure and client-safe.
 
@@ -24,17 +26,23 @@ export const labSettingsSchema = z.object({
   joinUs: z.string().trim().max(400),
   /** B6.2a: who approves protocols — the PI, or Researchers too. */
   protocolApprovers: z.enum(["pi", "researchers"]),
+  /** B6.2c: equipment booking — bookable hours, slot length and a weekly cap per person (call 7). */
+  booking: bookingRulesSchema,
 }).strict();
 export type LabSettings = z.infer<typeof labSettingsSchema>;
 
 export const DEFAULT_LAB: LabSettings = {
   positions: DEFAULT_POSITIONS, officeHours: "", contactId: null, plans: { leaving: true },
-  about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "", protocolApprovers: "pi",
+  about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "", protocolApprovers: "pi", booking: DEFAULT_BOOKING,
 };
 
 export function readLabSettings(orgSettings: unknown): LabSettings {
-  const parsed = labSettingsSchema.safeParse({ ...DEFAULT_LAB, ...((orgSettings as { lab?: object } | null)?.lab ?? {}) });
-  return parsed.success ? parsed.data : DEFAULT_LAB;
+  const stored = ((orgSettings as { lab?: Record<string, unknown> } | null)?.lab ?? {}) as Record<string, unknown>;
+  const parsed = labSettingsSchema.safeParse({ ...DEFAULT_LAB, ...stored });
+  if (parsed.success) return parsed.data;
+  // Review: one bad field falls back alone; the rest of the lab's settings stand.
+  const shape = (labSettingsSchema as unknown as { shape: Record<string, z.ZodTypeAny> }).shape;
+  return Object.fromEntries(Object.entries(DEFAULT_LAB).map(([k, d]) => [k, shape[k]!.safeParse(stored[k]).success ? stored[k] : d])) as LabSettings;
 }
 
 /** A person's position (call 2): a label on the membership with a start year, never a permission. */

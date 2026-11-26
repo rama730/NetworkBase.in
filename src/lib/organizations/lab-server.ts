@@ -59,6 +59,9 @@ async function finishOne(orgId: string, userId: string, today: string) {
     await tx.execute(sql`
       INSERT INTO lab_alumni (workspace_id, user_id, position_label, start_year, end_year) VALUES (${orgId}::uuid, ${userId}::uuid, ${label}, ${pos.startYear}, ${Number(leaving.end.slice(0, 4))})
       ON CONFLICT (workspace_id, user_id) DO UPDATE SET position_label = excluded.position_label, start_year = coalesce(lab_alumni.start_year, excluded.start_year), end_year = excluded.end_year, updated_at = now()`);
+    // B6.2c review: their future equipment bookings free up.
+    await tx.execute(sql`UPDATE lab_bookings b SET cancelled_at = now() FROM lab_equipment e
+      WHERE e.id = b.equipment_id AND e.workspace_id = ${orgId}::uuid AND b.user_id = ${userId}::uuid AND b.cancelled_at IS NULL AND b.starts_at > now()`);
     // Steps still open (the supervisor's handover check, say) go with the plan.
     const stepIds = leaving.steps.map((s) => s.taskId).filter((x): x is string => Boolean(x));
     if (stepIds.length) await tx.execute(sql`UPDATE tasks SET deleted_at = now() WHERE workspace_id = ${orgId}::uuid AND status <> 'done' AND id = ANY(${`{${stepIds.join(",")}}`}::uuid[])`);

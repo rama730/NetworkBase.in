@@ -17,9 +17,9 @@ async function open(page: Page, admin: boolean, view = 'people') {
       setLabPositionAction: async (_o: string, id: string, v: unknown) => { calls.push(['position', id, v]); return { success: true }; },
       readLabHomeAction: async () => ({ success: true, admin, welcome: 'We study how machines see.', officeHours: 'Thursdays 15:00, room 204', contact: { id: 'u1', name: 'Dr. Rao' }, people: 9, projects: 14 }),
       readLabSettingsAction: async () => ({ success: true, owner: 'u1', pi: true, leads: [{ id: 'u1', name: 'Dr. Rao' }],
-        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '', protocolApprovers: 'pi' } }),
+        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '', protocolApprovers: 'pi', booking: { from: '08:00', to: '20:00', slotMinutes: 60, weeklyCapHours: 8 } } }),
       readProtocolsAction: async () => ({ success: true, slug: 'vision-lab', protocols: [{ id: 'p1', title: 'Capture rig setup', slug: 'rig', owner: 'Arjun', reviewBy: null, approved: 1, draft: 2, needsTraining: true, trained: false }] }),
-      readProtocolAction: async () => ({ success: true, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
+      readProtocolAction: async () => ({ success: true, pageDraft: false, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
         versions: [{ id: 'v2', version: 2, state: 'draft', by: null, at: null, created: '2026-11-20', content: admin ? '## Steps\n1. Power on' : '' }, { id: 'v1', version: 1, state: 'approved', by: 'Dr. Rao', at: '2026-10-02T10:00:00Z', created: '2026-10-01', content: '' }],
         people: [{ id: 'u1', name: 'Dr. Rao', trained: true, signedAt: null, trainer: null }, { id: 'u3', name: 'Mei', trained: false, signedAt: null, trainer: null }] }),
       askApproveProtocolAction: async () => { calls.push(['ask']); return { success: true, version: 2 }; },
@@ -37,6 +37,15 @@ async function open(page: Page, admin: boolean, view = 'people') {
       saveEntryAction: async (_w: string, id: string | null, v: unknown) => { calls.push(['entry', id, v]); return { success: true, id: 'e2', untrained: true }; },
       amendEntryAction: async (_w: string, id: string, b: string) => { calls.push(['amend', id, b]); return { success: true }; },
       saveExperimentAction: async () => ({ success: true, id: 'x2' }),
+      readEquipmentAction: async () => ({ success: true, me: 'u1', admin: false, tz: 'Asia/Calcutta', rules: { from: '08:00', to: '20:00', slotMinutes: 120, weeklyCapHours: 8 }, lab: 'Vision lab', people: [], protocols: [],
+        equipment: [{ id: 'q1', name: 'Capture rig A', place: 'Lab 2', caretakerId: 'u2', caretaker: 'Arjun', trainingDocId: 'p1', training: 'Capture rig setup', status: 'available', since: '2026-11-01T00:00:00Z', bookable: true, notes: '', trained: true, canSetStatus: false,
+          bookings: [{ id: 'b1', mine: true, name: 'Dr. Rao', start: new Date(Date.now() + 2 * 864e5).toISOString(), end: new Date(Date.now() + 2 * 864e5 + 72e5).toISOString() }] },
+          { id: 'q2', name: 'GPU server', place: 'Online', caretakerId: 'u3', caretaker: 'Ravi', trainingDocId: null, training: null, status: 'out_of_order', since: '2026-11-24T00:00:00Z', bookable: true, notes: '', trained: true, canSetStatus: false, bookings: [] }] }),
+      bookEquipmentAction: async (_o: string, id: string, start: string) => { calls.push(['book', id, start]); return { success: true, id: 'b2', start, end: start }; },
+      cancelBookingAction: async () => ({ success: true }),
+      reportEquipmentProblemAction: async (_o: string, id: string, body: string) => { calls.push(['report', id, body]); return { success: true }; },
+      setEquipmentStatusAction: async () => ({ success: true }),
+      saveEquipmentAction: async () => ({ success: true, id: 'q3' }),
       readMyTrainingsAction: async () => ({ success: true, trainings: [{ id: 'p1', title: 'Capture rig setup', trained: false }] }),
       saveLabSettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
       startFinishAction: async (_o: string, id: string, v: unknown) => { calls.push(['finish', id, v]); return { success: true }; },
@@ -167,6 +176,25 @@ test('Notebook: a locked entry shows Locked, Amended and Not trained; amendments
   await expect(form).toContainText('not trained on this protocol yet');
   await form.getByRole('button', { name: 'Save entry' }).click();
   await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"protocolDocId":"p1"');
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('Equipment: Out of order shows paused with no Book; Book picks a slot; Report a problem; my booking has .ics', async ({ page }) => {
+  await open(page, false, 'equipment');
+  const rows = page.getByTestId('lab-equipment-row');
+  await expect(rows.nth(1)).toContainText('Booking is paused');
+  await expect(rows.nth(1).getByRole('button', { name: /^Book/ })).toHaveCount(0);
+  await expect(rows.nth(0).getByRole('link', { name: 'Add to calendar (.ics)' })).toHaveAttribute('href', /^data:text\/calendar/);
+  await rows.nth(0).getByRole('button', { name: 'Book Capture rig A' }).click();
+  const strip = page.getByTestId('lab-book-strip');
+  await strip.getByRole('group', { name: 'Day' }).getByRole('button').nth(1).click();
+  await strip.getByRole('button', { name: '08:00–10:00' }).click();
+  await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"book","q1"');
+  await rows.nth(1).getByRole('button', { name: 'Report a problem with GPU server' }).click();
+  await rows.nth(1).getByLabel('What’s wrong with GPU server').fill('Fan noise');
+  await rows.nth(1).getByRole('button', { name: 'Report', exact: true }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['report', 'q2', 'Fan noise']);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
