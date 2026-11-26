@@ -342,8 +342,9 @@ export async function addPaperToProfileAction(workspaceId: string, paperId: stri
   const [p] = Array.from(await db.execute<{ title: string; stage: string; fields: PaperFields; lab: string; year: string }>(sql`
     SELECT t.title, t.stage, t.type_fields AS fields, o.title AS lab, coalesce(t.type_fields->>'year', to_char(t.updated_at, 'YYYY')) AS year
     FROM tasks t JOIN workspaces w ON w.id = t.workspace_id AND w.deleted_at IS NULL
-      JOIN workspaces o ON o.id = w.parent_id AND o.org_type = 'research' AND o.deleted_at IS NULL AND o.deletion_scheduled_at IS NULL
+      JOIN workspaces o ON o.id = w.parent_id AND o.org_type = 'research' AND o.deleted_at IS NULL AND o.deletion_scheduled_at IS NULL AND o.suspended_at IS NULL
     WHERE t.id = ${paperId}::uuid AND t.workspace_id = ${workspaceId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL`));
+  // Review: no active-membership check on purpose — alumni add papers they wrote and confirmed while in the lab.
   const f = p?.fields;
   if (!p || !f || p.stage !== "published" || !memberAuthors(f.authors ?? []).includes(userId)) return DENIED;
   if (f.confirmed?.[userId] !== authorListKey(f.authors)) return { success: false, error: "Confirm the author list first." };
