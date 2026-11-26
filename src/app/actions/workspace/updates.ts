@@ -1607,7 +1607,8 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Wo
  * current Code of conduct (organisers excepted); reading never does. Security review: every Updates write path uses it.
  */
 async function communityAgreeBlock(access: ProjectUpdateAccess, userId: string) {
-    if (access.org?.kind !== "org" || access.canManage || !access.project) return null;
+    // communityPostBlock exempts organisers from a chapter's own pause and agreement, but not from a community pause.
+    if (access.org?.kind !== "org" || !access.project) return null;
     const { communityPostBlock } = await import("@/lib/organizations/community-server");
     return communityPostBlock(access.project.id, userId);
 }
