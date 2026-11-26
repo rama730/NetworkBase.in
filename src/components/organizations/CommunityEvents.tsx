@@ -52,9 +52,9 @@ export function CommunityEvents({ orgId }: { orgId: string }) {
   const d = q.data;
   return (
     <section aria-label="Events" className="space-y-3 text-[13px]" data-testid="community-events">
-      <div className="flex flex-wrap items-center gap-3">
+      {d.canCreate ? <div className="flex justify-end"><button type="button" className={FORM_PRIMARY_CLASS} onClick={() => setEditing("new")}>+ Event</button></div> : null}
+      <div>
         <UnderlineTabs tabs={[{ key: "upcoming" as const, label: "Upcoming" }, { key: "calendar" as const, label: "Calendar" }, { key: "past" as const, label: "Past" }]} value={tab} onChange={setTab} label="Events" idPrefix="community-events" />
-        {d.canCreate ? <button type="button" className={cn(FORM_PRIMARY_CLASS, "ml-auto")} onClick={() => setEditing("new")}>+ Event</button> : null}
       </div>
       {tab === "calendar" ? <EventCalendar orgId={orgId} onOpen={setOpen} /> : d.events.length ? (
         <ul className="space-y-2" aria-label={tab === "upcoming" ? "Upcoming events" : "Past events"}>
@@ -129,8 +129,8 @@ function EventPage({ orgId, eventId, onClose, onEdit }: { orgId: string; eventId
                   <div className="space-y-2">
                     <p aria-live="polite">{e.mine === "going" ? "You’re going." : e.mine === "waitlisted" ? `You’re number ${e.position} on the waitlist.` : e.mine === "cant_go" ? "You can’t go." : null}</p>
                     <div className="flex gap-2" role="group" aria-label="RSVP">
-                      <button type="button" aria-pressed={e.mine === "going" || e.mine === "waitlisted"} className={FORM_PRIMARY_CLASS} onClick={() => void rsvp("going")}>{e.state === "full" && e.mine !== "going" ? "Join the waitlist" : "Going"}</button>
-                      <button type="button" aria-pressed={e.mine === "cant_go"} className={FORM_SECONDARY_CLASS} onClick={() => void rsvp("cant_go")}>Can’t go</button>
+                      <button type="button" aria-pressed={e.mine === "going" || e.mine === "waitlisted"} className={e.mine === "cant_go" ? FORM_SECONDARY_CLASS : FORM_PRIMARY_CLASS} onClick={() => void rsvp("going")}>{e.state === "full" && e.mine !== "going" ? "Join the waitlist" : "Going"}</button>
+                      <button type="button" aria-pressed={e.mine === "cant_go"} className={e.mine === "cant_go" ? FORM_PRIMARY_CLASS : FORM_SECONDARY_CLASS} onClick={() => void rsvp("cant_go")}>Can’t go</button>
                     </div>
                     <label className="flex items-center gap-2"><input type="checkbox" className="nb-check" checked={priv} onChange={(x) => setPriv(x.target.checked)} />RSVP privately (counted, not named)</label>
                   </div>
