@@ -12095,6 +12095,16 @@ TASKS · Call for talks: Hack night (Dec 4)        Optional · closes Nov 27
 8. Members can RSVP privately (counted, not named).
 9. No penalties for not turning up.
 
+
+**Build calls (B5.3a, 2026-11-26):**
+1. An event is S1's `event` item with `type_fields.kind = "community"` (start, end, format, place, who, hosts, run of show). The online link and the place limit live in `community_events` (0155), so no task list, CLI or API ever carries the link; RSVPs in `community_rsvps`.
+2. Hosts (M2 label) create events as organisers do; a host edits and cancels only events they host, and only organisers change who hosts. The creator hosts by default.
+3. Private RSVPs are counted for everyone and named only to the event's hosts and organisers, who need the names to check people in. Members never see them.
+4. Visitors see a public event's when, where (in person) and going count, never names or the link, and join before they RSVP.
+5. A moved event tells everyone Going or waiting (Important); asking them to confirm again comes with B5.3b's reminders. A raised place limit moves the waitlist up at once; a lowered one keeps everyone already Going.
+6. Open in maps is a plain OpenStreetMap search link for the typed address; nothing is fetched.
+7. Not in B5.3a (next: B5.3b, B5.3c): the Calendar view, host check-in, reminders the day before and 1 hour before, My events, the next event on About and Overview, Settings → Events, Call for talks, slides and recaps in Past, the chosen channel post or announcement.
+
 ### 34.5 M4 · Rituals, challenges and showcases (agreed 2026-11-17)
 **References** (20 searches, 138 templates; 4 screens studied):
 
