@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Flag, Sparkles } from "lucide-react";
 
 import { createAssignmentAction } from "@/app/actions/assignments";
-import { featureEntryAction, joinChallengeAction, leaveChallengeAction, readChallengeEntriesAction, readChallengesAction, readShowcaseAction, saveEntryCardAction } from "@/app/actions/community-challenges";
+import { featureEntryAction, joinChallengeAction, readPromptsAction, savePromptsAction, leaveChallengeAction, readChallengeEntriesAction, readChallengesAction, readShowcaseAction, saveEntryCardAction } from "@/app/actions/community-challenges";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -62,6 +62,7 @@ export function CommunityChallenges({ orgId, base }: { orgId: string; base: stri
       <p className="flex flex-wrap items-center gap-2"><Flag className="size-3.5" aria-hidden="true" /><span className="font-medium">{c.title}</span>
         {c.open ? <span className="font-mono text-muted-foreground">{c.closes ? `Open · closes ${closes(c.closes)}` : "Open"}</span> : <StatusBadge state="neutral">Closed</StatusBadge>}</p>
       {c.description ? <p className="whitespace-pre-wrap text-muted-foreground">{c.description}</p> : null}
+      <Prompts orgId={orgId} masterId={c.id} />
       <p className="font-mono text-muted-foreground">{c.joined} joined · {c.entries} {c.entries === 1 ? "entry" : "entries"}</p>
       <span className="flex flex-wrap gap-2">
         {c.mine ? <a href={`${base}?tab=tasks&taskId=${c.mine.id}`} className={FORM_PRIMARY_CLASS}>{c.mine.handedIn ? "Your entry" : "Hand in"}</a>
@@ -210,5 +211,55 @@ export function CommunityShowcase({ orgId }: { orgId: string }) {
       <h3 className="nb-card-title">Showcase</h3>
       <ul className="grid gap-2 sm:grid-cols-2">{list.slice(0, 12).map((e) => <EntryCard key={e.id} e={e} />)}</ul>
     </section>
+  );
+}
+
+const fullDate = (iso: string) => new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+
+/** Prompts by day (call 2): a prompt shows only once it opens; before that, its day and when it opens. Organisers edit them. */
+function Prompts({ orgId, masterId }: { orgId: string; masterId: string }) {
+  const q = useQuery({ queryKey: ["challenge-prompts", orgId, masterId], queryFn: () => readPromptsAction(orgId, masterId), staleTime: 60_000 });
+  const [editing, setEditing] = useState(false);
+  if (!q.data?.success) return null;
+  const { prompts, canEdit } = q.data;
+  if (!prompts.length && !canEdit) return null;
+  return (
+    <div className="space-y-1" data-testid="challenge-prompts">
+      {prompts.length ? <ol className="space-y-0.5" aria-label="Prompts">{prompts.map((p) => (
+        <li key={p.position}><span className="font-mono text-muted-foreground">Day {p.position}</span>{" "}
+          {p.open ? <><span className="font-medium">{p.title}</span>{p.body ? <span className="text-muted-foreground"> · {p.body}</span> : null}</>
+            : <span className="text-muted-foreground">{canEdit && p.title ? `${p.title} · ` : ""}Opens {fullDate(p.opensAt)}</span>}
+        </li>))}</ol> : null}
+      {canEdit ? (editing ? <PromptEditor orgId={orgId} masterId={masterId} initial={prompts} onDone={() => { setEditing(false); void q.refetch(); }} />
+        : <button type="button" className="nb-link text-[13px]" onClick={() => setEditing(true)}>{prompts.length ? "Edit prompts" : "Add prompts by day"}</button>) : null}
+    </div>
+  );
+}
+
+function PromptEditor({ orgId, masterId, initial, onDone }: { orgId: string; masterId: string; initial: Array<{ title: string | null; body: string | null; opensAt: string }>; onDone: () => void }) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const local = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const [rows, setRows] = useState(initial.length ? initial.map((p) => ({ title: p.title ?? "", body: p.body ?? "", opensAt: local(p.opensAt) })) : [{ title: "", body: "", opensAt: local(new Date().toISOString()) }]);
+  const save = async () => {
+    const r = await savePromptsAction(orgId, masterId, rows.filter((x) => x.title.trim()).map((x) => ({ title: x.title.trim(), body: x.body.trim() || null, opensAt: new Date(x.opensAt).toISOString() })));
+    if (!r.success) return void toast.error(r.error);
+    toast.success("Prompts saved. Each stays hidden until it opens.");
+    onDone();
+  };
+  return (
+    <fieldset className="space-y-2 rounded-md border border-border p-2" data-testid="prompt-editor">
+      <legend className="px-1">Prompts by day</legend>
+      {rows.map((r, i) => (
+        <div key={i} className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-muted-foreground">Day {i + 1}</span>
+          <Input value={r.title} maxLength={120} placeholder="Prompt" aria-label={`Day ${i + 1} prompt`} onChange={(x) => setRows(rows.map((y, j) => (j === i ? { ...y, title: x.target.value } : y)))} className="min-w-0 flex-1" />
+          <Input type="datetime-local" value={r.opensAt} aria-label={`Day ${i + 1} opens on`} onChange={(x) => setRows(rows.map((y, j) => (j === i ? { ...y, opensAt: x.target.value } : y)))} className="w-[200px] font-mono" />
+        </div>
+      ))}
+      <span className="flex gap-2">
+        <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => { const last = rows[rows.length - 1]; const next = new Date(new Date(last?.opensAt ?? Date.now()).getTime() + 86_400_000); setRows([...rows, { title: "", body: "", opensAt: local(next.toISOString()) }]); }}>Add a day</button>
+        <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save prompts</button>
+      </span>
+    </fieldset>
   );
 }

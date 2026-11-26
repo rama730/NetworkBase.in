@@ -177,3 +177,40 @@ export async function readShowcaseAction(orgId: string) {
   const rows = await entries(orgId, inside ? sql`true` : sql`c.assignee_id = ANY(coalesce(s.public_yes, '{}'::uuid[]))`, userId);
   return { success: true as const, entries: rows.map((r) => card(r, userId)).map((e) => (inside ? e : { ...e, text: null })) };
 }
+
+// ---- B5.4c (report 34.5 calls 2, 10): prompts that open on a date ----
+
+const promptSchema = z.array(z.object({ title: z.string().trim().min(1).max(120), body: z.string().trim().max(2000).nullable(), opensAt: z.string().datetime({ offset: true }) }).strict()).max(60);
+
+/** Prompts (organisers): the whole list, in order; each opens on its own time. */
+export async function savePromptsAction(orgId: string, masterId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  const parsed = promptSchema.safeParse(input);
+  if (!ctx?.organiser || !isLooseUuid(masterId)) return DENIED;
+  if (!parsed.success) return { success: false, error: "Each prompt needs a title and an Opens on time." };
+  const ok = await db.transaction(async (tx) => {
+    const [m] = Array.from(await tx.execute<{ id: string }>(sql`
+      SELECT id FROM tasks WHERE id = ${masterId}::uuid AND workspace_id = ${orgId}::uuid AND kind = 'assignment' AND assignment_id IS NULL AND deleted_at IS NULL
+        AND assignment_settings->'target'->>'mode' = 'optional' FOR UPDATE`));
+    if (!m) return false;
+    await tx.execute(sql`DELETE FROM challenge_prompts WHERE master_id = ${masterId}::uuid`);
+    for (const [i, p] of parsed.data.entries()) {
+      await tx.execute(sql`INSERT INTO challenge_prompts (master_id, workspace_id, position, title, body, opens_at) VALUES (${masterId}::uuid, ${orgId}::uuid, ${i + 1}, ${p.title}, ${p.body || null}, ${p.opensAt}::timestamptz)`);
+    }
+    return true;
+  });
+  return ok ? { success: true } : DENIED;
+}
+
+/** Prompts by day (call 2): every prompt's position and Opens on; its title and text only once it has opened (organisers see all). */
+export async function readPromptsAction(orgId: string, masterId: string) {
+  const ctx = await community(orgId);
+  if (!ctx || !isLooseUuid(masterId)) return DENIED;
+  const rows = Array.from(await db.execute<{ position: number; title: string; body: string | null; opens_at: string; open: boolean }>(sql`
+    SELECT p.position, p.title, p.body, p.opens_at::text, p.opens_at <= now() AS open
+    FROM challenge_prompts p JOIN tasks m ON m.id = p.master_id
+    WHERE p.master_id = ${masterId}::uuid AND m.workspace_id = ${orgId}::uuid AND m.deleted_at IS NULL ORDER BY p.position`));
+  return { success: true as const, canEdit: ctx.organiser, prompts: rows.map((r) => ({ position: r.position, opensAt: r.opens_at, open: r.open,
+    // Hidden on the server until it opens, from everyone but organisers.
+    title: r.open || ctx.organiser ? r.title : null, body: r.open || ctx.organiser ? r.body : null })) };
+}

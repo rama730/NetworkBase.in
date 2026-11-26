@@ -155,3 +155,35 @@ test("34.5 calls 4–6: the maker's card and public yes; organisers Feature with
   const priv = await ch.readShowcaseAction(o.id);
   assert.ok(!priv.success || priv.entries.length === 0, "a private community has no public Showcase");
 });
+
+test("34.5 calls 2, 10: a prompt's title and text never reach members before Opens on; people who joined hear once a day", async () => {
+  const o = await org("community");
+  viewerId = o.owner;
+  const made = await challenge(o.id, new Date(Date.now() + 7 * 864e5).toISOString());
+  assert.ok(made.success);
+  const masterId = made.success ? made.masterId : "";
+  const past = new Date(Date.now() - 10 * 60_000).toISOString();
+  const later = new Date(Date.now() + 864e5).toISOString();
+  assert.ok((await ch.savePromptsAction(o.id, masterId, [{ title: "Pick a problem", body: "Something you do daily", opensAt: past }, { title: "Secret twist", body: "Add colour", opensAt: later }])).success);
+  viewerId = o.a;
+  assert.equal((await ch.savePromptsAction(o.id, masterId, [])).success, false, "members don't edit prompts");
+  const seen = await ch.readPromptsAction(o.id, masterId);
+  assert.ok(seen.success);
+  assert.equal(seen.prompts[0]!.title, "Pick a problem");
+  assert.equal(seen.prompts[1]!.title, null, "hidden until it opens");
+  assert.equal(JSON.stringify(seen).includes("Secret twist"), false);
+  assert.equal(JSON.stringify(seen).includes("Add colour"), false);
+  viewerId = o.owner;
+  const own = await ch.readPromptsAction(o.id, masterId);
+  assert.ok(own.success && own.prompts[1]!.title === "Secret twist", "organisers see every prompt");
+
+  viewerId = o.a;
+  await ch.joinChallengeAction(o.id, masterId);
+  const { notifyChallengePrompts } = await loadAppModule(() => import("../../src/lib/organizations/community-server"));
+  await notifyChallengePrompts();
+  await notifyChallengePrompts();
+  const told = await sql`SELECT title FROM user_notifications WHERE user_id = ${o.a} AND title LIKE 'New prompt in%'`;
+  assert.equal(told.length, 1, "one line a day");
+  const notJoined = await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${o.b} AND title LIKE 'New prompt in%'`;
+  assert.equal(notJoined[0]!.n, 0, "only people who joined");
+});

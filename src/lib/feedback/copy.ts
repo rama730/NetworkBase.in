@@ -922,6 +922,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Challenges send no reminders: taking part is a choice.": {"title": "Challenges send no reminders: taking part is a choice.", "type": "warning"},
   "Hand in your entry first.": {"title": "Hand in your entry first.", "type": "warning"},
   "Say why you love it, in a line.": {"title": "Say why you love it, in a line.", "type": "warning"},
+  "Each prompt needs a title and an Opens on time.": {"title": "Each prompt needs a title and an Opens on time.", "type": "warning"},
   "Your posting here is paused until {when}.": {"title": "Your posting here is paused until {when}.", "type": "warning"},
   "{name} can’t report to someone who reports to {who}.": {"title": "{name} can’t report to someone who reports to {who}.", "type": "warning"},
   "Name each value.": {"title": "Name each value.", "type": "warning"},

@@ -63,3 +63,25 @@ export async function notifyCommunityEventReminders() {
   }
   return { sent: rows.length };
 }
+
+/**
+ * B5.4c (report 34.5 layer 15, call 10): when a challenge prompt opens, the people who joined hear it, Normal, once a
+ * day per challenge however many prompts opened. Hourly job step.
+ */
+export async function notifyChallengePrompts() {
+  const { createNotification } = await import("@/lib/notifications/service");
+  const rows = Array.from(await db.execute<{ master_id: string; title: string; prompt: string; slug: string | null; org_id: string; user_id: string }>(sql`
+    SELECT DISTINCT ON (m.id, c.assignee_id) m.id AS master_id, m.title, p.title AS prompt, w.slug, w.id AS org_id, c.assignee_id AS user_id
+    FROM challenge_prompts p JOIN tasks m ON m.id = p.master_id JOIN workspaces w ON w.id = m.workspace_id
+    JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL AND c.assignee_id IS NOT NULL
+    WHERE p.opens_at > now() - interval '75 minutes' AND p.opens_at <= now() AND m.deleted_at IS NULL AND w.deleted_at IS NULL
+      AND m.assignment_settings->>'closedAt' IS NULL
+    ORDER BY m.id, c.assignee_id, p.opens_at DESC LIMIT 5000`));
+  const day = new Date().toISOString().slice(0, 10);
+  for (const r of rows) {
+    await createNotification({ recipientUserId: r.user_id, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "more",
+      title: `New prompt in ${r.title}: ${r.prompt}`, href: `/org/${encodeURIComponent(r.slug ?? r.org_id)}?tab=tasks&view=challenges`,
+      entityRefs: { projectId: r.org_id, projectSlug: r.slug }, dedupeKey: `challenge-prompt:${r.master_id}:${r.user_id}:${day}` }).catch(() => undefined);
+  }
+  return { sent: rows.length };
+}

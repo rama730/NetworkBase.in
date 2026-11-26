@@ -19,6 +19,8 @@ async function open(page: Page, organiser: boolean, mine: null | { id: string; h
       leaveChallengeAction: async (_o: string, id: string) => { calls.push(['leave', id]); return { success: true }; },
       createAssignmentAction: async (v: unknown) => { calls.push(['create', v]); return { success: true, masterId: 'c2' }; },
       readChallengeEntriesAction: async () => ({ success: true, canFeature: organiser, entries: [{ id: 'e1', challenge: 'Build a CLI in a weekend', title: 'tz-now', line: 'Time zones at a glance', link: 'https://example.com/tz', text: null, maker: 'Mei', mine: false, featured: false, why: null, isPublic: true }] }),
+      readPromptsAction: async () => ({ success: true, canEdit: organiser, prompts: [{ position: 1, opensAt: '2026-11-20T09:00:00.000Z', open: true, title: 'Pick a problem', body: null }, { position: 2, opensAt: '2026-12-20T09:00:00.000Z', open: false, title: organiser ? 'Secret twist' : null, body: null }] }),
+      savePromptsAction: async () => ({ success: true }),
       featureEntryAction: async (_o: string, id: string, why: string | null) => { calls.push(['feature', id, why]); return { success: true }; },
     };
   }, { organiser, mine });
@@ -35,6 +37,8 @@ test('Members join an open challenge; past challenges show Closed; no Missing an
   await expect.poll(() => calls(page)).toContainEqual(['join', 'c1']);
   await expect(page.getByTestId('challenge-card').nth(1)).toContainText('Closed');
   await expect(page.getByText(/missing|overdue/i)).toHaveCount(0);
+  await expect(page.getByTestId('challenge-prompts').first()).toContainText('Day 1 Pick a problem');
+  await expect(page.getByTestId('challenge-prompts').first()).toContainText(/Day 2 Opens/);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });

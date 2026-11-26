@@ -1453,6 +1453,18 @@ export const communityEvents = pgTable("community_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("community_events_workspace_idx").on(t.projectId)]);
 
+/** B5.4c (0158): a challenge's prompts; title and text stay here, unread, until Opens on. */
+export const challengePrompts = pgTable("challenge_prompts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  masterId: uuid("master_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  opensAt: timestamp("opens_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("challenge_prompts_master_position_idx").on(t.masterId, t.position), index("challenge_prompts_opens_idx").on(t.opensAt), index("challenge_prompts_workspace_idx").on(t.projectId)]);
+
 /** B5.4b (0157): a challenge entry's showcase card — maker's title and line, Featured with Why we love it, the public yes. */
 export const communityShowcase = pgTable("community_showcase", {
   copyId: uuid("copy_id").primaryKey().references(() => tasks.id, { onDelete: "cascade" }),

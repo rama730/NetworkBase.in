@@ -91,6 +91,8 @@ export const chatDue = inngest.createFunction(
       await step.run("company-onboarding", async () => (await import("@/lib/organizations/company-onboarding-server")).sweepCompanyOnboarding());
       // B5.3b (report 34.4 layer 15): community event reminders to everyone Going, the day before and about an hour before.
       await step.run("community-event-reminders", async () => (await import("@/lib/organizations/community-server")).notifyCommunityEventReminders());
+      // B5.4c (report 34.5 call 10): a challenge prompt opened — one line a day to the people who joined.
+      await step.run("challenge-prompts", async () => (await import("@/lib/organizations/community-server")).notifyChallengePrompts());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }
