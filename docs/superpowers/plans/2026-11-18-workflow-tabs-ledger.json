@@ -1258,9 +1258,9 @@
       "text": "B5.3 M3 Events and meetups (34.4) — Depends: S1 event item (B3).",
       "kind": "unit",
       "milestone": "B5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/community-events.test.ts; tests/db/community-events.test.ts; tests/browser/community-events.spec.ts",
+      "evidence": "B5.3a pushed 2026-11-26 (1672e94fb, c7c11b7a7, security fe3b03596; 0155 community_events + community_rsvps applied in prod): Sprints → Events, + Event (organisers, Hosts), event page, Going/Can't go, first-come waitlist, private RSVPs, link only for Going/hosts/organisers, cancel/move notices. LIVE-checked 2026-11-26 on wt-test-b5-community: added WT Hack night (Hybrid, limit 2), Going → 1 going · 1 place left, Can't go → 0 going, Edit limit 5; link only on community_events (not on the item). B5.3b pushed (f2ed6e97d check-in + reminders + next event card, d2ee204dc Calendar, fc201a493 live nits). Not built yet: My events, Settings → Events, Call for talks, slides/recaps in Past, channel post on publish. revisit 2026-11-28."
     },
     {
       "key": "B5.4",
