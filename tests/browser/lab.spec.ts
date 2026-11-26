@@ -46,13 +46,17 @@ async function open(page: Page, admin: boolean, view = 'people') {
       reportEquipmentProblemAction: async (_o: string, id: string, body: string) => { calls.push(['report', id, body]); return { success: true }; },
       setEquipmentStatusAction: async () => ({ success: true }),
       saveEquipmentAction: async () => ({ success: true, id: 'q3' }),
-      readPapersAction: async () => ({ success: true, me: 'u1', writer: true, people: [{ id: 'u1', name: 'Dr. Rao' }, { id: 'u2', name: 'Mei' }],
+      readPapersAction: async () => ({ success: true, me: 'u1', writer: true, people: [{ id: 'u1', name: 'Dr. Rao' }, { id: 'u2', name: 'Mei' }], docs: [{ id: 'd1', name: 'Paper draft' }, { id: 'd2', name: 'Reviews and response' }],
         papers: [{ id: 'pp1', title: 'Low-light depth from video', stage: 'drafting', kind: 'paper', venue: 'ICCV 2027', deadline: '2026-12-15', link: '', doi: '', private: false, preprintPublic: false,
-          workspace: { id: 'w', title: 'Thesis', slug: 'thesis' }, authors: [{ userId: 'u1', name: 'Dr. Rao', confirmed: false }, { name: 'A. Collaborator' }, { userId: 'u2', name: 'Mei', confirmed: true }],
+          workspace: { id: 'w', title: 'Thesis', slug: 'thesis' }, draft: { id: 'd1', slug: 'paper-draft', name: 'Paper draft' }, frozen: { version: 3, at: '2026-11-21T10:00:00Z' }, authors: [{ userId: 'u1', name: 'Dr. Rao', confirmed: false }, { name: 'A. Collaborator' }, { userId: 'u2', name: 'Mei', confirmed: true }],
           mine: true, iConfirmed: false, reviewed: false, history: [{ stage: 'rejected', at: '2026-11-20T10:00:00Z', by: 'u2', venue: 'CVPR 2026', note: 'Needs a baseline' }], canReview: false, reviewOn: true }] }),
       confirmAuthorsAction: async (_w: string, id: string) => { calls.push(['confirm', id]); return { success: true }; },
       movePaperAction: async (_w: string, id: string, v: unknown) => { calls.push(['move', id, v]); return { success: true }; },
-      reviewPaperAction: async () => ({ success: true }),
+      reviewPaperAction: async (_w: string, id: string, v: unknown) => { calls.push(['review', id, v]); return { success: true }; },
+      readFrozenDraftAction: async () => ({ success: true, content: '# Low-light depth\n\nAbstract as sent.', version: 3, at: '2026-11-21T10:00:00Z' }),
+      readLabPapersAction: async () => ({ success: true, isPi: true, papers: [{ id: 'pp3', title: 'Event cameras at night', stage: 'internal_review', kind: 'paper', venue: 'CVPR 2027', deadline: null, link: '', doi: '',
+        private: false, preprintPublic: false, workspace: { id: 'w', title: 'Thesis', slug: 'thesis' }, draft: { id: 'd1', slug: 'paper-draft', name: 'Paper draft' }, frozen: { version: 3, at: '2026-11-21T10:00:00Z' },
+        authors: [{ userId: 'u2', name: 'Mei', confirmed: true }], mine: false, iConfirmed: false, reviewed: false, history: [], canReview: true, reviewOn: true }] }),
       savePaperAction: async (_w: string, id: string | null, v: unknown) => { calls.push(['savePaper', id, v]); return { success: true, id: 'pp2' }; },
       readMyTrainingsAction: async () => ({ success: true, trainings: [{ id: 'p1', title: 'Capture rig setup', trained: false }] }),
       saveLabSettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
@@ -230,4 +234,30 @@ test('Papers: authors with confirmations, history with the rejection, Confirm an
   expect(await axeViolations(page)).toEqual([]);
   await open(page, false, 'about');
   await expect(page.getByTestId('lab-publications')).toContainText('Low-light depth from video');
+});
+
+test('B6.3b: a paper names its draft document; the draft as sent opens; the PI approves or returns it from the Review queue', async ({ page }) => {
+  await open(page, false, 'papers');
+  const paper = page.getByTestId('lab-paper');
+  await expect(paper.getByRole('link', { name: 'Paper draft' })).toHaveAttribute('href', '/workspaces/thesis?tab=docs&doc=paper-draft');
+  await paper.getByText('Draft sent for internal review (v3)').click();
+  await expect(paper.getByTestId('lab-paper-frozen')).toContainText('Abstract as sent.');
+  await page.getByRole('button', { name: '+ Paper' }).click();
+  const form = page.getByTestId('lab-paper-form');
+  await form.getByLabel('Title').fill('Draft-linked');
+  await form.getByLabel('Draft document').selectOption({ label: 'Paper draft' });
+  await form.getByRole('button', { name: 'Save paper' }).click();
+  await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"draftDocId":"d1"');
+  await open(page, false, 'reviews');
+  const review = page.getByTestId('lab-paper-review');
+  await expect(page.getByTestId('lab-paper-reviews')).toContainText('Internal review · 1 paper');
+  await review.getByText('Draft sent for internal review (v3)').click();
+  await expect(review.getByTestId('lab-paper-frozen')).toContainText('Abstract as sent.');
+  await review.getByRole('button', { name: 'Return with notes' }).click();
+  await expect(review.getByRole('button', { name: 'Return', exact: true })).toBeDisabled();
+  await review.getByLabel('What to change').fill('Add the 0.1 lux baseline');
+  await review.getByRole('button', { name: 'Return', exact: true }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['review', 'pp3', { approve: false, note: 'Add the 0.1 lux baseline' }]);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
 });

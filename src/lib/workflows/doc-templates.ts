@@ -8,7 +8,7 @@ export const TEMPLATE_GROUPS = [
   { id: "clients", label: "Clients and creative" },
   { id: "product", label: "Product and engineering" },
   { id: "content", label: "Content" },
-  { id: "learning", label: "Learning" },
+  { id: "learning", label: "Learning and research" },
   { id: "nonprofit", label: "Non-profit" },
   { id: "games", label: "Games and stories" },
   // Report 33.2 (B4.1b): company handbook pages and processes, offered in a company's Documents only.
@@ -616,6 +616,22 @@ _Free writing, code, diagrams, images._
 
 ## Summary
 _Three lines in your own words._
+` },
+  // Report 35.3 (B6.3b): a paper's reviews, each comment with the response and the change made.
+  { id: "reviews-and-response", name: "Reviews and response", group: "learning", line: "Each reviewer comment, your response and what changed.",
+    body: `**Paper:** · **Venue:** · **Decision:**
+
+## Reviewer 1
+| Comment | Response | Change |
+|---|---|---|
+|  |  |  |
+
+## Reviewer 2
+| Comment | Response | Change |
+|---|---|---|
+|  |  |  |
+
+## Summary of changes
 ` },
   // 17.7: Grant proposal; outcomes from Goals, budget with Money.
   { id: "grant-proposal", name: "Grant proposal", group: "nonprofit", line: "Need, program, outcomes, budget and evaluation.",

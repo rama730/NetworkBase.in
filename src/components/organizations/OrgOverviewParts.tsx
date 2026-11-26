@@ -285,7 +285,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {/* Report 35.2 (B6.1a): a lab's Overview is the lab home. */}
                 {orgType === 'research' ? <LabHomeCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
                 {orgType === 'research' ? <LabProtocolsCard orgId={orgId} /> : null}
-                {orgType === 'research' ? <LabPapersCard orgId={orgId} /> : null}
+                {orgType === 'research' ? <LabPapersCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
                 {orgType === 'research' ? <LabEquipmentCard orgId={orgId} /> : null}
                 {orgType === 'community' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
                 {orgType === 'community' ? <NextEventCard orgId={orgId} base={base} /> : null}

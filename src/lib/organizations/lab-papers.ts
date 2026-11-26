@@ -29,6 +29,8 @@ export const paperSchema = z.object({
   private: z.boolean(),
   /** Call 8: a preprint the authors mark goes public before it's Published. */
   preprintPublic: z.boolean(),
+  /** B6.3b: the workspace document that is the draft; Ask for internal review freezes it as a version. */
+  draftDocId: z.string().uuid().nullable().optional(),
 }).strict();
 export type PaperInput = z.infer<typeof paperSchema>;
 
@@ -38,6 +40,8 @@ export type PaperFields = Omit<PaperInput, "title"> & {
   confirmed: Record<string, string>;
   history: PaperHistory[];
   review?: { approvedBy: string; at: string; listKey: string; kind?: PaperKind } | null;
+  /** B6.3b: the draft as sent for internal review (a document version; versions only grow). */
+  frozen?: { versionId: string; version: number; at: string } | null;
 };
 
 /** A key for the author list as it stands: confirmations hold only for this exact order. */

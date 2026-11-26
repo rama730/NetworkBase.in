@@ -5,12 +5,14 @@ import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
+import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { createNotification } from "@/lib/notifications/service";
 import { readLabSettings } from "@/lib/organizations/lab";
 import { authorListKey, LOCKED_STAGES, memberAuthors, moveProblem, paperSchema, type PaperFields, type PaperHistory, type PaperStage } from "@/lib/organizations/lab-papers";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { statusForStage } from "@/lib/workflows/rules";
+import { getOrBuildWorkspaceDocPublishMetadata } from "@/lib/workspaces/doc";
 
 /**
  * Report 35.3 (plan B6.3a, R2 calls 1–10): a paper is a `paper` item in the lab workspace where the work lives. Its
@@ -36,7 +38,7 @@ async function paperContext(workspaceId: string) {
   const labMember = w.owner === userId || (w.lab_role !== null && w.lab_role !== "viewer");
   const member = a.isOwner || (a.isMember && Boolean(a.memberRole));
   if (!a.canRead || !(member || labMember)) return null;
-  return { userId, orgId: w.org, slug: w.slug ?? workspaceId, title: w.title, pi: w.owner, isPi: w.owner === userId, blocked: Boolean(a.writeBlocked),
+  return { userId, access: a, orgId: w.org, slug: w.slug ?? workspaceId, title: w.title, pi: w.owner, isPi: w.owner === userId, blocked: Boolean(a.writeBlocked),
     writer: !a.writeBlocked && (a.isOwner || (a.isMember && a.memberRole !== "viewer")), settings: readLabSettings(w.settings) };
 }
 
@@ -44,10 +46,12 @@ async function paperContext(workspaceId: string) {
 const canSee = (me: string) => sql`(coalesce((t.type_fields->>'private')::boolean, false) = false OR t.type_fields->'authors' @> jsonb_build_array(jsonb_build_object('userId', ${me}::text))
   OR ${me}::uuid = (SELECT o.owner_id FROM workspaces o JOIN workspaces w2 ON w2.parent_id = o.id WHERE w2.id = t.workspace_id))`;
 
-type Row = { id: string; title: string; stage: PaperStage; fields: PaperFields; workspace_id: string; workspace: string; slug: string | null };
+type Row = { id: string; title: string; stage: PaperStage; fields: PaperFields; workspace_id: string; workspace: string; slug: string | null; draft_name: string | null; draft_slug: string | null };
 async function paperRows(where: ReturnType<typeof sql>, me: string) {
   return Array.from(await db.execute<Row>(sql`
-    SELECT t.id, t.title, t.stage, t.type_fields AS fields, t.workspace_id, w.title AS workspace, w.slug
+    SELECT t.id, t.title, t.stage, t.type_fields AS fields, t.workspace_id, w.title AS workspace, w.slug,
+      (SELECT d.filename FROM workspace_documents d WHERE d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id) AS draft_name,
+      (SELECT d.slug FROM workspace_documents d WHERE d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id) AS draft_slug
     FROM tasks t JOIN workspaces w ON w.id = t.workspace_id
     WHERE t.item_type = 'paper' AND t.deleted_at IS NULL AND ${where} AND ${canSee(me)}
     ORDER BY CASE WHEN t.stage IN ('published', 'withdrawn') THEN 1 ELSE 0 END, (t.type_fields->>'deadline') NULLS LAST, t.updated_at DESC LIMIT 300`));
@@ -65,6 +69,8 @@ const shape = (r: Row, me: string, names: Map<string, string>, isPi: boolean, re
   const key = authorListKey(f.authors ?? []);
   return { id: r.id, title: r.title, stage: r.stage, kind: f.kind, venue: f.venue, deadline: f.deadline, link: f.link, doi: f.doi, private: f.private, preprintPublic: f.preprintPublic,
     workspace: { id: r.workspace_id, title: r.workspace, slug: r.slug },
+    draft: f.draftDocId && r.draft_name ? { id: f.draftDocId, slug: r.draft_slug ?? f.draftDocId, name: r.draft_name.replace(/\.md$/i, "") } : null,
+    frozen: f.frozen ? { version: f.frozen.version, at: f.frozen.at } : null,
     authors: (f.authors ?? []).map((a) => ("userId" in a ? { userId: a.userId, name: names.get(a.userId) ?? "Someone", confirmed: f.confirmed?.[a.userId] === key } : { name: a.name })),
     mine: memberAuthors(f.authors ?? []).includes(me), iConfirmed: f.confirmed?.[me] === key, reviewed: Boolean(f.review && f.review.listKey === key && (f.review.kind ?? "paper") === f.kind),
     history: (f.history ?? []).slice(-20), canReview: isPi && r.stage === "internal_review", reviewOn };
@@ -79,7 +85,10 @@ export async function readPapersAction(workspaceId: string) {
   const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
     SELECT DISTINCT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
     WHERE m.workspace_id IN (${workspaceId}::uuid, ${ctx.orgId}::uuid) AND m.role <> 'viewer' AND m.completed_at IS NULL AND p.deleted_at IS NULL ORDER BY 2 LIMIT 300`));
-  return { success: true as const, me: ctx.userId, writer: ctx.writer, people, papers: rows.map((r) => shape(r, ctx.userId, names, ctx.isPi, ctx.settings.paperReview)) };
+  // B6.3b: the workspace's documents, to pick a paper's draft from.
+  const docs = ctx.writer ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+    SELECT id, regexp_replace(filename, '\.md$', '', 'i') AS name FROM workspace_documents WHERE workspace_id = ${workspaceId}::uuid ORDER BY filename LIMIT 200`)) : [];
+  return { success: true as const, me: ctx.userId, writer: ctx.writer, people, docs, papers: rows.map((r) => shape(r, ctx.userId, names, ctx.isPi, ctx.settings.paperReview)) };
 }
 
 /** Add or edit a paper (the workspace's writers; on an existing paper, its member authors too). Member authors are people here. */
@@ -95,6 +104,10 @@ export async function savePaperAction(workspaceId: string, paperId: string | nul
       SELECT DISTINCT user_id AS id FROM workspace_members WHERE workspace_id IN (${workspaceId}::uuid, ${ctx.orgId}::uuid) AND role <> 'viewer' AND completed_at IS NULL
         AND user_id = ANY(${`{${members.join(",")}}`}::uuid[])`));
     if (ok.length !== members.length) return { success: false, error: "Member authors are people in the lab; add others as typed names." };
+  }
+  if (rest.draftDocId) {
+    const [doc] = Array.from(await db.execute<{ id: string }>(sql`SELECT id FROM workspace_documents WHERE id = ${rest.draftDocId}::uuid AND workspace_id = ${workspaceId}::uuid`));
+    if (!doc) return { success: false, error: "The draft is a document in this workspace." };
   }
   if (!paperId) {
     if (!ctx.writer) return DENIED;
@@ -163,6 +176,19 @@ export async function movePaperAction(workspaceId: string, paperId: string, inpu
   const parsed = moveSchema.safeParse(input);
   if (!ctx || ctx.blocked || !isLooseUuid(paperId) || !parsed.success) return DENIED;
   const { to, venue, note } = parsed.data;
+  // B6.3b: Ask for internal review freezes the draft document as it is now (read before the transaction: a file read).
+  let draft: { docId: string; content: string } | null = null;
+  if (to === "internal_review") {
+    const [d] = Array.from(await db.execute<{ id: string; node: string | null }>(sql`
+      SELECT d.id, d.linked_node_id AS node FROM tasks t JOIN workspace_documents d ON d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id
+      WHERE t.id = ${paperId}::uuid AND t.workspace_id = ${workspaceId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL`));
+    if (d) {
+      const content = d.node && ctx.access.project ? await readWorkspaceFileText({ ...ctx.access, project: ctx.access.project }, workspaceId, d.node).catch(() => null)
+        : (Array.from(await db.execute<{ content: string }>(sql`SELECT content FROM workspace_document_versions WHERE doc_id = ${d.id}::uuid AND deleted_at IS NULL ORDER BY version_number DESC LIMIT 1`))[0]?.content ?? null);
+      if (!content?.trim()) return { success: false, error: "Couldn’t read the draft document. Write something in it, or unlink it from the paper." };
+      draft = { docId: d.id, content };
+    }
+  }
   const result = await db.transaction(async (tx) => {
     const [p] = Array.from(await tx.execute<{ title: string; stage: PaperStage; fields: PaperFields }>(sql`
       SELECT t.title, t.stage, t.type_fields AS fields FROM tasks t WHERE t.id = ${paperId}::uuid AND t.workspace_id = ${workspaceId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL
@@ -175,7 +201,20 @@ export async function movePaperAction(workspaceId: string, paperId: string, inpu
     const entry: PaperHistory = { stage: to, at: new Date().toISOString(), by: ctx.userId, ...(venue || p.fields.venue ? { venue: venue || p.fields.venue } : {}), ...(note ? { note } : {}) };
     // Review: back to Drafting from internal review or Withdrawn asks the PI again.
     const clearReview = stage === "drafting" && (p.stage === "internal_review" || p.stage === "withdrawn");
-    const fields: PaperFields = { ...p.fields, ...(venue ? { venue } : {}), ...(clearReview ? { review: null } : {}), history: [...(p.fields.history ?? []), entry].slice(-100) };
+    let frozen: PaperFields["frozen"] | undefined;
+    if (draft && draft.docId === p.fields.draftDocId) {
+      // Versions only grow: the next number under the document's lock, so a publish can't take the same one.
+      await tx.execute(sql`SELECT id FROM workspace_documents WHERE id = ${draft.docId}::uuid FOR UPDATE`);
+      const meta = getOrBuildWorkspaceDocPublishMetadata(draft.content);
+      const [v] = Array.from(await tx.execute<{ id: string; version: number }>(sql`
+        INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, excerpt, headings, quality_report, content_hash, change_summary, co_authors, created_by)
+        VALUES (${workspaceId}::uuid, ${draft.docId}::uuid, (SELECT coalesce(max(version_number), 0) + 1 FROM workspace_document_versions WHERE doc_id = ${draft.docId}::uuid),
+          ${meta.content}, ${meta.excerpt}, ${JSON.stringify(meta.headings)}::jsonb, ${JSON.stringify(meta.qualityReport)}::jsonb, ${meta.contentHash},
+          ${`Sent for internal review: ${p.title}`.slice(0, 200)}, '[]'::jsonb, ${ctx.userId}::uuid) RETURNING id, version_number AS version`));
+      frozen = { versionId: v!.id, version: v!.version, at: entry.at };
+    }
+    const fields: PaperFields = { ...p.fields, ...(venue ? { venue } : {}), ...(clearReview ? { review: null } : {}), ...(frozen ? { frozen } : {}),
+      history: [...(p.fields.history ?? []), { ...entry, ...(frozen ? { note: `Draft v${frozen.version}` } : {}) }].slice(-100) };
     await tx.execute(sql`UPDATE tasks SET stage = ${stage}, status = ${statusForStage("paper", stage)}, type_fields = ${JSON.stringify(fields)}::jsonb, updated_at = now() WHERE id = ${paperId}::uuid`);
     return { title: p.title, authors: memberAuthors(p.fields.authors ?? []) };
   });
@@ -219,6 +258,17 @@ export async function reviewPaperAction(workspaceId: string, paperId: string, in
       href: `/workspaces/${encodeURIComponent(ctx.slug)}`, entityRefs: { projectId: workspaceId, projectSlug: ctx.slug }, dedupeKey: `lab-paper-review:${paperId}:${Date.now()}` }).catch(() => undefined);
   }
   return { success: true };
+}
+
+/** B6.3b: the draft as it was sent for internal review (whoever sees the paper; the PI from the Review queue). */
+export async function readFrozenDraftAction(workspaceId: string, paperId: string) {
+  const ctx = await paperContext(workspaceId);
+  if (!ctx || !isLooseUuid(paperId)) return DENIED;
+  const [v] = Array.from(await db.execute<{ content: string; version: number; at: string }>(sql`
+    SELECT v.content, v.version_number AS version, v.created_at::text AS at FROM tasks t
+    JOIN workspace_document_versions v ON v.id::text = t.type_fields->'frozen'->>'versionId' AND v.workspace_id = t.workspace_id
+    WHERE t.id = ${paperId}::uuid AND t.workspace_id = ${workspaceId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL AND ${canSee(ctx.userId)}`));
+  return v ? { success: true as const, ...v } : { success: false as const, error: "The draft sent for review was removed with its document." };
 }
 
 /** The lab's Papers (lab members): every workspace's papers by stage, private ones per call 10; the PI's internal reviews first. */

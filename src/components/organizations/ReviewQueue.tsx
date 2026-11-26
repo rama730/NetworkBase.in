@@ -7,6 +7,7 @@ import { MoreHorizontal } from 'lucide-react'
 
 import { approveAllSubmittedAction, readReviewLanesAction, readReviewQueueAction, reviewAssignmentCopyAction, type ReviewLaneRow, type ReviewQueueRow } from '@/app/actions/assignments'
 import { ReviewLanes } from '@/components/organizations/ReviewLanes'
+import { LabPaperReviews } from '@/components/organizations/LabPapers'
 import { approveTaskReviewAction, requestTaskChangesAction } from '@/app/actions/task'
 import { createTaskCommentAction } from '@/app/actions/task-comment'
 import { markTaskAsReadAction } from '@/app/actions/workspace'
@@ -289,6 +290,8 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             {filters}
             {error ? <p role="alert" className="mx-4 mt-3 shrink-0 rounded-md border border-border bg-[var(--status-danger-soft)] px-3 py-2 text-[13px] text-destructive sm:mx-5">{error}</p> : null}
             {incoming.length ? <button type="button" onClick={showIncoming} className="mx-4 mt-3 h-7 self-start rounded-md border border-border bg-[var(--status-info-soft)] px-3 text-xs font-medium text-primary sm:mx-5">{incoming.length} new · Show</button> : null}
+            {/* B6.3b: a research lab's papers waiting for the PI's internal review (renders nothing elsewhere). */}
+            <LabPaperReviews orgId={orgId} />
             <ReviewLanes waiting={shown}
                 returned={lanes.returned.filter((r) => assignment === 'all' || r.masterId === assignment)}
                 approved={lanes.approved.filter((r) => assignment === 'all' || r.masterId === assignment)}

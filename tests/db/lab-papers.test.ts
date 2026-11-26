@@ -122,4 +122,22 @@ test("35.3: confirm → review → submit; rejected back to Drafting; private; A
   viewerId = "";
   about = await lab.readLabAboutAction(org);
   assert.ok(about.success && !about.publications.some((x) => x.title === "Secret idea"), "a private paper never goes public");
+
+
+  // B6.3b: the draft document is frozen as a version when it's sent for internal review; the review reads that version.
+  const [doc] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename) VALUES (${ws}, 'paper-draft', 'Paper draft.md') RETURNING id`;
+  await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${ws}, ${doc!.id}, 1, '# Draft\n\nFirst words.', 'h1')`;
+  const [elsewhere] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename) VALUES (${org}, 'org-doc', 'Org doc.md') RETURNING id`;
+  viewerId = student!;
+  assert.match(String((await pa.savePaperAction(ws, null, { ...base, title: "Draft-linked", authors: [{ userId: student! }], draftDocId: elsewhere!.id }) as { error?: string }).error), /document in this workspace/);
+  const linked = await pa.savePaperAction(ws, null, { ...base, title: "Draft-linked", authors: [{ userId: student! }], draftDocId: doc!.id });
+  const lid = linked.success ? linked.id : "";
+  await pa.movePaperAction(ws, lid, { to: "drafting" });
+  assert.ok((await pa.movePaperAction(ws, lid, { to: "internal_review" })).success);
+  await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash) VALUES (${ws}, ${doc!.id}, 3, '# Draft\n\nLater edits.', 'h3')`;
+  viewerId = pi!;
+  const frozen = await pa.readFrozenDraftAction(ws, lid);
+  assert.ok(frozen.success && frozen.version === 2 && frozen.content.includes("First words.") && !frozen.content.includes("Later"), "the review reads the draft as it was sent");
+  viewerId = other!;
+  assert.equal((await pa.readFrozenDraftAction(ws, lid)).success, false, "a private workspace's draft stays with people who can read the workspace");
 });

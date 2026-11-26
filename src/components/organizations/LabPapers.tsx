@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
 
-import { confirmAuthorsAction, movePaperAction, readLabPapersAction, readPapersAction, reviewPaperAction, savePaperAction } from "@/app/actions/lab-papers";
+import { confirmAuthorsAction, movePaperAction, readFrozenDraftAction, readLabPapersAction, readPapersAction, reviewPaperAction, savePaperAction } from "@/app/actions/lab-papers";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -29,22 +29,23 @@ export function WorkspacePapers({ workspaceId }: { workspaceId: string }) {
   return (
     <OrgCard title="Papers" testId="lab-papers" action={d.writer && !adding ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setAdding(true)}>+ Paper</button> : null}>
       <div className="space-y-3 text-[13px]">
-        {adding ? <PaperForm workspaceId={workspaceId} people={d.people} me={d.me} onDone={() => setAdding(false)} /> : null}
-        {d.papers.length ? <ul className="divide-y divide-border">{d.papers.map((p) => <PaperRow key={p.id} workspaceId={workspaceId} p={p} people={d.people} me={d.me} />)}</ul>
+        {adding ? <PaperForm workspaceId={workspaceId} people={d.people} docs={d.docs} me={d.me} onDone={() => setAdding(false)} /> : null}
+        {d.papers.length ? <ul className="divide-y divide-border">{d.papers.map((p) => <PaperRow key={p.id} workspaceId={workspaceId} p={p} people={d.people} docs={d.docs} me={d.me} />)}</ul>
           : <p className="text-muted-foreground">No papers yet. A paper (or preprint, talk, poster, dataset, software) goes Idea to Published here, with its authors.</p>}
       </div>
     </OrgCard>
   );
 }
 
-function PaperRow({ workspaceId, p, people, me }: { workspaceId: string; p: Paper; people: Array<{ id: string; name: string }>; me: string }) {
+type Doc = { id: string; name: string };
+function PaperRow({ workspaceId, p, people, docs, me }: { workspaceId: string; p: Paper; people: Array<{ id: string; name: string }>; docs: Doc[]; me: string }) {
   const client = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const refresh = () => void client.invalidateQueries({ queryKey: wsKey(workspaceId) });
   const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); setMoving(null); setNote(""); refresh(); };
-  if (editing) return <li className="py-2"><PaperForm workspaceId={workspaceId} people={people} me={me} paper={p} onDone={() => { setEditing(false); refresh(); }} /></li>;
+  if (editing) return <li className="py-2"><PaperForm workspaceId={workspaceId} people={people} docs={docs} me={me} paper={p} onDone={() => { setEditing(false); refresh(); }} /></li>;
   const needsReview = p.reviewOn && p.kind === "paper";
   // Live check: Submitted isn't offered until the PI's approval holds (the server refuses it anyway).
   const next = (NEXT[p.stage] ?? []).filter((s) => !(s === "internal_review" && !needsReview) && !(s === "submitted" && needsReview && !p.reviewed));
@@ -60,6 +61,8 @@ function PaperRow({ workspaceId, p, people, me }: { workspaceId: string; p: Pape
         {p.deadline ? <span className="font-mono text-muted-foreground">due {p.deadline}</span> : null}
       </p>
       <p>{p.authors.map((a, i) => <span key={i}>{i ? ", " : ""}{a.name}{"userId" in a ? (a.confirmed ? " (confirmed)" : " (not confirmed)") : ""}</span>)}</p>
+      {p.draft ? <p className="text-muted-foreground">Draft: <a className="nb-link" href={`/workspaces/${encodeURIComponent(p.workspace.slug ?? p.workspace.id)}?tab=docs&doc=${encodeURIComponent(p.draft.slug)}`}>{p.draft.name}</a></p> : null}
+      {p.frozen ? <FrozenDraft workspaceId={workspaceId} paperId={p.id} version={p.frozen.version} /> : null}
       {p.reviewed && p.stage === "internal_review" ? <p className="text-foreground">Approved for submission by the PI.</p> : null}
       {p.history.length ? <details><summary className="cursor-pointer text-muted-foreground">History</summary><ol className="mt-1 space-y-0.5">{p.history.map((h, i) => (
         <li key={i}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(h.at))} · {h.stage === "rejected" ? "Rejected" : PAPER_STAGE_WORDS[h.stage]}{h.venue ? ` · ${h.venue}` : ""}{h.note ? ` · ${h.note}` : ""}</li>))}</ol></details> : null}
@@ -85,10 +88,24 @@ function PaperRow({ workspaceId, p, people, me }: { workspaceId: string; p: Pape
   );
 }
 
-function PaperForm({ workspaceId, people, me, paper, onDone }: { workspaceId: string; people: Array<{ id: string; name: string }>; me: string; paper?: Paper; onDone: () => void }) {
+/** B6.3b: the draft as sent for internal review, read on demand (it can be long). */
+function FrozenDraft({ workspaceId, paperId, version }: { workspaceId: string; paperId: string; version: number }) {
+  const [open, setOpen] = useState(false);
+  const q = useQuery({ queryKey: ["lab-paper-draft", paperId, version], queryFn: () => readFrozenDraftAction(workspaceId, paperId), enabled: open, staleTime: Infinity });
+  return (
+    <details onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary className="cursor-pointer text-muted-foreground">Draft sent for internal review (v{version})</summary>
+      {!q.data ? <p className="mt-1 text-muted-foreground">Loading…</p> : q.data.success
+        ? <pre className="mt-1 max-h-96 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-2 font-mono text-[12px]" data-testid="lab-paper-frozen">{q.data.content}</pre>
+        : <p className="mt-1 text-muted-foreground">{q.data.error}</p>}
+    </details>
+  );
+}
+
+function PaperForm({ workspaceId, people, docs, me, paper, onDone }: { workspaceId: string; people: Array<{ id: string; name: string }>; docs: Doc[]; me: string; paper?: Paper; onDone: () => void }) {
   const client = useQueryClient();
   const [f, setF] = useState({ title: paper?.title ?? "", kind: (paper?.kind ?? "paper") as PaperKind, venue: paper?.venue ?? "", deadline: paper?.deadline ?? "", link: paper?.link ?? "", doi: paper?.doi ?? "",
-    private: paper?.private ?? false, preprintPublic: paper?.preprintPublic ?? false });
+    private: paper?.private ?? false, preprintPublic: paper?.preprintPublic ?? false, draftDocId: paper?.draft?.id ?? null as string | null });
   const [authors, setAuthors] = useState<Array<{ userId: string } | { name: string }>>(paper ? paper.authors.map((a): { userId: string } | { name: string } => (a.userId ? { userId: a.userId } : { name: a.name })) : [{ userId: me }]);
   const [outside, setOutside] = useState("");
   const nameOf = (a: { userId: string } | { name: string }) => ("userId" in a ? people.find((p) => p.id === a.userId)?.name ?? "Someone" : a.name);
@@ -126,6 +143,9 @@ function PaperForm({ workspaceId, people, me, paper, onDone }: { workspaceId: st
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={!outside.trim()} onClick={() => { setAuthors([...authors, { name: outside.trim() }]); setOutside(""); }}>Add name</button>
         </span>
       </fieldset>
+      {docs.length || f.draftDocId ? <label className="flex flex-col">Draft document<select className="nb-select mt-1 max-w-[360px]" value={f.draftDocId ?? ""} onChange={(e) => setF({ ...f, draftDocId: e.target.value || null })}>
+        <option value="">None</option>{docs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+        <span className="mt-0.5 text-muted-foreground">Ask for internal review sends it as it is then, so the review matches what was read.</span></label> : null}
       <span className="flex flex-wrap gap-2">
         <label className="min-w-[200px] flex-1">Link<Input value={f.link} maxLength={500} onChange={(e) => setF({ ...f, link: e.target.value })} placeholder="https://" className="mt-1" /></label>
         <label className="min-w-[160px]">DOI<Input value={f.doi} maxLength={200} onChange={(e) => setF({ ...f, doi: e.target.value })} className="mt-1 font-mono" /></label>
@@ -139,15 +159,57 @@ function PaperForm({ workspaceId, people, me, paper, onDone }: { workspaceId: st
 }
 
 /** The lab's Papers (lab Overview): every workspace's papers, the PI's internal reviews first; counts never rank people. */
-export function LabPapersCard({ orgId }: { orgId: string }) {
+/**
+ * B6.3b (report 35.3 call 6): the PI's internal reviews in the lab's Review queue — the draft as it was sent, then
+ * Approve for submission or Return with notes. Nothing shows for other organizations or when none are waiting.
+ */
+export function LabPaperReviews({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: labKey(orgId), queryFn: () => readLabPapersAction(orgId), staleTime: 30_000 });
+  const waiting = q.data?.success ? q.data.papers.filter((p) => p.canReview && !p.reviewed) : [];
+  if (!waiting.length) return null;
+  return (
+    <section aria-labelledby="lab-paper-reviews" className="mx-4 mt-3 space-y-2 rounded-md border border-border p-3 text-[13px] sm:mx-5" data-testid="lab-paper-reviews">
+      <h3 id="lab-paper-reviews" className="font-medium">Internal review · {waiting.length} {waiting.length === 1 ? "paper" : "papers"}</h3>
+      <ul className="divide-y divide-border">{waiting.map((p) => <PaperReview key={p.id} p={p} onDone={() => void q.refetch()} />)}</ul>
+    </section>
+  );
+}
+
+function PaperReview({ p, onDone }: { p: Paper; onDone: () => void }) {
+  const [returning, setReturning] = useState(false);
+  const [note, setNote] = useState("");
+  const decide = async (approve: boolean) => {
+    const r = await safe(reviewPaperAction(p.workspace.id, p.id, { approve, note: approve ? "" : note }));
+    if (!r.success) return void toast.error(r.error);
+    toast.success(approve ? "Approved for submission" : "Returned to Drafting");
+    onDone();
+  };
+  return (
+    <li className="space-y-1.5 py-2" data-testid="lab-paper-review">
+      <p className="flex flex-wrap items-center gap-2"><span className="font-medium">{p.title}</span><StatusBadge state="neutral">{PAPER_KINDS[p.kind as PaperKind]}</StatusBadge>
+        <a href={`/workspaces/${encodeURIComponent(p.workspace.slug ?? p.workspace.id)}`} className="nb-link">{p.workspace.title}</a></p>
+      <p className="text-muted-foreground">{p.authors.map((a) => a.name).join(", ")}{p.venue ? ` · for ${p.venue}` : ""}</p>
+      {p.frozen ? <FrozenDraft workspaceId={p.workspace.id} paperId={p.id} version={p.frozen.version} /> : <p className="text-muted-foreground">No draft document is linked; review it from its workspace.</p>}
+      <span className="flex flex-wrap items-center gap-2">
+        <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void decide(true)}>Approve for submission<span className="sr-only"> {p.title}</span></button>
+        {returning ? <>
+          <Input value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} aria-label="What to change" placeholder="What to change" className="min-w-[240px] flex-1" />
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={!note.trim()} onClick={() => void decide(false)}>Return</button>
+        </> : <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setReturning(true)}>Return with notes<span className="sr-only"> {p.title}</span></button>}
+      </span>
+    </li>
+  );
+}
+
+export function LabPapersCard({ orgId, slug }: { orgId: string; slug: string }) {
   const q = useQuery({ queryKey: labKey(orgId), queryFn: () => readLabPapersAction(orgId), staleTime: 60_000 });
   const d = q.data?.success ? q.data : null;
   if (!d || !d.papers.length) return null;
-  const mine = d.papers.filter((p) => p.canReview);
+  const mine = d.papers.filter((p) => p.canReview && !p.reviewed);
   return (
     <OrgCard title="Papers" testId="lab-papers-all">
       <div className="space-y-2 text-[13px]">
-        {mine.length ? <p className="font-medium">Waiting for your internal review: {mine.map((p) => p.title).join(", ")}</p> : null}
+        {mine.length ? <p className="font-medium">Waiting for your internal review: {mine.map((p) => p.title).join(", ")} · <a className="nb-link" href={`/org/${encodeURIComponent(slug)}?tab=tasks&taskScope=review`}>Open the Review queue</a></p> : null}
         <ul className="divide-y divide-border">{d.papers.map((p) => (
           <li key={p.id} className="flex flex-wrap items-center gap-2 py-1.5"><span className="font-medium">{p.title}</span>
             <StatusBadge state={STAGE_BADGE[p.stage]}>{PAPER_STAGE_WORDS[p.stage]}</StatusBadge>
