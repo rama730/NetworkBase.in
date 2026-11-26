@@ -1248,9 +1248,9 @@
       "text": "B5.2 M2 Members and roles (34.3)",
       "kind": "unit",
       "milestone": "B5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/community-members.test.ts; tests/db/community-members.test.ts; tests/browser/community-members.spec.ts",
+      "evidence": "Pushed 2026-11-26 (0718a600c feature, 505ed0f13 report calls, 0e918abe2 + fcb3eade5 security fixes): Directory for every community member (own card, Show me in the directory, post counts hideable, New 30 days, role words, search/filters, blocks respected); organisers People (New/Active/Quiet), Roles, Activity log, Settings → Members; Moderators Hide / Pause posting (24 h or 7 days, kept per person on the community, blocks Updates) / Pass to organisers with a Code of conduct rule, logged; never remove, block, give roles or change settings. Full DB suite 1414/1415 (1 = messages session chat test). revisit 2026-11-27: live check on wt-test-b5-community."
     },
     {
       "key": "B5.3",

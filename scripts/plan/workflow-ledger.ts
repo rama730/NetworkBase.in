@@ -64,7 +64,7 @@ export function extractReportItems(report: string): Item[] {
     if (/^#{1,3} /.test(line) && !/^### 3[0-8]\./.test(line)) { if (/^#{1,2} /.test(line)) section = ""; inCalls = false; }
     if (!section) continue;
     if (/^(#### 11\. Calls|\*\*Calls agreed)/.test(line)) { inCalls = true; continue; }
-    if (inCalls && /^(\*\*Next|#### |---)/.test(line)) inCalls = false;
+    if (inCalls && /^(\*\*Next|\*\*Build calls|#### |---)/.test(line)) inCalls = false;
     const call = inCalls ? line.match(/^(\d+)\. (.+)/) : null;
     if (call) { items.push({ key: `${section}.call${call[1]}`, section, text: clean(call[2]!), kind: "call", milestone: milestoneOf(section) }); continue; }
     const walk = section.startsWith("38.") ? line.match(/^\*\*W(\d+) · ([^*]+)\*\*/) : null;
