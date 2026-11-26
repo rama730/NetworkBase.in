@@ -66,7 +66,7 @@ const shape = (r: Row, me: string, names: Map<string, string>, isPi: boolean, re
   return { id: r.id, title: r.title, stage: r.stage, kind: f.kind, venue: f.venue, deadline: f.deadline, link: f.link, doi: f.doi, private: f.private, preprintPublic: f.preprintPublic,
     workspace: { id: r.workspace_id, title: r.workspace, slug: r.slug },
     authors: (f.authors ?? []).map((a) => ("userId" in a ? { userId: a.userId, name: names.get(a.userId) ?? "Someone", confirmed: f.confirmed?.[a.userId] === key } : { name: a.name })),
-    mine: memberAuthors(f.authors ?? []).includes(me), iConfirmed: f.confirmed?.[me] === key, reviewed: Boolean(f.review && f.review.listKey === key),
+    mine: memberAuthors(f.authors ?? []).includes(me), iConfirmed: f.confirmed?.[me] === key, reviewed: Boolean(f.review && f.review.listKey === key && (f.review.kind ?? "paper") === f.kind),
     history: (f.history ?? []).slice(-20), canReview: isPi && r.stage === "internal_review", reviewOn };
 };
 

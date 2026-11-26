@@ -45,7 +45,9 @@ function PaperRow({ workspaceId, p, people, me }: { workspaceId: string; p: Pape
   const refresh = () => void client.invalidateQueries({ queryKey: wsKey(workspaceId) });
   const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); setMoving(null); setNote(""); refresh(); };
   if (editing) return <li className="py-2"><PaperForm workspaceId={workspaceId} people={people} me={me} paper={p} onDone={() => { setEditing(false); refresh(); }} /></li>;
-  const next = (NEXT[p.stage] ?? []).filter((s) => !(s === "internal_review" && (!p.reviewOn || p.kind !== "paper")));
+  const needsReview = p.reviewOn && p.kind === "paper";
+  // Live check: Submitted isn't offered until the PI's approval holds (the server refuses it anyway).
+  const next = (NEXT[p.stage] ?? []).filter((s) => !(s === "internal_review" && !needsReview) && !(s === "submitted" && needsReview && !p.reviewed));
   const unconfirmed = p.authors.filter((a) => "userId" in a && !a.confirmed);
   return (
     <li className="space-y-1.5 py-2" data-testid="lab-paper">
@@ -63,12 +65,12 @@ function PaperRow({ workspaceId, p, people, me }: { workspaceId: string; p: Pape
         <li key={i}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(h.at))} · {h.stage === "rejected" ? "Rejected" : PAPER_STAGE_WORDS[h.stage]}{h.venue ? ` · ${h.venue}` : ""}{h.note ? ` · ${h.note}` : ""}</li>))}</ol></details> : null}
       <span className="flex flex-wrap gap-2">
         {p.mine && !p.iConfirmed ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmAuthorsAction(workspaceId, p.id), "You confirmed the author list")}>Confirm the author list</button> : null}
-        {next.map((s) => <button key={s} type="button" className={FORM_SECONDARY_CLASS} onClick={() => (s === "rejected" || s === "submitted" ? setMoving(s) : void run(movePaperAction(workspaceId, p.id, { to: s }), `${PAPER_STAGE_WORDS[s as PaperStage] ?? "Moved"}`))}>{MOVE_WORDS[s]}</button>)}
-        {p.canReview ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(reviewPaperAction(workspaceId, p.id, { approve: true, note: "" }), "Approved for submission")}>Approve for submission</button> : null}
+        {next.map((s) => <button key={s} type="button" className={FORM_SECONDARY_CLASS} onClick={() => (s === "rejected" || s === "submitted" ? (setMoving(s), setNote(s === "submitted" ? p.venue ?? "" : "")) : void run(movePaperAction(workspaceId, p.id, { to: s }), `${PAPER_STAGE_WORDS[s as PaperStage] ?? "Moved"}`))}>{s === "drafting" && p.stage !== "idea" ? "Back to drafting" : MOVE_WORDS[s]}</button>)}
+        {p.canReview && !p.reviewed ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(reviewPaperAction(workspaceId, p.id, { approve: true, note: "" }), "Approved for submission")}>Approve for submission</button> : null}
         {p.canReview ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setMoving("return")}>Return with notes</button> : null}
         <button type="button" className="nb-link" onClick={() => setEditing(true)}>Edit<span className="sr-only"> {p.title}</span></button>
       </span>
-      {unconfirmed.length && next.includes("submitted") ? <p className="text-muted-foreground">Waiting for {unconfirmed.map((a) => a.name).join(", ")} to confirm the author list.</p> : null}
+      {unconfirmed.length && NEXT[p.stage]?.includes("submitted") ? <p className="text-muted-foreground">Waiting for {unconfirmed.map((a) => a.name).join(", ")} to confirm the author list.</p> : null}
       {moving ? (
         <span className="flex flex-wrap items-center gap-2">
           <Input value={note} maxLength={moving === "submitted" ? 200 : 1000} onChange={(e) => setNote(e.target.value)} aria-label={moving === "submitted" ? "Where it was submitted" : "Notes"}
@@ -108,14 +110,14 @@ function PaperForm({ workspaceId, people, me, paper, onDone }: { workspaceId: st
       </span>
       <span className="flex flex-wrap gap-2">
         <label className="min-w-[200px] flex-1">Venue (typed)<Input value={f.venue} maxLength={200} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="ICCV 2027" className="mt-1" /></label>
-        <label>Deadline<Input type="date" value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} className="mt-1 w-auto font-mono" /></label>
+        <label className="flex flex-col">Deadline<Input type="date" value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} className="mt-1 w-auto font-mono" /></label>
       </span>
       <fieldset className="space-y-1">
         <legend className="font-medium">Authors, in order</legend>
         <ol className="space-y-1">{authors.map((a, i) => (
           <li key={i} className="flex flex-wrap items-center gap-2"><span className="font-mono">{i + 1}.</span>{nameOf(a)}{"name" in a ? <span className="text-muted-foreground">(outside, never contacted)</span> : null}
-            <button type="button" className="nb-link" onClick={() => move(i, -1)} disabled={i === 0}>Up<span className="sr-only"> {nameOf(a)}</span></button>
-            <button type="button" className="nb-link" onClick={() => move(i, 1)} disabled={i === authors.length - 1}>Down<span className="sr-only"> {nameOf(a)}</span></button>
+            {i > 0 ? <button type="button" className="nb-link" onClick={() => move(i, -1)}>Up<span className="sr-only"> {nameOf(a)}</span></button> : null}
+            {i < authors.length - 1 ? <button type="button" className="nb-link" onClick={() => move(i, 1)}>Down<span className="sr-only"> {nameOf(a)}</span></button> : null}
             {authors.length > 1 ? <button type="button" className="nb-link" onClick={() => setAuthors(authors.filter((_, j) => j !== i))}>Remove<span className="sr-only"> {nameOf(a)}</span></button> : null}</li>))}</ol>
         <span className="flex flex-wrap items-center gap-2">
           <select className="nb-select" aria-label="Add an author from the lab" value="" onChange={(e) => e.target.value && setAuthors([...authors, { userId: e.target.value }])}>
