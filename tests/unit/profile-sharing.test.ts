@@ -67,7 +67,7 @@ test('in-app preview normalization strips identity from restricted payloads and 
 test('project accessible metadata uses full approved fields and generic alt for an unsupported image script',()=>{
   const resource=parseShareResource(origin+'/workspaces/one')!;
   const preview={...genericSharePreview(resource,'ready'),title:'Project 一',description:'A useful public project',identity:{name:'Project 一',username:null,avatarUrl:null,headline:null}};
-  const metadata=shareMetadata(preview);assert.equal((metadata.openGraph as any).images[0].alt,'NetworkBase workspace link');assert.equal(metadata.title,preview.title);
+  const metadata=shareMetadata(preview);assert.equal((metadata.openGraph as any).images[0].alt,'NetworkBase workspace link');assert.equal(metadata.title,preview.title+' · NetworkBase');
 });
 
 test('explicit project content destinations preserve only bounded known route state',async()=>{
