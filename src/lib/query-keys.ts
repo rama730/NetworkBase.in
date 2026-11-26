@@ -90,6 +90,9 @@ export const queryKeys = {
   },
   globalSearch: {
     root: () => ["global-search"] as const,
+    /** The one search (global search mix): words, page, place and how many rows. */
+    all: (ctx: string, place: string | null, query: string, per: number, only: string | null, exact: boolean) =>
+      ["global-search", "all", ctx, place, query, per, only, exact] as const,
     previewsRoot: () => ["global-search", "previews"] as const,
     discoverRoot: () => ["global-search", "previews", "discover"] as const,
     networkRoot: () => ["global-search", "previews", "network"] as const,
