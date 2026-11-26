@@ -1,6 +1,7 @@
 "use server";
 
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
@@ -88,4 +89,91 @@ export async function leaveChallengeAction(orgId: string, masterId: string): Pro
       AND c.assignment_id = m.id AND c.assignee_id = ${ctx.userId}::uuid AND c.deleted_at IS NULL AND c.status <> 'done' AND c.review_status <> 'pending'
     RETURNING c.id`));
   return r ? { success: true } : { success: false, error: "Your entry is handed in, so it stays. Delete it from the entry if you want it gone." };
+}
+
+// ---- B5.4b (report 34.5 calls 4–6, 9): entries, Featured, the Showcase ----
+
+const handedIn = sql`(c.status = 'done' OR c.review_status = 'pending')`;
+type EntryRow = { id: string; challenge_id: string; challenge: string; title: string | null; line: string | null; link: string | null; text: string | null; maker: string;
+  maker_name: string | null; maker_username: string | null; featured: boolean; why: string | null; public_yes: string[] | null; at: string };
+
+async function entries(orgId: string, where: ReturnType<typeof sql>, viewer: string | null) {
+  return Array.from(await db.execute<EntryRow>(sql`
+    SELECT c.id, m.id AS challenge_id, m.title AS challenge, s.title, s.line, c.submission->>'link' AS link, left(c.submission->>'text', 400) AS text,
+      c.assignee_id AS maker, p.full_name AS maker_name, p.username AS maker_username, s.featured_at IS NOT NULL AS featured, s.why, s.public_yes,
+      coalesce(c.review_submitted_at, c.completed_at, c.updated_at)::text AS at
+    FROM tasks c JOIN tasks m ON m.id = c.assignment_id JOIN profiles p ON p.id = c.assignee_id
+    LEFT JOIN community_showcase s ON s.copy_id = c.id
+    WHERE m.workspace_id = ${orgId}::uuid AND m.assignment_settings->'target'->>'mode' = 'optional' AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND ${handedIn}
+      AND (${viewer}::uuid IS NULL OR c.assignee_id = ${viewer}::uuid OR NOT app_private.blocked_between(${viewer}::uuid, c.assignee_id)) AND ${where}
+    -- Call 6: Featured first, then newest; never by likes.
+    ORDER BY (s.featured_at IS NOT NULL) DESC, coalesce(c.review_submitted_at, c.completed_at, c.updated_at) DESC LIMIT 200`));
+}
+const card = (r: EntryRow, viewer: string | null) => ({ id: r.id, challengeId: r.challenge_id, challenge: r.challenge, title: r.title ?? r.challenge, line: r.line,
+  link: r.link?.startsWith("https://") ? r.link : null, text: r.link ? null : r.text, maker: r.maker_name ?? r.maker_username ?? "Someone", mine: r.maker === viewer,
+  featured: r.featured, why: r.why, isPublic: (r.public_yes ?? []).includes(r.maker) });
+
+/** A challenge's entries (members): the gallery, Featured first. */
+export async function readChallengeEntriesAction(orgId: string, masterId: string) {
+  const ctx = await community(orgId);
+  if (!ctx || !isLooseUuid(masterId)) return DENIED;
+  const rows = await entries(orgId, sql`m.id = ${masterId}::uuid`, ctx.userId);
+  return { success: true as const, canFeature: ctx.organiser, entries: rows.map((r) => card(r, ctx.userId)) };
+}
+
+const cardSchema = z.object({ title: z.string().trim().min(1).max(120).nullable(), line: z.string().trim().max(200).nullable(), isPublic: z.boolean() }).strict();
+
+/** Your entry's card (layer 3): a title, a line and Show on the public Showcase — only the maker, only once handed in. */
+export async function saveEntryCardAction(orgId: string, copyId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  const parsed = cardSchema.safeParse(input);
+  if (!ctx || !isLooseUuid(copyId) || !parsed.success) return DENIED;
+  const [c] = Array.from(await db.execute<{ id: string }>(sql`
+    SELECT c.id FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+    WHERE c.id = ${copyId}::uuid AND m.workspace_id = ${orgId}::uuid AND m.assignment_settings->'target'->>'mode' = 'optional'
+      AND c.assignee_id = ${ctx.userId}::uuid AND c.deleted_at IS NULL AND ${handedIn}`));
+  if (!c) return { success: false, error: "Hand in your entry first." };
+  const d = parsed.data;
+  await db.execute(sql`
+    INSERT INTO community_showcase (copy_id, workspace_id, title, line, public_yes) VALUES (${copyId}::uuid, ${orgId}::uuid, ${d.title}, ${d.line || null}, ${d.isPublic ? sql`ARRAY[${ctx.userId}::uuid]` : sql`'{}'::uuid[]`})
+    ON CONFLICT (copy_id) DO UPDATE SET title = excluded.title, line = excluded.line, public_yes = excluded.public_yes, updated_at = now()`);
+  return { success: true };
+}
+
+/** Feature (call 4): organisers pick an entry with a short Why we love it line, or take the pick back. The maker is told (Normal). */
+export async function featureEntryAction(orgId: string, copyId: string, why: string | null): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  if (!ctx?.organiser || !isLooseUuid(copyId)) return DENIED;
+  const line = typeof why === "string" ? why.trim().slice(0, 200) : null;
+  if (why !== null && !line) return { success: false, error: "Say why you love it, in a line." };
+  const [c] = Array.from(await db.execute<{ maker: string; title: string }>(sql`
+    SELECT c.assignee_id AS maker, m.title FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+    WHERE c.id = ${copyId}::uuid AND m.workspace_id = ${orgId}::uuid AND m.assignment_settings->'target'->>'mode' = 'optional' AND c.deleted_at IS NULL AND ${handedIn}`));
+  if (!c) return DENIED;
+  await db.execute(sql`
+    INSERT INTO community_showcase (copy_id, workspace_id, featured_by, featured_at, why) VALUES (${copyId}::uuid, ${orgId}::uuid, ${line ? sql`${ctx.userId}::uuid` : sql`NULL`}, ${line ? sql`now()` : sql`NULL`}, ${line})
+    ON CONFLICT (copy_id) DO UPDATE SET featured_by = excluded.featured_by, featured_at = excluded.featured_at, why = excluded.why, updated_at = now()`);
+  if (line && c.maker !== ctx.userId) {
+    const { createNotification } = await import("@/lib/notifications/service");
+    await createNotification({ recipientUserId: c.maker, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "more",
+      title: `Your entry for ${c.title} is featured: “${line}”`, href: `/org/${encodeURIComponent(ctx.slug)}?tab=about`,
+      entityRefs: { projectId: orgId, projectSlug: ctx.slug }, dedupeKey: `community-featured:${copyId}` }).catch(() => undefined);
+  }
+  return { success: true };
+}
+
+/**
+ * The Showcase on About (calls 5–6): members see every entry; visitors only entries whose maker said yes, and only in
+ * a public community (a private one has no public Showcase). Featured first, then newest.
+ */
+export async function readShowcaseAction(orgId: string) {
+  if (!isLooseUuid(orgId)) return DENIED;
+  const { userId } = await getViewerAuthContext();
+  const a = await getWorkspaceAccessById(orgId, userId);
+  const [w] = Array.from(await db.execute<{ type: string | null; visibility: string }>(sql`SELECT org_type AS type, visibility FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
+  if (w?.type !== "community" || !a.canRead) return DENIED;
+  const inside = Boolean(userId) && (a.isOwner || (a.isMember && a.memberRole !== "viewer"));
+  if (!inside && w.visibility !== "public") return { success: true as const, entries: [] };
+  const rows = await entries(orgId, inside ? sql`true` : sql`c.assignee_id = ANY(coalesce(s.public_yes, '{}'::uuid[]))`, userId);
+  return { success: true as const, entries: rows.map((r) => card(r, userId)).map((e) => (inside ? e : { ...e, text: null })) };
 }

@@ -106,3 +106,52 @@ test("34.5: optional challenges are for communities only; a handed-in entry stay
   const list = await ch.readChallengesAction(o.id);
   assert.ok(list.success && list.challenges[0]!.entries === 1 && list.challenges[0]!.mine?.handedIn);
 });
+
+test("34.5 calls 4–6: the maker's card and public yes; organisers Feature with a line; visitors see only yes'd entries in a public community; Featured first", async () => {
+  const o = await org("community");
+  const [visitor] = await Promise.all([1].map(() => sql.begin((tx) => createUser(tx))));
+  await sql`UPDATE workspaces SET visibility = 'public' WHERE id = ${o.id}`;
+  viewerId = o.owner;
+  const made = await challenge(o.id, new Date(Date.now() + 864e5).toISOString());
+  assert.ok(made.success);
+  const masterId = made.success ? made.masterId : "";
+  const copies: Record<string, string> = {};
+  for (const who of [o.a, o.b]) {
+    viewerId = who;
+    const j = await ch.joinChallengeAction(o.id, masterId);
+    assert.ok(j.success);
+    copies[who] = j.success ? j.copyId : "";
+    assert.ok((await assignments.submitAssignmentAction(copies[who]!, { link: `https://example.com/${who.slice(0, 6)}` })).success);
+  }
+  viewerId = o.b;
+  assert.equal((await ch.saveEntryCardAction(o.id, copies[o.a]!, { title: "Not mine", line: null, isPublic: true })).success, false, "only the maker");
+  viewerId = o.a;
+  assert.ok((await ch.saveEntryCardAction(o.id, copies[o.a]!, { title: "tz-now", line: "Time zones at a glance", isPublic: true })).success);
+  viewerId = o.a;
+  assert.equal((await ch.featureEntryAction(o.id, copies[o.b]!, "tiny and useful")).success, false, "members don't feature");
+  viewerId = o.owner;
+  assert.ok((await ch.featureEntryAction(o.id, copies[o.b]!, "tiny and useful")).success);
+
+  viewerId = o.a;
+  const inside = await ch.readShowcaseAction(o.id);
+  assert.ok(inside.success);
+  assert.deepEqual(inside.entries.map((e) => e.featured), [true, false], "Featured first");
+  assert.equal(inside.entries[0]!.why, "tiny and useful");
+
+  viewerId = visitor!;
+  let outside = await ch.readShowcaseAction(o.id);
+  assert.ok(outside.success);
+  assert.deepEqual(outside.entries.map((e) => e.title), ["tz-now"], "only the entry its maker said yes to");
+  // Untick: it leaves the public Showcase; a private community has none.
+  viewerId = o.a;
+  await ch.saveEntryCardAction(o.id, copies[o.a]!, { title: "tz-now", line: null, isPublic: false });
+  viewerId = visitor!;
+  outside = await ch.readShowcaseAction(o.id);
+  assert.ok(outside.success && outside.entries.length === 0);
+  viewerId = o.a;
+  await ch.saveEntryCardAction(o.id, copies[o.a]!, { title: "tz-now", line: null, isPublic: true });
+  await sql`UPDATE workspaces SET visibility = 'private' WHERE id = ${o.id}`;
+  viewerId = visitor!;
+  const priv = await ch.readShowcaseAction(o.id);
+  assert.ok(!priv.success || priv.entries.length === 0, "a private community has no public Showcase");
+});

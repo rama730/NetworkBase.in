@@ -1,6 +1,7 @@
 'use client'
 
 import { NextEventCard } from '@/components/organizations/CommunityEvents'
+import { CommunityShowcase } from '@/components/organizations/CommunityChallenges'
 import { PublicCalendar } from '@/components/organizations/SchoolEvents'
 import { CurriculumOverview } from '@/components/organizations/Curriculum'
 import { ShowcaseSection } from '@/components/organizations/Capstone'
@@ -110,6 +111,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {org?.type === 'company' ? <CompanyAboutSections orgId={project.id} /> : null}
                 {org?.type === 'community' ? <NextEventCard orgId={project.id} base={base} /> : null}
                 {org?.type === 'community' ? <RulesSummary orgId={project.id} base={base} /> : null}
+                {org?.type === 'community' ? <CommunityShowcase orgId={project.id} /> : null}
             </div>
             <aside {...stickyRail} aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
                 {isClass ? <ClassDetailsRail orgId={project.id} settingsHref={`${base}?tab=settings&section=org-profile`} /> : null}

@@ -920,6 +920,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Your entry is handed in, so it stays. Delete it from the entry if you want it gone.": {"title": "Your entry is handed in, so it stays. Delete it from the entry if you want it gone.", "type": "warning"},
   "Optional challenges are for communities.": {"title": "Optional challenges are for communities.", "type": "warning"},
   "Challenges send no reminders: taking part is a choice.": {"title": "Challenges send no reminders: taking part is a choice.", "type": "warning"},
+  "Hand in your entry first.": {"title": "Hand in your entry first.", "type": "warning"},
+  "Say why you love it, in a line.": {"title": "Say why you love it, in a line.", "type": "warning"},
   "Your posting here is paused until {when}.": {"title": "Your posting here is paused until {when}.", "type": "warning"},
   "{name} can’t report to someone who reports to {who}.": {"title": "{name} can’t report to someone who reports to {who}.", "type": "warning"},
   "Name each value.": {"title": "Name each value.", "type": "warning"},

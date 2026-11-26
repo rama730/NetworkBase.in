@@ -159,7 +159,8 @@
     "drizzle/0153_chat_file_types.sql",
     "drizzle/0154_team_channel_names.sql",
     "drizzle/0155_community_events.sql",
-    "drizzle/0156_community_talks.sql"
+    "drizzle/0156_community_talks.sql",
+    "drizzle/0157_community_showcase.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

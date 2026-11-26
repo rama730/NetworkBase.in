@@ -1453,6 +1453,20 @@ export const communityEvents = pgTable("community_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("community_events_workspace_idx").on(t.projectId)]);
 
+/** B5.4b (0157): a challenge entry's showcase card — maker's title and line, Featured with Why we love it, the public yes. */
+export const communityShowcase = pgTable("community_showcase", {
+  copyId: uuid("copy_id").primaryKey().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  title: text("title"),
+  line: text("line"),
+  publicYes: uuid("public_yes").array().default(sql`'{}'::uuid[]`).notNull(),
+  featuredBy: uuid("featured_by").references(() => profiles.id, { onDelete: "set null" }),
+  featuredAt: timestamp("featured_at", { withTimezone: true }),
+  why: text("why"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("community_showcase_workspace_idx").on(t.projectId, t.featuredAt.desc().nullsLast(), t.updatedAt.desc()),
+  index("community_showcase_featured_by_idx").on(t.featuredBy).where(sql`featured_by IS NOT NULL`)]);
+
 /** Call for talks (0156): a member's proposal for an event; hosts Accept it into a run-of-show slot or say Not this time. */
 export const communityTalks = pgTable("community_talks", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -2,10 +2,10 @@
 
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Flag } from "lucide-react";
+import { Flag, Sparkles } from "lucide-react";
 
 import { createAssignmentAction } from "@/app/actions/assignments";
-import { joinChallengeAction, leaveChallengeAction, readChallengesAction } from "@/app/actions/community-challenges";
+import { featureEntryAction, joinChallengeAction, leaveChallengeAction, readChallengeEntriesAction, readChallengesAction, readShowcaseAction, saveEntryCardAction } from "@/app/actions/community-challenges";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -38,6 +38,7 @@ export function CommunityTasks({ orgId, base, children }: { orgId: string; base:
 export function CommunityChallenges({ orgId, base }: { orgId: string; base: string }) {
   const client = useQueryClient();
   const [starting, setStarting] = useState(false);
+  const [shown, setShown] = useState<string | null>(null);
   const q = useQuery({ queryKey: key(orgId), queryFn: () => readChallengesAction(orgId), staleTime: 30_000 });
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading challenges…</p>;
   if (!q.data?.success) return <ErrorNotice what="Challenges" onRetry={() => void q.refetch()} />;
@@ -66,7 +67,9 @@ export function CommunityChallenges({ orgId, base }: { orgId: string; base: stri
         {c.mine ? <a href={`${base}?tab=tasks&taskId=${c.mine.id}`} className={FORM_PRIMARY_CLASS}>{c.mine.handedIn ? "Your entry" : "Hand in"}</a>
           : c.open && d.canJoin ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void join(c.id)}>Join the challenge</button> : null}
         {c.mine && !c.mine.handedIn && c.open ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void leave(c.id)}>Leave</button> : null}
+        {c.entries ? <button type="button" className={FORM_SECONDARY_CLASS} aria-expanded={shown === c.id} onClick={() => setShown(shown === c.id ? null : c.id)}>{shown === c.id ? "Hide entries" : "See entries"}</button> : null}
       </span>
+      {shown === c.id ? <Entries orgId={orgId} masterId={c.id} /> : null}
     </li>
   );
   return (
@@ -123,6 +126,89 @@ export function CurrentChallengeCard({ orgId, base }: { orgId: string; base: str
       <p><a href={`${base}?tab=tasks&view=challenges`} className="nb-link font-medium">{c.title}</a></p>
       <p className="font-mono text-muted-foreground">{c.closes ? `Closes ${closes(c.closes)} · ` : ""}{c.joined} joined</p>
       {c.mine ? <a href={`${base}?tab=tasks&taskId=${c.mine.id}`} className="nb-link">{c.mine.handedIn ? "Your entry" : "Hand in your entry"}</a> : null}
+    </section>
+  );
+}
+
+type Entry = { id: string; challenge: string; title: string; line: string | null; link: string | null; text: string | null; maker: string; mine: boolean; featured: boolean; why: string | null; isPublic: boolean };
+
+/** One entry card (layer 6): title, maker, challenge, Featured as a word with its line. */
+function EntryCard({ e, children }: { e: Entry; children?: ReactNode }) {
+  return (
+    <li className="space-y-1 rounded-md border border-border bg-card p-3" data-testid="entry-card">
+      <p className="font-medium">{e.link ? <a href={e.link} target="_blank" rel="noopener noreferrer" className="nb-link">{e.title}</a> : e.title}</p>
+      <p className="text-muted-foreground">{e.maker} · {e.challenge}</p>
+      {e.line ? <p>{e.line}</p> : null}
+      {e.text ? <p className="line-clamp-3 whitespace-pre-wrap text-muted-foreground">{e.text}</p> : null}
+      {e.featured ? <p className="flex items-start gap-1"><Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span><span className="font-medium">Featured</span>{e.why ? ` · “${e.why}”` : ""}</span></p> : null}
+      {children}
+    </li>
+  );
+}
+
+/** A challenge's entries (members): Featured first; organisers Feature with a line; your entry's card and public tick. */
+function Entries({ orgId, masterId }: { orgId: string; masterId: string }) {
+  const q = useQuery({ queryKey: ["challenge-entries", orgId, masterId], queryFn: () => readChallengeEntriesAction(orgId, masterId) });
+  if (q.isPending) return <p role="status" className="nb-waiting text-muted-foreground"><PixelBeat />Loading entries…</p>;
+  if (!q.data?.success) return <ErrorNotice what="Entries" onRetry={() => void q.refetch()} />;
+  const d = q.data;
+  return (
+    <ul className="grid gap-2 sm:grid-cols-2" aria-label="Entries">
+      {d.entries.map((e) => (
+        <EntryCard key={e.id} e={e}>
+          {e.mine ? <MyEntryCard orgId={orgId} e={e} onSaved={() => void q.refetch()} /> : null}
+          {d.canFeature ? <FeatureControl orgId={orgId} e={e} onSaved={() => void q.refetch()} /> : null}
+        </EntryCard>
+      ))}
+    </ul>
+  );
+}
+
+function MyEntryCard({ orgId, e, onSaved }: { orgId: string; e: Entry; onSaved: () => void }) {
+  const [f, setF] = useState({ title: e.title, line: e.line ?? "", isPublic: e.isPublic });
+  const save = async () => {
+    const r = await saveEntryCardAction(orgId, e.id, { title: f.title.trim() || null, line: f.line.trim() || null, isPublic: f.isPublic });
+    if (!r.success) return void toast.error(r.error);
+    toast.success("Your entry is updated");
+    onSaved();
+  };
+  return (
+    <fieldset className="space-y-2 border-t border-border pt-2" data-testid="my-entry-card">
+      <legend className="sr-only">Your entry’s card</legend>
+      <Input value={f.title} maxLength={120} aria-label="Entry title" onChange={(x) => setF({ ...f, title: x.target.value })} />
+      <Input value={f.line} maxLength={200} placeholder="One line about it" aria-label="Entry line" onChange={(x) => setF({ ...f, line: x.target.value })} />
+      <label className="flex items-center gap-2"><input type="checkbox" className="nb-check" checked={f.isPublic} onChange={(x) => setF({ ...f, isPublic: x.target.checked })} />Show on the public Showcase</label>
+      <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void save()}>Save</button>
+    </fieldset>
+  );
+}
+
+function FeatureControl({ orgId, e, onSaved }: { orgId: string; e: Entry; onSaved: () => void }) {
+  const [why, setWhy] = useState(e.why ?? "");
+  const feature = async (on: boolean) => {
+    const r = await featureEntryAction(orgId, e.id, on ? why : null);
+    if (!r.success) return void toast.error(r.error);
+    toast.success(on ? "Featured" : "No longer featured");
+    onSaved();
+  };
+  return (
+    <span className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
+      <Input value={why} maxLength={200} placeholder="Why we love it" aria-label={`Why we love ${e.title}`} onChange={(x) => setWhy(x.target.value)} className="min-w-0 flex-1" />
+      <button type="button" className={FORM_SECONDARY_CLASS} disabled={!why.trim()} onClick={() => void feature(true)}>{e.featured ? "Update" : "Feature"}</button>
+      {e.featured ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void feature(false)}>Not now</button> : null}
+    </span>
+  );
+}
+
+/** The Showcase on About (calls 5–6): Featured first, then newest; visitors see only entries their makers said yes to. */
+export function CommunityShowcase({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["community-showcase", orgId], queryFn: () => readShowcaseAction(orgId), staleTime: 60_000 });
+  const list = q.data?.success ? q.data.entries : [];
+  if (!list.length) return null;
+  return (
+    <section aria-label="Showcase" className="space-y-2" data-testid="showcase">
+      <h3 className="nb-card-title">Showcase</h3>
+      <ul className="grid gap-2 sm:grid-cols-2">{list.slice(0, 12).map((e) => <EntryCard key={e.id} e={e} />)}</ul>
     </section>
   );
 }

@@ -18,6 +18,8 @@ async function open(page: Page, organiser: boolean, mine: null | { id: string; h
       joinChallengeAction: async (_o: string, id: string) => { calls.push(['join', id]); return { success: true, copyId: 'copy1' }; },
       leaveChallengeAction: async (_o: string, id: string) => { calls.push(['leave', id]); return { success: true }; },
       createAssignmentAction: async (v: unknown) => { calls.push(['create', v]); return { success: true, masterId: 'c2' }; },
+      readChallengeEntriesAction: async () => ({ success: true, canFeature: organiser, entries: [{ id: 'e1', challenge: 'Build a CLI in a weekend', title: 'tz-now', line: 'Time zones at a glance', link: 'https://example.com/tz', text: null, maker: 'Mei', mine: false, featured: false, why: null, isPublic: true }] }),
+      featureEntryAction: async (_o: string, id: string, why: string | null) => { calls.push(['feature', id, why]); return { success: true }; },
     };
   }, { organiser, mine });
   await openApp(page, 'tests/browser/community-challenges.fixture.tsx', { path: '/' });
@@ -48,4 +50,14 @@ test('A joined member hands in or leaves; organisers start a challenge as an opt
   await page.getByTestId('start-challenge').getByLabel('Title').fill('December: tiny tools');
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"target":{"mode":"optional"}');
+});
+
+test('Organisers feature an entry with a Why we love it line', async ({ page }) => {
+  await open(page, true, null);
+  await page.getByTestId('challenge-card').first().getByRole('button', { name: 'See entries' }).click();
+  const entry = page.getByTestId('entry-card').first();
+  await expect(entry).toContainText('tz-now');
+  await entry.getByLabel('Why we love tz-now').fill('tiny and useful');
+  await entry.getByRole('button', { name: 'Feature' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['feature', 'e1', 'tiny and useful']);
 });
