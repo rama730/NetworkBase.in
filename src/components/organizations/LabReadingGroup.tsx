@@ -72,7 +72,7 @@ function Upcoming({ orgId, s, d, onDone }: { orgId: string; s: Session; d: Data;
         <select className="nb-select max-w-[320px]" aria-label="Paper for this session" value={pick} onChange={(e) => setPick(e.target.value)}>
           <option value="">{s.source ? "Change the paper" : "Pick the paper"}</option>{d.sources.map((x) => <option key={x.id} value={x.id}>{x.title}{d.suggestions.some((y) => y.id === x.id) ? " (suggested)" : ""}</option>)}</select>
         <button type="button" className={FORM_SECONDARY_CLASS} disabled={!pick} onClick={() => void run(pickReadingAction(orgId, s.id, pick), "Paper picked; members are told to read it")}>Pick</button>
-        {s.mine && !s.swap ? <>
+        {s.mine && !s.swap && d.people.some((p) => p.id !== d.me) ? <>
           <select className="nb-select" aria-label="Swap with" value={swapTo} onChange={(e) => setSwapTo(e.target.value)}>
             <option value="">Swap with…</option>{d.people.filter((p) => p.id !== d.me).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={!swapTo} onClick={() => void run(askSwapAction(orgId, s.id, swapTo), "Swap asked")}>Ask</button>

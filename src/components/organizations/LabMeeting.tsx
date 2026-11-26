@@ -79,7 +79,7 @@ function Talk({ orgId, d, onDone }: { orgId: string; d: Data; onDone: () => void
         <Input value={talk} maxLength={200} onChange={(e) => setTalk(e.target.value)} aria-label="Talk title" placeholder="Talk title (slides in Files)" className="min-w-[240px] flex-1" />
         {d.admin ? <Input value={notes} maxLength={4000} onChange={(e) => setNotes(e.target.value)} aria-label="Announcements" placeholder="Announcements" className="min-w-[200px] flex-1" /> : null}
         <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(saveTalkAction(orgId, n.id, { talk, announcements: notes }), "Saved")}>Save</button>
-        {n.mine && !n.swap ? <>
+        {n.mine && !n.swap && d.people.some((p) => p.id !== d.me) ? <>
           <select className="nb-select" aria-label="Swap with" value={swapTo} onChange={(e) => setSwapTo(e.target.value)}><option value="">Swap with…</option>
             {d.people.filter((p) => p.id !== d.me).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={!swapTo} onClick={() => void run(askSwapAction(orgId, n.id, swapTo), "Swap asked")}>Ask</button></> : null}

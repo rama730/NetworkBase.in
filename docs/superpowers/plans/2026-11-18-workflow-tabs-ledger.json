@@ -1318,9 +1318,9 @@
       "text": "B6.4 R3 Library and reading group (35.4) — Depends: W5 Literature, D1 series (A4.1).",
       "kind": "unit",
       "milestone": "B6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/lab-library.test.ts; tests/unit/lab-reading-group.test.ts; tests/db/lab-library.test.ts; tests/db/lab-reading-group.test.ts; tests/browser/lab.spec.ts; tests/browser/literature.spec.ts",
+      "evidence": "B6.4a LIVE 2026-11-27 (33334adbf + f53f00771 review + 8dc7910e4/0138c624f/b14ddd8cf live fixes; 0166 in prod): Documents → Library on wt-test-b6-lab, pasted two RIS entries (WT NeRF in the Dark, WT Zero-DCE), My reading = Reading (only you see this), a signed Key findings lab note, Suggest for reading group. B6.4b LIVE (ef466a48a, 0167 in prod): Start a reading group (Tuesdays 16:00, me in turn) made four sessions in Kolkata time with pick-by dates; the suggested paper was picked for 1 December → Paper picked, Read before posted. B6.4c PUSHED (11dec831a, no migration): thesis Literature links + systematic review screening, DB- and browser-tested; live check of the thesis view pending. Themes, swaps, Away skipping and notices need a second account or time: DB-tested. Revisit 2026-11-28."
     },
     {
       "key": "B6.5",
