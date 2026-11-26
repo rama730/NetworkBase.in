@@ -79,7 +79,8 @@ test('⌘K stays the chat switcher in Messages; nothing else takes ⌘J from My 
   assert.match(read('src/components/messages/MessagesChrome.tsx'), /\(e\.metaKey \|\| e\.ctrlKey\) && \(e\.key === "k" \|\| e\.key === "K"\)/);
   assert.match(read('src/components/messages/ShortcutsDialog.tsx'), /k\("mod\+k"\), "Jump to a conversation or person"/);
   const topNav = read('src/components/layout/header/TopNav.tsx');
-  assert.match(topNav, /closest\("\[data-messages-surface\]"\) \|\| document\.getElementById\("chat-window"\)/);
+  // On the Messages page itself (wherever focus is) or with the chat window open: never both the switcher and the box.
+  assert.match(topNav, /document\.querySelector\("\[data-messages-surface\]"\) \|\| document\.getElementById\("chat-window"\)/);
   assert.doesNotMatch(topNav, /key\.toLowerCase\(\) === "j"/);
   assert.doesNotMatch(read('src/components/messages/ChatSections.tsx'), /useModKeyHint\("j"\)/);
 });

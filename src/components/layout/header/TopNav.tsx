@@ -135,7 +135,8 @@ export default function TopNav() {
                 e.preventDefault();
                 // Global search decision 5: inside Messages, or with the chat window open, ⌘K stays the chat switcher
                 // (⌘J is My work's); the top bar's search opens the one box there too.
-                if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]") || document.getElementById("chat-window")) {
+                // The page, not the focus: focus can sit on the body while Messages is open (live check).
+                if (document.querySelector("[data-messages-surface]") || document.getElementById("chat-window")) {
                     closeGlobalSearch();
                     useChatUi.getState().setSwitcherOpen(true);
                     return;
