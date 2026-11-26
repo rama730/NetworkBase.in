@@ -11895,6 +11895,17 @@ MODERATOR · Moderation → Reports    #2 No spam · "selling courses" in #gener
 7. Removing and blocking stay with organisers; every moderator action names a rule and is logged.
 8. Quiet members are never removed automatically.
 
+**Build calls (B5.2, 2026-11-26):**
+1. No migration: a member's card switches (`hidden`, `hideCounts`), labels (`moderator`, `host`, `helper`) and any pause live in `workspace_members.view_prefs.community`; Members settings and the activity log (newest 500) in `workspaces.org_settings.community`. Every write merges only its own keys.
+2. Contribution counts are posts only for now; showcases (M4) and events hosted (M3) join the card when those units land.
+3. Status counts posts and comments as activity; RSVPs and attending join with M3. Joined counts as activity, so a member who never posted turns Quiet `quietDays` after joining.
+4. Joined shows as a month ("Joined Nov 2026") until Seasons exist (club L1).
+5. Moderators work from Members → Moderation: the org's open reports, minus ones they filed, ones about organisers (those go to NetworkBase anyway) and ones passed to organisers. Organisers see all of them there, and keep Remove and blocking in Settings → Moderation.
+6. Hide uses the existing org decision (trust and safety). Pause posting decides the case as an org warning that names the pause and the rule, so the member gets the existing notice with Appeal; the pause itself sits on the membership and ends on its own. An appeal that reverses the warning doesn't lift the pause early (it's at most 7 days).
+7. Pause posting blocks Updates (post, edit, comment). Chat isn't paused yet: Messages is being rebuilt in another session; the chat gate joins with M1's chat posting gate.
+8. Organisers (owner, admins) never need to agree to the Code of conduct they publish, and can't be paused.
+9. Settings → People and roles gets a Members card for communities; the community's joining card is "Code of conduct and first days" under Joining.
+
 ### 34.4 M3 · Events and meetups (agreed 2026-11-17)
 **References** (studied in 16, 32.2 and 34.1):
 
