@@ -13,6 +13,7 @@ import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { availableSections, decisionLabel, DOC_SECTIONS, sectionHasDate, type DocSection } from "@/lib/workspaces/doc-sections";
+import { ORG_CREATION_COPY } from "@/lib/organizations/creation";
 import { periodLabel as goalPeriodLabel } from "@/lib/workflows/goals";
 import { canAddRows, MAX_BLOCK_ROWS, visibleRows } from "@/lib/workspaces/doc-live-blocks";
 import {
@@ -1336,6 +1337,11 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
         }
 
         const starterText = parsed.starterContent || "";
+        // An organization's starter doc is named for its type (report §34.5: "Code of conduct", "Syllabus"…), so the
+        // community front door finds its Code of conduct (B5.1); a workspace's stays README.md.
+        const [org] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const orgDocName = org?.kind === "organization" && org.orgType ? ORG_CREATION_COPY[org.orgType].starterDoc : null;
+        const filename = orgDocName && orgDocName !== "Blank" ? `${orgDocName}.md` : "README.md";
 
         if (starterText.trim().length > 0) {
             await db.transaction(async (tx) => {
@@ -1348,7 +1354,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                         .values({
                             projectId,
                             slug: "readme",
-                            filename: "README.md",
+                            filename,
                             settings: context.settings,
                         })
                         .onConflictDoNothing()

@@ -124,3 +124,21 @@ test("34.2 call 4 (B5.1c): a member behind the current Code of conduct reads on 
   await sql`UPDATE workspace_documents SET settings = jsonb_set(settings, '{org,readVersion}', '1') WHERE id = ${d!.id}`;
   assert.match(String(await communityPostBlock(id, m!)), /Agree to the Code of conduct/);
 });
+
+test("34.5 + B5.1 live check: the wizard's starter doc in a community is the Code of conduct the front door reads", async () => {
+  const owner = await sql.begin((tx) => createUser(tx));
+  const id = await sql.begin((tx) => createProject(tx, owner, { visibility: "public" }));
+  created.push(id);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (${id}, ${owner}, 'owner', now())`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'community', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${id}`;
+  const { orgStarterDoc } = await import("../../src/lib/organizations/creation");
+  const doc = await loadAppModule(() => import("../../src/app/actions/workspace/doc"));
+  viewerId = owner;
+  const applied = await doc.applyCreationIntentAction(id, { mode: "starter", starterContent: orgStarterDoc("community", { title: "Pune Devs" }), publishOnCreate: false, includeRoles: true });
+  assert.ok(applied.success, JSON.stringify(applied));
+  const [d] = await sql`SELECT id, filename, published_version_id FROM workspace_documents WHERE workspace_id = ${id}`;
+  assert.equal(d!.filename, "Code of conduct.md", "named for the type, not README.md");
+  assert.equal((await fd.readCommunityRulesAction(id) as { rules: unknown[] }).rules.length, 0, "a draft shows no rules");
+  await sql`UPDATE workspace_documents SET published_version_id = (SELECT id FROM workspace_document_versions WHERE doc_id = ${d!.id}) WHERE id = ${d!.id}`;
+  assert.equal((await fd.readCommunityRulesAction(id) as { rules: unknown[] }).rules.length, 5, "published: the five starter rules");
+});
