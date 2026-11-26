@@ -12875,6 +12875,12 @@ PUBLIC · About (the lab's website)
 2. **The New people plan is K4's onboarding**, opened to labs. It's on from the lab's start (never for people already there) until the PI saves the plan, and it uses lab steps: read the Welcome, read Safety and sign off, accounts and data, first supervision meeting, the reading group, your workspace from a template, How's it going. In a lab the manager is called **Supervisor**: the PI or a Researcher picked per person on People (stored as Reports to). Start here shows on the lab's Overview, and People has New people for the PI and Researchers.
 3. The Leaving plan, Finished and alumni are B6.1c (nothing like them existed: membership endings were left, removed, term ended).
 
+**Build calls (B6.1c, 2026-11-26):**
+1. **Finish in the lab** is started by the PI or a Researcher for anyone but the PI, or by a person for themselves. It takes a last day (today to a year ahead) and, for the PI and Researchers only, Keep as Viewer afterwards. With the Leaving plan on (Settings → Lab), five steps become tasks due before the last day: where your data and code live, notebooks and protocols handed over, equipment returned for the person; the new owner of their workspaces and the handover check for their supervisor. Cancel removes the open steps.
+2. **On the last day** (hourly job) the person's lab workspaces go to their supervisor (else the PI), and the membership ends as **Finished**, a new ending (0160) that reads "Finished in the lab" in Former and "Completed" on profiles and keeps verification. Kept as Viewer instead when the PI chose that.
+3. **Alumni** live in `lab_alumni` (0160), one row per person per lab, made at Finished with position and years, never listed until the person says **List me as alumni** and writes **Now at** (no email or phone). The question shows on the lab's About, and on the private-lab header for people who can no longer open a private lab. A person who comes back and finishes again keeps their yes. Members see listed alumni under Members → Alumni.
+4. **The public About** shows the sections the PI turned on: research areas, people under their positions (visitors see only people with a public profile who show the lab on it), listed alumni (with a public profile, for visitors), and Join us with Message the PI for signed-in people. Selected publications wait for R2 (B6.3).
+
 ### 35.3 R2 · Papers and publications (agreed 2026-11-17)
 **References** (35.1, plus 15 searches for papers, manuscripts, submissions and conferences: 114 templates, 27 rated; 3 more screens studied):
 
