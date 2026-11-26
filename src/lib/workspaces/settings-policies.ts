@@ -373,7 +373,7 @@ export function isWorkspaceTabVisibleToViewer(input: {
   if (input.isOrganization) {
     if (input.tabId === "about") return true;
     // Members is owners' and admins' alone in v1 (report §20.8); a company's Directory is for everyone inside (33.3).
-    if (input.tabId === "members") return Boolean(input.canManageSettings) || (input.orgType === "company" && input.isOwnerOrMember);
+    if (input.tabId === "members") return Boolean(input.canManageSettings) || ((input.orgType === "company" || input.orgType === "community") && input.isOwnerOrMember);
     // Projects is for people in the org; visitors see public projects on About (report §28.5).
     if (input.tabId === "projects") return input.isOwnerOrMember;
     if (input.tabId === "dashboard" || input.tabId === "tasks" || input.tabId === "settings") return input.isOwnerOrMember;

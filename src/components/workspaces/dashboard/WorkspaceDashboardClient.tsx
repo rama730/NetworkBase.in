@@ -56,6 +56,7 @@ import { GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import type { OrgFilesInfo } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { CompanyPeople } from '@/components/organizations/CompanyPeople';
+import { CommunityMembers } from '@/components/organizations/CommunityMembers';
 import { CompanyProjects, ProjectGoalLine } from '@/components/organizations/CompanyGoals';
 import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } from '@/components/organizations/OrgOverviewParts';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
@@ -1320,7 +1321,15 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     </TabErrorBoundary>
                 </div>
             )}
-            {isOrganization && organization?.type !== 'company' && canManageProjectSettings && activeTab === 'members' && (
+            {/* Report 34.3 (B5.2): a community's Members is the Directory for every member; organisers keep People, Roles and the roster. */}
+            {isOrganization && organization?.type === 'community' && activeTab === 'members' && (
+                <div className="w-full h-full min-h-0">
+                    <TabErrorBoundary tabName="Members">
+                        <CommunityMembers orgId={project.id} roster={canManageProjectSettings ? <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} /> : null} />
+                    </TabErrorBoundary>
+                </div>
+            )}
+            {isOrganization && organization?.type !== 'company' && organization?.type !== 'community' && canManageProjectSettings && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
                         {organization && !organization.isSchool && typeProfile(organization.type).schools

@@ -49,3 +49,32 @@ export const needsAgreement = (required: boolean, current: number, agreed: numbe
 /** Call 7: Getting started shows for 14 days after joining, until every item is done. */
 export const showGettingStarted = (joinedAt: string | null, now: Date, items: number, done: number) =>
   Boolean(joinedAt) && items > 0 && done < items && now.getTime() - Date.parse(joinedAt!) < 14 * 86_400_000;
+
+// ---- Report 34.3 (plan B5.2, M2): members and roles ----
+
+export type CommunityLabel = "moderator" | "host" | "helper";
+export const COMMUNITY_LABELS: readonly CommunityLabel[] = ["moderator", "host", "helper"];
+export type MembersSettings = { quietDays: number; helperWord: string; pauseHours: number[] };
+export const DEFAULT_MEMBERS: MembersSettings = { quietDays: 60, helperWord: "Helper", pauseHours: [24, 168] };
+
+export function readMembersSettings(orgSettings: unknown): MembersSettings {
+  const m = ((orgSettings as { community?: { members?: Partial<MembersSettings> } } | null)?.community?.members ?? {}) as Partial<MembersSettings>;
+  const quiet = Number(m.quietDays);
+  const word = typeof m.helperWord === "string" ? m.helperWord.trim().slice(0, 30) : "";
+  const hours = Array.isArray(m.pauseHours) ? m.pauseHours.filter((h) => h === 24 || h === 168) : [];
+  return { quietDays: quiet >= 14 && quiet <= 365 ? Math.round(quiet) : 60, helperWord: word || "Helper", pauseHours: hours.length ? hours : [24, 168] };
+}
+
+const DAY = 86_400_000;
+/** Call 4 + state: New for the first 30 days (shown to everyone so others can welcome them). */
+export const isNewMember = (joinedAt: string | null, now: Date) => Boolean(joinedAt) && now.getTime() - Date.parse(joinedAt!) < 30 * DAY;
+
+/** Call 4: New · Active · Quiet, worked out, for organisers only. Quiet = no post, RSVP or attending for `quietDays`. */
+export function memberStatus(joinedAt: string | null, lastActiveAt: string | null, now: Date, quietDays: number): "new" | "active" | "quiet" {
+  if (isNewMember(joinedAt, now)) return "new";
+  const since = lastActiveAt ?? joinedAt;
+  return since && now.getTime() - Date.parse(since) < quietDays * DAY ? "active" : "quiet";
+}
+
+/** Pause posting: active until its end; ends on its own. */
+export const pauseActive = (pause: { until: string } | null | undefined, now: Date) => Boolean(pause?.until) && Date.parse(pause!.until) > now.getTime();

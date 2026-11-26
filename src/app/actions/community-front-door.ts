@@ -53,8 +53,10 @@ async function mine(orgId: string, userId: string) {
     SELECT view_prefs->'community' AS prefs, joined_at::text AS joined FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`));
   return m ? { prefs: m.prefs ?? {}, joined: m.joined } : null;
 }
+// Merges only the keys given (B5.2): an organiser's label or pause on the same membership is never overwritten.
 const savePrefs = (orgId: string, userId: string, prefs: MemberCommunity) => db.execute(sql`
-  UPDATE workspace_members SET view_prefs = coalesce(view_prefs, '{}'::jsonb) || jsonb_build_object('community', ${JSON.stringify(prefs)}::jsonb) WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`);
+  UPDATE workspace_members SET view_prefs = coalesce(view_prefs, '{}'::jsonb) || jsonb_build_object('community', coalesce(view_prefs->'community', '{}'::jsonb) || ${JSON.stringify(prefs)}::jsonb)
+  WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`);
 
 /** The member's front door: whether they must agree to the current Code of conduct, and Getting started (14 days). */
 export async function readMyCommunityAction(orgId: string) {
@@ -79,7 +81,7 @@ export async function agreeToCodeAction(orgId: string): Promise<{ success: true 
   if (!ctx?.inside || !ctx.userId) return DENIED;
   const [m, coc] = await Promise.all([mine(orgId, ctx.userId), codeOfConduct(orgId)]);
   if (!m || !coc) return DENIED;
-  await savePrefs(orgId, ctx.userId, { ...m.prefs, agreed: { version: coc.version, at: new Date().toISOString() } });
+  await savePrefs(orgId, ctx.userId, { agreed: { version: coc.version, at: new Date().toISOString() } });
   return { success: true };
 }
 
@@ -89,7 +91,7 @@ export async function tickGettingStartedAction(orgId: string, itemId: string): P
   if (!ctx?.inside || !ctx.userId || !ctx.settings.gettingStarted.some((i) => i.id === itemId)) return DENIED;
   const m = await mine(orgId, ctx.userId);
   if (!m) return DENIED;
-  await savePrefs(orgId, ctx.userId, { ...m.prefs, started: [...new Set([...(m.prefs.started ?? []), itemId])] });
+  await savePrefs(orgId, ctx.userId, { started: [...new Set([...(m.prefs.started ?? []), itemId])] });
   return { success: true };
 }
 
@@ -100,7 +102,7 @@ export async function saveJoinAnswersAction(orgId: string, input: { answers: Rec
   const m = await mine(orgId, ctx.userId);
   if (!m) return DENIED;
   const answers = Object.fromEntries(ctx.settings.questions.map((q) => [q.id, String(input.answers?.[q.id] ?? "").trim().slice(0, 500)]).filter(([, v]) => v));
-  await savePrefs(orgId, ctx.userId, { ...m.prefs, answers, showAnswer: input.showAnswer });
+  await savePrefs(orgId, ctx.userId, { answers, showAnswer: input.showAnswer });
   return { success: true };
 }
 
@@ -125,7 +127,8 @@ export async function saveJoiningSettingsAction(orgId: string, input: unknown): 
   if (!ctx?.organiser) return DENIED;
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Check the joining settings." };
-  await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('community', ${JSON.stringify(parsed.data)}::jsonb) WHERE id = ${orgId}::uuid`);
+  // Merged (B5.2): Members settings and the activity log live beside these.
+  await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('community', coalesce(org_settings->'community', '{}'::jsonb) || ${JSON.stringify(parsed.data)}::jsonb) WHERE id = ${orgId}::uuid`);
   return { success: true };
 }
 

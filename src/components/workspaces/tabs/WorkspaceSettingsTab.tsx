@@ -14,6 +14,7 @@ import { CompanySettingsCard } from "@/components/organizations/CompanyParts";
 import { DirectorySettingsCard } from "@/components/organizations/CompanyPeople";
 import { OnboardingPlanSettings } from "@/components/organizations/CompanyOnboarding";
 import { JoiningSettings } from "@/components/organizations/CommunityFrontDoor";
+import { CommunityMembersSettings } from "@/components/organizations/CommunityMembers";
 import { ClassDetailsSettings } from "@/components/organizations/ClassHomeParts";
 import { TermPlanSettings } from "@/components/organizations/TermPlan";
 import { SectionSettingsCard } from "@/components/organizations/Sections";
@@ -1572,6 +1573,7 @@ function ProjectSettingsContent({
                 {/* B5.1 live check: the community's joining terms sit with Joining, not under Organization profile. */}
                 {organization && sections.some((s) => s.id === "org-access") && organization.type === "community" ? <JoiningSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
+                {organization && sections.some((s) => s.id === "org-people") && organization.type === "community" ? <CommunityMembersSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-projects") && typeProfile(organization.type).schools ? <OrgSchoolCard orgId={projectId} isSchool={organization.isSchool} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") ? <OrgWorkflowsCard orgId={projectId} orgName={project?.title ?? "the organization"} /> : null}
