@@ -6,10 +6,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast, feedbackDate } from "@/lib/feedback";
 
 import { getCanvas } from "@/app/actions/chat/canvas";
-import { getChannel, listChannelTabs, listMembers } from "@/app/actions/chat/channels";
+import { type getChannel, listChannelTabs, listMembers } from "@/app/actions/chat/channels";
 import { getPersonContext } from "@/app/actions/chat/members";
 import { listSavedSeqs, saveMessage } from "@/app/actions/chat/later";
-import { listMessages, resolveMessageTarget } from "@/app/actions/chat/messages";
+import { type listMessages, readReactions, resolveMessageTarget } from "@/app/actions/chat/messages";
+import { chatGet } from "@/lib/messaging/web-read";
 import { markRead } from "@/app/actions/chat/read";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,7 +57,7 @@ export function useChannelDetails(channelId: string) {
     queryKey: queryKeys.chat.channel(channelId),
     enabled: Boolean(user),
     queryFn: async () => {
-      const result = await getChannel({ channelId });
+      const result = await chatGet<Awaited<ReturnType<typeof getChannel>>>("channel", { channelId });
       if (!result.success) throw new Error(result.error);
       return result.channel;
     },
@@ -154,7 +155,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
     initialPageParam: null as number | null,
     queryFn: async ({ pageParam }) => {
       const around = pageParam === null && options.around ? options.around : undefined;
-      const result = await listMessages({ channelId, before: pageParam ?? undefined, around });
+      const result = await chatGet<Awaited<ReturnType<typeof listMessages>>>("messages", { channelId, before: pageParam ?? undefined, around });
       if (!result.success) throw new Error(result.error);
       seedCards(queryClient, result.cards);
       return result.messages;
@@ -190,12 +191,20 @@ export function useChannelMessages(channelId: string, options: { around?: number
             if (seq === null) break;
             const on = event === "reaction.add";
             const mine = payload.user_id === meId;
+            let body = "";
             update((pages) => patchPages(pages, seq, (m) => {
+              body = m.body;
               // This tab already shows its own reaction; one made on another device still needs applying.
               if (mine && Boolean(m.reactions.find((r) => r.emoji === payload.emoji)?.me) === on) return m;
               // Live voters: only your own id; others' faces come from the server's list, which leaves out anyone blocked either way.
               return { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine, mine && typeof payload.user_id === "string" ? payload.user_id : undefined, Boolean(pollParts(m.body))) };
             }));
+            // Someone else's vote: their face comes from the server, which leaves out anyone blocked either way.
+            if (!mine && pollParts(body)) {
+              void readReactions({ channelId, seq }).then((result) => {
+                if (result.success) update((pages) => patchPages(pages, seq, (m) => ({ ...m, reactions: result.reactions })));
+              });
+            }
             break;
           }
           case "message.preview_hidden":

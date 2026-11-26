@@ -166,3 +166,71 @@ test("media extras: a photo's thumbnail, pixel preview, length and waveform are 
     await assert.rejects(sql`UPDATE chat_attachments SET preview = ${bad} WHERE channel_id = ${channelId} AND asset_id = ${photo}`, /chat_attachments_media_check/);
   }
 });
+
+// Two-person live check (0152 and the list extras).
+test("0152: deleting every reply takes the thread back to none, and a deleted message with no replies leaves Threads", async () => {
+  const [a, b] = await people(2);
+  as(a!);
+  const channelId = ((await members.createGroup({ userIds: [b!, (await people(1))[0]!] })) as { channelId: string }).channelId;
+  const root = await send(channelId, "thread root");
+  as(b!); const reply = await send(channelId, "only reply", root);
+  const [before] = await sql`SELECT reply_count, last_reply_seq FROM chat_messages WHERE channel_id = ${channelId} AND channel_seq = ${root}`;
+  assert.equal(before!.reply_count, 1);
+  assert.equal((await messages.deleteMessage({ channelId, seq: reply })).success, true);
+  const [after] = await sql`SELECT reply_count, last_reply_seq, last_reply_at FROM chat_messages WHERE channel_id = ${channelId} AND channel_seq = ${root}`;
+  assert.deepEqual({ ...after }, { reply_count: 0, last_reply_seq: null, last_reply_at: null });
+  as(a!); assert.equal((await messages.deleteMessage({ channelId, seq: root })).success, true);
+  const listed = await messages.listMessages({ channelId });
+  const gone = (listed as { messages: Array<{ seq: number; deleted_at: string | null; reply_count: number }> }).messages.find((m) => m.seq === root)!;
+  assert.equal(Boolean(gone.deleted_at) && gone.reply_count === 0, true, "deleted with no replies: the timeline drops it (timeline.ts)");
+  const activity = await loadAppModule(() => import("../../src/app/actions/chat/activity"));
+  const threads = await activity.listThreads({});
+  assert.equal((threads as { threads: Array<{ channel_id: string }> }).threads.some((t) => t.channel_id === channelId), false, "gone from Threads");
+});
+
+test("0152: #general is for everyone in the organization or the workspace, never the project", async () => {
+  const [row] = await sql`SELECT pg_get_functiondef('app_private.chat_sync_workspace_members(uuid,uuid,text)'::regprocedure) AS def`;
+  assert.match(String(row!.def), /Everyone in the organization/);
+  assert.doesNotMatch(String(row!.def), /Everyone in the project/);
+});
+
+test("bootstrap: a DM counts the other person’s unread messages, not your own or deleted ones", async () => {
+  const [a, b] = await people(2);
+  as(a!);
+  const channelId = ((await members.getOrCreateDm({ userId: b! })) as { channelId: string }).channelId;
+  as(b!); await send(channelId, "one from b"); const second = await send(channelId, "two from b");
+  const gone = await send(channelId, "deleted"); await messages.deleteMessage({ channelId, seq: gone });
+  as(a!); await send(channelId, "a's own");
+  // Mark unread from b's second message: one of b's is left, then a deleted one and a's own (12 vs 1 in the live check).
+  assert.equal((await messages.markUnread({ channelId, seq: second })).success, true);
+  const boot = await read.bootstrap({});
+  const row = (boot as { data: { channels: Array<{ id: string; unread_count?: number; last_preview: string | null }> } }).data.channels.find((c) => c.id === channelId)!;
+  // From the marked point: b's second message and a's own (marked unread on purpose); never the deleted one.
+  assert.equal(row.unread_count, 2);
+});
+
+test("0152: deleting a thread reply someone was @-mentioned in never clears a newer @ on the badge", async () => {
+  const [a, b, c] = await people(3);
+  as(a!);
+  const channelId = ((await members.createGroup({ userIds: [b!, c!] })) as { channelId: string }).channelId;
+  const root = await send(channelId, "root");
+  as(c!); const reply = await send(channelId, `in thread <@${b}>`, root);
+  as(a!); const top = await send(channelId, "a writes on");
+  as(b!); await read.markRead({ channelId, seq: top });
+  as(c!); await send(channelId, `new mention <@${b}>`);
+  const badge = async () => (await sql`SELECT mention_count FROM chat_channel_members WHERE channel_id = ${channelId} AND user_id = ${b!}`)[0]!.mention_count;
+  assert.equal(await badge(), 1);
+  as(c!); assert.equal((await messages.deleteMessage({ channelId, seq: reply })).success, true);
+  assert.equal(await badge(), 1, "the reply was before b's read point: the newer @ stays");
+});
+
+test("bootstrap: previews name the people and channels a message mentions", async () => {
+  const [a, b] = await people(2);
+  await sql`UPDATE profiles SET full_name = 'Bea Preview' WHERE id = ${b!}`;
+  as(a!);
+  const channelId = ((await members.getOrCreateDm({ userId: b! })) as { channelId: string }).channelId;
+  await send(channelId, `ping <@${b}> <!here>`);
+  const boot = await read.bootstrap({});
+  const row = (boot as { data: { channels: Array<{ id: string; last_preview: string | null }> } }).data.channels.find((c) => c.id === channelId)!;
+  assert.equal(row.last_preview, "ping @Bea Preview @here");
+});

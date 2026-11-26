@@ -10,7 +10,7 @@ import { isMessageSeq } from "@/lib/messaging/routes";
 import { normalizeMediaDimensions } from "@/lib/messaging/media-metadata";
 import { publishSentMessage } from "@/lib/messaging/publish";
 import { chatRows, chatValue, isUuid, jsonParam, uuidArray } from "@/lib/messaging/server";
-import { parseMentions } from "@/lib/messaging/tokens";
+import { mentionedRecipients, parseMentions } from "@/lib/messaging/tokens";
 import type { ChatAttachmentView, ChatCardRef, ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 
 export type SendInput = {
@@ -144,7 +144,7 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
   };
 
   if (!result.deduped) {
-    publishSentMessage({ message, notify: result.notify ?? [], muted: result.muted, follows: result.follows, mentioned: userIds, channelLabel });
+    publishSentMessage({ message, notify: result.notify ?? [], muted: result.muted, follows: result.follows, mentioned: mentionedRecipients(userIds, broadcast, result.notify ?? []), channelLabel });
   }
   return { success: true as const, message };
 }

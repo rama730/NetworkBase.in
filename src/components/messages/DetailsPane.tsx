@@ -413,8 +413,8 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
         <div className="space-y-3 p-4">
           {context.data.sharedProjects.length ? (
             <div>
-              <p className="nbm-glabel mb-1"><span>Workspaces in common</span><span className="nbm-glabel-rule" aria-hidden="true" /></p>
-              {context.data.sharedProjects.map((p) => <Link key={p.id} href={`/workspaces/${p.slug ?? p.id}`} className="block truncate py-0.5 text-[13px] text-primary hover:underline">{p.title}</Link>)}
+              <p className="nbm-glabel mb-1"><span>{context.data.sharedProjects.some((p) => p.kind === "organization") ? "Workspaces and organizations in common" : "Workspaces in common"}</span><span className="nbm-glabel-rule" aria-hidden="true" /></p>
+              {context.data.sharedProjects.map((p) => <Link key={p.id} href={p.kind === "organization" ? `/org/${p.slug ?? p.id}` : `/workspaces/${p.slug ?? p.id}`} className="block truncate py-0.5 text-[13px] text-primary hover:underline">{p.title}</Link>)}
             </div>
           ) : null}
           {context.data.sharedChannels.length ? (

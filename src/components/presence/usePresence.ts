@@ -94,7 +94,9 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
     const data = query.data ?? null;
     const lastActiveAt = data ? data.lastActiveAt : options.fallbackLastActiveAt ?? null;
     const availability = availabilityOf({ live: resolveLive(options.live ?? realtime, data?.live), lastActiveAt });
-    const availabilityText = availabilityLabel(availability, lastActiveAt);
+    // Not loaded yet and nothing to go on: say nothing rather than guess "Offline" (it read as a fact while slow).
+    const unknown = !data && !query.isError && !options.fallbackLastActiveAt && options.live === undefined;
+    const availabilityText = unknown ? "" : availabilityLabel(availability, lastActiveAt);
     const status = data?.status ?? null;
     const statusText = status ? statusLabel(status) : null;
     const statusLine = status ? [status.emoji, statusText].filter(Boolean).join(" ") : null;

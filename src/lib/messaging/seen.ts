@@ -14,12 +14,12 @@ export function seenLabel(at: string, now = new Date(), locale?: string) {
   return { text: `Seen ${day}`, spoken: `Seen ${day}` };
 }
 
-type Row = { seq: number; author_id: string | null; kind: string; thread_root_seq: number | null };
+type Row = { seq: number; author_id: string | null; kind: string; thread_root_seq: number | null; deleted_at?: string | null };
 
 /** The seq to show "Seen" under: your newest message, once they have read it; else null. */
 export function seenAfter(messages: readonly Row[], meId: string | null, peerSeen: { seq: number; at: string } | null | undefined) {
   if (!meId || !peerSeen) return null;
-  const top = messages.filter((m) => m.kind === "user" && m.thread_root_seq === null && m.seq > 0);
+  const top = messages.filter((m) => m.kind === "user" && m.thread_root_seq === null && m.seq > 0 && !m.deleted_at);
   const last = top.at(-1);
   // Only under the newest message, when it's yours and they have read it; their reply ends it.
   return last && last.author_id === meId && last.seq <= peerSeen.seq ? last.seq : null;

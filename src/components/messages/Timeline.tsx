@@ -253,8 +253,9 @@ export function Timeline({ messages, lastReadSeq, meId, peerSeen = null, hasOlde
     const attachments = latestMessage.attachments?.map((a) => a.asset_id).join(",") ?? "";
     const previewHidden = latestMessage.link_preview_hidden ? 1 : 0;
     const cardKind = latestMessage.card?.kind ?? "";
-    return `${latestMessage.client_message_id ?? ""}:${latestMessage.seq}:${reactions}:${attachments}:${previewHidden}:${cardKind}:${latestMessage.body.length}:${latestMessage.edited_at ?? ""}`;
-  }, [latestMessage]);
+    // The Seen line under it counts too: it appearing at the bottom keeps the newest message in view.
+    return `${latestMessage.client_message_id ?? ""}:${latestMessage.seq}:${reactions}:${attachments}:${previewHidden}:${cardKind}:${latestMessage.body.length}:${latestMessage.edited_at ?? ""}:${seenSeq ?? ""}`;
+  }, [latestMessage, seenSeq]);
 
   const lastContentSig = useRef(latestContentSignature);
   useEffect(() => {

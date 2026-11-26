@@ -3,7 +3,7 @@
 import { sql } from "drizzle-orm";
 
 import { CHAT_MAX_GROUP_OTHERS } from "@/lib/messaging/constants";
-import { publishChannel, publishUser, publishUsers } from "@/lib/messaging/publish";
+import { publishChannel, publishUser, publishUsers, publishChannelActivity } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
 import type { ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { getRedisClient, rateLimit } from "@/lib/redis";
@@ -78,6 +78,7 @@ export async function addMembers(input: { channelId: string; userIds: string[] }
       SELECT app_private.chat_add_members(${input.channelId}::uuid, ${user.id}::uuid, ${uuidArray(userIds)}) AS value
     `);
     publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     publishUsers(userIds, "membership.changed", { channel_id: input.channelId });
     return { success: true as const, added };
   } catch (error) {
@@ -92,6 +93,7 @@ export async function removeMember(input: { channelId: string; userId: string })
   try {
     await chatRows(sql`SELECT app_private.chat_remove_member(${input.channelId}::uuid, ${user.id}::uuid, ${input.userId}::uuid)`);
     publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     publishUser(input.userId, "membership.changed", { channel_id: input.channelId });
     return { success: true as const };
   } catch (error) {
@@ -193,7 +195,7 @@ export type PersonContext = {
   /** Shown on their card only when the profile is public, or you share a project. */
   headline?: string | null;
   location?: string | null;
-  sharedProjects: { id: string; title: string; slug: string | null }[];
+  sharedProjects: { id: string; title: string; slug: string | null; kind: string }[];
   sharedChannels: { id: string; name: string; project_title: string | null }[];
   /** Whether a DM with them can start (their privacy, organizations, blocks): `chat_can_dm`. */
   canMessage: boolean;
@@ -211,7 +213,7 @@ export async function getPersonContext(input: { userId: string }) {
     if (blocked) return { success: true as const, context: { timeZone: null, sharedProjects: [], sharedChannels: [], canMessage: false, reason: null } satisfies PersonContext };
     const [sharedProjects, sharedChannels, profile, timeZone, canMessage] = await Promise.all([
       chatRows<PersonContext["sharedProjects"][number]>(sql`
-        SELECT p.id, p.title, p.slug FROM workspace_members a
+        SELECT p.id, p.title, p.slug, p.kind FROM workspace_members a
         JOIN workspace_members b ON b.workspace_id = a.workspace_id AND b.user_id = ${input.userId}::uuid
         JOIN workspaces p ON p.id = a.workspace_id
         WHERE a.user_id = ${user.id}::uuid AND p.deleted_at IS NULL ORDER BY p.title LIMIT 10

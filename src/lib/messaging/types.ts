@@ -36,6 +36,8 @@ export type ChatChannelSummary = {
   last_top_seq: number;
   last_read_seq: number;
   mention_count: number;
+  /** Unread top-level messages from other people (DMs, groups, applications); from the server, then kept live. */
+  unread_count?: number;
   notify: ChatNotify;
   starred: boolean;
   archived_at: string | null;

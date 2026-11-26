@@ -10,3 +10,12 @@ export function scheduleWindow(value: unknown, now = Date.now()): ScheduleWindow
   if (at - now > SCHEDULE_MAX_AHEAD_MS) return { ok: false, reason: "too_far" };
   return { ok: true, at: new Date(at).toISOString() };
 }
+
+/** The scheduled list reloads a few seconds after its next message is due (it left the list), never sooner than 5 s. */
+export function scheduledRefetchMs(items: { send_at: string; failed_reason?: string | null }[], now = Date.now()): number | false {
+  // A failed one stays in the list until you deal with it: nothing to wait for.
+  const waiting = items.filter((item) => !item.failed_reason);
+  if (!waiting.length) return false;
+  const next = Math.min(...waiting.map((item) => Date.parse(item.send_at)));
+  return Math.max(5_000, next - now + 5_000);
+}

@@ -264,7 +264,7 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     return () => worker.removeEventListener("message", onMessage);
   }, [router]);
   // The tab title carries the same count as the Messages badge: "(3) Discover".
-  useDocumentTitlePrefix(badge ? `(${badge > 99 ? "99+" : badge})` : null, " ");
+  useDocumentTitlePrefix(badge ? `(${badge > 99 ? "99+" : badge})` : null, " ", { first: true });
   const loadError = userId && query.isError && !data ? query.error.message : null;
   const shell = useMemo<ChatShell>(
     () => ({ data, badge, status, loadError, refresh, applyRead }),

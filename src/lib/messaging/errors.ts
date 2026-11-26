@@ -70,3 +70,13 @@ export const CHAT_ERROR_MESSAGES: Record<string, string> = {
 export function chatErrorMessage(code: string | undefined) {
   return (code && CHAT_ERROR_MESSAGES[code]) || "Something went wrong. Try again.";
 }
+
+// Refusals a retry can't fix: the send goes back in the box instead of sitting there as "Not sent · Retry".
+const REFUSED_SENDS = new Set([
+  "chat_general_admins_only", "chat_org_read_only", "chat_channel_archived", "chat_cannot_reply", "chat_blocked",
+  "chat_dm_not_allowed", "chat_not_member", "chat_not_project_member", "chat_channel_not_found", "chat_invalid_broadcast",
+  "chat_broadcast_mention_too_large", "chat_body_too_long", "chat_invalid_body", "chat_invalid_thread_root", "chat_too_many_attachments",
+]);
+export function isRefusedSend(code: string | undefined) {
+  return Boolean(code && REFUSED_SENDS.has(code));
+}

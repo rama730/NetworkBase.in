@@ -233,6 +233,20 @@ export async function listMessages(input: { channelId: string; before?: number; 
   }
 }
 
+/** One message's reactions as the timeline shows them (poll voters leave out anyone blocked either way). */
+export async function readReactions(input: { channelId: string; seq: number }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
+  try {
+    const [message] = await selectMessages(user.id, input.channelId, sql`m.channel_seq = ${input.seq} AND m.deleted_at IS NULL`, sql`m.channel_seq ASC`, 1);
+    if (!message) return { success: false as const, error: "chat_message_not_found" };
+    return { success: true as const, reactions: message.reactions };
+  } catch (error) {
+    return chatFailure(error, "read_reactions");
+  }
+}
+
 /** Message-location lookup uses exactly the same read authorization as the timeline. */
 export async function resolveMessageTarget(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();

@@ -20,7 +20,7 @@ import { matchMentions, MentionDropdown, openCombobox } from "@/components/messa
 import { SuggestList, type Suggestion } from "@/components/messages/parts/SuggestList";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
-import { LOAD_DRAFT_EVENT, failSend, type LoadDraftDetail } from "@/components/messages/failed-sends";
+import { LOAD_DRAFT_EVENT, discardSend, failSend, type LoadDraftDetail } from "@/components/messages/failed-sends";
 import { DROP_EVENT, DropOverlay, draftKeyOf, useFileDrop, type DropDetail } from "@/components/messages/useFileDrop";
 import { isMac, keyLabel } from "@/components/messages/keys";
 import { fileProblem, uploadChatFile, uploadReason, uploadRefused } from "@/components/messages/upload";
@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
 import { formatChatTime } from "@/lib/messaging/channel-view";
-import { chatErrorMessage } from "@/lib/messaging/errors";
+import { chatErrorMessage, isRefusedSend } from "@/lib/messaging/errors";
 import { readMediaDimensions } from "@/lib/messaging/media-metadata";
 import { pollBody } from "@/lib/messaging/poll";
 import { emojiForShortcode, searchEmoji } from "@/lib/messaging/emoji";
@@ -728,7 +728,15 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds, media, alsoToChannel: sentAlso })
       .catch(() => ({ success: false as const, error: "chat_network" }));
     if (!result.success) {
-      const shown = failSend(queryClient, clientId, { channelId, threadRootSeq, body, assetIds, alsoToChannel: sentAlso });
+      // A refusal a retry can't fix (admins-only #general, archived, blocked…): no "Not sent · Retry" row; the text goes
+      // back in the box and the conversation reloads, so its footer says why.
+      // Files, or something typed since, keep the "Not sent" row: discarding it would lose them.
+      const refused = isRefusedSend(result.error) && !assetIds.length && !editor?.getText().trim();
+      if (refused) {
+        discardSend(queryClient, clientId, channelId, threadRootSeq);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
+      }
+      const shown = !refused && failSend(queryClient, clientId, { channelId, threadRootSeq, body, assetIds, alsoToChannel: sentAlso });
       if (shown) return void toast.error(chatErrorMessage(result.error));
       if (!editor?.getText().trim()) {
         load(draft);

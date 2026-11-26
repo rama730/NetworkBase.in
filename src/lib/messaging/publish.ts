@@ -7,6 +7,7 @@ import { chatPushTopic, createPushSuppressor } from "@/lib/messaging/push-policy
 import { messageHref } from "@/lib/messaging/routes";
 import { chatRows, uuidArray } from "@/lib/messaging/server";
 import { previewText } from "@/lib/messaging/tokens";
+import { previewNames } from "@/lib/messaging/list-extras";
 import type { ChatMessageView } from "@/lib/messaging/types";
 import {
   isNotificationPauseActive,
@@ -61,7 +62,9 @@ export function publishUserEvents(userId: string, events: { event: string; paylo
  * other members get the unread hint (a thread they don't know yet appears in their list).
  * Application threads use it for every status change; the lines are written by SQL, not the send path.
  */
-export function publishChannelActivity(channelId: string, actorId: string | null) {
+export function publishChannelActivity(channelId: string, actorId: string | null, options: { hint?: boolean } = {}) {
+  // Channel bookkeeping (joined, left, added, the topic): open viewers see the line; nobody's list turns unread.
+  const hint = options.hint !== false;
   runAfterResponse(async () => {
     const [state] = await chatRows<{ last_seq: string | number; members: string[] | string | null }>(sql`
       SELECT c.last_seq,
@@ -80,7 +83,7 @@ export function publishChannelActivity(channelId: string, actorId: string | null
       : [];
     await broadcast([
       { topic: channelTopic(channelId), event: "message.system", payload: { seq } },
-      ...members.filter((userId) => userId !== actorId).map((userId) => ({
+      ...(hint ? members : []).filter((userId) => userId !== actorId).map((userId) => ({
         topic: userTopic(userId),
         event: "hint",
         payload: { channel_id: channelId, seq, mention: false, thread_root_seq: null, follows: false },
@@ -114,6 +117,9 @@ export function publishSentMessage(input: {
   const muted = new Set(input.muted ?? []);
   const follows = new Set(input.follows ?? []);
   runAfterResponse(async () => {
+    // Top-level messages carry the row's new preview (names, not codes), so lists update without a reload.
+    const top = message.thread_root_seq === null;
+    const preview = top ? await previewNames([message.body]).then(({ nameOf, channelNameOf }) => previewText(message.body, nameOf, channelNameOf).slice(0, 140) || (message.attachments.length ? "Attachment" : undefined)).catch(() => undefined) : undefined;
     const events: ServerBroadcast[] = [
       { topic: channelTopic(message.channel_id), event: "message.new", payload: message as unknown as Record<string, unknown> },
       ...notify.map((userId) => ({
@@ -125,6 +131,9 @@ export function publishSentMessage(input: {
           mention: mentioned.includes(userId),
           thread_root_seq: message.thread_root_seq,
           follows: follows.has(userId),
+          preview: top ? preview : undefined,
+          at: message.created_at,
+          author_id: message.author_id,
         },
       })),
     ];

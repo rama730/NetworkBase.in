@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { chatChannelMembers, chatChannels, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgChatSettings } from '@/lib/organizations/chat-rules';
+import { publishChannel } from '@/lib/messaging/publish';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
 // Org Messages (report §25): the org's chat settings and Browse projects for org admins.
@@ -35,6 +36,12 @@ export async function updateOrgChatSettingsAction(orgId: string, patch: z.input<
         orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify(parsed.data)}::jsonb`,
         updatedAt: new Date(),
     }).where(eq(workspaces.id, orgId));
+    // Who may post in #general changed: open #general screens swap their composer now, not on a failed post.
+    if (parsed.data.generalAdminsOnly !== undefined) {
+        const [general] = await db.select({ id: chatChannels.id }).from(chatChannels)
+            .where(and(eq(chatChannels.projectId, orgId), eq(chatChannels.isDefault, true))).limit(1);
+        if (general) publishChannel(general.id, "channel.updated", { channel_id: general.id });
+    }
     revalidatePath(`/org/${admin.slug ?? orgId}`);
     return { success: true };
 }

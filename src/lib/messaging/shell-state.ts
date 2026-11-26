@@ -1,9 +1,14 @@
+import { isUnread } from "@/lib/messaging/channel-view";
 import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
 
 // Pure updates to the cached bootstrap, shared by the shell provider and tests.
 
 /** `follows`: the reply is in a thread this user follows (only then does it count in the Inbox). */
-export type ChatHint = { channel_id: string; seq: number; mention: boolean; thread_root_seq: number | null; follows?: boolean };
+export type ChatHint = {
+  channel_id: string; seq: number; mention: boolean; thread_root_seq: number | null; follows?: boolean;
+  /** A top-level message: the row's new preview (names, not codes), its time and author. */
+  preview?: string | null; at?: string; author_id?: string;
+};
 
 /** DMs and unnamed group chats: each counts once when unread. */
 export function isDirect(channel: Pick<ChatChannelSummary, "kind" | "name">) {
@@ -19,7 +24,7 @@ export function chatBadge(data: ChatBootstrap | undefined) {
   let count = data.inbox_unread ?? 0;
   for (const channel of data.channels) {
     if (channel.notify === "mute" || !isDirect(channel)) continue;
-    if (channel.last_top_seq > channel.last_read_seq && channel.mention_count === 0) count += 1;
+    if (isUnread(channel) && channel.mention_count === 0) count += 1;
   }
   return count;
 }
@@ -69,6 +74,11 @@ export function applyHint(data: ChatBootstrap, hint: ChatHint) {
       last_seq: hint.seq,
       last_top_seq: hint.thread_root_seq === null ? hint.seq : channel.last_top_seq,
       mention_count: channel.mention_count + (hint.mention ? 1 : 0),
+      // Hints come from other people: a top-level one is one more to read.
+      ...(hint.thread_root_seq === null ? { unread_count: (channel.unread_count ?? 0) + 1 } : {}),
+      ...(hint.thread_root_seq === null && hint.preview !== undefined
+        ? { last_preview: hint.preview, last_message_at: hint.at ?? channel.last_message_at, last_author_id: hint.author_id ?? channel.last_author_id }
+        : {}),
     };
   });
   if (!next || next === data) return next;
@@ -85,7 +95,7 @@ export function applyMentionCount(data: ChatBootstrap, channelId: string, count:
 
 export function applyReadMoved(data: ChatBootstrap, channelId: string, seq: number) {
   return patchChannel(data, channelId, (channel) =>
-    seq > channel.last_read_seq ? { ...channel, last_read_seq: seq, mention_count: 0 } : null,
+    seq > channel.last_read_seq ? { ...channel, last_read_seq: seq, mention_count: 0, ...(seq >= channel.last_top_seq ? { unread_count: 0 } : {}) } : null,
   ) ?? data;
 }
 

@@ -6,7 +6,7 @@ import { sql } from "drizzle-orm";
 
 import { applicationMetaSql } from "@/lib/messaging/application-meta";
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
-import { publishChannel, publishUser } from "@/lib/messaging/publish";
+import { publishChannel, publishUser, publishChannelActivity } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
 import type { ChatChannelSummary, ChatPerson } from "@/lib/messaging/types";
 
@@ -40,6 +40,7 @@ export async function updateChannel(input: { channelId: string; name?: string | 
       SELECT app_private.chat_update_channel(${input.channelId}::uuid, ${user.id}::uuid, ${name}, ${input.topic ?? null}, ${input.description ?? null})
     `);
     publishChannel(input.channelId, "channel.updated", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "update_channel");
@@ -54,6 +55,7 @@ export async function setChannelPrivacy(input: { channelId: string; private: boo
   try {
     await chatRows(sql`SELECT app_private.chat_set_channel_privacy(${input.channelId}::uuid, ${user.id}::uuid, ${input.private})`);
     publishChannel(input.channelId, "channel.updated", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "channel_privacy");
@@ -80,6 +82,7 @@ export async function unarchiveChannel(input: { channelId: string }) {
   try {
     await chatRows(sql`SELECT app_private.chat_unarchive_channel(${input.channelId}::uuid, ${user.id}::uuid)`);
     publishChannel(input.channelId, "channel.updated", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "unarchive_channel");
@@ -94,6 +97,7 @@ export async function renameGroup(input: { channelId: string; title: string | nu
   try {
     await chatRows(sql`SELECT app_private.chat_rename_group(${input.channelId}::uuid, ${user.id}::uuid, ${input.title})`);
     publishChannel(input.channelId, "channel.updated", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
     return { success: true as const };
   } catch (error) {
@@ -108,6 +112,7 @@ export async function joinChannel(input: { channelId: string }) {
   try {
     await chatRows(sql`SELECT app_private.chat_join_channel(${input.channelId}::uuid, ${user.id}::uuid)`);
     publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     publishUser(user.id, "membership.changed", { channel_id: input.channelId });
     return { success: true as const };
   } catch (error) {
@@ -122,6 +127,7 @@ export async function leaveChannel(input: { channelId: string }) {
   try {
     await chatRows(sql`SELECT app_private.chat_leave_channel(${input.channelId}::uuid, ${user.id}::uuid)`);
     publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
+    publishChannelActivity(input.channelId, user.id, { hint: false });
     publishUser(user.id, "membership.changed", { channel_id: input.channelId });
     return { success: true as const };
   } catch (error) {

@@ -1058,6 +1058,13 @@
       "when": 1795619423600,
       "tag": "0151_chat_media_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1795619483600,
+      "tag": "0152_chat_two_person_fixes",
+      "breakpoints": true
     }
   ]
 }

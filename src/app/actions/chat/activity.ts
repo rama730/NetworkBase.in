@@ -287,6 +287,8 @@ export async function listThreads(input: { cursor?: string | null; limit?: numbe
       LEFT JOIN workspaces p ON p.id = c.workspace_id
       LEFT JOIN profiles pr ON pr.id = msg.author_id
       WHERE f.user_id = ${user.id}::uuid
+        -- A thread whose message and every reply were deleted is gone, not an empty row.
+        AND NOT (msg.deleted_at IS NOT NULL AND msg.reply_count = 0)
         ${afterCursor(cursor, sql`coalesce(msg.last_reply_at, '-infinity'::timestamptz)`, sql`f.channel_id`, sql`f.root_seq`, 0, sql`''::text`)}
       ORDER BY coalesce(msg.last_reply_at, '-infinity'::timestamptz) DESC, f.channel_id DESC, f.root_seq DESC
       LIMIT ${limit}

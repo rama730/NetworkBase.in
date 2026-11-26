@@ -9,6 +9,7 @@ import { publishUser, publishUserEvents } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import { countsOrNothing, inboxCounts } from "@/lib/messaging/inbox-counts";
 import { withBlockState } from "@/lib/messaging/shell-state";
+import { withReadablePreviews, withUnreadCounts } from "@/lib/messaging/list-extras";
 import type { ChatBootstrap } from "@/lib/messaging/types";
 
 /**
@@ -33,7 +34,10 @@ export async function bootstrap(input: { since?: string | null } = {}) {
       `),
       chatRows<{ muted_id: string }>(sql`SELECT muted_id FROM user_mutes WHERE muter_id = ${user.id}::uuid`),
     ]);
-    const channels = withBlockState(await withApplicationMeta(data.channels, user.id), user.id, blocks);
+    const listed = await withApplicationMeta(data.channels, user.id);
+    const [named, counted] = await Promise.all([withReadablePreviews(listed), withUnreadCounts(listed)]);
+    const counts = new Map(counted.map((c) => [c.id, c.unread_count]));
+    const channels = withBlockState(named.map((c) => (counts.get(c.id) === undefined ? c : { ...c, unread_count: counts.get(c.id) })), user.id, blocks);
     const blockedIds = blocks.filter((b) => b.blocker_id === user.id).map((b) => b.blocked_id);
     return { success: true as const, data: { ...data, channels, ...inbox, saved_due: savedDue, blocked_ids: blockedIds, muted_ids: mutes.map((m) => m.muted_id) } };
   } catch (error) {

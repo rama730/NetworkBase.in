@@ -36,6 +36,22 @@ export function splitTokens(body: string): BodySegment[] {
   return segments;
 }
 
+/** The people and channels a body names: looked up once so a preview can say their names. */
+export function previewIds(body: string) {
+  const users = new Set<string>();
+  const channels = new Set<string>();
+  for (const segment of splitTokens(body)) {
+    if (segment.type === "user") users.add(segment.id);
+    if (segment.type === "channel") channels.add(segment.id);
+  }
+  return { users: [...users], channels: [...channels] };
+}
+
+/** Who a message mentions: the people named, or everyone it reaches for @channel / @here. */
+export function mentionedRecipients(userIds: string[], broadcast: "channel" | "here" | null, notify: string[]) {
+  return broadcast ? [...notify] : userIds;
+}
+
 export function tokensToPlainText(
   body: string,
   nameOf: (userId: string) => string | undefined = () => undefined,

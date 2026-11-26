@@ -33,7 +33,8 @@ export function PersonPresenceBadge({
   style?: React.CSSProperties;
 }) {
   const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt, live });
-  if (!userId) return null;
+  // Nothing known yet: no badge, rather than a grey "Offline" that turns out wrong a second later.
+  if (!userId || !presence.availabilityText) return null;
   return (
     <PresenceBadge
       availability={presence.availability}

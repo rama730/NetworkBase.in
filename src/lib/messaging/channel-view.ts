@@ -92,6 +92,8 @@ export function capChannels<T extends { id: string }>(rows: T[], needsYou: (row:
 }
 
 export function isUnread(channel: ChatChannelSummary) {
+  // The server's count when it sent one: only your own or deleted messages after the read point isn't unread.
+  if (channel.unread_count !== undefined && channel.last_top_seq > channel.last_read_seq) return channel.unread_count > 0;
   return channel.last_top_seq > channel.last_read_seq;
 }
 
@@ -100,7 +102,7 @@ export function rowCount(channel: ChatChannelSummary) {
   // Muted: only mentions still count (like Slack).
   if (channel.notify === "mute") return channel.mention_count;
   // Top-level messages only, like bold (isUnread): thread replies don't inflate the count.
-  if (isDirectLike(channel) || channel.application_id) return isUnread(channel) ? Math.max(1, channel.last_top_seq - channel.last_read_seq) : 0;
+  if (isDirectLike(channel) || channel.application_id) return isUnread(channel) ? Math.max(1, channel.unread_count ?? channel.last_top_seq - channel.last_read_seq) : 0;
   return channel.mention_count;
 }
 
@@ -307,4 +309,16 @@ export function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** "unread conversations" → "unread conversation" for one (screen-reader counts). */
+export function countNoun(count: number, noun: string) {
+  return count === 1 ? noun.replace(/s$/, "") : noun;
+}
+
+/** Where a message is, for Inbox, Saved and Search rows: "#design", "your DM with Ann", or a group's names. */
+export function placeOf(item: { channel_name: string | null; channel_title?: string | null; channel_kind: string }) {
+  if (item.channel_name) return `#${item.channel_name}`;
+  if (item.channel_kind === "dm") return item.channel_title ? `your DM with ${item.channel_title}` : "a direct message";
+  return item.channel_title || "a group conversation";
 }

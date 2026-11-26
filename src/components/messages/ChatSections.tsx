@@ -27,9 +27,10 @@ import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  DM_SIDEBAR_LIMIT, attention, capChannels, channelTitle, channelsByWorkspace, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
+  DM_SIDEBAR_LIMIT, attention, capChannels, countNoun, channelTitle, channelsByWorkspace, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
   projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons, workspaceBadges, workspacePeople,
 } from "@/lib/messaging/channel-view";
+import { scheduledRefetchMs } from "@/lib/messaging/schedule-window";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { APPLICATION_STATUS_LABEL, APPLICATION_STATUS_TONE, isDecidedApplication } from "@/lib/messaging/application-status";
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
@@ -413,7 +414,7 @@ function Section({ id, title, count, size, noun = "unread", collapsed, onToggle,
           <button type="button" id={headingId} className="flex min-h-7 min-w-0 flex-1 items-center gap-1 text-left pointer-coarse:min-h-11" aria-expanded={!collapsed} onClick={() => onToggle(id)}>
             <ChevronDown size={14} aria-hidden="true" className={`flex-none ${collapsed ? "-rotate-90" : ""}`} />
             <span className={`truncate ${plainTitle ? "nb-ui-label font-sans normal-case tracking-normal text-foreground" : ""}`}>{title}</span>
-            {count ? <span className="sr-only">, {count} {noun}</span> : null}
+            {count ? <span className="sr-only">, {count} {countNoun(count, noun)}</span> : null}
           </button>
         </h2>
         {size ? <b aria-hidden="true">{padCount(size)}</b> : null}
@@ -596,6 +597,8 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
     queryKey: queryKeys.chat.scheduled(),
     enabled: inPage,
     staleTime: 60_000,
+    // A scheduled message leaves the list when it goes out: reload just after the next one is due.
+    refetchInterval: (query) => scheduledRefetchMs(query.state.data ?? []),
     queryFn: async () => {
       const result = await listScheduled();
       if (!result.success) throw new Error(result.error);
@@ -870,7 +873,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
               key={project.id}
               id={`project:${project.id}`}
               size={rows.length + teams.length}
-              title={<span className="inline-flex min-w-0 items-center gap-1.5"><WorkspaceBadge project={project} size="sm" /><span className="truncate">{project.title}</span>{project.guestOf ? <span className="nb-meta flex-none font-normal">· {project.guestOf}</span> : null}</span>}
+              title={<span className="flex min-w-0 items-center gap-1.5"><WorkspaceBadge project={project} size="sm" /><span className="truncate">{project.title}</span>{project.guestOf ? <span className="nb-meta flex-none font-normal">· {project.guestOf}</span> : null}</span>}
               plainTitle
               count={count}
               noun="mentions"

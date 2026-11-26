@@ -12,16 +12,24 @@ function normalizeTitle(value: string) {
  * Prefix the tab title ("(3) Messages"). Kept on through navigations (Next rewrites <title>),
  * and several prefixes stack without fighting: each only re-adds its own mark when it's missing.
  */
-export function useDocumentTitlePrefix(prefix: string | null | undefined, separator = ' · ') {
+// Marks that lead the title (the unread count): other prefixes go after them, so the count always comes first.
+const firstMarks = new Set<string>();
+
+export function useDocumentTitlePrefix(prefix: string | null | undefined, separator = ' · ', { first = false }: { first?: boolean } = {}) {
     useEffect(() => {
         const text = normalizeTitle(prefix ?? '');
         if (!text) return;
         // No trailing whitespace in the marker: it must also match an empty base title.
         const mark = normalizeTitle(`${text}${separator}`);
+        if (first) firstMarks.add(mark);
         const apply = () => {
             const current = document.title;
             if (current.includes(mark)) return;
-            const next = normalizeTitle(`${text}${separator}${current}`);
+            // Nothing is ever cut out of the title (a file named "image (1).png" keeps its "(1)"): a later prefix is
+            // added after a leading count instead of in front of it.
+            const lead = [...firstMarks].find((m) => current.startsWith(m));
+            const after = first ? undefined : lead;
+            const next = normalizeTitle(after ? `${after} ${text}${separator}${current.slice(after.length)}` : `${text}${separator}${current}`);
             if (next !== current) document.title = next;
         };
         // Next streams <title> into <body> on some loads; then the head never changes when the page sets its title, so
@@ -39,9 +47,10 @@ export function useDocumentTitlePrefix(prefix: string | null | undefined, separa
         watch();
         return () => {
             observer.disconnect();
+            if (first) firstMarks.delete(mark);
             const current = document.title;
             const next = normalizeTitle(current.replace(mark, ''));
             if (next !== current) document.title = next;
         };
-    }, [prefix, separator]);
+    }, [first, prefix, separator]);
 }

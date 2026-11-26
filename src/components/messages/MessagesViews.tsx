@@ -30,7 +30,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, formatChatTime, fullTime, isApplicationThread, isDirectLike, isVisible, personName } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, fullTime, isApplicationThread, isDirectLike, isVisible, personName, placeOf } from "@/lib/messaging/channel-view";
 import { CHAT_LIST_PAGE } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { groupNoun } from "@/lib/messaging/inbox";
@@ -87,10 +87,7 @@ function LoadMore({ hasMore, loading, onLoad }: { hasMore: boolean; loading: boo
   return <div ref={ref} className="p-4 text-center text-[12px] text-muted-foreground">{loading ? <span role="status" className="nb-waiting justify-center"><PixelBeat />Loading…</span> : null}</div>;
 }
 
-function where(item: { channel_name: string | null; channel_title?: string | null; channel_kind: string }) {
-  if (item.channel_name) return `#${item.channel_name}`;
-  return item.channel_title || (item.channel_kind === "dm" ? "a direct message" : "a group conversation");
-}
+const where = placeOf;
 
 /** "in #design · Acme": the project travels with the place, on every screen size. */
 function Place({ item }: { item: { channel_name: string | null; channel_title?: string | null; channel_kind: string; project_title?: string | null } }) {
