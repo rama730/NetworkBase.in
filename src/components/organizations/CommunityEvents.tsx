@@ -14,6 +14,7 @@ import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
+import { calendarCells, shiftMonth } from "@/lib/workflows/planner";
 import { EVENT_FORMATS, mapsHref, type EventFormat, type EventState } from "@/lib/organizations/community-events";
 
 // Report 34.4 (plan B5.3a, M3): Sprints → Events in a community — Upcoming and Past, the event page with Going and
@@ -42,20 +43,20 @@ export function CommunitySprints({ orgId, children }: { orgId: string; children:
 }
 
 export function CommunityEvents({ orgId }: { orgId: string }) {
-  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [tab, setTab] = useState<"upcoming" | "past" | "calendar">("upcoming");
   const [open, setOpen] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("event")));
   const [editing, setEditing] = useState<string | "new" | null>(null);
-  const q = useQuery({ queryKey: listKey(orgId, tab), queryFn: () => readCommunityEventsAction(orgId, tab), staleTime: 30_000 });
+  const q = useQuery({ queryKey: listKey(orgId, tab === "past" ? "past" : "upcoming"), queryFn: () => readCommunityEventsAction(orgId, tab === "past" ? "past" : "upcoming"), staleTime: 30_000 });
   if (q.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading events…</p>;
   if (!q.data?.success) return <ErrorNotice what="Events" onRetry={() => void q.refetch()} />;
   const d = q.data;
   return (
     <section aria-label="Events" className="space-y-3 text-[13px]" data-testid="community-events">
       <div className="flex flex-wrap items-center gap-3">
-        <UnderlineTabs tabs={[{ key: "upcoming" as const, label: "Upcoming" }, { key: "past" as const, label: "Past" }]} value={tab} onChange={setTab} label="Events" idPrefix="community-events" />
+        <UnderlineTabs tabs={[{ key: "upcoming" as const, label: "Upcoming" }, { key: "calendar" as const, label: "Calendar" }, { key: "past" as const, label: "Past" }]} value={tab} onChange={setTab} label="Events" idPrefix="community-events" />
         {d.canCreate ? <button type="button" className={cn(FORM_PRIMARY_CLASS, "ml-auto")} onClick={() => setEditing("new")}>+ Event</button> : null}
       </div>
-      {d.events.length ? (
+      {tab === "calendar" ? <EventCalendar orgId={orgId} onOpen={setOpen} /> : d.events.length ? (
         <ul className="space-y-2" aria-label={tab === "upcoming" ? "Upcoming events" : "Past events"}>
           {d.events.map((e) => (
             <li key={e.id}>
@@ -220,5 +221,51 @@ export function NextEventCard({ orgId, base }: { orgId: string; base: string }) 
       <p className="font-mono text-muted-foreground">{when(next.start, next.end)}</p>
       <p className="text-muted-foreground">{EVENT_FORMATS[next.format as EventFormat]}{next.place ? ` · ${next.place}` : ""} · <span className="font-mono">{next.going} going</span>{next.mine === "going" ? " · You’re going" : ""}</p>
     </section>
+  );
+}
+
+/** Calendar (34.4 layer 4): the month grid with every event, upcoming and past; a click opens the event. */
+function EventCalendar({ orgId, onOpen }: { orgId: string; onOpen: (id: string) => void }) {
+  const up = useQuery({ queryKey: listKey(orgId, "upcoming"), queryFn: () => readCommunityEventsAction(orgId, "upcoming"), staleTime: 30_000 });
+  const past = useQuery({ queryKey: listKey(orgId, "past"), queryFn: () => readCommunityEventsAction(orgId, "past"), staleTime: 30_000 });
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const localDay = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+  const today = localDay(new Date().toISOString());
+  const [month, setMonth] = useState(today.slice(0, 7));
+  if (up.isPending || past.isPending) return <p role="status" className="nb-waiting py-6 text-[13px] text-muted-foreground"><PixelBeat />Loading the calendar…</p>;
+  const all = [...(up.data?.success ? up.data.events : []), ...(past.data?.success ? past.data.events : [])];
+  const items = all.map((e) => ({ id: e.id, dueDate: `${localDay(e.start)}T00:00:00.000Z`, label: e.title, time: new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(e.start)), cancelled: e.state === "cancelled" }));
+  const weeks = calendarCells(month, items, today, 3);
+  const title = new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
+  return (
+    <div className="space-y-3" data-testid="event-calendar">
+      <div className="flex items-center gap-3">
+        <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setMonth(shiftMonth(month, -1))}>Previous month</button>
+        <h3 className="nb-card-title" aria-live="polite">{title}</h3>
+        <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setMonth(shiftMonth(month, 1))}>Next month</button>
+      </div>
+      <table className="w-full table-fixed border-collapse text-[12px]">
+        <caption className="sr-only">{title}: events by day</caption>
+        <thead><tr>{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((x) => <th key={x} scope="col" className="py-1 text-left font-medium text-muted-foreground">{x}</th>)}</tr></thead>
+        <tbody>
+          {weeks.map((week) => (
+            <tr key={week[0]!.key}>
+              {week.map((d) => (
+                <td key={d.key} className={cn("h-20 border border-border p-1 align-top", !d.inMonth && "bg-muted text-muted-foreground")}>
+                  <span className={cn("font-mono", d.isToday && "font-semibold text-primary")}>{d.day}</span>
+                  <ul className="mt-1 space-y-0.5">
+                    {d.items.map((it) => (
+                      <li key={it.id}><button type="button" className={cn("w-full truncate text-left hover:underline", it.cancelled && "line-through text-muted-foreground")} onClick={() => onOpen(it.id)}>
+                        <span className="font-mono text-muted-foreground">{it.time}</span> {it.label}{it.cancelled ? <span className="sr-only"> (cancelled)</span> : null}</button></li>
+                    ))}
+                    {d.more ? <li className="text-muted-foreground">{d.more} more</li> : null}
+                  </ul>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
