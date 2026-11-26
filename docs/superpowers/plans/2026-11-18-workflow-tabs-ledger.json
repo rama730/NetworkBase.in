@@ -1268,9 +1268,9 @@
       "text": "B5.4 M4 Rituals, challenges, showcases (34.5) — Depends: A7.4 scheduled Updates, C4 Showcase card (B2.5).",
       "kind": "unit",
       "milestone": "B5",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/community-challenges.test.ts; tests/db/community-rituals.test.ts; tests/unit/community-rituals.test.ts; tests/browser/community-challenges.spec.ts; tests/browser/community-rituals.spec.ts",
-      "evidence": "Pushed 2026-11-26: 9bd0e062c challenges (optional target), 0ac584671 entries/Featured/Showcase (0157), d98c98732 prompts (0158), 243336f4c rituals + 798220ed6 (post as saving organiser), reviews b9f82a1e4, 5e1b87d1c. LIVE-checked: Start a challenge (WT Build a CLI, 0 copies, optional target), prompts by day (Day 2 hidden until Opens on), Current challenge card on Overview. Join/hand in/Feature/Showcase need a member account: DB-tested. Rituals live check pending. revisit 2026-11-28."
+      "evidence": "Pushed 2026-11-26: 9bd0e062c challenges (optional target), 0ac584671 entries/Featured/Showcase (0157), d98c98732 prompts (0158), 243336f4c rituals + 798220ed6 (post as saving organiser), reviews b9f82a1e4, 5e1b87d1c. LIVE-checked: Start a challenge (WT Build a CLI, 0 copies, optional target), prompts by day (Day 2 hidden until Opens on), Current challenge card on Overview. Join/hand in/Feature/Showcase need a member account: DB-tested. | Rituals LIVE 2026-11-26 (61f44e1e4 live fix: Pause/Resume payload, zone words): add WT Weekly wins → paused, resumed, removed."
     },
     {
       "key": "B5.5",
@@ -1278,9 +1278,9 @@
       "text": "B5.5 M5 Chapters and small groups (34.6) — Depends: B0.",
       "kind": "unit",
       "milestone": "B5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/community-chapters.test.ts; tests/db/community-chapters.test.ts; tests/db/community-groups.test.ts; tests/browser/community-chapters.spec.ts",
+      "evidence": "Pushed 2026-11-26: 39731e109 chapters (propose/approve, chapterOf, gates), 3a092e012 + 19ce40f85 pause parity, 5da440394 small groups (groupOf), fad10e740 polls (0159 prod), 5dd2ab27f poll caps. Open (B5.5d): report chain through chapters, takeover when last organiser leaves, full Chapter kit snapshot, Pick your chapter, community calendar with chapter events. revisit 2026-11-28."
     },
     {
       "key": "B6.1",

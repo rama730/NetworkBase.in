@@ -12520,6 +12520,15 @@ GROUP (workspace) · Overview     Our commitment · Next session Tue · 4 sessio
 10. One Poll item (times or options) with counts, and the host confirms the pick; no calendar sync.
 11. Chapter health is counts for community organisers, never a ranking.
 
+
+**Build calls (B5.5, 2026-11-26):**
+1. **A chapter links with `org_settings.chapterOf`, not `institution_id`.** The school link carries school behaviour in 18 places (pushes, school events, term plans), and `parentId` would give community organisers inherited read. A chapter is a community organization of its own, owned by the proposer, with the co-organiser as an admin.
+2. Proposals live in `org_settings.community.proposals` (3 waiting per person); a decline needs a reason. A paused member's proposal waits.
+3. Locked rules: a chapter has no rules of its own; it reads its community's published Code of conduct (and its version for agreeing). A community pause holds in its chapters, even for chapter organisers. A chapter is never more public than its community; making the community private makes every chapter private. Joining a chapter needs community membership.
+4. **A small group is a private workspace linked with `org_settings.groupOf`**, not a child workspace, so community organisers never inherit read of it. Starting one is rate-limited like any workspace, with up to 5 hosted per person in a community; Ask requests are re-checked (still a member, not paused) when accepted.
+5. Polls live in `group_polls` and `group_poll_votes` (0159), on a group's Overview: up to 3 open per group, ticks per option, the starter or a host picks. Picking a time doesn't make a meeting yet; the group adds it.
+6. **Not built yet (B5.5d):** the report chain through chapters (chapter moderators → community organisers → NetworkBase), community organisers taking over when the last organiser leaves, the Chapter kit as a full snapshot (today: an About text), "Pick your chapter" in Getting started, the community calendar with chapter events, and chapter health beyond members, organisers, last activity and the two flags.
+
 ### 34.7 Community: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |
