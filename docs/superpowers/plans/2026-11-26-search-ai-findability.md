@@ -365,5 +365,14 @@ Chrome        | /org/cse-3b-data-structures-2026 | 200    | 1906  | About · CSE
 ```
 Note: a signed-out browser gets `noindex` on workspace and org pages today; only the crawler branch says `index`.
 
+### Local check (Task 8, production build on :3100 reading the live database, 2026-11-26)
+- Googlebot `/workspaces/deepscope-ai`: 200, ~15,000 readable chars (prod today: 199), title `DeepScope AI · NetworkBase`, `index, follow`, JSON-LD CreativeWork + Person, markdown alternate.
+- Googlebot `/org/cse-3b-data-structures-2026`: 200, ~15,000 chars, JSON-LD Organization.
+- Claude-User `/u/ch_rama`: 200, ProfilePage JSON-LD, bio, location, public workspaces.
+- `/workspaces/deepscope-ai.md`: 200 `text/markdown`, `noindex`, canonical Link, nosniff, CSP `default-src 'none'`. Unknown slug `.md`: 404.
+- `/sitemap.xml`: 31 `<loc>` (prod today: 13). `/robots.txt`: training-bot group first, `/md/` disallowed. `/llms.txt`: Public pages section.
+- Not checked live: a signed-in member's `.md` (cookie stripping is covered by unit tests on the proxy helper, not end to end).
+- Note: a class role title reads `Student · 2300040077` on a public profile (already visible signed-out; now indexable too).
+
 ### After (Task 8, production)
 _(paste table)_
