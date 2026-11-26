@@ -20,7 +20,7 @@ test('share URLs resolve trusted routes only, with normalized usernames and no p
 
 test('crawler optimization is explicit and never infers an actor or access level',()=>{
   assert.equal(isShareCrawler('facebookexternalhit/1.1'),true);assert.equal(isShareCrawler('LinkedInBot'),true);
-  assert.equal(isShareCrawler('Mozilla/5.0'),false);assert.equal(isShareCrawler(null),false);
+  assert.equal(isShareCrawler('Mozilla/5.0'),false);assert.equal(isShareCrawler(null),true);
 });
 
 test('portfolio never guesses current work; one canonical title differs from a multiple-project total', () => {

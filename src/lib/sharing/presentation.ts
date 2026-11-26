@@ -42,7 +42,10 @@ export function shareOrigin(requestUrl?: string) { return resolveAuthBaseUrl({re
 
 /** Only reduces crawler work; it never grants access or changes the anonymous projection. */
 export function isShareCrawler(userAgent: string | null): boolean {
-  return /facebookexternalhit|facebot|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|pinterestbot|googlebot|bingbot|linkpreviewbot/i.test(userAgent ?? '');
+  const ua = userAgent ?? '';
+  // Anything that isn't a browser (no Mozilla/, curl, AI link fetchers) or names itself a bot reads the plain page.
+  return !ua.includes('Mozilla/')
+    || /facebookexternalhit|facebot|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|pinterestbot|googlebot|bingbot|linkpreviewbot|bot[/;)]|\bbot\b|crawl|spider|slurp|-user\/|searchbot|google-extended|meta-externalagent/i.test(ua);
 }
 
 export function profileSharePath(username: unknown): string | null {
