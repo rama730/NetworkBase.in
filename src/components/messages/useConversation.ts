@@ -114,7 +114,11 @@ export function useUpdatePages(channelId: string) {
  * ?m=<seq>), live events from chat:channel:<id>, and a 3 s debounced
  * read cursor while the newest message is visible.
  */
-export function useChannelMessages(channelId: string, options: { around?: number | null; memberCount: number; isMember: boolean; canPreview?: boolean }) {
+export function useChannelMessages(channelId: string, options: {
+  around?: number | null; memberCount: number; isMember: boolean; canPreview?: boolean;
+  /** Load before the details say who you are here (a fresh page load); the server checks access the same way. */
+  early?: boolean;
+}) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const meId = user?.id ?? null;
@@ -151,7 +155,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
 
   const query = useInfiniteQuery({
     queryKey: key,
-    enabled: options.isMember || Boolean(options.canPreview),
+    enabled: options.isMember || Boolean(options.canPreview) || Boolean(options.early),
     initialPageParam: null as number | null,
     queryFn: async ({ pageParam }) => {
       const around = pageParam === null && options.around ? options.around : undefined;

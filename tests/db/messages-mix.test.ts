@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
-import { closeAppDb, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
 
 // Messages mix (0148–0150 and the Phase 12 reads), run against a real database: poll voters leave out anyone
 // blocked, thread faces keep every replier, "Seen" follows read receipts and blocks, the Message gate and
@@ -245,4 +245,13 @@ test("bootstrap previews never name a channel the reader isn't in", async () => 
   const boot = await read.bootstrap({});
   const row = (boot as { data: { channels: Array<{ id: string; last_preview: string | null }> } }).data.channels.find((c) => c.id === channelId)!;
   assert.equal(row.last_preview, "see #channel");
+});
+
+test("0154: a team's main channel inside an organization is named for the team's title, not its slug", async () => {
+  const [owner] = await people(1);
+  const [org, team] = await sql.begin(async (tx) => [await createProject(tx, owner!), await createProject(tx, owner!)]);
+  await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ${org!}`;
+  await sql`UPDATE workspaces SET parent_id = ${org!}, title = 'Team Falcon: Hash table library', slug = 'team-falcon-hash-table-library-oxao5' WHERE id = ${team!}`;
+  const [row] = await sql`SELECT app_private.chat_default_channel_name(${team!}::uuid) AS name`;
+  assert.equal(row!.name, "team-falcon-hash-table-library");
 });

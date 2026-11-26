@@ -280,7 +280,22 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   // An application thread is a fixed private room: no bookmarks, files tab, tasks, canvases or sharing out of it.
   const isApplication = Boolean(channel?.application_id);
   const canCloseApplication = isApplication && isDecidedApplication(channel?.application?.status);
-  const members = useChannelMembers(channelId, isMember);
+  // The first screen is the conversation and its messages: on a fresh load the messages start with the details (the
+  // server checks access the same way), and the other reads wait until they've arrived, so none of them holds the
+  // database connections the messages need (the 5-connection pool filled up and opening took 2–4 s).
+  const conversation = useChannelMessages(channelId, { around, memberCount: channel?.member_count ?? 0, isMember, canPreview, early: details.isPending });
+  const firstPaint = !conversation.query.isPending;
+  // Your own join, topic, name, privacy or unarchive writes a line in the conversation; the details change with it, so
+  // the line shows even when the live event missed a tab that had only just opened. Not the member count: in a busy
+  // channel every join would reload every open tab's pages (others' lines come by the live event).
+  const eventSig = channel ? [channel.topic, channel.name, channel.title, channel.channel_archived_at, channel.kind, channel.is_member].join("\u0000") : null;
+  const lastEventSig = useRef(eventSig);
+  useEffect(() => {
+    const before = lastEventSig.current;
+    lastEventSig.current = eventSig;
+    if (before !== null && eventSig !== null && before !== eventSig && !conversation.query.isPending) void conversation.query.refetch();
+  }, [conversation.query, eventSig]);
+  const members = useChannelMembers(channelId, isMember && firstPaint);
   const people = useMemo(() => members.data ?? [], [members.data]);
   const searchParams = useSearchParams();
   // The window has no URL of its own: the host page's ?tab= isn't for it.
@@ -306,10 +321,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const [confirm, setConfirm] = useState<"leave" | "archive" | "canvas" | "replace" | null>(null);
   const [pendingSeed, setPendingSeed] = useState<{ title: string; body: string } | null>(null);
   const [canvasSeed, setCanvasSeed] = useState<CanvasSeed | null>(null);
-  const canvasQuery = useChannelCanvas(channelId, isMember && isChannel);
-  const sharedTabs = useChannelTabs(channelId, isMember);
-  const saved = useSavedSeqs(channelId, isMember);
-  const conversation = useChannelMessages(channelId, { around, memberCount: channel?.member_count ?? 0, isMember, canPreview });
+  const canvasQuery = useChannelCanvas(channelId, isMember && isChannel && firstPaint);
+  const sharedTabs = useChannelTabs(channelId, isMember && firstPaint);
+  const saved = useSavedSeqs(channelId, isMember && firstPaint);
   // A jump to a message that's already loaded scrolls there; only one outside the loaded pages rebuilds the timeline.
   const [timeline, setTimeline] = useState({ around, epoch: 0 });
   if (timeline.around !== around) {
@@ -948,7 +962,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               </div></div>
             ) : (
               <>
-              {channel.kind === "dm" && channel.dm_user && !self ? <DmContextLine person={channel.dm_user} /> : null}
+              {channel.kind === "dm" && channel.dm_user && !self ? <DmContextLine person={channel.dm_user} ready={firstPaint} /> : null}
               <Composer
                 channelId={channelId}
                 placeholder={placeholder}
@@ -1030,9 +1044,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
  * Above the composer in a DM (round 3 #261): "Ana paused notifications · 11:40 PM their time", so
  * you know before you send. Their time shows only when their clock differs from yours.
  */
-function DmContextLine({ person }: { person: ChatPerson }) {
+function DmContextLine({ person, ready }: { person: ChatPerson; ready: boolean }) {
   const presence = usePersonPresence(person.id);
-  const context = usePersonContext(person.id);
+  const context = usePersonContext(person.id, ready);
   const [now] = useState(() => new Date());
   const zone = context.data?.timeZone;
   const time = (timeZone?: string) => now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone });

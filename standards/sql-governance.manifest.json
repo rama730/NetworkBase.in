@@ -155,7 +155,9 @@
     "drizzle/0149_chat_attachment_media.sql",
     "drizzle/0150_chat_seen.sql",
     "drizzle/0151_chat_media_fixes.sql",
-    "drizzle/0152_chat_two_person_fixes.sql"
+    "drizzle/0152_chat_two_person_fixes.sql",
+    "drizzle/0153_chat_file_types.sql",
+    "drizzle/0154_team_channel_names.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

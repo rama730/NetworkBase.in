@@ -1065,6 +1065,20 @@
       "when": 1795619483600,
       "tag": "0152_chat_two_person_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1795619543600,
+      "tag": "0153_chat_file_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1795619603600,
+      "tag": "0154_team_channel_names",
+      "breakpoints": true
     }
   ]
 }

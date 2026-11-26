@@ -1,5 +1,6 @@
 import { normalizeMediaDimensions } from "@/lib/messaging/media-metadata";
 import { sql } from "drizzle-orm";
+import { chatFileTypeAllowed } from "@/lib/messaging/attachment-types";
 
 import {
   enforceRouteLimit,
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
     const sizeBytes = normalizeAndValidateFileSize(body.sizeBytes, ATTACHMENT_UPLOAD_MAX_FILE_BYTES, "Attachment");
     if (sizeBytes === 0) return jsonError("Attachments cannot be empty", 400, "BAD_REQUEST");
     const mimeType = normalizeAndValidateMimeType(body.mimeType);
+    if (!chatFileTypeAllowed(mimeType)) return jsonError("This file type can’t be sent in messages.", 400, "BAD_REQUEST");
 
     const dimensions = /^(image|video)\//.test(mimeType) ? normalizeMediaDimensions(body.width, body.height) : null;
     const originalFilename = typeof body.originalFilename === "string" ? body.originalFilename.trim().slice(0, 255) : filename;

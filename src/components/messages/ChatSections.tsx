@@ -551,9 +551,9 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
     </div>
     {inPage ? (
       <div className="flex items-center gap-1.5 px-3 pb-1.5 pt-2.5">
-        <button type="button" className="nb-chat-jump" onClick={() => useChatUi.getState().setSwitcherOpen(true)} aria-keyshortcuts="Meta+K Control+K">
+        {/* The row is 259 px with All / Unread: "Jump to…" gets the room, its shortcut goes in the tooltip. */}
+        <button type="button" className="nb-chat-jump" title={`Jump to… (${searchHint})`} onClick={() => useChatUi.getState().setSwitcherOpen(true)} aria-keyshortcuts="Meta+K Control+K">
           <Search size={14} aria-hidden="true" /><span className="min-w-0 flex-1 truncate text-left">Jump to…</span>
-          <kbd className="nbm-mono pointer-coarse:hidden">{searchHint}</kbd>
         </button>
         {seg}
       </div>

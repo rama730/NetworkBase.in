@@ -43,6 +43,9 @@ export function useOverlayHistory(key: string, open: boolean, onBackClose: () =>
       if (!isOverlayEntry(key)) openOverlay(key, (mode) => writeUrl(window, href(key), mode));
     } else if (isOverlayEntry(key)) {
       window.history.back();
+    } else if (new URLSearchParams(window.location.search).get("ov") === key) {
+      // Not our history step (a reload or a deep link): take the marker out of the address instead.
+      writeUrl(window, href(null), "replace");
     }
   }, [key, open]);
   useEffect(() => subscribeEntry((entry) => {
