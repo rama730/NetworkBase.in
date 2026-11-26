@@ -155,8 +155,10 @@ export function LabSettingsCard({ orgId }: { orgId: string }) {
 function LabSettingsForm({ orgId, initial, owner, pi, leads, onSaved }: { orgId: string; initial: LabSettings; owner: string; pi: boolean; leads: Array<{ id: string; name: string }>; onSaved: () => void }) {
   const [f, setF] = useState(initial);
   const [areas, setAreas] = useState(initial.researchAreas.join(", "));
+  const [themes, setThemes] = useState(initial.themes.join(", "));
   const save = async () => {
-    const r = await saveLabSettingsAction(orgId, { ...f, researchAreas: areas.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 8) });
+    const r = await saveLabSettingsAction(orgId, { ...f, researchAreas: areas.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 8),
+      themes: [...new Set(themes.split(",").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 30) });
     if (!r.success) return void toast.error(r.error);
     toast.success("Lab settings saved");
     onSaved();
@@ -196,6 +198,7 @@ function LabSettingsForm({ orgId, initial, owner, pi, leads, onSaved }: { orgId:
             <label className="flex items-center gap-1.5">Up to<Input type="number" min={1} max={80} value={f.booking.weeklyCapHours} onChange={(e) => setF({ ...f, booking: { ...f.booking, weeklyCapHours: Number(e.target.value) } })} className="w-[80px] font-mono" />hours a week each</label>
           </span>
         </fieldset>
+        <label className="block">Library themes (comma separated)<Input value={themes} maxLength={1900} onChange={(e) => setThemes(e.target.value)} placeholder="Low-light, 3D scenes, Scene graphs" className="mt-1" /></label>
         <label className="block">Office hours (optional)<Input value={f.officeHours} maxLength={120} onChange={(e) => setF({ ...f, officeHours: e.target.value })} placeholder="Thursdays 15:00 to 16:00, room 204" className="mt-1" /></label>
         <fieldset className="space-y-1">
           <legend className="font-medium">Plans</legend>

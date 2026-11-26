@@ -17,7 +17,21 @@ async function open(page: Page, admin: boolean, view = 'people') {
       setLabPositionAction: async (_o: string, id: string, v: unknown) => { calls.push(['position', id, v]); return { success: true }; },
       readLabHomeAction: async () => ({ success: true, admin, welcome: 'We study how machines see.', officeHours: 'Thursdays 15:00, room 204', contact: { id: 'u1', name: 'Dr. Rao' }, people: 9, projects: 14 }),
       readLabSettingsAction: async () => ({ success: true, owner: 'u1', pi: true, leads: [{ id: 'u1', name: 'Dr. Rao' }],
-        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '', protocolApprovers: 'pi', booking: { from: '08:00', to: '20:00', slotMinutes: 60, weeklyCapHours: 8 }, paperReview: true } }),
+        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '', protocolApprovers: 'pi', booking: { from: '08:00', to: '20:00', slotMinutes: 60, weeklyCapHours: 8 }, paperReview: true, themes: ['Low-light'] } }),
+      readLibraryAction: async (_o: string, opts: { mine?: boolean }) => ({ success: true, admin, writer: true, themes: ['Low-light', '3D scenes'], total: 2, more: false,
+        themeRows: [{ theme: 'Low-light', count: 4, thin: false, disagrees: 1 }, { theme: '3D scenes', count: 1, thin: true, disagrees: 0 }],
+        rows: [{ id: 's1', title: 'NeRF in the Dark', authors: 'Mildenhall; Hedman', year: 2022, venue: 'CVPR', link: null, doi: '10.1/nerf', themes: [{ theme: 'Low-light', disagrees: true }], notesBy: ['Mei'], myState: 'read', iWroteNotes: true, code: true, data: false },
+          ...(opts?.mine ? [] : [{ id: 's2', title: 'Zero-DCE', authors: 'Guo', year: 2020, venue: null, link: null, doi: null, themes: [], notesBy: [], myState: null, iWroteNotes: false, code: null, data: null }])] }),
+      readSourceAction: async () => ({ success: true, admin, writer: true, canEdit: true, labThemes: ['Low-light', '3D scenes'], citedBy: [{ id: 'w', title: 'Thesis', slug: 'thesis' }],
+        source: { id: 's1', title: 'NeRF in the Dark', authors: 'Mildenhall; Hedman', year: 2022, venue: 'CVPR', link: 'https://example.org/nerf', doi: '10.1/nerf', code: true, data: false, added_by: 'u1', added_by_name: 'Dr. Rao' },
+        notes: [{ section: 'findings', body: 'Works at 0.1 lux.', author: 'Mei', at: '2026-11-20T10:00:00Z' }], mine: { state: 'read', note: 'my own thoughts' }, themes: [{ theme: 'Low-light', disagrees: true, why: 'Different sensor' }] }),
+      addSourcesAction: async (_o: string, v: unknown) => { calls.push(['addSources', v]); return { success: true, added: 1, already: [] }; },
+      setMyReadingAction: async (_o: string, id: string, v: unknown) => { calls.push(['reading', id, v]); return { success: true }; },
+      saveLabNoteAction: async (_o: string, id: string, v: unknown) => { calls.push(['note', id, v]); return { success: true }; },
+      setSourceThemeAction: async (_o: string, id: string, v: unknown) => { calls.push(['theme', id, v]); return { success: true }; },
+      editSourceAction: async () => ({ success: true }),
+      removeSourceAction: async () => ({ success: true }),
+      readLibraryCardAction: async () => ({ success: true, admin, total: 2, toRead: 1, reading: 0 }),
       readProtocolsAction: async () => ({ success: true, slug: 'vision-lab', protocols: [{ id: 'p1', title: 'Capture rig setup', slug: 'rig', owner: 'Arjun', reviewBy: null, approved: 1, draft: 2, needsTraining: true, trained: false }] }),
       readProtocolAction: async () => ({ success: true, pageDraft: false, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
         versions: [{ id: 'v2', version: 2, state: 'draft', by: null, at: null, created: '2026-11-20', content: admin ? '## Steps\n1. Power on' : '' }, { id: 'v1', version: 1, state: 'approved', by: 'Dr. Rao', at: '2026-10-02T10:00:00Z', created: '2026-10-01', content: '' }],
@@ -280,6 +294,40 @@ test('B6.3c: Add past papers reads BibTeX here, matches lab people, adds the tic
   await expect.poll(async () => JSON.stringify(await calls(page))).not.toContain('Skip me');
   await page.getByTestId('lab-paper').filter({ hasText: 'Depth at dusk' }).getByRole('button', { name: 'Add to my profile' }).click();
   await expect.poll(() => calls(page)).toContainEqual(['profile', 'pp4']);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B6.4a Library: All with themes, lab notes and my state; a source opens with signed notes and my private reading; RIS paste marks what the lab has; Themes show Thin', async ({ page }) => {
+  await open(page, false, 'library');
+  const lib = page.getByTestId('lab-library');
+  await expect(lib).toContainText('Library 2 sources');
+  const nerf = page.getByTestId('lab-source').filter({ hasText: 'NeRF in the Dark' });
+  await expect(nerf).toContainText('Low-light · Disagrees');
+  await expect(nerf).toContainText('Lab notes by Mei');
+  await expect(nerf).toContainText('Extracted');
+  await nerf.getByRole('button', { name: /NeRF in the Dark/ }).click();
+  const panel = page.getByTestId('lab-source-panel');
+  await expect(panel).toContainText('Code available');
+  await expect(panel).toContainText('Data not available');
+  await expect(panel.getByTestId('lab-note-findings')).toContainText('by Mei');
+  await expect(panel.getByTestId('lab-my-reading')).toContainText('only you see this');
+  await panel.getByLabel('My reading state').selectOption('reading');
+  await panel.getByTestId('lab-my-reading').getByRole('button', { name: 'Save' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['reading', 's1', { state: 'reading', note: 'my own thoughts' }]);
+  await panel.getByRole('button', { name: 'Write Method' }).click();
+  await panel.getByLabel('Method', { exact: true }).fill('Event camera, 8 scenes.');
+  await panel.getByTestId('lab-note-method').getByRole('button', { name: 'Save' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['note', 's1', { section: 'method', body: 'Event camera, 8 scenes.' }]);
+  await page.getByRole('button', { name: 'Paste BibTeX or RIS' }).click();
+  const paste = page.getByTestId('lab-library-paste');
+  await paste.getByLabel('BibTeX or RIS').fill('TY  - JOUR\nTI  - Zero-DCE\nAU  - Guo\nPY  - 2020\nER  - \nTY  - JOUR\nTI  - Scene graphs survey\nAU  - Zhu\nPY  - 2022\nER  - ');
+  await paste.getByRole('button', { name: 'Read' }).click();
+  await expect(paste).toContainText('Zero-DCE · 2020 · Already in the library');
+  await paste.getByRole('button', { name: 'Add 1 source' }).click();
+  await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"title":"Scene graphs survey"');
+  await page.getByRole('button', { name: 'Themes' }).click();
+  await expect(page.getByTestId('lab-themes')).toContainText('3D scenes1 sourceThin');
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });

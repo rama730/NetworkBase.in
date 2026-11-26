@@ -13265,6 +13265,16 @@ READING GROUP · every Tuesday 16:00                              Next presenter
 8. PDFs and the library stay inside the lab.
 9. BibTeX and RIS are read in the browser; no reference-manager sync or DOI lookups.
 
+**Build calls (B6.4a, 2026-11-27):**
+1. **Where it lives:** Documents → Library (`?tab=docs&view=library`) for the lab's members, never Viewers or visitors. The lab Overview has a Library card with the count, your own To read and Reading, and Open the Library. The PI's first look says "Add your lab's key papers".
+2. **One record per paper:** a lab source is a `literature_sources` row whose workspace is the lab (W5's record moved up), with venue, code available and data available added (0166). `lab_source_id` on a thesis row links it to the lab's source (used by B6.4c); a source a thesis links can't be removed.
+3. **Adding:** + Add (fields) or Paste BibTeX or RIS. The browser reads either one (RIS is new: TY…ER, AU, PY, DO, JO/T2, KW). Rows are ticked one by one; ones already in the library (same title, or same DOI) are marked and can't be ticked, and the server skips them too. Up to 200 a paste and 5,000 a lab.
+4. **Lab notes:** four shared sections (Research question, Method, Key findings, Limitations), each showing who wrote it last. An empty section is removed. Writers' names stay after they leave.
+5. **My reading:** To read, Reading or Read, plus a private note, read and written only for the person (server test). Read plus lab notes you wrote shows Extracted. Nothing counts or ranks people's reading. The Overview card shows only your own list.
+6. **Themes:** the lab's list in Settings → Lab (up to 30, PI and Researchers). Members put a source in a theme, with an optional Disagrees and a line on why. The Themes view shows counts, Thin under 3, and how many are marked Disagrees.
+7. **Edits:** whoever added a source, the PI and Researchers edit or remove it. The All view is the newest 200, with search for the rest.
+8. **Next:** B6.4b is the reading group (a meeting series with a rotation that skips Away, Swap with, Read before, Suggest). B6.4c is screening for a systematic review and thesis Literature lists linking the lab's sources.
+
 ### 35.5 R4 · Lab notebook, protocols and equipment (agreed 2026-11-17)
 **References** (35.1, plus 20 searches for protocols, SOPs, experiments, booking, inventory and training: 154 templates, 41 rated; 5 more screens studied):
 

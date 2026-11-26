@@ -1308,9 +1308,9 @@
       "text": "B6.3 R2 Papers and publications (35.3) — Depends: W5 (B1.8), S3 frozen hand-in (B3.3).",
       "kind": "unit",
       "milestone": "B6",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/lab-papers.test.ts; tests/db/lab-papers.test.ts; tests/browser/lab.spec.ts",
-      "evidence": "B6.3a LIVE 2026-11-27 (687c45b39, no migration; live-check fixes 0f78bd2fe): on WT Lab thesis, paper WT Low-light depth from event cameras with an outside author → Confirm the author list → Drafting → Mark submitted refused (internal review first) → Ask for internal review → Approve for submission → Submitted → Revising → resubmitted on the same approval → Accepted → Published; history lists every step; lab Overview Papers card lists it; About → Selected publications shows it with 2026. Generic task code refuses papers (lock, delete, export, counts): DB-tested. Left: B6.3b frozen draft in the PI’s Review queue + Reviews and response template; B6.3c BibTeX import + Add to my profile. Revisit 2026-11-28."
+      "evidence": "B6.3a LIVE 2026-11-27 (687c45b39, no migration; live-check fixes 0f78bd2fe): on WT Lab thesis, paper WT Low-light depth from event cameras with an outside author → Confirm the author list → Drafting → Mark submitted refused (internal review first) → Ask for internal review → Approve for submission → Submitted → Revising → resubmitted on the same approval → Accepted → Published; history lists every step; lab Overview Papers card lists it; About → Selected publications shows it with 2026. Generic task code refuses papers (lock, delete, export, counts): DB-tested. B6.3b LIVE (0f5da9252, 33da6c6c1 security, cf9072f67): WT Event cameras survey with Draft README → Ask for internal review froze it as README v2 → the PI read v2 in the lab Review queue’s Internal review section → Return with notes → Drafting with the note in its history. B6.3c LIVE (a77938b3c, 8e601a95d): Add past papers read two BibTeX entries, matched “CH, Ramanayudu” to the lab member, skipped the duplicate title, added WT Past paper on night stereo as Published; About lists it with 2023. Add to my profile shows on the Published paper; not clicked live (it would post a public entry on the real profile): DB-tested, as is About waiting for unconfirmed member authors."
     },
     {
       "key": "B6.4",

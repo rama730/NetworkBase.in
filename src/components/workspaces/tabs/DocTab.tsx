@@ -13,6 +13,7 @@ import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
 import type { Workspace } from "@/types/discover";
 import { OrgDocBanner, useMarkOrgDocOpened, useOrgDocs } from "@/components/organizations/OrgDocParts";
 import { ItemMenu } from "@/components/reports/ItemMenu";
+import { LabLibrary } from "@/components/organizations/LabLibrary";
 
 export default function DocTab({
     projectId,
@@ -27,6 +28,8 @@ export default function DocTab({
     if (searchParams?.get("from") === "org" && paramDoc) {
         return <OrgDocInPlace project={project} docSlug={normalizeWorkspaceDocSlug(paramDoc)} />;
     }
+    // Report 35.4 (B6.4a): a research lab's Library lives in Documents (members only; it checks the lab itself).
+    if (searchParams?.get("view") === "library" && project.kind === "organization") return <LabLibrary orgId={projectId} />;
     return <OwnDocs projectId={projectId} project={project} paramDoc={paramDoc ?? null} />;
 }
 

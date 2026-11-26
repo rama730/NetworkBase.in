@@ -1779,7 +1779,37 @@ export const literatureSources = pgTable("literature_sources", {
   nodeId: uuid("node_id").references(() => workspaceNodes.id, { onDelete: "set null" }),
   addedBy: uuid("added_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => [index("literature_sources_workspace_idx").on(t.projectId, t.createdAt)]);
+  /** B6.4 (0166): lab sources (workspace = the lab), a thesis row's link to one, and a systematic review's screening. */
+  venue: text("venue"),
+  codeAvailable: boolean("code_available"),
+  dataAvailable: boolean("data_available"),
+  labSourceId: uuid("lab_source_id").references((): AnyPgColumn => literatureSources.id, { onDelete: "set null" }),
+  screening: text("screening"),
+  excludeReason: text("exclude_reason"),
+}, (t) => [index("literature_sources_workspace_idx").on(t.projectId, t.createdAt), index("literature_sources_lab_source_idx").on(t.labSourceId).where(sql`lab_source_id IS NOT NULL`)]);
+/** B6.4 (0166): shared lab notes on a source (signed), each person's private reading, and themes with Disagrees. */
+export const labSourceNotes = pgTable("lab_source_notes", {
+  sourceId: uuid("source_id").notNull().references(() => literatureSources.id, { onDelete: "cascade" }),
+  section: text("section").notNull(),
+  body: text("body").notNull(),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.sourceId, t.section] }), index("lab_source_notes_author_idx").on(t.authorId).where(sql`author_id IS NOT NULL`)]);
+export const labReading = pgTable("lab_reading", {
+  sourceId: uuid("source_id").notNull().references(() => literatureSources.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  state: text("state").notNull(),
+  privateNote: text("private_note").default("").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.sourceId, t.userId] }), index("lab_reading_user_idx").on(t.userId, t.updatedAt.desc())]);
+export const labSourceThemes = pgTable("lab_source_themes", {
+  sourceId: uuid("source_id").notNull().references(() => literatureSources.id, { onDelete: "cascade" }),
+  theme: text("theme").notNull(),
+  disagrees: boolean("disagrees").default(false).notNull(),
+  why: text("why").default("").notNull(),
+  setBy: uuid("set_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.sourceId, t.theme] }), index("lab_source_themes_set_by_idx").on(t.setBy).where(sql`set_by IS NOT NULL`)]);
 
 /** B1.7a (0133, report 30.4 call 3): Pin for today — up to 3 of your own tasks for one day. Private; server only. */
 export const dayPins = pgTable("day_pins", {
