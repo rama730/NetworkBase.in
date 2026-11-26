@@ -896,6 +896,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Quiet after is 14 to 365 days, and the label needs a name.": {"title": "Quiet after is 14 to 365 days, and the label needs a name.", "type": "warning"},
   "Pick a rule from the Code of conduct.": {"title": "Pick a rule from the Code of conduct.", "type": "warning"},
   "Pick how long the pause lasts.": {"title": "Pick how long the pause lasts.", "type": "warning"},
+  "Only members can be paused.": {"title": "Only members can be paused.", "type": "warning"},
   "Your posting here is paused until {when}.": {"title": "Your posting here is paused until {when}.", "type": "warning"},
   "{name} can’t report to someone who reports to {who}.": {"title": "{name} can’t report to someone who reports to {who}.", "type": "warning"},
   "Name each value.": {"title": "Name each value.", "type": "warning"},

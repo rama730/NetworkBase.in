@@ -107,6 +107,9 @@ export async function moderateCommunityReportAction(orgId: string, caseId: strin
 
   // Pause posting: only a member who isn't an organiser, for a length organisers allow.
   if (!c.subject_id || !hours || !me.pauseHours.includes(hours)) return { success: false, error: "Pick how long the pause lasts." };
+  // Review: only a member is paused, so check before the decision tells them so.
+  const [member] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT true AS ok FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${c.subject_id}::uuid AND role = 'member'`));
+  if (!member) return { success: false, error: "Only members can be paused." };
   const until = new Date(Date.now() + hours * 3_600_000);
   const untilText = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "UTC" }).format(until) + " UTC";
   // The case is decided as a warning that names the pause, so the member gets trust and safety's notice with Appeal.

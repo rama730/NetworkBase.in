@@ -31,11 +31,11 @@ export type CommunityLogEntry = { at: string; by: string; action: "role_given" |
 
 /**
  * The activity log (34.3 layer 4, call 7): every role change and moderator action with its rule and who did it.
- * ponytail: newest 500 entries kept in org_settings.community.log (one atomic append); a table once logs need search.
+ * ponytail: newest 200 entries kept in org_settings.community.log (read with every org load) (one atomic append); a table once logs need search.
  */
 export async function logCommunityAction(orgId: string, entry: Omit<CommunityLogEntry, "at">) {
   const e = { ...entry, at: new Date().toISOString() };
   await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('community', coalesce(org_settings->'community', '{}'::jsonb)
-    || jsonb_build_object('log', (SELECT coalesce(jsonb_agg(x), '[]'::jsonb) FROM (SELECT x FROM jsonb_array_elements(${JSON.stringify([e])}::jsonb || coalesce(org_settings->'community'->'log', '[]'::jsonb)) x LIMIT 500) t)))
+    || jsonb_build_object('log', (SELECT coalesce(jsonb_agg(x), '[]'::jsonb) FROM (SELECT x FROM jsonb_array_elements(${JSON.stringify([e])}::jsonb || coalesce(org_settings->'community'->'log', '[]'::jsonb)) x LIMIT 200) t)))
     WHERE id = ${orgId}::uuid`);
 }

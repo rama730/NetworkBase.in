@@ -639,16 +639,19 @@ export async function updateMySettings(userId: string, projectId: string, patch:
     if (patch.agentsBlocked !== undefined) set.agentsBlockedAt = patch.agentsBlocked ? new Date() : null;
     if (patch.showOnProfile !== undefined) set.showOnProfile = patch.showOnProfile;
     if (patch.viewPrefs) {
-        const next = { ...(m!.viewPrefs ?? {}) } as Record<string, unknown>;
+        // One SQL merge (B5.2 review): only these two keys change, so a label, agreement or other per-org entry written
+        // at the same moment (view_prefs.community, .directory, …) is never overwritten from a stale read.
+        const add: Record<string, unknown> = {};
+        const drop: string[] = [];
         const TABS = new Set(["overview", "docs", "updates", "sprints", "tasks", "files", "settings"]);
         if (patch.viewPrefs.defaultTab !== undefined) {
             if (patch.viewPrefs.defaultTab && !TABS.has(patch.viewPrefs.defaultTab)) fail("Unknown tab", "BAD_REQUEST");
-            if (patch.viewPrefs.defaultTab) next.defaultTab = patch.viewPrefs.defaultTab; else delete next.defaultTab;
+            if (patch.viewPrefs.defaultTab) add.defaultTab = patch.viewPrefs.defaultTab; else drop.push("defaultTab");
         }
         if (patch.viewPrefs.density !== undefined) {
-            if (patch.viewPrefs.density) next.density = patch.viewPrefs.density; else delete next.density;
+            if (patch.viewPrefs.density) add.density = patch.viewPrefs.density; else drop.push("density");
         }
-        set.viewPrefs = next as never;
+        set.viewPrefs = sql`(coalesce(${workspaceMembers.viewPrefs}, '{}'::jsonb) - ${`{${drop.join(",")}}`}::text[]) || ${JSON.stringify(add)}::jsonb` as never;
     }
     if (Object.keys(set).length) await db.update(workspaceMembers).set(set).where(eq(workspaceMembers.id, m!.id));
     if (patch.muteUntil !== undefined) {

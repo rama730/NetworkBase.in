@@ -406,7 +406,10 @@ export async function changeWorkspaceMemberRoleInternal(
     const target = await readProfileSnapshot(executor, params.targetUserId);
     await executor
         .update(workspaceMembers)
-        .set({ role: params.nextRole })
+        .set(params.nextRole === "viewer"
+            // B5.2 review: a community label (Moderator, Host, Helper) ends with the move to Viewer; it isn't back if they return.
+            ? { role: params.nextRole, viewPrefs: sql`${workspaceMembers.viewPrefs} #- '{community,labels}'` as never }
+            : { role: params.nextRole })
         .where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.targetUserId)));
     await syncWorkspaceChat(executor, params.projectId, params.targetUserId, "role");
     const [event] = await executor.insert(workspaceNodeEvents).values({

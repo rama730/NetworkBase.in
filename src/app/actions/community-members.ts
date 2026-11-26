@@ -127,7 +127,7 @@ export async function setCommunityLabelAction(orgId: string, person: string, lab
     const word = l === "helper" ? ctx.members.helperWord : LABEL_WORD[l];
     await createNotification({ recipientUserId: person, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "more",
       title: `You’re now a ${word} in ${ctx.title}`, href: `/org/${encodeURIComponent(ctx.slug)}?tab=members`, entityRefs: { projectId: orgId, projectSlug: ctx.slug },
-      dedupeKey: `community-label:${orgId}:${person}:${l}:${Date.now()}` }).catch(() => undefined);
+      dedupeKey: `community-label:${orgId}:${person}:${l}:${new Date().toISOString().slice(0, 10)}` }).catch(() => undefined);
   }
   return { success: true };
 }
