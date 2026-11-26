@@ -114,3 +114,22 @@ test("a private profile gives nothing; a public one gives bio and public workspa
     await sql`DELETE FROM profiles WHERE id IN (${hidden}, ${shown})`;
   }
 });
+
+test("the .md route: 404 for a private workspace, 301 from an id to the slug, markdown for a public one", async () => {
+  const route = await loadAppModule(() => import("../../src/app/md/[kind]/[slug]/route"));
+  const get = (kind: string, slug: string) => route.GET(new Request(`http://localhost/md/${kind}/${slug}`), { params: Promise.resolve({ kind, slug }) });
+  const priv = await workspace({ visibility: "private" });
+  const hidden = await get("workspaces", priv.slug);
+  assert.equal(hidden.status, 404);
+  assert.equal((await hidden.text()).includes("crawler with care"), false);
+  const pub = await workspace();
+  const byId = await get("workspaces", pub.id);
+  assert.equal(byId.status, 301);
+  assert.ok(byId.headers.get("location")?.endsWith(`/workspaces/${pub.slug}.md`), byId.headers.get("location") ?? "");
+  const ok = await get("workspaces", pub.slug);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get("x-robots-tag"), "noindex");
+  assert.match(ok.headers.get("content-type") ?? "", /text\/markdown/);
+  assert.match(await ok.text(), /## README[\s\S]*Run the crawler with care\./);
+  assert.equal((await get("settings", pub.slug)).status, 404);
+});

@@ -5,6 +5,7 @@ import { MIN_CLI_VERSION, tooOldCli } from "@/lib/api/client-version";
 import { updateSession } from "@/lib/supabase/middleware";
 import { CSRF_COOKIE_NAME, DEV_CSRF_SECRET_FALLBACK, MINIMUM_CSRF_SECRET_LENGTH } from "@/lib/security/csrf-constants";
 import { toPrivacySafeRouteMetric } from "@/lib/routing/route-metric";
+import { markdownRewritePath } from "@/lib/public-pages/markdown-path";
 
 const CSP_NONCE_HEADER = "x-nonce";
 const ROUTE_METRIC_HEADER = "x-route-metric";
@@ -229,6 +230,12 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set(REQUEST_METHOD_HEADER, request.method);
   // One id per request, so a permission the person allowed once covers every check inside that request.
   requestHeaders.set(REQUEST_ID_HEADER, crypto.randomUUID());
+
+  // Search + AI findability: <public page>.md is a plain markdown copy, served by src/app/md (anonymous only).
+  const markdownTarget = markdownRewritePath(request.nextUrl.pathname);
+  if (markdownTarget) {
+    return NextResponse.rewrite(new URL(markdownTarget, request.url), { request: { headers: requestHeaders } });
+  }
 
   if (request.nextUrl.pathname.startsWith("/api/")) {
     const cli = tooOldCli(request.headers.get("x-nb-client"));
