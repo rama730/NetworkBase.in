@@ -709,6 +709,8 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 .nbm-pxpreview { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
 .nbm-mtile-img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 220ms var(--nbm-ease); }
 .nbm-mtile-img.is-loaded { opacity: 1; }
+/* A photo with no pixel preview (sent before they were kept): the beat and its size while it loads. */
+.nbm-mtile-wait { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--nbm-input); border-radius: inherit; color: var(--nbm-fg2); font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .06em; }
 .nbm-mtile-glyph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--nbm-fg2); }
 .nbm-tile-slow { position: absolute; left: 6px; bottom: 6px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 3px; background: var(--nbm-media-veil); color: var(--nbm-on-media); font: 500 10px/1 var(--nbm-mono); letter-spacing: .06em; text-transform: uppercase; }
 .nbm-tile-play { position: absolute; top: 50%; left: 50%; z-index: 5; display: grid; width: 44px; height: 44px; place-items: center; border-radius: 5px; background: var(--nbm-ink); color: var(--nbm-on-ink); transform: translate(-50%, -50%); pointer-events: none; transition: transform var(--nbm-m1) var(--nbm-ease); }
@@ -779,7 +781,7 @@ html[data-reduce-motion="true"] .nbm-beat > i { opacity: .6; animation: none !im
 @media (pointer: coarse) { .nbm-viewer-cell { min-width: 44px; height: 44px; } }
 .nbm-viewer-body { position: relative; display: flex; flex: 1; min-height: 0; }
 .nbm-viewer-stage { position: relative; display: flex; flex: 1; min-width: 0; align-items: center; justify-content: center; padding: 16px; overflow: hidden; }
-.nbm-viewer-pixels { position: absolute; inset: 10%; width: 80%; height: 80%; object-fit: contain; image-rendering: pixelated; opacity: .9; }
+.nbm-viewer-pixels { position: absolute; inset: 16px; width: calc(100% - 32px); height: calc(100% - 32px); object-fit: contain; image-rendering: pixelated; }
 .nbm-viewer-blur { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: blur(20px); opacity: .5; }
 .nbm-viewer-loading { position: absolute; left: 16px; bottom: 16px; z-index: 3; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--nbm-on-media) 24%, transparent); border-radius: 3px; font: 500 10.5px/1 var(--nbm-mono); letter-spacing: .08em; text-transform: uppercase; }
 .nbm-viewer-imgbox { position: absolute; inset: 16px; display: flex; align-items: center; justify-content: center; }

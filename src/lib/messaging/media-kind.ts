@@ -18,6 +18,25 @@ export function parsePreview(hex: string | null | undefined): string[] | null {
   return Array.from({ length: 144 }, (_, i) => `#${hex.slice(i * 6, i * 6 + 6)}`);
 }
 
+/** A canvas for the pixel preview at the photo's own shape (48 px on the long side), so `object-fit: contain` fits it like the photo. */
+export function previewCanvasSize(width: number | null | undefined, height: number | null | undefined) {
+  if (!width || !height || width <= 0 || height <= 0) return { width: 48, height: 48 };
+  const scale = 48 / Math.max(width, height);
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
+
+/** Paint the 12×12 colours across a canvas of any size, cell by cell. */
+export function paintPreview(canvas: HTMLCanvasElement | null, colors: string[]) {
+  const ctx = canvas?.getContext('2d');
+  if (!canvas || !ctx) return;
+  const cw = canvas.width / 12;
+  const ch = canvas.height / 12;
+  colors.forEach((color, i) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.floor((i % 12) * cw), Math.floor(Math.floor(i / 12) * ch), Math.ceil(cw), Math.ceil(ch));
+  });
+}
+
 /** Optional media extras from the client, kept only when well formed (the DB checks the same). */
 export function cleanMediaExtras(input: { preview?: unknown; durationMs?: unknown; peaks?: unknown }) {
   const preview = typeof input.preview === "string" && PREVIEW.test(input.preview) ? input.preview : null;

@@ -60,6 +60,8 @@ type Upload = {
   refused?: boolean;
   /** Made on the device at upload (thumb/poster asset, pixel preview, length, waveform); optional. */
   extras?: { thumbAssetId?: string; preview?: string; durationMs?: number; peaks?: number[] };
+  /** Extras still being made: a send waits for them (10 s at most), so the stored photo has its preview. */
+  making?: boolean;
   previewUrl?: string | null;
   isImage?: boolean;
   /** Read on the device, so your own photo lands at its real shape (no square-to-shape jump). */
@@ -530,7 +532,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       const id = crypto.randomUUID();
       const isImage = file.type.startsWith("image/");
       const previewUrl = isImage ? URL.createObjectURL(file) : null;
-      setUploads((list) => [...list, { id, name: file.name, progress: 0, assetId: null, error: false, previewUrl, isImage, file }]);
+      setUploads((list) => [...list, { id, name: file.name, progress: 0, assetId: null, error: false, previewUrl, isImage, file, making: true }]);
       if (isImage || file.type.startsWith("video/")) {
         void readMediaDimensions(file).then((size) => {
           if (size) setUploads((list) => list.map((u) => (u.id === id ? { ...u, width: size.width, height: size.height } : u)));
@@ -538,10 +540,12 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       }
       startUpload(id, file);
       // The tile's thumbnail, pixel preview, length and waveform: made here, sent with the file, never blocking it.
+      const giveUp = window.setTimeout(() => setUploads((list) => list.map((u) => (u.id === id ? { ...u, making: false } : u))), 10_000);
       void makeMediaExtras(file).then(async (made) => {
         const thumbAssetId = made.thumb ? await uploadChatFile(channelId, new File([made.thumb], `${file.name}.thumb.webp`, { type: "image/webp" })).catch(() => undefined) : undefined;
         const extras = { thumbAssetId, preview: made.preview, durationMs: made.durationMs, peaks: made.peaks };
-        setUploads((list) => list.map((u) => (u.id === id ? { ...u, extras } : u)));
+        window.clearTimeout(giveUp);
+        setUploads((list) => list.map((u) => (u.id === id ? { ...u, extras, making: false } : u)));
       });
     }
   };
@@ -642,7 +646,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       toast.error("A file didn’t upload", { description: "Retry it or remove it, then send." });
       return;
     }
-    if (uploads.some((u) => !u.assetId)) {
+    if (uploads.some((u) => !u.assetId || u.making)) {
       setQueued(true);
       return;
     }
@@ -787,7 +791,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   });
 
   const coarse = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-  const uploading = uploads.filter((u) => !u.assetId && !u.error);
+  const uploading = uploads.filter((u) => (!u.assetId || u.making) && !u.error);
   const uploadPercent = uploading.length ? Math.round(uploading.reduce((sum, u) => sum + u.progress, 0) / uploading.length) : 100;
   // The server counts the encoded body (mentions as tokens), so the counter does too.
   const length = value.length > CHAT_MAX_BODY * 0.8 ? encode(value).length : value.length;

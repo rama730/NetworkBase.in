@@ -19,7 +19,7 @@ import { DownloadLink } from '@/components/ui/download-link';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
 import { formatFileSize } from '@/lib/messaging/channel-view';
-import { formatDuration, parsePreview, tileBox, tileRetryUrl } from '@/lib/messaging/media-kind';
+import { formatDuration, paintPreview, parsePreview, tileBox, tileRetryUrl } from '@/lib/messaging/media-kind';
 import { middleCut } from '@/lib/messaging/mix-format';
 import { PixelBeat } from '@/components/messages/mix/primitives';
 import { AudioTile } from '@/components/messages/parts/AudioTile';
@@ -240,14 +240,7 @@ function StillFrame({ src, alt, onLoad, onError }: { src: string; alt: string; o
 /** The 12×12 colour grid, painted at once and pixelated, under the image while it loads. */
 function PixelPreview({ colors }: { colors: string[] }) {
     const ref = useRef<HTMLCanvasElement>(null);
-    useEffect(() => {
-        const ctx = ref.current?.getContext('2d');
-        if (!ctx) return;
-        colors.forEach((color, i) => {
-            ctx.fillStyle = color;
-            ctx.fillRect(i % 12, Math.floor(i / 12), 1, 1);
-        });
-    }, [colors]);
+    useEffect(() => paintPreview(ref.current, colors), [colors]);
     return <canvas ref={ref} width={12} height={12} aria-hidden="true" className="nbm-pxpreview" />;
 }
 
@@ -329,8 +322,11 @@ function MediaAttachmentTileV2({
                 />
             ) : null}
 
-            {/* Under everything: the pixel preview, else the soft cell. */}
+            {/* Under everything: the pixel preview; a photo sent before previews were kept shows the beat and its size. */}
             {colors ? <PixelPreview colors={colors} /> : null}
+            {!colors && !loaded && !hasError && displayUrl ? (
+                <span className="nbm-mtile-wait" aria-hidden="true"><PixelBeat />{attachment.width && attachment.height ? `${attachment.width} × ${attachment.height}` : '240 × 180'}</span>
+            ) : null}
 
             {displayUrl && !hasError && still ? <StillFrame src={displayUrl} alt={attachment.filename || ''} onLoad={markLoaded} onError={markError} /> : null}
             {displayUrl && !hasError && !still ? (
@@ -362,7 +358,7 @@ function MediaAttachmentTileV2({
 
             {isVideo && !displayUrl && !hasError ? <span className="nbm-mtile-glyph" aria-hidden="true"><Video className="h-6 w-6" /></span> : null}
 
-            {slow && !loaded && !hasError ? (
+            {slow && colors && !loaded && !hasError ? (
                 <span className="nbm-tile-slow" aria-hidden="true"><PixelBeat />Loading · {formatFileSize(attachment.sizeBytes ?? 0)}</span>
             ) : null}
 

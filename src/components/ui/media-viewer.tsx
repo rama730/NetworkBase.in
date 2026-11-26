@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { DownloadLink } from '@/components/ui/download-link';
 import { copyWithToast } from '@/lib/clipboard';
 import { formatFileSize } from '@/lib/messaging/channel-view';
-import { formatDuration, parsePreview } from '@/lib/messaging/media-kind';
+import { formatDuration, paintPreview, parsePreview, previewCanvasSize } from '@/lib/messaging/media-kind';
 import { clampZoom, viewerLabel, viewerMeta } from '@/lib/messaging/viewer';
 import { prefersReducedMotionFromAttributes } from '@/lib/theme/appearance';
 
@@ -314,15 +314,12 @@ export function MediaViewerModal({
                     {/* Loading: the pixel preview scaled up, else a soft blur of the thumbnail. */}
                     {!isMediaLoaded && !failed && currentAttachment.type !== 'file' ? (
                         colors ? (
-                            <canvas aria-hidden="true" width={12} height={12} className="nbm-viewer-pixels" ref={(canvas) => {
-                                const ctx = canvas?.getContext('2d');
-                                colors.forEach((color, i) => { if (ctx) { ctx.fillStyle = color; ctx.fillRect(i % 12, Math.floor(i / 12), 1, 1); } });
-                            }} />
+                            <canvas aria-hidden="true" {...previewCanvasSize(currentAttachment.width, currentAttachment.height)} className="nbm-viewer-pixels" ref={(canvas) => paintPreview(canvas, colors)} />
                         ) : placeholderUrl ? (
                             <img src={placeholderUrl} alt="" aria-hidden="true" className="nbm-viewer-blur" />
                         ) : null
                     ) : null}
-                    {slow && !isMediaLoaded && !failed ? <span className="nbm-viewer-loading"><PixelBeat />Loading</span> : null}
+                    {(slow || (!colors && !placeholderUrl)) && !isMediaLoaded && !failed ? <span className="nbm-viewer-loading"><PixelBeat />Loading</span> : null}
 
                     {currentAttachment.type === 'video' ? (
                         <div data-player-host className="relative flex max-h-full max-w-full flex-col items-center">
