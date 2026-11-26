@@ -74,7 +74,11 @@ export async function notifyChallengePrompts() {
     SELECT DISTINCT ON (m.id, c.assignee_id) m.id AS master_id, m.title, p.title AS prompt, w.slug, w.id AS org_id, c.assignee_id AS user_id
     FROM challenge_prompts p JOIN tasks m ON m.id = p.master_id JOIN workspaces w ON w.id = m.workspace_id
     JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL AND c.assignee_id IS NOT NULL
+    -- Review: only people still in the community (not viewers), for a published challenge.
+    JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = c.assignee_id AND wm.role IN ('member', 'admin', 'owner')
     WHERE p.opens_at > now() - interval '75 minutes' AND p.opens_at <= now() AND m.deleted_at IS NULL AND w.deleted_at IS NULL
+      AND w.kind = 'organization' AND w.org_type = 'community' AND m.kind = 'assignment' AND m.assignment_id IS NULL
+      AND m.assignment_settings->'target'->>'mode' = 'optional' AND m.assignment_settings->>'publishedAt' IS NOT NULL
       AND m.assignment_settings->>'closedAt' IS NULL
     ORDER BY m.id, c.assignee_id, p.opens_at DESC LIMIT 5000`));
   const day = new Date().toISOString().slice(0, 10);

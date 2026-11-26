@@ -209,7 +209,9 @@ export async function readPromptsAction(orgId: string, masterId: string) {
   const rows = Array.from(await db.execute<{ position: number; title: string; body: string | null; opens_at: string; open: boolean }>(sql`
     SELECT p.position, p.title, p.body, p.opens_at::text, p.opens_at <= now() AS open
     FROM challenge_prompts p JOIN tasks m ON m.id = p.master_id
-    WHERE p.master_id = ${masterId}::uuid AND m.workspace_id = ${orgId}::uuid AND m.deleted_at IS NULL ORDER BY p.position`));
+    WHERE p.master_id = ${masterId}::uuid AND m.workspace_id = ${orgId}::uuid AND m.deleted_at IS NULL AND m.kind = 'assignment' AND m.assignment_id IS NULL
+      AND m.assignment_settings->'target'->>'mode' = 'optional' AND (${ctx.organiser} OR m.assignment_settings->>'publishedAt' IS NOT NULL)
+    ORDER BY p.position`));
   return { success: true as const, canEdit: ctx.organiser, prompts: rows.map((r) => ({ position: r.position, opensAt: r.opens_at, open: r.open,
     // Hidden on the server until it opens, from everyone but organisers.
     title: r.open || ctx.organiser ? r.title : null, body: r.open || ctx.organiser ? r.body : null })) };
