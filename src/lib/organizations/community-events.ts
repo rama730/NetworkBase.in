@@ -8,6 +8,7 @@ export type EventFormat = keyof typeof EVENT_FORMATS;
 
 // Strict ISO with an offset (security review): anything else could fail the database cast and break the list for everyone.
 const iso = z.string().datetime({ offset: true }).refine((v) => { const y = new Date(v).getUTCFullYear(); return y >= 2000 && y <= 2200; }, "date");
+export const afterLink = z.object({ label: z.string().trim().min(1).max(80), url: z.string().trim().max(500).regex(/^https:\/\//) }).strict();
 export const communityEventSchema = z.object({
   kind: z.literal("community"),
   start: iso,
@@ -17,6 +18,8 @@ export const communityEventSchema = z.object({
   who: z.enum(["members", "public"]),
   hosts: z.array(z.string().uuid()).max(10),
   runOfShow: z.array(z.object({ time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), title: z.string().trim().min(1).max(120) }).strict()).max(30),
+  /** After the event (B5.3c): slides and recordings as links, shown in Past. */
+  after: z.array(afterLink).max(10).optional(),
 }).strict();
 export type CommunityEventFields = z.infer<typeof communityEventSchema>;
 

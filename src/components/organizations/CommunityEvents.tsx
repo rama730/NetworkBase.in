@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, MapPin, Users, Video } from "lucide-react";
 
-import { cancelCommunityEventAction, checkInCommunityAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
+import { cancelCommunityEventAction, checkInCommunityAction, saveEventLinksAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -110,6 +110,8 @@ function EventPage({ orgId, eventId, onClose, onEdit }: { orgId: string; eventId
             <div className="grid gap-4 text-[13px] sm:grid-cols-[1fr_220px]" data-testid="event-page">
               <div className="space-y-3">
                 {e.description ? <p className="whitespace-pre-wrap">{e.description}</p> : null}
+                {e.after.length ? <div><h3 className="font-medium">Slides and recordings</h3><ul className="mt-1 space-y-0.5">{e.after.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noopener noreferrer" className="nb-link">{l.label}</a></li>)}</ul></div> : null}
+                {e.canEdit && e.state === "ended" ? <AfterLinks orgId={orgId} eventId={e.id} links={e.after} onSaved={refresh} /> : null}
                 {e.runOfShow.length ? <div><h3 className="font-medium">Run of show</h3><ol className="mt-1 space-y-0.5">{e.runOfShow.map((s, i) => <li key={i}><span className="font-mono">{s.time}</span> {s.title}</li>)}</ol></div> : null}
                 {q.data.people.length ? <div><h3 className="font-medium"><Users className="mr-1 inline size-3.5" aria-hidden="true" />Going</h3>
                   {q.data.hostView && (e.state === "happening" || Date.parse(e.start) - Date.now() < 3_600_000) && e.state !== "cancelled"
@@ -267,5 +269,26 @@ function EventCalendar({ orgId, onOpen }: { orgId: string; onOpen: (id: string) 
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** After the event (hosts, organisers): add a link to the slides or the recording. */
+function AfterLinks({ orgId, eventId, links, onSaved }: { orgId: string; eventId: string; links: Array<{ label: string; url: string }>; onSaved: () => void }) {
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const add = async () => {
+    const r = await saveEventLinksAction(orgId, eventId, [...links, { label: label.trim(), url: url.trim() }]);
+    if (!r.success) return void toast.error(r.error);
+    setLabel(""); setUrl("");
+    toast.success("Link added");
+    onSaved();
+  };
+  return (
+    <fieldset className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2" data-testid="event-after">
+      <legend className="px-1">Add slides or a recording</legend>
+      <Input value={label} maxLength={80} placeholder="Slides" aria-label="Link name" onChange={(x) => setLabel(x.target.value)} className="w-[140px]" />
+      <Input value={url} maxLength={500} placeholder="https://" aria-label="Link" onChange={(x) => setUrl(x.target.value)} className="w-[240px]" />
+      <button type="button" className={FORM_SECONDARY_CLASS} disabled={!label.trim() || !url.trim()} onClick={() => void add()}>Add link</button>
+    </fieldset>
   );
 }

@@ -12,7 +12,7 @@ async function open(page: Page, opts: { full: boolean; mine: string | null }) {
     const start = new Date(Date.now() + 2 * 86_400_000).toISOString();
     const end = new Date(Date.now() + 2 * 86_400_000 + 7_200_000).toISOString();
     const ev = { id: 'e1', title: 'Hack night', description: 'Bring a laptop', state: opts.full ? 'full' : 'published', start, end, format: 'hybrid', place: 'HSR Layout', who: 'members', hosts: [],
-      runOfShow: [{ time: '19:00', title: 'Hello' }], going: opts.full ? 2 : 1, waitlisted: opts.full ? 1 : 0, placesLeft: opts.full ? 0 : 1, link: opts.mine === 'going' ? 'https://meet.example/x' : null, hasLink: true,
+      runOfShow: [{ time: '19:00', title: 'Hello' }], after: [], going: opts.full ? 2 : 1, waitlisted: opts.full ? 1 : 0, placesLeft: opts.full ? 0 : 1, link: opts.mine === 'going' ? 'https://meet.example/x' : null, hasLink: true,
       mine: opts.mine, minePrivate: false, position: opts.mine === 'waitlisted' ? 1 : null, canEdit: true, placeLimit: 2 };
     (window as any).__actions = {
       readCommunityEventsAction: async (_o: string, when: string) => ({ success: true, member: true, canCreate: true, events: when === 'upcoming' ? [ev] : [] }),

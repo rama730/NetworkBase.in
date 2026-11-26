@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { canRsvp, communityEventSchema, eventProblem, eventState, placeFor, placesLeft, type CommunityEventFields } from "@/lib/organizations/community-events";
+import { afterLink, canRsvp, communityEventSchema, eventProblem, eventState, placeFor, placesLeft, type CommunityEventFields } from "@/lib/organizations/community-events";
 import { pauseActive } from "@/lib/organizations/community";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -60,7 +60,7 @@ function shape(r: EventRow, ctx: { userId: string | null; organiser: boolean; me
   // Call 4: the online link only for people Going, the event's hosts and organisers.
   const seesLink = ctx.member && (r.mine === "going" || isHost || ctx.organiser);
   return { id: r.id, title: r.title, description: r.description, state, start: r.fields.start, end: r.fields.end, format: r.fields.format,
-    place: r.fields.place, who: r.fields.who, hosts: r.fields.hosts, runOfShow: r.fields.runOfShow,
+    place: r.fields.place, who: r.fields.who, hosts: r.fields.hosts, runOfShow: r.fields.runOfShow, after: ctx.member ? r.fields.after ?? [] : [],
     going: r.going, waitlisted: r.waitlisted, placesLeft: placesLeft(r.place_limit, r.going), placeLimit: ctx.organiser || isHost ? r.place_limit : undefined,
     link: seesLink ? r.link : null, hasLink: Boolean(r.link), mine: r.mine as "going" | "waitlisted" | "cant_go" | null, minePrivate: r.mine_private === true,
     position: r.mine === "waitlisted" ? r.position : null, canEdit: ctx.organiser || isHost };
@@ -134,6 +134,8 @@ export async function saveCommunityEventAction(orgId: string, eventId: string | 
   if (!old || old.stage === "cancelled" || !(ctx.organiser || old.fields.hosts.includes(ctx.userId))) return DENIED;
   // A host can't hand the event to people who aren't hosting it; organisers pick the hosts.
   if (!ctx.organiser) fields.hosts = old.fields.hosts;
+  // Slides and recordings are kept when the form doesn't send them.
+  if (!d.fields.after && old.fields.after) fields.after = old.fields.after;
   const moved = await db.transaction(async (tx) => {
     await tx.execute(sql`UPDATE tasks SET title = ${d.title}, description = ${d.description}, type_fields = ${JSON.stringify(fields)}::jsonb, updated_at = now() WHERE id = ${eventId}::uuid`);
     await tx.execute(sql`INSERT INTO community_events (task_id, workspace_id, online_link, place_limit) VALUES (${eventId}::uuid, ${orgId}::uuid, ${link}, ${d.placeLimit})
@@ -252,4 +254,33 @@ export async function checkInCommunityAction(orgId: string, eventId: string, per
     UPDATE community_rsvps SET checked_in_at = ${on ? sql`coalesce(checked_in_at, now())` : sql`NULL`}
     WHERE task_id = ${eventId}::uuid AND user_id = ${person}::uuid AND state = 'going' RETURNING user_id AS id`));
   return r ? { success: true } : { success: false, error: "Only people going can be checked in." };
+}
+
+/** My events (B5.3c, layer 4): what you're going to or waiting for in your communities, the next 14 days. */
+export async function readMyCommunityEventsAction() {
+  const { userId } = await getViewerAuthContext();
+  if (!userId) return DENIED;
+  const rows = Array.from(await db.execute<{ id: string; title: string; start: string; state: string; slug: string | null; org_id: string; org: string }>(sql`
+    SELECT t.id, t.title, t.type_fields->>'start' AS start, r.state, w.slug, w.id AS org_id, w.title AS org
+    FROM community_rsvps r JOIN tasks t ON t.id = r.task_id JOIN workspaces w ON w.id = t.workspace_id
+    JOIN workspace_members m ON m.workspace_id = w.id AND m.user_id = r.user_id AND m.role <> 'viewer'
+    WHERE r.user_id = ${userId}::uuid AND r.state IN ('going', 'waitlisted') AND t.deleted_at IS NULL AND t.stage <> 'cancelled' AND w.deleted_at IS NULL
+      AND (t.type_fields->>'end')::timestamptz > now() AND (t.type_fields->>'start')::timestamptz < now() + interval '14 days'
+    ORDER BY t.type_fields->>'start' LIMIT 10`));
+  return { success: true as const, events: rows.map((r) => ({ id: r.id, title: r.title, start: r.start, waitlisted: r.state === "waitlisted", org: r.org,
+    href: `/org/${encodeURIComponent(r.slug ?? r.org_id)}?tab=sprints&event=${r.id}` })) };
+}
+
+/** After the event (B5.3c, layer 3): its hosts and organisers add slides and recordings as links; members see them in Past. */
+export async function saveEventLinksAction(orgId: string, eventId: string, links: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  const parsed = z.array(afterLink).max(10).safeParse(links);
+  if (!ctx?.member || !ctx.userId || !isLooseUuid(eventId)) return DENIED;
+  if (!parsed.success) return { success: false, error: "Links start with https:// and have a name." };
+  if (!ctx.organiser && !ctx.host) return DENIED;
+  const [r] = Array.from(await db.execute<{ id: string }>(sql`
+    UPDATE tasks SET type_fields = jsonb_set(type_fields, '{after}', ${JSON.stringify(parsed.data)}::jsonb), updated_at = now()
+    WHERE id = ${eventId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'event' AND type_fields->>'kind' = 'community' AND deleted_at IS NULL AND stage <> 'cancelled'
+      AND (${ctx.organiser} OR type_fields->'hosts' ? ${ctx.userId}::text) RETURNING id`));
+  return r ? { success: true } : DENIED;
 }

@@ -181,3 +181,24 @@ test("B5.3b: hosts check people in around the event; reminders go once to people
   const [none] = await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${m2!} AND title LIKE '%starts soon%'`;
   assert.equal(none!.n, 0, "Can't go gets no reminder");
 });
+
+test("B5.3c: My events lists what you're going to or waiting for in the next 14 days, nothing cancelled or past", async () => {
+  const [owner, m1] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public" }));
+  created.push(org);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${m1!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'community', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  viewerId = owner!;
+  const near = await ev.saveCommunityEventAction(org, null, { title: "Near", description: null, fields: fields({ start: soon(30), end: soon(32) }), link: null, placeLimit: null });
+  const far = await ev.saveCommunityEventAction(org, null, { title: "Far", description: null, fields: fields({ start: soon(24 * 20), end: soon(24 * 20 + 2) }), link: null, placeLimit: null });
+  const gone = await ev.saveCommunityEventAction(org, null, { title: "Gone", description: null, fields: fields({ start: soon(40), end: soon(42) }), link: null, placeLimit: null });
+  assert.ok(near.success && far.success && gone.success);
+  viewerId = m1!;
+  for (const id of [near.id, far.id, gone.id]) await ev.rsvpCommunityEventAction(org, id, { choice: "going", private: false });
+  viewerId = owner!;
+  await ev.cancelCommunityEventAction(org, gone.id);
+  viewerId = m1!;
+  const mine = await ev.readMyCommunityEventsAction();
+  assert.ok(mine.success);
+  assert.deepEqual(mine.events.map((e) => e.title), ["Near"]);
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { MyCommunityEvents } from "@/components/my-work/MyCommunityEvents";
 import { TodaysMeetings } from "@/components/my-work/TodaysMeetings";
 import { GoalCheckIns } from "@/components/my-work/GoalCheckIns";
 import { UpNextLessons } from "@/components/my-work/UpNextLessons";
@@ -740,6 +741,7 @@ export default function MyWorkTasksTab({ isActive = true, day = null, onDay, pin
             {tools}
             {chipRow}
             <TodaysMeetings />
+            <MyCommunityEvents />
             <GoalCheckIns />
             <UpNextLessons />
             <OffsiteInvites />
