@@ -5,7 +5,7 @@ import { createUser, inRollback, sql } from "./_helpers";
 
 after(() => sql.end());
 
-// Global search mix (0163): who can find me, saved searches, the query log behind "Trending near you".
+// Global search mix (0165): who can find me, saved searches, the query log behind "Trending near you".
 test("a new person can be found by everyone, and not by email", async () => {
   await inRollback(async (tx) => {
     const id = await createUser(tx);

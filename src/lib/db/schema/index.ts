@@ -235,7 +235,7 @@ export const profiles = pgTable(
     connectionPrivacy: text("connection_privacy", {
       enum: ["everyone", "mutuals_only", "nobody"],
     }).default("everyone"),
-    /** Who can find me in search (0163): everyone, people in my workspaces and orgs, or only my connections. */
+    /** Who can find me in search (0165): everyone, people in my workspaces and orgs, or only my connections. */
     searchVisibility: text("search_visibility", { enum: ["everyone", "my_places", "connections"] }).default("everyone").notNull(),
     findableByEmail: boolean("findable_by_email").default(false).notNull(),
     onboardingStatus: text("onboarding_status", {
@@ -593,7 +593,7 @@ export const userBlocks = pgTable(
   }),
 );
 
-/** Saved searches with new-match alerts (global search mix, 0163). */
+/** Saved searches with new-match alerts (global search mix, 0165). */
 export const savedSearches = pgTable(
   "saved_searches",
   {
@@ -613,7 +613,7 @@ export const savedSearches = pgTable(
   }),
 );
 
-/** Results-page searches, for "Trending near you" (0163). Cleared after 30 days. */
+/** Results-page searches, for "Trending near you" (0165). Cleared after 30 days. */
 export const searchQueryLog = pgTable(
   "search_query_log",
   {

@@ -188,7 +188,7 @@ function toPersonHit(row: PersonRow, q: string): SearchHit {
     };
 }
 
-/** People the viewer may find (0163 rule), connections and strangers alike. */
+/** People the viewer may find (0165 rule), connections and strangers alike. */
 export async function searchPeople(viewerId: string, q: string, limit: number): Promise<SearchHit[]> {
     if (!tokenizeSearchQuery(q).length) return [];
     // Matches first (cheap), then the privacy rule on those only, then each row's mutuals and shared place for the

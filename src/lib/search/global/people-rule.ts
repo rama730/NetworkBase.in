@@ -3,7 +3,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { FIXTURE_EMAIL_PATTERN } from "@/lib/accounts/fixture-accounts";
 
 /**
- * Who a viewer may find in global search (0163 `app_private.search_findable`): blocks, private profiles, "Who can
+ * Who a viewer may find in global search (0165 `app_private.search_findable`): blocks, private profiles, "Who can
  * find me in search" and the minors rule live in the database; finished, live, real accounts are checked here.
  * `alias` is the profiles alias in the calling query.
  */

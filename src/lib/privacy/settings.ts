@@ -56,7 +56,7 @@ type PrivacyUpdateInput =
   | { kind: "profileVisibility"; nextValue: ProfileVisibilitySetting }
   | { kind: "messagePrivacy"; nextValue: MessagePrivacySetting }
   | { kind: "connectionPrivacy"; nextValue: ConnectionPrivacySetting }
-  /** Who can find me in search (0163). */
+  /** Who can find me in search (0165). */
   | { kind: "searchVisibility"; nextValue: "everyone" | "my_places" | "connections" }
   | { kind: "findableByEmail"; nextValue: "on" | "off" };
 
