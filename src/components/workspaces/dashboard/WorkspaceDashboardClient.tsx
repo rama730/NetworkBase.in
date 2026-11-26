@@ -66,6 +66,7 @@ import { SchoolSprints } from '@/components/organizations/SchoolYear';
 import { CommunitySprints } from '@/components/organizations/CommunityEvents';
 import { CommunityTasks } from '@/components/organizations/CommunityChallenges';
 import { CommunityProjects } from '@/components/organizations/CommunityChapters';
+import { GroupPolls } from '@/components/organizations/GroupPolls';
 import { ClassMembers } from '@/components/organizations/Sections';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
@@ -1291,6 +1292,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                         {parentOrg ? <ChildUnitsLine projectId={project.id} members={allMembers} /> : null}
                         {/* Report 33.4 (B4.3): a project in a company — Supports, dates, status, Post status (nothing shows elsewhere). */}
                         {parentOrg ? <div className="mb-4"><ProjectGoalLine projectId={project.id} /></div> : null}
+                        {/* Report 34.6 (B5.5c): a community small group's polls (hidden on other workspaces). */}
+                        {!parentOrg ? <GroupPolls groupId={project.id} /> : null}
                         <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} recentActivityStarted={started?.recentActivity} />
                         </>}
                     </TabErrorBoundary>

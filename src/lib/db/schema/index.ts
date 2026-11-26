@@ -1453,6 +1453,27 @@ export const communityEvents = pgTable("community_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("community_events_workspace_idx").on(t.projectId)]);
 
+/** B5.5c (0159): a group's poll — times or options, ticks by members, a closing time, the host's pick. */
+export const groupPolls = pgTable("group_polls", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  question: text("question").notNull(),
+  kind: text("kind").$type<"times" | "options">().notNull(),
+  options: jsonb("options").$type<string[]>().notNull(),
+  closesAt: timestamp("closes_at", { withTimezone: true }).notNull(),
+  picked: integer("picked"),
+  pickedBy: uuid("picked_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("group_polls_workspace_idx").on(t.projectId, t.createdAt.desc()), index("group_polls_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`),
+  index("group_polls_picked_by_idx").on(t.pickedBy).where(sql`picked_by IS NOT NULL`)]);
+export const groupPollVotes = pgTable("group_poll_votes", {
+  pollId: uuid("poll_id").notNull().references(() => groupPolls.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  option: integer("option").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.pollId, t.userId, t.option] }), index("group_poll_votes_user_idx").on(t.userId)]);
+
 /** B5.4c (0158): a challenge's prompts; title and text stay here, unread, until Opens on. */
 export const challengePrompts = pgTable("challenge_prompts", {
   id: uuid("id").primaryKey().defaultRandom(),

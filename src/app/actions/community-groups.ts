@@ -35,8 +35,17 @@ async function community(orgId: string) {
   const [w] = Array.from(await db.execute<{ type: string | null; chapter_of: string | null; settings: unknown }>(sql`
     SELECT org_type AS type, org_settings->>'chapterOf' AS chapter_of, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   if (w?.type !== "community" || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
-  const pause = (w.settings as { community?: { pauses?: Record<string, { until: string }> } } | null)?.community?.pauses?.[userId] ?? null;
-  return { userId, communityId: w.chapter_of ?? orgId, chapterId: w.chapter_of ? orgId : null, paused: pauseActive(pause, new Date()) };
+  const pauseIn = (settings: unknown) => (settings as { community?: { pauses?: Record<string, { until: string }> } } | null)?.community?.pauses?.[userId] ?? null;
+  let paused = pauseActive(pauseIn(w.settings), new Date());
+  if (w.chapter_of) {
+    // Security review: a chapter's context needs the community too — membership there, and its pause holds.
+    if (!isLooseUuid(w.chapter_of)) return null;
+    const c = await getWorkspaceAccessById(w.chapter_of, userId);
+    if (!(c.isOwner || (c.isMember && c.memberRole !== "viewer"))) return null;
+    const [cw] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${w.chapter_of}::uuid`));
+    paused = paused || pauseActive(pauseIn(cw?.settings), new Date());
+  }
+  return { userId, communityId: w.chapter_of ?? orgId, chapterId: w.chapter_of ? orgId : null, paused };
 }
 
 /** Groups (call 8): the community's and its chapters' groups — name, kind, size and cap, when, chapter, join mode; never their content. */
@@ -86,6 +95,13 @@ export async function startGroupAction(orgId: string, input: unknown): Promise<{
       WHERE c.id = ${d.chapterId}::uuid AND c.org_settings->>'chapterOf' = ${ctx.communityId} AND c.deleted_at IS NULL`));
     if (!ok) return { success: false, error: "Start a chapter’s group from inside that chapter." };
   }
+  // Security review: the same limit as making any workspace, and up to 5 groups hosted per person in a community.
+  const { consumeRateLimit } = await import("@/lib/security/rate-limit");
+  if (!(await consumeRateLimit(`create:project:user:${ctx.userId}`, 10, 60 * 60)).allowed) return { success: false, error: "You’ve started a lot just now. Try again in a while." };
+  const [hosted] = Array.from(await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM workspaces g WHERE g.owner_id = ${ctx.userId}::uuid AND g.kind = 'workspace' AND g.deleted_at IS NULL AND g.status <> 'archived'
+      AND (g.org_settings->>'groupOf' = ${ctx.communityId} OR g.org_settings->>'groupOf' IN (SELECT c.id::text FROM workspaces c WHERE c.org_settings->>'chapterOf' = ${ctx.communityId}))`));
+  if ((hosted?.n ?? 0) >= 5) return { success: false, error: "You host 5 groups here already." };
   const slug = `${d.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "group"}-${randomUUID().slice(0, 4)}`;
   const group: GroupSettings = { kind: d.kind, purpose: d.purpose, meets: d.meets, cap: d.cap, join: d.join, requests: [] };
   const id = await db.transaction(async (tx) => {
@@ -155,6 +171,17 @@ export async function answerGroupRequestAction(orgId: string, groupId: string, p
         EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = g.id AND m.user_id = ${ctx.userId}::uuid AND m.role IN ('owner', 'admin')) AS host
       FROM workspaces g WHERE g.id = ${groupId}::uuid AND g.deleted_at IS NULL FOR UPDATE`));
     if (!g?.host || !(g.settings.requests ?? []).some((q) => q.userId === person)) return { error: DENIED.error };
+    // Security review: the group belongs to this community, and the person is still in its home (and the community) and not paused.
+    const [home] = Array.from(await tx.execute<{ home: string; community: string; ok: boolean; paused_home: string | null; paused_community: string | null }>(sql`
+      SELECT h.id AS home, coalesce(h.org_settings->>'chapterOf', h.id::text) AS community,
+        EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = h.id AND m.user_id = ${person}::uuid AND m.role IN ('member', 'admin', 'owner'))
+          AND (h.org_settings->>'chapterOf' IS NULL OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = (h.org_settings->>'chapterOf')::uuid AND m.user_id = ${person}::uuid AND m.role IN ('member', 'admin', 'owner'))) AS ok,
+        h.org_settings->'community'->'pauses'->${person}::text->>'until' AS paused_home,
+        (SELECT c.org_settings->'community'->'pauses'->${person}::text->>'until' FROM workspaces c WHERE c.id = (h.org_settings->>'chapterOf')::uuid) AS paused_community
+      FROM workspaces g JOIN workspaces h ON h.id = (g.org_settings->>'groupOf')::uuid WHERE g.id = ${groupId}::uuid`));
+    if (!home || home.community !== ctx.communityId) return { error: DENIED.error };
+    if (accept && !home.ok) return { error: "They’re no longer in the community, so they can’t join." };
+    if (accept && (pauseActive(home.paused_home ? { until: home.paused_home } : null, new Date()) || pauseActive(home.paused_community ? { until: home.paused_community } : null, new Date()))) return { error: "They can join when their pause ends." };
     const requests = (g.settings.requests ?? []).filter((q) => q.userId !== person);
     await tx.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{group,requests}', ${JSON.stringify(requests)}::jsonb) WHERE id = ${groupId}::uuid`);
     if (!accept) return { ok: true };
@@ -163,4 +190,90 @@ export async function answerGroupRequestAction(orgId: string, groupId: string, p
     return { ok: true };
   });
   return "error" in r ? { success: false, error: r.error! } : { success: true };
+}
+
+// ---- B5.5c (report 34.6 call 10): one Poll item for a group ----
+
+/** The group (a workspace with groupOf) and whether the viewer is in it and hosts it. */
+async function groupOf(groupId: string) {
+  if (!isLooseUuid(groupId)) return null;
+  const { userId } = await getViewerAuthContext();
+  if (!userId) return null;
+  const [g] = Array.from(await db.execute<{ title: string; role: string | null }>(sql`
+    SELECT g.title, (SELECT m.role FROM workspace_members m WHERE m.workspace_id = g.id AND m.user_id = ${userId}::uuid) AS role
+    FROM workspaces g WHERE g.id = ${groupId}::uuid AND g.kind = 'workspace' AND g.deleted_at IS NULL AND g.org_settings ? 'groupOf'`));
+  if (!g?.role || g.role === "viewer") return g ? { userId, title: g.title, member: false, host: false } : null;
+  return { userId, title: g.title, member: true, host: g.role === "owner" || g.role === "admin" };
+}
+
+/** A group's polls (members): options with counts and who ticked; your ticks; open, closed or picked. */
+export async function readGroupPollsAction(groupId: string) {
+  const g = await groupOf(groupId);
+  if (!g) return { success: true as const, isGroup: false, polls: [] };
+  if (!g.member) return DENIED;
+  const polls = Array.from(await db.execute<{ id: string; question: string; kind: string; options: string[]; closes_at: string; picked: number | null; created_by: string | null; open: boolean }>(sql`
+    SELECT id, question, kind, options, closes_at::text, picked, created_by, closes_at > now() AS open FROM group_polls WHERE workspace_id = ${groupId}::uuid ORDER BY created_at DESC LIMIT 10`));
+  const ids = polls.map((p) => p.id);
+  const votes = ids.length ? Array.from(await db.execute<{ poll_id: string; option: number; user_id: string; name: string | null; username: string | null }>(sql`
+    SELECT v.poll_id, v.option, v.user_id, p.full_name AS name, p.username FROM group_poll_votes v JOIN profiles p ON p.id = v.user_id
+    WHERE v.poll_id = ANY(${`{${ids.join(",")}}`}::uuid[])`)) : [];
+  return { success: true as const, isGroup: true, host: g.host, polls: polls.map((p) => ({
+    id: p.id, question: p.question, kind: p.kind as "times" | "options", closesAt: p.closes_at, open: p.open && p.picked === null, picked: p.picked,
+    canPick: g.host || p.created_by === g.userId,
+    options: p.options.map((label, i) => {
+      const who = votes.filter((v) => v.poll_id === p.id && v.option === i);
+      return { label, count: who.length, mine: who.some((v) => v.user_id === g.userId), who: who.map((v) => v.name ?? v.username ?? "Someone") };
+    }) })) };
+}
+
+const pollSchema = z.object({ question: z.string().trim().min(1).max(200), kind: z.enum(["times", "options"]), options: z.array(z.string().trim().min(1).max(80)).min(2).max(5),
+  closesAt: z.string().datetime({ offset: true }) }).strict();
+
+/** Start a poll (group members): up to five times or options, a closing time; the group hears (Normal). */
+export async function createGroupPollAction(groupId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const g = await groupOf(groupId);
+  const parsed = pollSchema.safeParse(input);
+  if (!g?.member) return DENIED;
+  if (!parsed.success) return { success: false, error: "A poll has a question, 2 to 5 choices and a closing time." };
+  const d = parsed.data;
+  if (Date.parse(d.closesAt) <= Date.now()) return { success: false, error: "Pick a closing time that hasn’t passed." };
+  await db.execute(sql`INSERT INTO group_polls (workspace_id, created_by, question, kind, options, closes_at) VALUES (${groupId}::uuid, ${g.userId}::uuid, ${d.question}, ${d.kind}, ${JSON.stringify(d.options)}::jsonb, ${d.closesAt}::timestamptz)`);
+  const members = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${groupId}::uuid AND role <> 'viewer' AND user_id <> ${g.userId}::uuid`));
+  for (const m of members) {
+    await createNotification({ recipientUserId: m.id, actorUserId: g.userId, kind: "project_task_activity", category: "tasks", importance: "more",
+      title: `New poll in ${g.title}: ${d.question}`, href: `/workspaces/${groupId}`, entityRefs: { projectId: groupId },
+      dedupeKey: `group-poll:${groupId}:${d.question}:${m.id}` }).catch(() => undefined);
+  }
+  return { success: true };
+}
+
+/** Tick (group members, while open): ticks are per option, so a times poll works as "which can you make". */
+export async function voteGroupPollAction(groupId: string, pollId: string, option: number, on: boolean): Promise<{ success: true } | Failure> {
+  const g = await groupOf(groupId);
+  if (!g?.member || !isLooseUuid(pollId) || !Number.isInteger(option) || option < 0 || option > 4 || typeof on !== "boolean") return DENIED;
+  const [p] = Array.from(await db.execute<{ n: number }>(sql`
+    SELECT jsonb_array_length(options) AS n FROM group_polls WHERE id = ${pollId}::uuid AND workspace_id = ${groupId}::uuid AND closes_at > now() AND picked IS NULL`));
+  if (!p || option >= p.n) return { success: false, error: "This poll is closed." };
+  if (on) await db.execute(sql`INSERT INTO group_poll_votes (poll_id, user_id, option) VALUES (${pollId}::uuid, ${g.userId}::uuid, ${option}) ON CONFLICT DO NOTHING`);
+  else await db.execute(sql`DELETE FROM group_poll_votes WHERE poll_id = ${pollId}::uuid AND user_id = ${g.userId}::uuid AND option = ${option}`);
+  return { success: true };
+}
+
+/** Pick (the poll's starter or the group's hosts): confirms one choice and closes it; the group hears (Normal). */
+export async function pickGroupPollAction(groupId: string, pollId: string, option: number): Promise<{ success: true } | Failure> {
+  const g = await groupOf(groupId);
+  if (!g?.member || !isLooseUuid(pollId) || !Number.isInteger(option) || option < 0 || option > 4) return DENIED;
+  const [p] = Array.from(await db.execute<{ question: string; label: string }>(sql`
+    UPDATE group_polls SET picked = ${option}, picked_by = ${g.userId}::uuid, closes_at = least(closes_at, now())
+    WHERE id = ${pollId}::uuid AND workspace_id = ${groupId}::uuid AND picked IS NULL AND jsonb_array_length(options) > ${option}
+      AND (${g.host} OR created_by = ${g.userId}::uuid)
+    RETURNING question, options->>${option} AS label`));
+  if (!p) return DENIED;
+  const members = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${groupId}::uuid AND role <> 'viewer' AND user_id <> ${g.userId}::uuid`));
+  for (const m of members) {
+    await createNotification({ recipientUserId: m.id, actorUserId: g.userId, kind: "project_task_activity", category: "tasks", importance: "more",
+      title: `${g.title}: ${p.question} — ${p.label}`, href: `/workspaces/${groupId}`, entityRefs: { projectId: groupId },
+      dedupeKey: `group-poll-pick:${pollId}:${m.id}` }).catch(() => undefined);
+  }
+  return { success: true };
 }

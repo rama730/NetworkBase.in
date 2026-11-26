@@ -24,6 +24,11 @@ async function open(page: Page, organiser: boolean, view = 'chapters') {
       joinGroupAction: async (_o: string, id: string) => { calls.push(['join', id]); return { success: true, outcome: 'joined' }; },
       answerGroupRequestAction: async (_o: string, g: string, p: string, ok: boolean) => { calls.push(['answer', g, p, ok]); return { success: true }; },
       startGroupAction: async () => ({ success: true, id: 'g4', slug: 'g4' }),
+      readGroupPollsAction: async () => ({ success: true, isGroup: true, host: true, polls: [{ id: 'p1', question: 'When should we meet?', kind: 'times', closesAt: new Date(Date.now() + 864e5).toISOString(), open: true, picked: null, canPick: true,
+        options: [{ label: 'Tue 20:00', count: 5, mine: true, who: ['Mei'] }, { label: 'Wed 19:00', count: 2, mine: false, who: [] }] }] }),
+      voteGroupPollAction: async (_g: string, p: string, o: number, on: boolean) => { calls.push(['vote', p, o, on]); return { success: true }; },
+      pickGroupPollAction: async (_g: string, p: string, o: number) => { calls.push(['pick', p, o]); return { success: true }; },
+      createGroupPollAction: async () => ({ success: true }),
     };
   }, organiser);
   await openApp(page, 'tests/browser/community-chapters.fixture.tsx', { path: `/?view=${view}` });
@@ -61,6 +66,19 @@ test('Groups: 7 of 10 with Join; Full; hosts accept an Ask', async ({ page }) =>
   await expect.poll(() => calls(page)).toContainEqual(['join', 'g1']);
   await cards.nth(2).getByRole('button', { name: 'Accept' }).click();
   await expect.poll(() => calls(page)).toContainEqual(['answer', 'g3', 'u9', true]);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('Polls: counts as text beside the bars; tick and pick', async ({ page }) => {
+  await open(page, false, 'polls');
+  const poll = page.getByTestId('group-poll');
+  await expect(poll).toContainText('When should we meet?');
+  await expect(poll).toContainText('5');
+  await poll.getByLabel('Wed 19:00').check();
+  await expect.poll(() => calls(page)).toContainEqual(['vote', 'p1', 1, true]);
+  await poll.getByRole('button', { name: 'Pick' }).first().click();
+  await expect.poll(() => calls(page)).toContainEqual(['pick', 'p1', 0]);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
