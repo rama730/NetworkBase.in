@@ -35,7 +35,7 @@ export function LabLibrary({ orgId }: { orgId: string }) {
   if (lib.isPending) return <p role="status" className="nb-waiting p-5 text-[13px] text-muted-foreground"><PixelBeat />Loading the library…</p>;
   if (!d) return <p className="p-5 text-[13px] text-muted-foreground">The Library is for the lab’s members.</p>;
   return (
-    <section aria-labelledby="lab-library-title" className="mx-auto max-w-5xl space-y-3 p-4 text-[13px] sm:p-5" data-testid="lab-library">
+    <section aria-labelledby="lab-library-title" className="mx-auto w-full max-w-5xl space-y-3 p-4 text-[13px] sm:p-5" data-testid="lab-library">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="lab-library-title" className="nb-section-title flex items-center gap-2 text-foreground"><Library className="size-4" aria-hidden="true" />Library <span className="nb-meta">{d.total} {d.total === 1 ? "source" : "sources"}</span></h2>
         {d.writer && !adding ? <span className="flex gap-2"><button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setAdding("paste")}>Paste BibTeX or RIS</button>
