@@ -12863,6 +12863,18 @@ PUBLIC · About (the lab's website)
 7. Contact is Message and an office-hours line; no email or phone.
 8. A lab can stand alone (verified by domain) or join its university (29.2).
 
+**Build calls (B6.1a, 2026-11-26):**
+1. **A position lives in `workspace_members.view_prefs.lab` ({position, startYear}), not in `title`.** Title stays the person's own free text. Positions come from the lab's list in `org_settings.lab.positions` (7 defaults, renameable, up to 12). Only the PI and Researchers set them, and a position never changes the role (server test).
+2. Members → People is for members (never viewers or visitors), grouped under headings by position in the lab's order; people without one come last under "Members". Each row shows position and start year, interests, the lab workspaces the person is in, and Message. The roster stays a view for the PI and Researchers.
+3. The lab home is a card on the Overview: the welcome is the org's description, Reach the PI is a Message button to the owner (or a chosen Researcher), plus the office-hours line and People · Projects counts. Office hours refuses anything that looks like an email or phone number.
+4. Settings → Lab holds positions, who Reach the PI messages, office hours, the Leaving plan switch (B6.1c), the public About sections, research areas and Join us (used by B6.1c).
+5. Review fixes: a person's private or draft workspaces show only to the PI, Researchers and that workspace's members; Reach the PI falls back to the PI when the chosen Researcher stops being one, and never shows someone the viewer is in a block with; an archived, suspended or deleting lab takes no changes.
+
+**Build calls (B6.1b, 2026-11-26):**
+1. **The lab guide is the org's documents with six lab sections** (Welcome · How we work · Computing and data · Safety and training · Writing and authorship · Leaving the lab). An empty guide shows "Write your lab guide" with Add a page per section, as a company's handbook does. A page put in Safety and training is Required reading unless the PI says otherwise. Review by and owners use K1's settings.
+2. **The New people plan is K4's onboarding**, opened to labs. It's on from the lab's start (never for people already there) until the PI saves the plan, and it uses lab steps: read the Welcome, read Safety and sign off, accounts and data, first supervision meeting, the reading group, your workspace from a template, How's it going. In a lab the manager is called **Supervisor**: the PI or a Researcher picked per person on People (stored as Reports to). Start here shows on the lab's Overview, and People has New people for the PI and Researchers.
+3. The Leaving plan, Finished and alumni are B6.1c (nothing like them existed: membership endings were left, removed, term ended).
+
 ### 35.3 R2 · Papers and publications (agreed 2026-11-17)
 **References** (35.1, plus 15 searches for papers, manuscripts, submissions and conferences: 114 templates, 27 rated; 3 more screens studied):
 
