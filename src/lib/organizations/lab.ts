@@ -49,3 +49,32 @@ export function groupByPosition<T extends { position: string | null }>(people: T
   const rest = people.filter((x) => !x.position || !positions.some((p) => p.id === x.position));
   return [...groups, { id: "", label: "Members", people: rest }].filter((g) => g.people.length > 0);
 }
+
+/**
+ * B6.1c (layer 3): the Leaving plan — steps for the person and their supervisor, due before the end date (days are
+ * negative offsets from it). {name} is the person leaving.
+ */
+export type LeavingStep = { id: string; day: number; who: "person" | "supervisor"; title: string };
+export const LEAVING_PLAN: LeavingStep[] = [
+  { id: "data", day: -14, who: "person", title: "Write down where your data and code live" },
+  { id: "notebooks", day: -7, who: "person", title: "Hand over your notebooks and protocols" },
+  { id: "workspaces", day: -7, who: "supervisor", title: "Pick the new owner of {name}’s workspaces" },
+  { id: "equipment", day: -3, who: "person", title: "Return equipment and keys" },
+  { id: "handover", day: -1, who: "supervisor", title: "Check the handover with {name}" },
+];
+export const finishSchema = z.object({
+  end: z.string().date(),
+  /** Call 6: the PI can keep someone as a Viewer (papers still in review); otherwise private work closes on the end date. */
+  keepAsViewer: z.boolean(),
+}).strict();
+export type LeavingRecord = { end: string; keepAsViewer: boolean; by: string; steps: Array<{ id: string; taskId: string | null }> };
+/** No email or phone (call 7): an @, or a run of 9+ digits (a year range like "2019 - 2023" passes). */
+export function looksLikeContact(text: string) {
+  return text.includes("@") || (text.match(/\+?\d[\d\s().-]{6,}\d/g) ?? []).some((run) => run.replace(/\D/g, "").length >= 9);
+}
+export const alumniSchema = z.object({ listed: z.boolean(), nowAt: z.string().trim().max(120) }).strict();
+/** A step's due day: the end date plus its (negative) offset, never before today. */
+export function leavingDue(end: string, day: number, today: string) {
+  const due = new Date(Date.parse(`${end}T00:00:00Z`) + day * 86_400_000).toISOString().slice(0, 10);
+  return due < today ? today : due;
+}

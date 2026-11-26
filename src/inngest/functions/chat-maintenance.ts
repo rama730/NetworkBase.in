@@ -95,6 +95,8 @@ export const chatDue = inngest.createFunction(
       await step.run("challenge-prompts", async () => (await import("@/lib/organizations/community-server")).notifyChallengePrompts());
       // B5.4d (report 34.5 call 7): community rituals post on schedule as Updates naming their host.
       await step.run("community-rituals", async () => (await import("@/lib/organizations/community-server")).postDueRituals());
+      // B6.1c: lab memberships whose Leaving plan reached its end date end as Finished (or stay as Viewer).
+      await step.run("lab-finish", async () => (await import("@/lib/organizations/lab-server")).finishDueLabMembers());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

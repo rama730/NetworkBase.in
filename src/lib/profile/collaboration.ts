@@ -140,7 +140,7 @@ export type ProfileCollaborationContribution = {
   timelineOrder?: number | null;
   showOnProfile?: boolean | null;
   /** How the membership ended (report §10.1); null on an ended entry reads as "left". */
-  endReason?: "left" | "removed" | "term_ended" | "org_deleted" | "completed" | "workspace_completed" | null;
+  endReason?: "left" | "removed" | "term_ended" | "org_deleted" | "completed" | "workspace_completed" | "finished" | null;
   /** Member settings §3: the closing note, who marked it completed (when not the person), who confirmed it. */
   endNote?: string | null;
   endedByName?: string | null;
@@ -1395,7 +1395,7 @@ export async function upsertProfileWorkspaceContributionFromMembership(
 }
 
 /** How a membership ended (report §10.1): leaving keeps credit; removal also withdraws verification (§4.3). */
-export type MembershipEnding = { reason: "left" | "removed" | "completed" | "workspace_completed"; by: string | null; note?: string | null; orgTitle?: string | null };
+export type MembershipEnding = { reason: "left" | "removed" | "completed" | "workspace_completed" | "finished"; by: string | null; note?: string | null; orgTitle?: string | null };
 
 export async function endProfileWorkspaceContributionMembership(
   executor: DbExecutor,

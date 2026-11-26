@@ -116,3 +116,11 @@ export async function chapterTakeover(executor: Executor, chapterId: string, lea
   }
   return null;
 }
+
+/** B6.1c: a lab member who finishes hands the lab workspaces they own to their supervisor (or the PI). */
+export async function handOverChildrenIn(executor: Executor, orgId: string, from: string, to: string) {
+  const owned = await executor.select({ id: workspaces.id }).from(workspaces)
+    .where(and(eq(workspaces.parentId, orgId), eq(workspaces.ownerId, from), isNull(workspaces.deletedAt)));
+  for (const w of owned) await makeOwner(executor, w.id, from, to, { leadHandover: { from, at: new Date().toISOString() } });
+  return owned.length;
+}

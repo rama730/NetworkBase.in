@@ -26,9 +26,9 @@ export const labDefault = (type: string | null | undefined, createdAt: string) =
 /** SQL: when an org's plan counts as switched on (the lab default when it never saved one). */
 const enabledAtSql = sql`coalesce((w.org_settings->'onboarding'->>'enabledAt')::timestamptz, CASE WHEN w.org_type = 'research' AND NOT (w.org_settings ? 'onboarding') THEN w.created_at END)`;
 
-async function makeStepTask(tx: typeof db, orgId: string, step: PlanStep, assignee: string, start: string, name: string, creator: string) {
+async function makeStepTask(tx: typeof db, orgId: string, step: PlanStep, assignee: string, start: string, name: string, creator: string, label = "Onboarding") {
   const { insertTask } = await import("@/lib/organizations/assignments");
-  return insertTask(tx as never, { projectId: orgId, title: step.title.replace(/\{name\}/g, name).slice(0, 200), description: `Onboarding · ${name}`,
+  return insertTask(tx as never, { projectId: orgId, title: step.title.replace(/\{name\}/g, name).slice(0, 200), description: `${label} · ${name}`,
     dueDate: new Date(`${dueFor(start, step.day)}T17:00:00Z`), sprintId: null, assigneeId: assignee, creatorId: creator, kind: "task", assignmentId: null, assignmentSettings: null, teamName: null });
 }
 

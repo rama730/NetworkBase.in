@@ -1467,6 +1467,18 @@ export const groupPolls = pgTable("group_polls", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("group_polls_workspace_idx").on(t.projectId, t.createdAt.desc()), index("group_polls_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`),
   index("group_polls_picked_by_idx").on(t.pickedBy).where(sql`picked_by IS NOT NULL`)]);
+/** B6.1c (0160): a lab's alumni — made when a membership ends as Finished; listed only with the person's yes. */
+export const labAlumni = pgTable("lab_alumni", {
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  positionLabel: text("position_label"),
+  startYear: integer("start_year"),
+  endYear: integer("end_year").notNull(),
+  listed: boolean("listed").default(false).notNull(),
+  nowAt: text("now_at"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.projectId, t.userId] }), index("lab_alumni_user_idx").on(t.userId)]);
 export const groupPollVotes = pgTable("group_poll_votes", {
   pollId: uuid("poll_id").notNull().references(() => groupPolls.id, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
@@ -1987,7 +1999,7 @@ export const profileContributions = pgTable(
     /** Org admins revoke a "Verified by <org>" with a reason (0248). */
     verificationRevokedReason: text("verification_revoked_reason"),
     /** How the membership ended (0049, report §10.1): left, removed, term_ended or org_deleted; null reads as left. */
-    endReason: text("end_reason", { enum: ["left", "removed", "term_ended", "org_deleted", "completed", "workspace_completed"] }),
+    endReason: text("end_reason", { enum: ["left", "removed", "term_ended", "org_deleted", "completed", "workspace_completed", "finished"] }),
     endedBy: uuid("ended_by").references(() => profiles.id, { onDelete: "set null" }),
     /** The reason the admin wrote, kept for Former (report §36.4). */
     endNote: text("end_note"),

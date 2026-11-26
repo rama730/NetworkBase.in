@@ -189,14 +189,15 @@ export async function ledChildWorkspaces(executor: Executor, orgId: string, user
 export type ReopenedSeat = { projectId: string; slug: string | null; leadId: string; unit: string };
 
 /** Returns the unit seats it opened, for the leads' "1 seat open in Frontend developers" after the commit. */
-export async function removeFromOrg(executor: Executor, orgId: string, userId: string, actorId: string, removal?: { by: string; note?: string | null }): Promise<ReopenedSeat[]> {
+export async function removeFromOrg(executor: Executor, orgId: string, userId: string, actorId: string, removal?: { by: string; note?: string | null; reason?: "finished" }): Promise<ReopenedSeat[]> {
   const childMemberships = await executor.select({ projectId: workspaceMembers.projectId, leadId: workspaces.ownerId, slug: workspaces.slug, unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})` }).from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
     .where(and(eq(workspaces.parentId, orgId), eq(workspaceMembers.userId, userId), isNull(workspaces.deletedAt)));
   const self = actorId === userId;
   // Report §10.1: leaving or removal, who did it and the reason written, on every entry it ends (nested ones too).
   const [org] = await executor.select({ title: workspaces.title }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
-  const ending: MembershipEnding = self ? { reason: "left", by: userId } : { reason: "removed", by: removal?.by ?? actorId, note: removal?.note ?? null, orgTitle: org?.title ?? null };
+  // B6.1c: a lab membership can end as Finished (keeps verification, like leaving).
+  const ending: MembershipEnding = removal?.reason === "finished" ? { reason: "finished", by: removal.by } : self ? { reason: "left", by: userId } : { reason: "removed", by: removal?.by ?? actorId, note: removal?.note ?? null, orgTitle: org?.title ?? null };
   await releaseCopiesOnLeave(executor, orgId, userId);
   for (const { projectId, leadId } of childMemberships) {
     // Org admins act with the lead's powers in child projects (report §29.4), so the lead is the actor there.
@@ -204,6 +205,8 @@ export async function removeFromOrg(executor: Executor, orgId: string, userId: s
   }
   await removeWorkspaceMemberInternal(executor, { projectId: orgId, actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self, ending });
   await clearTakeoverRequestBy(executor, orgId, userId);
+  // B6.1c review: someone Removed is never offered the alumni list.
+  if (ending.reason === "removed") await executor.execute(sql`DELETE FROM lab_alumni WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`);
   return childMemberships.flatMap((m) => (m.unit ? [{ projectId: m.projectId, slug: m.slug, leadId: m.leadId, unit: m.unit }] : []));
 }
 

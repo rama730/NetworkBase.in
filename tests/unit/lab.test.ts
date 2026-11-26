@@ -16,3 +16,10 @@ test("lab settings fall back to defaults; positions read tolerantly from view_pr
   assert.deepEqual(readPosition({ lab: { position: "phd", startYear: 2024, alumni: { listed: true } } }), { position: "phd", startYear: 2024 });
   assert.deepEqual(readPosition(null), { position: null, startYear: null });
 });
+
+test("B6.1c: Leaving plan steps fall due before the end date, never in the past", async () => {
+  const { leavingDue, finishSchema } = await import("../../src/lib/organizations/lab");
+  assert.equal(leavingDue("2026-12-31", -14, "2026-11-26"), "2026-12-17");
+  assert.equal(leavingDue("2026-12-01", -14, "2026-11-26"), "2026-11-26");
+  assert.equal(finishSchema.safeParse({ end: "2026-12-31", keepAsViewer: false, extra: 1 }).success, false);
+});

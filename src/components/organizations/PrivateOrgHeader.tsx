@@ -8,6 +8,7 @@ import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { Button } from '@/components/ui/button'
 import { privateOrgLine, type PrivateOrgState } from '@/lib/organizations/join-rules'
 import { useInviteAnswer } from '@/components/organizations/org-ui'
+import { MyAlumniCard } from '@/components/organizations/Lab'
 
 /**
  * What people outside a private org see (report §18.2, §26.9, decision 48): picture, name, "Private organization",
@@ -35,6 +36,8 @@ export function PrivateOrgHeader({ orgId, title, coverImage, state = { kind: 'no
                 {action === 'cancel' ? <JoinRequestPending orgId={orgId} /> : null}
                 {join ? <Button asChild className="nb-touch-target mt-2"><Link href="/join">Join with code</Link></Button> : null}
                 {/* Audit 4.3: signing in comes back here. */}
+                {/* B6.1c: someone who finished in a private lab answers "List me as alumni?" here. */}
+                {signedIn ? <MyAlumniCard orgId={orgId} /> : null}
                 {join && !signedIn ? <Link href={`/login?redirect=${encodeURIComponent(pathname ?? '/')}`} className="nb-link text-[13px]">Sign in</Link> : null}
             </div>
         </div>

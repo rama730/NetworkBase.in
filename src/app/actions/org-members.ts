@@ -609,7 +609,7 @@ export async function readRemovalPreviewAction(orgId: string, userIds: string[])
     };
 }
 
-export type FormerMember = { userId: string; name: string; how: 'left' | 'removed' | 'term_ended' | 'org_deleted'; at: string; by: string | null; note: string | null; blocked: boolean; done: number; total: number };
+export type FormerMember = { userId: string; name: string; how: 'left' | 'removed' | 'term_ended' | 'org_deleted' | 'finished'; at: string; by: string | null; note: string | null; blocked: boolean; done: number; total: number };
 
 /** Members → Status → Former (report §36.4): how it ended, when, who, the reason written, and what they did. Admins only. */
 export async function readFormerMembersAction(orgId: string): Promise<{ success: true; rows: FormerMember[] } | Failure> {

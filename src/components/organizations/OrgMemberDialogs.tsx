@@ -136,7 +136,7 @@ export function RevokeDialog({ orgId, person, run, onClose }: { orgId: string; p
     )
 }
 
-const HOW: Record<FormerMember['how'], string> = { left: 'Left', removed: 'Removed', term_ended: 'Term ended', org_deleted: 'Organization ended' }
+const HOW: Record<FormerMember['how'], string> = { left: 'Left', removed: 'Removed', term_ended: 'Term ended', org_deleted: 'Organization ended', finished: 'Finished in the lab' }
 
 /** Members → Status → Former (report §36.4): read only, with Message, Invite back and Unblock. */
 export function FormerList({ orgId, q, pending, run }: { orgId: string; q: string; pending: boolean; run: Run }) {

@@ -20,6 +20,7 @@ import ProjectOverviewCard from '@/components/workspaces/dashboard/WorkspaceOver
 import { RailSection } from '@/components/ui/rail-section'
 import { SchoolAboutSections } from '@/components/organizations/SchoolParts'
 import { CompanyAboutSections } from '@/components/organizations/CompanyParts'
+import { LabAboutSections } from '@/components/organizations/Lab'
 import { RulesSummary } from '@/components/organizations/CommunityFrontDoor'
 import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
@@ -109,6 +110,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 ) : null}
                 {org?.isSchool ? <SchoolAboutSections orgId={project.id} /> : null}
                 {org?.type === 'company' ? <CompanyAboutSections orgId={project.id} /> : null}
+                {/* Report 35.2 (B6.1c): a lab's About is its public page. */}
+                {org?.type === 'research' ? <LabAboutSections orgId={project.id} /> : null}
                 {org?.type === 'community' ? <NextEventCard orgId={project.id} base={base} /> : null}
                 {org?.type === 'community' ? <RulesSummary orgId={project.id} base={base} /> : null}
                 {org?.type === 'community' ? <CommunityShowcase orgId={project.id} /> : null}

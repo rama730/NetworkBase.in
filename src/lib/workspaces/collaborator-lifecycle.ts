@@ -709,7 +709,7 @@ export async function removeWorkspaceMemberInternal(
         await executor.insert(workspaceMemberPeriods).values({
             projectId: params.projectId, userId: params.targetUserId, role: targetRow?.role ?? previousRole ?? "member",
             startedAt: await currentPeriodStart(executor, params.projectId, params.targetUserId, targetRow?.joinedAt ?? endedAt),
-            endedAt, endReason: isLeaving ? "left" : "removed", endedBy: params.realActorId ?? params.actorId,
+            endedAt, endReason: isLeaving || params.ending?.reason === "finished" ? "left" : "removed", endedBy: params.realActorId ?? params.actorId,
             note: params.ending?.note?.trim().slice(0, 280) || null,
         });
         await endProfileWorkspaceContributionMembership(executor, {

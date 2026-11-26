@@ -117,7 +117,7 @@ export function groupProfileContributions<T extends ProfileEntry>(entries: T[], 
 /** The status chip (report §4.5): Left or Completed; nothing for a current entry. Old endings without a reason read as Left. */
 export function entryStatus(e: ProfileEntry): "Left" | "Completed" | null {
   // Member settings §3: completing your part, or the workspace completing, reads Completed like an ended term.
-  if (e.endReason === "term_ended" || e.endReason === "completed" || e.endReason === "workspace_completed") return "Completed";
+  if (e.endReason === "term_ended" || e.endReason === "completed" || e.endReason === "workspace_completed" || e.endReason === "finished") return "Completed";
   return e.endDate || e.endReason === "left" ? "Left" : null;
 }
 
