@@ -1135,6 +1135,13 @@
       "when": 1795713016243,
       "tag": "0162_lab_notebook",
       "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1795714158968,
+      "tag": "0164_lab_equipment",
+      "breakpoints": true
     }
   ]
 }
