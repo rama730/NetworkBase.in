@@ -27,11 +27,13 @@ test('bad input is refused, not guessed', () => {
   assert.equal(params('q=react&ctx=discover&only=everything').ok, false);
 });
 
-test('the route is a signed-in GET with a rate limit and a 60 s private cache', () => {
+test('the route is a signed-in GET with a rate limit and no shared HTTP cache', () => {
   const route = readFileSync('src/app/api/v1/search/route.ts', 'utf8');
   assert.match(route, /export async function GET/);
   assert.match(route, /requireAuthenticatedUser\(\)/);
   assert.match(route, /enforceRouteLimit\(request, "api:v1:search"/);
-  assert.match(route, /private, max-age=60/);
+  // Phase 1 review, Important 5: a shared computer must never hand one account's results to the next.
+  assert.match(route, /private, no-store/);
+  assert.doesNotMatch(route, /max-age/);
   assert.doesNotMatch(route, /"use server"/);
 });

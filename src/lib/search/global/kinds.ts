@@ -9,7 +9,7 @@ import { discoverListedSql, orgQualifiesSql } from "@/lib/discover/listed-sql";
 import { searchMessagesAs } from "@/lib/messaging/search-messages";
 import { messageHref } from "@/lib/messaging/routes";
 import { profileHref } from "@/lib/routing/identifiers";
-import { containsLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
+import { containsLikePattern, escapeLikePattern, normalizeSearchQuery, tokenizeSearchQuery } from "@/lib/search/query";
 
 import { peopleFindableSql } from "./people-rule";
 import { matchScore } from "./rank";
@@ -21,6 +21,24 @@ const iso = (at: unknown) => (at ? new Date(at as string).toISOString() : null);
 const firstToken = (q: string) => tokenizeSearchQuery(q)[0] ?? q;
 const and = (parts: SQL[]) => (parts.length ? sql.join(parts, sql` AND `) : sql`true`);
 const rows = <T>(result: unknown) => result as unknown as T[];
+
+/** Every kind gives up after 3 s, like message search (LOAD-06), so a broad word can't hold a pool connection. */
+async function timed(query: SQL): Promise<unknown> {
+    return db.transaction(async (tx) => {
+        await tx.execute(sql.raw("SET LOCAL statement_timeout = '3s'"));
+        return tx.execute(query);
+    });
+}
+
+/** exact 0 · prefix 1 · a word starts with it 2 · contains 3 · else 4, in SQL so ranking happens before the LIMIT. */
+function nameRank(column: SQL, q: string): SQL {
+    const value = normalizeSearchQuery(q).toLowerCase();
+    const escaped = escapeLikePattern(value);
+    return sql`(CASE WHEN lower(${column}) = ${value} THEN 0
+        WHEN lower(${column}) LIKE ${`${escaped}%`} THEN 1
+        WHEN ' ' || lower(${column}) LIKE ${`% ${escaped}%`} THEN 2
+        WHEN lower(${column}) LIKE ${`%${escaped}%`} THEN 3 ELSE 4 END)`;
+}
 
 type PlaceRow = {
     id: string; title: string; slug: string | null; kind: "workspace" | "organization"; short_description: string | null;
@@ -38,7 +56,7 @@ export async function searchPlaces(viewerId: string, q: string, kind: "workspace
         SELECT 1 FROM workspaces o WHERE o.id = workspaces.parent_id AND (o.owner_id = ${viewerId}::uuid
             OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${viewerId}::uuid))))`;
     const pattern = containsLikePattern(firstToken(q));
-    const result = await db.execute(sql`
+    const result = await timed(sql`
         SELECT workspaces.id, workspaces.title, workspaces.slug, workspaces.kind, workspaces.short_description, workspaces.description,
                workspaces.org_type, workspaces.created_at, workspaces.followers_count, workspaces.open_roles_count,
                workspaces.looking_for_collaborators, workspaces.last_update_at, workspaces.cover_image,
@@ -53,7 +71,7 @@ export async function searchPlaces(viewerId: string, q: string, kind: "workspace
           AND NOT app_private.blocked_between(${viewerId}::uuid, workspaces.owner_id)
           AND ((workspaces.visibility = 'public' AND ${orgQualifiesSql()}) OR ${mine} OR ${inParent})
           AND ${and(match as SQL[])}
-        ORDER BY workspaces.followers_count DESC, workspaces.created_at DESC
+        ORDER BY ${nameRank(sql`workspaces.title`, q)}, workspaces.followers_count DESC, workspaces.created_at DESC
         LIMIT ${limit}`);
     return rows<PlaceRow>(result).map((row) => {
         const isOrg = row.kind === "organization";
@@ -133,12 +151,14 @@ const personSelect = (viewerId: string) => sql`
     ARRAY(SELECT coalesce(fp.full_name, fp.username) FROM friends vf JOIN connections pc ON pc.status = 'accepted'
         AND ((pc.requester_id = p.id AND pc.addressee_id = vf.id) OR (pc.addressee_id = p.id AND pc.requester_id = vf.id))
         JOIN profiles fp ON fp.id = vf.id LIMIT 2) AS mutual_names,
-    (SELECT w.title FROM app_private.search_places(p.id) a JOIN app_private.search_places(${viewerId}::uuid) b ON a = b
+    (SELECT w.title FROM app_private.search_places(p.id) a JOIN viewer_places b ON b.id = a
         JOIN workspaces w ON w.id = a WHERE w.deleted_at IS NULL ORDER BY w.kind DESC, w.title LIMIT 1) AS shared_place`;
 
+/** The viewer's connections and places, worked out once per query. */
 const friendsCte = (viewerId: string) => sql`friends AS (
     SELECT CASE WHEN c.requester_id = ${viewerId}::uuid THEN c.addressee_id ELSE c.requester_id END AS id
-    FROM connections c WHERE c.status = 'accepted' AND (c.requester_id = ${viewerId}::uuid OR c.addressee_id = ${viewerId}::uuid))`;
+    FROM connections c WHERE c.status = 'accepted' AND (c.requester_id = ${viewerId}::uuid OR c.addressee_id = ${viewerId}::uuid)),
+    viewer_places AS MATERIALIZED (SELECT app_private.search_places(${viewerId}::uuid) AS id)`;
 
 function toPersonHit(row: PersonRow, q: string): SearchHit {
     const name = row.full_name || row.username || "Person";
@@ -171,19 +191,20 @@ function toPersonHit(row: PersonRow, q: string): SearchHit {
 /** People the viewer may find (0163 rule), connections and strangers alike. */
 export async function searchPeople(viewerId: string, q: string, limit: number): Promise<SearchHit[]> {
     if (!tokenizeSearchQuery(q).length) return [];
-    const result = await db.execute(sql`
+    const result = await timed(sql`
         WITH ${friendsCte(viewerId)}
         SELECT ${personSelect(viewerId)}
         FROM profiles p
         WHERE ${personMatch(q)} AND ${peopleFindableSql(viewerId)}
-        ORDER BY (p.full_name ILIKE ${`${firstToken(q)}%`}) DESC, p.followers_count DESC NULLS LAST, p.created_at DESC
+        ORDER BY LEAST(${nameRank(sql`p.full_name`, q)}, CASE WHEN lower(p.username) = ${normalizeSearchQuery(q).toLowerCase()} THEN 0 ELSE 4 END),
+                 p.followers_count DESC NULLS LAST, p.created_at DESC
         LIMIT ${limit}`);
     return rows<PersonRow>(result).map((row) => toPersonHit(row, q)).sort((a, b) => a.score - b.score);
 }
 
 /** "Find me by email address" (Settings › Privacy): only a person who turned it on; anything else is an invite row. */
 export async function searchEmail(viewerId: string, address: string): Promise<SearchHit | null> {
-    const result = await db.execute(sql`
+    const result = await timed(sql`
         WITH ${friendsCte(viewerId)}
         SELECT ${personSelect(viewerId)}
         FROM profiles p
@@ -219,11 +240,11 @@ export async function searchMessageHits(viewerId: string, q: string, limit: numb
 
 /** `#` in the box: channels you're in. */
 export async function searchChannels(viewerId: string, q: string, limit: number): Promise<SearchHit[]> {
-    const result = await db.execute(sql`
+    const result = await timed(sql`
         SELECT c.id, c.name, w.title AS project_title
         FROM chat_channel_members mem JOIN chat_channels c ON c.id = mem.channel_id LEFT JOIN workspaces w ON w.id = c.workspace_id
         WHERE mem.user_id = ${viewerId}::uuid AND c.name IS NOT NULL AND c.name ILIKE ${containsLikePattern(q || "")}
-        ORDER BY (c.name ILIKE ${`${q}%`}) DESC, c.name LIMIT ${limit}`);
+        ORDER BY (c.name ILIKE ${`${escapeLikePattern(q)}%`}) DESC, c.name LIMIT ${limit}`);
     return rows<{ id: string; name: string; project_title: string | null }>(result).map((row) => ({
         id: `channel:${row.id}`, kind: "channels", title: `#${row.name}`, sub: row.project_title ?? "Channel",
         href: `/messages/${row.id}`, why: null, score: matchScore(row.name, q), createdAt: null, avatarUrl: null, tags: [], act: null,

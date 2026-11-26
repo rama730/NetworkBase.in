@@ -37,7 +37,8 @@ export async function GET(request: Request) {
       domain: "everything", scope: input.ctx, outcome: count ? "success" : "empty", durationMs: Date.now() - startedAt,
       resultCount: count, queryLength: input.q.length, tokenCount: input.q.split(" ").length,
     });
-    return jsonSuccess(result, undefined, { headers: { "Cache-Control": "private, max-age=60" } });
+    // Never in the HTTP cache: on a shared computer the next account would get these results. The box keeps 60 s itself.
+    return jsonSuccess(result, undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     recordGlobalSearchMetric({ domain: "everything", scope: input.ctx, outcome: "error", durationMs: Date.now() - startedAt, resultCount: 0, queryLength: input.q.length, tokenCount: 0 });
     return routeErrorResponse(error, { requestId, scope: "global_search", fallback: "Couldn’t search just now" });

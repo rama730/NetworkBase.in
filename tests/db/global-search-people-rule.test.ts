@@ -90,3 +90,14 @@ test("a block either way hides them", async () => {
     assert.equal(await finds(tx, person, viewer), false);
   });
 });
+
+// Phase 1 review, Critical 1: a profile set to "Connections" is not for strangers, whatever search_visibility says.
+test("a connections-only profile is hidden from a stranger, found by a connection", async () => {
+  await inRollback(async (tx) => {
+    const [stranger, person, friend] = [await createUser(tx), await createUser(tx), await createUser(tx)];
+    await tx`UPDATE public.profiles SET visibility = 'connections' WHERE id = ${person}`;
+    assert.equal(await finds(tx, stranger, person), false);
+    await tx`INSERT INTO public.connections (requester_id, addressee_id, status) VALUES (${friend}, ${person}, 'accepted')`;
+    assert.equal(await finds(tx, friend, person), true);
+  });
+});

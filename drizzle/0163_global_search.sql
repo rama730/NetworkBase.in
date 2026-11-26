@@ -55,35 +55,46 @@ GRANT ALL ON TABLE public.saved_searches TO service_role;
 GRANT ALL ON TABLE public.search_query_log TO service_role;
 --> statement-breakpoint
 -- The places someone is in: each workspace or org they own or are a member of, its parent, and the school it belongs to.
+-- Two index paths (owner, membership), never a scan of every workspace.
 CREATE FUNCTION app_private.search_places(p_user uuid) RETURNS SETOF uuid
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
   SELECT DISTINCT v.place
-  FROM public.workspaces w
+  FROM (
+    SELECT o.id FROM public.workspaces o WHERE o.owner_id = p_user
+    UNION
+    SELECT m.workspace_id FROM public.workspace_members m WHERE m.user_id = p_user
+  ) mine
+  JOIN public.workspaces w ON w.id = mine.id AND w.deleted_at IS NULL
   LEFT JOIN public.workspaces p ON p.id = w.parent_id
   CROSS JOIN LATERAL (VALUES (w.id), (w.parent_id), (w.institution_id), (p.institution_id)) AS v(place)
-  WHERE w.deleted_at IS NULL AND v.place IS NOT NULL
-    AND (w.owner_id = p_user OR EXISTS (SELECT 1 FROM public.workspace_members m WHERE m.workspace_id = w.id AND m.user_id = p_user))
+  WHERE v.place IS NOT NULL
 $$;
 --> statement-breakpoint
--- Can this viewer find this person in search? Blocks, private profiles, "Who can find me in search", and the minors
--- rule (plan R1: no age is stored, so plain members of a School or Coaching org or its classes are hidden from people
--- outside it). Deleted, unfinished and fixture accounts are left out by the query that calls this.
+-- Can this viewer find this person in search? Blocks; the profile's own visibility (Connections means connections only,
+-- Private means nobody); "Who can find me in search"; and the minors rule (plan R1: no age is stored, so plain members of
+-- a School or Coaching org or its classes are hidden from people outside it). Deleted, unfinished and fixture accounts
+-- are left out by the query that calls this.
 CREATE FUNCTION app_private.search_findable(p_viewer uuid, p_person uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
+  WITH connected AS (
+    SELECT EXISTS (
+      SELECT 1 FROM public.connections c WHERE c.status = 'accepted'
+        AND ((c.requester_id = p_viewer AND c.addressee_id = p_person) OR (c.requester_id = p_person AND c.addressee_id = p_viewer))
+    ) AS yes
+  )
   SELECT p_viewer IS NOT NULL AND p_person IS NOT NULL AND p_viewer <> p_person
     AND NOT app_private.blocked_between(p_viewer, p_person)
     AND EXISTS (
-      SELECT 1 FROM public.profiles pr
-      WHERE pr.id = p_person AND coalesce(pr.visibility, 'public') <> 'private'
+      SELECT 1 FROM public.profiles pr, connected
+      WHERE pr.id = p_person
+        AND (coalesce(pr.visibility, 'public') = 'public' OR (pr.visibility = 'connections' AND connected.yes))
         AND (
           pr.search_visibility = 'everyone'
-          OR (pr.search_visibility = 'connections' AND EXISTS (
-            SELECT 1 FROM public.connections c WHERE c.status = 'accepted'
-              AND ((c.requester_id = p_viewer AND c.addressee_id = p_person) OR (c.requester_id = p_person AND c.addressee_id = p_viewer))))
+          OR (pr.search_visibility = 'connections' AND connected.yes)
           OR (pr.search_visibility = 'my_places' AND EXISTS (
             SELECT 1 FROM app_private.search_places(p_person) a JOIN app_private.search_places(p_viewer) b ON a = b))
         )

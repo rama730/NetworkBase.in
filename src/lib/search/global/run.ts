@@ -108,6 +108,8 @@ export async function runGlobalSearch(input: RunGlobalSearchInput): Promise<Glob
     const typed = normalizeSearchQuery(input.q);
     const empty: GlobalSearchResult = { q: typed, fixedFrom: null, groups: {}, counts: {}, skill: null, suggestions: [], email: null, tookMs: 0 };
     if (!typed && input.scope?.kind !== "channels") return empty;
+    // One letter would scan every profile and workspace on each keystroke (Phase 1 review); the box shows Go to instead.
+    if (typed.length < 2 && input.scope?.kind !== "channels") return empty;
 
     if (isEmailQuery(typed) && !input.scope) {
         const person = await searchEmail(input.viewerId, typed).catch(() => null);
@@ -116,14 +118,14 @@ export async function runGlobalSearch(input: RunGlobalSearchInput): Promise<Glob
 
     const [first, skill, words] = await Promise.all([
         fanOut(input, typed),
-        input.scope ? Promise.resolve(null) : skillCard(typed).catch(() => null),
-        input.scope ? Promise.resolve([]) : suggestions(typed).catch(() => []),
+        input.scope ? Promise.resolve(null) : skillCard(typed, input.viewerId).catch(() => null),
+        input.scope ? Promise.resolve([]) : suggestions(typed, input.viewerId).catch(() => []),
     ]);
     const nothing = Object.values(first.counts).every((count) => !count);
     if (nothing && !input.exact && !input.scope) {
-        const fixed = await correctTypo(typed).catch(() => null);
+        const fixed = await correctTypo(typed, input.viewerId).catch(() => null);
         if (fixed) {
-            const [second, fixedSkill] = await Promise.all([fanOut(input, fixed), skillCard(fixed).catch(() => null)]);
+            const [second, fixedSkill] = await Promise.all([fanOut(input, fixed), skillCard(fixed, input.viewerId).catch(() => null)]);
             if (Object.values(second.counts).some(Boolean)) {
                 return { q: fixed, fixedFrom: typed, ...second, skill: fixedSkill, suggestions: words, email: null, tookMs: Date.now() - started };
             }

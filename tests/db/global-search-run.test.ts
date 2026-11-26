@@ -151,3 +151,65 @@ test("relationship lines: connection, shared workspace", async () => {
   assert.equal(rao.act, "Message");
   void randomUUID;
 });
+
+// Phase 1 review, Important 3: the exact name ranks first even when 25 better-followed rows also match.
+test("an exact name outranks better-followed matches", async () => {
+  const w = await world();
+  for (let i = 0; i < 25; i += 1) {
+    const id = await createProject(sql, w.owner);
+    await sql`UPDATE workspaces SET title = ${`Other ${i}`}, description = ${`works with ${w.t}x tools`}, followers_count = 100 WHERE id = ${id}`;
+  }
+  const exact = await createProject(sql, w.owner);
+  await sql`UPDATE workspaces SET title = ${`${w.t}x`}, followers_count = 0 WHERE id = ${exact}`;
+  const result = await run.runGlobalSearch({ viewerId: w.viewer, q: `${w.t}x`, ctx: "discover", place: null, scope: null, perKind: 3 });
+  assert.equal(result.groups.workspaces?.[0]?.title, `${w.t}x`);
+  assert.equal(result.groups.workspaces?.[0]?.score, 0);
+});
+
+// Phase 1 review, Important 4: one letter doesn't run the heavy kinds.
+test("one letter searches nothing heavy", async () => {
+  const w = await world();
+  const result = await run.runGlobalSearch({ viewerId: w.viewer, q: "z", ctx: "discover", place: null, scope: null, perKind: 3 });
+  assert.deepEqual(Object.values(result.counts).filter(Boolean), []);
+  assert.equal(result.skill, null);
+});
+
+// Phase 1 review, Important 2: an email address is never logged, and popular searches come only from people near you.
+test("email searches are never logged; suggestions from searches come from people near you", async () => {
+  const w = await world();
+  const extras = await loadAppModule(() => import("../../src/lib/search/global/extras"));
+  await extras.logSearch(w.viewer, "someone@example.org");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM search_query_log WHERE user_id = ${w.viewer}`)[0]!.n, 0);
+  const phrase = `${w.t}wide`;
+  const strangers = [await createUser(sql), await createUser(sql), await createUser(sql)];
+  created.push(...strangers);
+  for (const id of strangers) await extras.logSearch(id, phrase);
+  assert.ok(!(await extras.suggestions(phrase.slice(0, 6), w.viewer)).includes(phrase));
+  for (const id of strangers) await addMember(sql, w.mine, id);
+  assert.ok((await extras.suggestions(phrase.slice(0, 6), w.viewer)).includes(phrase));
+});
+
+// Phase 1 review, minor 6 regraded: the skill card counts only people this viewer could find.
+test("the skill card counts only people you could find", async () => {
+  const w = await world();
+  const skill = `Skill${letters()}`;
+  const [row] = await sql`INSERT INTO skills (name, slug, canonical_key) VALUES (${skill}, ${skill.toLowerCase()}, ${skill.toLowerCase()}) RETURNING id`;
+  await sql`UPDATE profiles SET skills = ${sql.json([skill])} WHERE id IN ${sql([w.person, w.hidden])}`;
+  const result = await run.runGlobalSearch({ viewerId: w.viewer, q: skill, ctx: "discover", place: null, scope: null, perKind: 3 });
+  assert.equal(result.skill?.people, 1);
+  await sql`DELETE FROM skills WHERE id = ${row!.id}`;
+});
+
+// Phase 1 review, minor 7 regraded: a typo in one word of a long name is still corrected.
+test("a typo in a long organization name is corrected", async () => {
+  const w = await world();
+  const org = await createProject(sql, w.owner);
+  const word = `qz${letters()}`;
+  await named(org, `${word} Hyderabad Developers Community`, { kind: "organization", org_type: "community" });
+  const child = await createProject(sql, w.owner);
+  await named(child, "Another child", { parent_id: org });
+  const typo = word.slice(0, -1) + (word.endsWith("q") ? "x" : "q");
+  const result = await run.runGlobalSearch({ viewerId: w.viewer, q: typo, ctx: "discover", place: null, scope: null, perKind: 3 });
+  assert.equal(result.fixedFrom, typo);
+  assert.equal(result.groups.orgs?.[0]?.title, `${word} Hyderabad Developers Community`);
+});

@@ -62,7 +62,7 @@ export function useGlobalSearch({ q, ctx, place = null, enabled, per = 3, only =
                 throw error instanceof GlobalSearchError ? error : new GlobalSearchError("Couldn’t search just now", 0);
             }
         },
-        enabled: enabled && (debounced.length >= 1),
+        enabled: enabled && debounced.length >= 2,
         placeholderData: keepPreviousData,
         staleTime: 60_000,
         gcTime: 5 * 60_000,
