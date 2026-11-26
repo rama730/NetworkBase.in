@@ -12105,6 +12105,14 @@ TASKS · Call for talks: Hack night (Dec 4)        Optional · closes Nov 27
 6. Open in maps is a plain OpenStreetMap search link for the typed address; nothing is fetched.
 7. Not in B5.3a (next: B5.3b, B5.3c): the Calendar view, host check-in, reminders the day before and 1 hour before, My events, the next event on About and Overview, Settings → Events, Call for talks, slides and recaps in Past, the chosen channel post or announcement.
 
+**Build calls (B5.3b–d, 2026-11-26):**
+1. Check-in opens an hour before an event and closes the day after; hosts and organisers tick names from the Going list. Private RSVPs are named to them so they can check people in.
+2. Reminders run in the hourly job: "Tomorrow" for events starting 23 to 25 hours ahead, "starts soon" for the next 75 minutes; a dedupe key per person, event and start sends each once. There's no Settings → Events yet: reminders are always on, and members don't propose events (organisers and Hosts create), as the report's defaults say.
+3. My events sits in My work beside Today's meetings: going or waiting, the next 14 days, across every community.
+4. After an event, its hosts and organisers add slides and recordings as https links (up to 10), shown on the event in Past. The recap Update is written in Updates as usual; nothing links it automatically.
+5. **Call for talks is its own small table (`community_talks`, 0156), not an optional assignment.** What people see matches call 5: members propose (title, a line, minutes; 3 each), hosts Accept into a run-of-show slot or say Not this time with a kind default line, the speaker is told (Normal), and accepted talks show on the event. Proposals don't pass through Tasks or the Review queue; the optional-assignment idea stays with M4's challenges, where it's needed.
+6. The channel post or announcement when an event is published is not built: Updates and chat posting stay manual for now.
+
 ### 34.5 M4 · Rituals, challenges and showcases (agreed 2026-11-17)
 **References** (20 searches, 138 templates; 4 screens studied):
 
