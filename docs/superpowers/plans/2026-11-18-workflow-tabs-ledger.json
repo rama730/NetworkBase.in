@@ -1298,9 +1298,9 @@
       "text": "B6.2 R4 Lab notebook, protocols, equipment (35.5)",
       "kind": "unit",
       "milestone": "B6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/lab-protocols.test.ts; tests/db/lab-notebook.test.ts; tests/unit/lab-notebook.test.ts; tests/browser/lab.spec.ts",
+      "evidence": "B6.2a LIVE 2026-11-26 (b407970cb, 0161 in prod): Protocol + Data management plan templates in a lab's Documents; WT Capture rig protocol → Ask to approve → v1 Draft with its frozen text → Approve v1 → Needs training saved → lab home lists it under Trainings you still need; Protocols card shows v1 Approved, Needs training: not yet. Sign-off needs a second account: DB-tested. B6.2b (notebook entries, lock/amend, experiments, 0162) built; B6.2c (equipment, booking) next. revisit 2026-11-28."
     },
     {
       "key": "B6.3",

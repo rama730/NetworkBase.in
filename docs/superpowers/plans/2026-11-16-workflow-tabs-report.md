@@ -13434,6 +13434,12 @@ LAB · Equipment                                                       Book · R
 4. Review fixes: only the PI decides whether Researchers approve. Approve names the draft's timestamp, so text updated after the approver read it is refused, and approvers see the frozen text before approving. Only the person who asked, the page's owner or an admin replaces an open Draft. Others freeze only the published text. Draft and leaders-only pages stay hidden from members. Retire names its version. Only the PI and Researchers choose trainers.
 5. Where it shows: a Protocols card on the lab Overview (Approved and Draft versions, Needs training with my status, owner) and a Protocol panel on each protocol's page. The lab home lists the trainings you still need. The lab-wide Trainings matrix and the Review queue entry are deferred, because approvers are told by notification.
 
+**Build calls (B6.2b, 2026-11-27):**
+1. **The Notebook is a card on the Overview of any workspace inside a lab**, in tables of its own (0162). Members of the workspace write; Viewers read; the lab's PI and Researchers read every notebook and can amend. Nothing in it is public, even when the workspace is. A notebook keeps no link to the lab itself, so it stays with its workspace if the lab is deleted or the workspace moves.
+2. **Entries** hold aim, samples or inputs, steps done, deviations (marked for reviewers), results, next, and typed http links (never fetched). An entry is for today, or for yesterday ("written later"), and locks at the end of the day in the lab's time zone (UTC when the lab has none). Its author edits it until then; after that, people add amendments with author and time, and nothing is removed. The database refuses changes to a locked entry, and `nb_app` has no delete on entries or amendments.
+3. **Run this protocol** lists the lab's Approved versions to the lab's own members (not its Viewers, not outsiders in one workspace) and fills Steps done from that version. The entry keeps the protocol's title and version even if the page is later removed. Running untrained only warns ("Not trained on this protocol").
+4. **Experiments** have a hypothesis, status (Planned · Running · Done · Stopped), a conclusion and an entry count. Entries pick their experiment. "Used in" waits for papers (B6.3).
+
 ### 35.6 R5 · Lab meetings and progress reviews (agreed 2026-11-17)
 **References** (18 searches for lab meetings, 1:1s, progress reports, reviews and development plans: 145 templates, 48 rated; 4 more screens studied):
 
