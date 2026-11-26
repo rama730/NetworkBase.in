@@ -100,7 +100,10 @@ test("35.4: library for members; duplicates found; my reading stays mine; themes
   const zero = lib.success ? lib.rows.find((r) => r.title === "Zero-DCE")! : null;
   viewerId = student!;
   assert.ok((await li.removeSourceAction(org, zero!.id)).success, "the person who added it removes it");
-  // Nothing reaches the public About.
+  // Security review: the thesis Literature actions never reach the lab's own sources.
+  const lit = await loadAppModule(() => import("../../src/app/actions/literature"));
+  assert.equal((await lit.readLiteratureAction(org)).success, false);
+    // Nothing reaches the public About.
   viewerId = "";
   const about = await lab.readLabAboutAction(org);
   assert.ok(about.success && !JSON.stringify(about).includes("NeRF"));

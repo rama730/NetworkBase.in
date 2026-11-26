@@ -22,6 +22,8 @@ async function access(projectId: string, write: boolean) {
   const { userId } = await getViewerAuthContext();
   if (!userId || !isLooseUuid(projectId)) return null;
   const a = await getWorkspaceAccessById(projectId, userId);
+  // Security review (B6.4a): a lab's own sources live on the organization and go through lab-library's rules only.
+  if (a.project?.kind === "organization") return null;
   if (!(a.isOwner || a.isMember) || !a.canRead || (write && !a.canWrite)) return null;
   return { userId };
 }

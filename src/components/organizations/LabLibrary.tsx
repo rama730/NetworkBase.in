@@ -66,7 +66,7 @@ const ORDER: ReadingState[] = ["to_read", "reading", "read"];
 const sortMine = (rows: LibraryRow[]) => [...rows].sort((a, b) => ORDER.indexOf(a.myState ?? "to_read") - ORDER.indexOf(b.myState ?? "to_read"));
 
 function Themes({ rows }: { rows: Array<{ theme: string; count: number; thin: boolean; disagrees: number }> }) {
-  if (!rows.length) return <p className="rounded-md border border-dashed border-border p-6 text-center text-muted-foreground">No themes yet. The PI or a Researcher sets the lab’s themes in Settings → Lab.</p>;
+  if (!rows.length) return <p className="rounded-md border border-dashed border-border p-6 text-center text-muted-foreground">No themes yet. The PI or a Researcher sets the lab’s themes in Settings, under Lab.</p>;
   return (
     <ul className="divide-y divide-border rounded-md border border-border" data-testid="lab-themes">{rows.map((t) => (
       <li key={t.theme} className="flex flex-wrap items-center gap-2 px-3 py-2"><span className="font-medium">{t.theme}</span>
@@ -87,7 +87,7 @@ function SourcePanel({ orgId, id, onGone }: { orgId: string; id: string; onGone:
   const s = d.source;
   const notes = new Map(d.notes.map((n) => [n.section, n]));
   return (
-    <div className="space-y-3 border-t border-border bg-muted/30 px-3 py-3" data-testid="lab-source-panel">
+    <div className="space-y-3 border-t border-border bg-muted px-3 py-3" data-testid="lab-source-panel">
       {editing ? <SourceForm initial={{ title: s.title, authors: s.authors, year: s.year, venue: s.venue, link: s.link, doi: s.doi }} code={s.code} data={s.data}
         onSave={(v) => void run(editSourceAction(orgId, id, v), "Source saved").then(() => setEditing(false))} onCancel={() => setEditing(false)} /> : (
         <div className="space-y-1">

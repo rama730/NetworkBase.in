@@ -976,7 +976,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Every source needs a title; links start with https://.": {"title": "Every source needs a title; links start with https://.", "type": "warning"},
   "The library holds up to 5,000 sources.": {"title": "The library holds up to 5,000 sources.", "type": "warning"},
   "A thesis links this source, so it stays in the library.": {"title": "A thesis links this source, so it stays in the library.", "type": "warning"},
-  "Pick one of the lab’s themes (Settings → Lab).": {"title": "Pick one of the lab’s themes (Settings → Lab).", "type": "warning"},
+  "Pick one of the lab’s themes (set in Settings, under Lab).": {"title": "Pick one of the lab’s themes (set in Settings, under Lab).", "type": "warning"},
   "Each past paper needs a title and at least one author.": {"title": "Each past paper needs a title and at least one author.", "type": "warning"},
   "Confirm the author list first.": {"title": "Confirm the author list first.", "type": "warning"},
   "It’s already on your profile.": {"title": "It’s already on your profile.", "type": "warning"},

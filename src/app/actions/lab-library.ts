@@ -196,7 +196,7 @@ export async function setSourceThemeAction(orgId: string, id: string, input: unk
   const parsed = themeSchema.safeParse(input);
   if (!ctx || ctx.blocked || !parsed.success) return DENIED;
   const t = parsed.data;
-  if (t.on && !ctx.settings.themes.includes(t.theme)) return { success: false, error: "Pick one of the lab’s themes (Settings → Lab)." };
+  if (t.on && !ctx.settings.themes.includes(t.theme)) return { success: false, error: "Pick one of the lab’s themes (set in Settings, under Lab)." };
   const ok = await db.transaction(async (tx) => {
     if (!(await sourceOf(tx as never, orgId, id, true))) return false;
     if (!t.on) await tx.execute(sql`DELETE FROM lab_source_themes WHERE source_id = ${id}::uuid AND theme = ${t.theme}`);
