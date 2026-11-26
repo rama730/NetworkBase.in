@@ -13275,6 +13275,15 @@ READING GROUP · every Tuesday 16:00                              Next presenter
 7. **Edits:** whoever added a source, the PI and Researchers edit or remove it. The All view is the newest 200, with search for the rest.
 8. **Next:** B6.4b is the reading group (a meeting series with a rotation that skips Away, Swap with, Read before, Suggest). B6.4c is screening for a systematic review and thesis Literature lists linking the lab's sources.
 
+**Build calls (B6.4b, 2026-11-27):**
+1. **Sessions are their own records** (`lab_reading_sessions`, 0167), not 11.6 meeting documents. A lab's meeting pages would carry the org's publishing rules (draft, members-only, review dates), which a weekly session doesn't need. The slot is a weekday and time in the lab's time zone, set by the PI or a Researcher (Library → Reading group → Start a reading group).
+2. **Rotation** (call 6): the next 4 sessions always exist, made under a lock per lab. Each one's presenter is the next person in turn after the last presenter, skipping anyone Away that day (org Away) or no longer in the lab. When everyone in turn is away, the session shows "No presenter". A new slot or order remakes the sessions nobody has picked a paper for yet.
+3. **Picking** (call 7): the presenter (or a lead) picks a source from the Library; suggested sources come first, marked "(suggested)". The first pick sends the one Read before notice to the lab's members; changing the paper doesn't send it again. Anyone can mark a source Suggest for reading group from its panel.
+4. **Swap with:** the presenter asks one colleague; one open ask per session. A yes makes them the presenter, and the asker takes their next session if they have one. A no or a stale ask changes nothing. Both sides are told.
+5. **Finishing:** once a session has started, its presenter or a lead finishes it with discussion notes. Add to lab notes appends the notes to the source's Key findings, signed by whoever adds them. The source panel lists the sessions it was in.
+6. **Notices** (layer 15, hourly job): "You present on …" 7 days before, "Pick by tomorrow" once, and "waiting for a paper" to the PI after the pick-by time. Each is claimed by its own column, so a rerun of the hour never sends it twice. The Overview's Library card shows the next session.
+7. **Never** a count of who read or presented most.
+
 ### 35.5 R4 · Lab notebook, protocols and equipment (agreed 2026-11-17)
 **References** (35.1, plus 20 searches for protocols, SOPs, experiments, booking, inventory and training: 154 templates, 41 rated; 5 more screens studied):
 

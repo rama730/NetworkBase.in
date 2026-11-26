@@ -97,6 +97,8 @@ export const chatDue = inngest.createFunction(
       await step.run("community-rituals", async () => (await import("@/lib/organizations/community-server")).postDueRituals());
       // B6.1c: lab memberships whose Leaving plan reached its end date end as Finished (or stay as Viewer).
       await step.run("lab-finish", async () => (await import("@/lib/organizations/lab-server")).finishDueLabMembers());
+      // B6.4b (report 35.4 layer 15): the reading group's coming sessions, next-presenter, pick-by and late notices.
+      await step.run("lab-reading-group", async () => (await import("@/lib/organizations/lab-reading-group-server")).readingGroupNotices());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

@@ -13,6 +13,10 @@ export const DEFAULT_POSITIONS: Position[] = [
 export const ABOUT_SECTIONS = ["areas", "people", "alumni", "publications", "joinUs"] as const;
 export type AboutSection = (typeof ABOUT_SECTIONS)[number];
 
+/** B6.4b: weekday 0 = Sunday, in the lab's time zone. */
+export const readingGroupSchema = z.object({ on: z.boolean(), weekday: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  order: z.array(z.string().uuid()).max(60), pickDays: z.number().int().min(1).max(7) }).strict();
+
 export const labSettingsSchema = z.object({
   positions: z.array(z.object({ id: z.string().regex(/^[a-z0-9-]{1,24}$/), label: z.string().trim().min(1).max(40) }).strict()).min(1).max(12),
   /** "Thursdays 15:00–16:00, room 204": a line, never an email or phone (call 7). */
@@ -32,12 +36,15 @@ export const labSettingsSchema = z.object({
   paperReview: z.boolean(),
   /** B6.4a: the Library's themes (the lab's list, editable by the PI and Researchers). */
   themes: z.array(z.string().trim().min(1).max(60)).max(30),
+  /** B6.4b (calls 6–7): the reading group's weekly slot, presenter order and pick-by days. */
+  readingGroup: readingGroupSchema,
 }).strict();
 export type LabSettings = z.infer<typeof labSettingsSchema>;
 
 export const DEFAULT_LAB: LabSettings = {
   positions: DEFAULT_POSITIONS, officeHours: "", contactId: null, plans: { leaving: true },
   about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "", protocolApprovers: "pi", booking: DEFAULT_BOOKING, paperReview: true, themes: [],
+  readingGroup: { on: false, weekday: 2, time: "16:00", order: [], pickDays: 3 },
 };
 
 export function readLabSettings(orgSettings: unknown): LabSettings {

@@ -1786,7 +1786,36 @@ export const literatureSources = pgTable("literature_sources", {
   labSourceId: uuid("lab_source_id").references((): AnyPgColumn => literatureSources.id, { onDelete: "set null" }),
   screening: text("screening"),
   excludeReason: text("exclude_reason"),
-}, (t) => [index("literature_sources_workspace_idx").on(t.projectId, t.createdAt), index("literature_sources_lab_source_idx").on(t.labSourceId).where(sql`lab_source_id IS NOT NULL`)]);
+  /** B6.4b (0167): Suggest for reading group. */
+  suggestedBy: uuid("suggested_by").references(() => profiles.id, { onDelete: "set null" }),
+  suggestedAt: timestamp("suggested_at", { withTimezone: true }),
+}, (t) => [index("literature_sources_workspace_idx").on(t.projectId, t.createdAt), index("literature_sources_lab_source_idx").on(t.labSourceId).where(sql`lab_source_id IS NOT NULL`),
+  index("literature_sources_suggested_by_idx").on(t.suggestedBy).where(sql`suggested_by IS NOT NULL`)]);
+/** B6.4b (0167): the lab's reading group — sessions with a presenter in rotation, a picked source, and swaps that need a yes. */
+export const labReadingSessions = pgTable("lab_reading_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  presenterId: uuid("presenter_id").references(() => profiles.id, { onDelete: "set null" }),
+  sourceId: uuid("source_id").references(() => literatureSources.id, { onDelete: "set null" }),
+  notes: text("notes").default("").notNull(),
+  doneAt: timestamp("done_at", { withTimezone: true }),
+  nextNoticeAt: timestamp("next_notice_at", { withTimezone: true }),
+  pickNoticeAt: timestamp("pick_notice_at", { withTimezone: true }),
+  lateNoticeAt: timestamp("late_notice_at", { withTimezone: true }),
+  readBeforeAt: timestamp("read_before_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [unique("lab_reading_sessions_one_per_slot").on(t.orgId, t.startsAt), index("lab_reading_sessions_presenter_idx").on(t.presenterId).where(sql`presenter_id IS NOT NULL`),
+  index("lab_reading_sessions_source_idx").on(t.sourceId).where(sql`source_id IS NOT NULL`), index("lab_reading_sessions_open_idx").on(t.startsAt).where(sql`done_at IS NULL`)]);
+export const labReadingSwaps = pgTable("lab_reading_swaps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),
+  fromId: uuid("from_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  toId: uuid("to_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  state: text("state").default("asked").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  answeredAt: timestamp("answered_at", { withTimezone: true }),
+}, (t) => [uniqueIndex("lab_reading_swaps_one_open").on(t.sessionId).where(sql`state = 'asked'`), index("lab_reading_swaps_from_idx").on(t.fromId), index("lab_reading_swaps_to_idx").on(t.toId)]);
 /** B6.4 (0166): shared lab notes on a source (signed), each person's private reading, and themes with Disagrees. */
 export const labSourceNotes = pgTable("lab_source_notes", {
   sourceId: uuid("source_id").notNull().references(() => literatureSources.id, { onDelete: "cascade" }),

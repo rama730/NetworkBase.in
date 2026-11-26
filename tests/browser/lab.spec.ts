@@ -22,7 +22,7 @@ async function open(page: Page, admin: boolean, view = 'people') {
         themeRows: [{ theme: 'Low-light', count: 4, thin: false, disagrees: 1 }, { theme: '3D scenes', count: 1, thin: true, disagrees: 0 }],
         rows: [{ id: 's1', title: 'NeRF in the Dark', authors: 'Mildenhall; Hedman', year: 2022, venue: 'CVPR', link: null, doi: '10.1/nerf', themes: [{ theme: 'Low-light', disagrees: true }], notesBy: ['Mei'], myState: 'read', iWroteNotes: true, code: true, data: false },
           ...(opts?.mine ? [] : [{ id: 's2', title: 'Zero-DCE', authors: 'Guo', year: 2020, venue: null, link: null, doi: null, themes: [], notesBy: [], myState: null, iWroteNotes: false, code: null, data: null }])] }),
-      readSourceAction: async () => ({ success: true, admin, writer: true, canEdit: true, labThemes: ['Low-light', '3D scenes'], citedBy: [{ id: 'w', title: 'Thesis', slug: 'thesis' }],
+      readSourceAction: async () => ({ success: true, admin, writer: true, canEdit: true, sessions: [{ at: '2026-11-24T10:30:00Z', done: true }], suggested: false, suggestedByMe: false, labThemes: ['Low-light', '3D scenes'], citedBy: [{ id: 'w', title: 'Thesis', slug: 'thesis' }],
         source: { id: 's1', title: 'NeRF in the Dark', authors: 'Mildenhall; Hedman', year: 2022, venue: 'CVPR', link: 'https://example.org/nerf', doi: '10.1/nerf', code: true, data: false, added_by: 'u1', added_by_name: 'Dr. Rao' },
         notes: [{ section: 'findings', body: 'Works at 0.1 lux.', author: 'Mei', at: '2026-11-20T10:00:00Z' }], mine: { state: 'read', note: 'my own thoughts' }, themes: [{ theme: 'Low-light', disagrees: true, why: 'Different sensor' }] }),
       addSourcesAction: async (_o: string, v: unknown) => { calls.push(['addSources', v]); return { success: true, added: 1, already: [] }; },
@@ -31,7 +31,19 @@ async function open(page: Page, admin: boolean, view = 'people') {
       setSourceThemeAction: async (_o: string, id: string, v: unknown) => { calls.push(['theme', id, v]); return { success: true }; },
       editSourceAction: async () => ({ success: true }),
       removeSourceAction: async () => ({ success: true }),
-      readLibraryCardAction: async () => ({ success: true, admin, total: 2, toRead: 1, reading: 0 }),
+      readLibraryCardAction: async () => ({ success: true, admin, total: 2, toRead: 1, reading: 0, next: { at: '2026-12-01T10:30:00.000Z', presenter: 'Mei', title: null } }),
+      readReadingGroupAction: async () => ({ success: true, me: 'u1', admin, tz: 'Asia/Kolkata', settings: { on: true, weekday: 2, time: '16:00', order: ['u1', 'u2'], pickDays: 3 },
+        people: [{ id: 'u1', name: 'Dr. Rao' }, { id: 'u2', name: 'Mei' }],
+        upcoming: [{ id: 'r1', startsAt: '2099-12-01T10:30:00.000Z', presenter: { id: 'u1', name: 'Dr. Rao' }, source: null, notes: '', state: 'waiting', pickBy: '2099-11-28T10:30:00.000Z', readBefore: false, swap: null, mine: true, canRun: true },
+          { id: 'r2', startsAt: '2099-12-08T10:30:00.000Z', presenter: { id: 'u2', name: 'Mei' }, source: { id: 's1', title: 'NeRF in the Dark' }, notes: '', state: 'picked', pickBy: '2099-12-05T10:30:00.000Z', readBefore: true,
+            swap: { id: 'x1', from: 'u2', to: 'u1', toName: 'Dr. Rao' }, mine: false, canRun: admin }],
+        past: [{ id: 'r0', startsAt: '2026-11-24T10:30:00.000Z', presenter: { id: 'u2', name: 'Mei' }, source: { id: 's1', title: 'NeRF in the Dark' }, notes: 'Good discussion', state: 'done', pickBy: '', readBefore: true, swap: null, mine: false, canRun: false }],
+        suggestions: [{ id: 's2', title: 'Zero-DCE', by: 'Mei' }], sources: [{ id: 's1', title: 'NeRF in the Dark' }, { id: 's2', title: 'Zero-DCE' }] }),
+      pickReadingAction: async (_o: string, id: string, src: string) => { calls.push(['pick', id, src]); return { success: true }; },
+      askSwapAction: async (_o: string, id: string, to: string) => { calls.push(['swap', id, to]); return { success: true }; },
+      answerSwapAction: async (_o: string, id: string, yes: boolean) => { calls.push(['answer', id, yes]); return { success: true }; },
+      addSessionToLabNotesAction: async (_o: string, id: string) => { calls.push(['toNotes', id]); return { success: true }; },
+      suggestSourceAction: async () => ({ success: true }),
       readProtocolsAction: async () => ({ success: true, slug: 'vision-lab', protocols: [{ id: 'p1', title: 'Capture rig setup', slug: 'rig', owner: 'Arjun', reviewBy: null, approved: 1, draft: 2, needsTraining: true, trained: false }] }),
       readProtocolAction: async () => ({ success: true, pageDraft: false, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
         versions: [{ id: 'v2', version: 2, state: 'draft', by: null, at: null, created: '2026-11-20', content: admin ? '## Steps\n1. Power on' : '' }, { id: 'v1', version: 1, state: 'approved', by: 'Dr. Rao', at: '2026-10-02T10:00:00Z', created: '2026-10-01', content: '' }],
@@ -328,6 +340,29 @@ test('B6.4a Library: All with themes, lab notes and my state; a source opens wit
   await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"title":"Scene graphs survey"');
   await page.getByRole('button', { name: 'Themes' }).click();
   await expect(page.getByTestId('lab-themes')).toContainText('3D scenes1 sourceThin');
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B6.4b Reading group: the presenter picks (suggestions marked) and asks a swap; a swap asked of me has Accept; past notes go to lab notes', async ({ page }) => {
+  await open(page, false, 'library');
+  await page.getByRole('button', { name: 'Reading group' }).click();
+  const group = page.getByTestId('lab-reading-group');
+  await expect(group).toContainText('Every Tuesday at 16:00');
+  const [mine, theirs] = [page.getByTestId('lab-reading-session').nth(0), page.getByTestId('lab-reading-session').nth(1)];
+  await expect(mine).toContainText('Waiting for a paper');
+  await expect(mine).toContainText('Pick by Saturday 28 November');
+  await mine.getByLabel('Paper for this session').selectOption({ label: 'Zero-DCE (suggested)' });
+  await mine.getByRole('button', { name: 'Pick' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['pick', 'r1', 's2']);
+  await mine.getByLabel('Swap with').selectOption({ label: 'Mei' });
+  await mine.getByRole('button', { name: 'Ask' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['swap', 'r1', 'u2']);
+  await expect(theirs).toContainText('Read before posted');
+  await theirs.getByRole('button', { name: 'Accept' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['answer', 'x1', true]);
+  await page.getByTestId('lab-reading-past').getByRole('button', { name: 'Add to lab notes' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['toNotes', 'r0']);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });

@@ -101,8 +101,8 @@ export async function readSourceAction(orgId: string, id: string) {
   const ctx = await lab(orgId);
   if (!ctx || !isLooseUuid(id)) return DENIED;
   const [s] = Array.from(await db.execute<{ id: string; title: string; authors: string | null; year: number | null; venue: string | null; link: string | null; doi: string | null;
-    code: boolean | null; data: boolean | null; added_by: string | null; added_by_name: string | null }>(sql`
-    SELECT s.id, s.title, s.authors, s.year, s.venue, s.link, s.doi, s.code_available AS code, s.data_available AS data, s.added_by,
+    code: boolean | null; data: boolean | null; added_by: string | null; added_by_name: string | null; suggested_by: string | null }>(sql`
+    SELECT s.id, s.title, s.authors, s.year, s.venue, s.link, s.doi, s.code_available AS code, s.data_available AS data, s.added_by, s.suggested_by,
       (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = s.added_by) AS added_by_name
     FROM literature_sources s WHERE s.id = ${id}::uuid AND s.workspace_id = ${orgId}::uuid`));
   if (!s) return DENIED;
@@ -116,7 +116,11 @@ export async function readSourceAction(orgId: string, id: string) {
   const citedBy = Array.from(await db.execute<{ id: string; title: string; slug: string | null }>(sql`
     SELECT DISTINCT w.id, w.title, w.slug FROM literature_sources l JOIN workspaces w ON w.id = l.workspace_id AND w.deleted_at IS NULL
     WHERE l.lab_source_id = ${id}::uuid AND (w.owner_id = ${ctx.userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${ctx.userId}::uuid)) LIMIT 20`));
-  return { success: true as const, source: s, notes, mine: mine ?? null, themes, citedBy, labThemes: ctx.settings.themes, admin: ctx.admin,
+  // B6.4b: the reading group sessions it was in.
+  const sessions = Array.from(await db.execute<{ at: string; done: boolean }>(sql`
+    SELECT starts_at::text AS at, done_at IS NOT NULL AS done FROM lab_reading_sessions WHERE source_id = ${id}::uuid AND org_id = ${orgId}::uuid ORDER BY starts_at DESC LIMIT 10`));
+  return { success: true as const, source: s, notes, mine: mine ?? null, themes, citedBy, labThemes: ctx.settings.themes, admin: ctx.admin, sessions,
+    suggested: Boolean(s.suggested_by), suggestedByMe: s.suggested_by === ctx.userId,
     canEdit: !ctx.blocked && (ctx.admin || s.added_by === ctx.userId), writer: !ctx.blocked };
 }
 
@@ -215,5 +219,10 @@ export async function readLibraryCardAction(orgId: string) {
     SELECT (SELECT count(*)::int FROM literature_sources WHERE workspace_id = ${orgId}::uuid) AS total,
       (SELECT count(*)::int FROM lab_reading r JOIN literature_sources s ON s.id = r.source_id WHERE s.workspace_id = ${orgId}::uuid AND r.user_id = ${ctx.userId}::uuid AND r.state = 'to_read') AS to_read,
       (SELECT count(*)::int FROM lab_reading r JOIN literature_sources s ON s.id = r.source_id WHERE s.workspace_id = ${orgId}::uuid AND r.user_id = ${ctx.userId}::uuid AND r.state = 'reading') AS reading`));
-  return { success: true as const, admin: ctx.admin, total: r?.total ?? 0, toRead: r?.to_read ?? 0, reading: r?.reading ?? 0 };
+  // B6.4b: the next reading group session, for This week.
+  const [next] = Array.from(await db.execute<{ at: string; presenter: string | null; title: string | null }>(sql`
+    SELECT r.starts_at::text AS at, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = r.presenter_id) AS presenter, (SELECT title FROM literature_sources WHERE id = r.source_id) AS title
+    FROM lab_reading_sessions r WHERE r.org_id = ${orgId}::uuid AND r.done_at IS NULL AND r.starts_at > now() ORDER BY r.starts_at LIMIT 1`));
+  return { success: true as const, admin: ctx.admin, total: r?.total ?? 0, toRead: r?.to_read ?? 0, reading: r?.reading ?? 0,
+    next: next ? { at: new Date(next.at).toISOString(), presenter: next.presenter, title: next.title } : null };
 }

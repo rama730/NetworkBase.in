@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Library } from "lucide-react";
 
+import { suggestSourceAction } from "@/app/actions/lab-reading-group";
 import { addSourcesAction, editSourceAction, readLibraryAction, readLibraryCardAction, readSourceAction, removeSourceAction, saveLabNoteAction, setMyReadingAction,
   setSourceThemeAction, type LibraryRow } from "@/app/actions/lab-library";
+import { LabReadingGroup } from "@/components/organizations/LabReadingGroup";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { PixelBeat } from "@/components/ui/PixelBeat";
@@ -18,12 +20,13 @@ import { parseBibtex, sourceKey } from "@/lib/workflows/literature";
 // opens in place with its signed lab notes, my private reading and its themes. Nothing counts or ranks people's reading.
 const key = (orgId: string, tab: string, q: string) => ["lab-library", orgId, tab, q] as const;
 const safe = <T,>(p: Promise<T>) => p.catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
-type Tab = "all" | "themes" | "mine";
-const TABS: Record<Tab, string> = { all: "All", themes: "Themes", mine: "My reading" };
+type Tab = "all" | "themes" | "mine" | "group";
+const TABS: Record<Tab, string> = { all: "All", themes: "Themes", mine: "My reading", group: "Reading group" };
 const avail = (v: boolean | null, what: string) => (v === null ? null : `${what} ${v ? "available" : "not available"}`);
 
 export function LabLibrary({ orgId }: { orgId: string }) {
-  const [tab, setTab] = useState<Tab>("all");
+  // B6.4b: notices link to ?lib=group.
+  const [tab, setTab] = useState<Tab>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lib") === "group" ? "group" : "all"));
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState<"form" | "paste" | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -42,9 +45,9 @@ export function LabLibrary({ orgId }: { orgId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Library views" className="flex gap-1">{(Object.keys(TABS) as Tab[]).map((t) => (
           <button key={t} type="button" aria-pressed={tab === t} className="nb-tag h-7" onClick={() => setTab(t)}>{TABS[t]}</button>))}</div>
-        {tab !== "themes" ? <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles and authors" aria-label="Search the library" className="ml-auto w-[240px]" /> : null}
+        {tab === "all" || tab === "mine" ? <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles and authors" aria-label="Search the library" className="ml-auto w-[240px]" /> : null}
       </div>
-      {tab === "themes" ? <Themes rows={d.themeRows} /> : d.rows.length ? (
+      {tab === "group" ? <LabReadingGroup orgId={orgId} /> : tab === "themes" ? <Themes rows={d.themeRows} /> : d.rows.length ? (
         <ul className="divide-y divide-border rounded-md border border-border">{(tab === "mine" ? sortMine(d.rows) : d.rows).map((r) => (
           <li key={r.id} data-testid="lab-source">
             <button type="button" className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left hover:bg-muted" aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)}>
@@ -57,7 +60,7 @@ export function LabLibrary({ orgId }: { orgId: string }) {
             {open === r.id ? <SourcePanel orgId={orgId} id={r.id} onGone={() => setOpen(null)} /> : null}
           </li>))}</ul>
       ) : <p className="rounded-md border border-dashed border-border p-6 text-center text-muted-foreground">{tab === "mine" ? "Nothing on your reading list yet. Open a source and pick To read." : q ? "No sources match." : "No sources yet. Add your lab’s key papers: paste BibTeX or RIS."}</p>}
-      {d.more ? <p className="text-muted-foreground">Showing the newest 200. Search to find older ones.</p> : null}
+      {d.more && tab !== "group" && tab !== "themes" ? <p className="text-muted-foreground">Showing the newest 200. Search to find older ones.</p> : null}
     </section>
   );
 }
@@ -94,7 +97,10 @@ function SourcePanel({ orgId, id, onGone }: { orgId: string; id: string; onGone:
           <p>{s.authors ?? "Authors not given"}{s.year ? ` · ${s.year}` : ""}{s.venue ? ` · ${s.venue}` : ""}</p>
           <p className="flex flex-wrap gap-3">{s.link ? <a className="nb-link" href={s.link} target="_blank" rel="noreferrer noopener">Link</a> : null}{s.doi ? <span className="font-mono">DOI {s.doi}</span> : null}
             {[avail(s.code, "Code"), avail(s.data, "Data")].filter(Boolean).map((x) => <span key={x}>{x}</span>)}</p>
-          <p className="text-muted-foreground">Added by {s.added_by_name ?? "someone"}{d.citedBy.length ? ` · Linked from ${d.citedBy.map((c) => c.title).join(", ")}` : ""}</p>
+          <p className="text-muted-foreground">Added by {s.added_by_name ?? "someone"}{d.citedBy.length ? ` · Linked from ${d.citedBy.map((c) => c.title).join(", ")}` : ""}
+            {d.sessions.length ? ` · Reading group ${d.sessions.map((x) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(new Date(x.at))).join(", ")}` : ""}</p>
+          {d.writer ? <label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={d.suggested} disabled={d.suggested && !d.suggestedByMe && !d.admin}
+            onChange={(e) => void run(suggestSourceAction(orgId, id, e.target.checked), e.target.checked ? "Suggested for the reading group" : "Suggestion taken back")} />Suggest for reading group</label> : null}
           {d.canEdit ? <span className="flex gap-3"><button type="button" className="nb-link" onClick={() => setEditing(true)}>Edit</button>
             <button type="button" className="nb-link" onClick={() => void safe(removeSourceAction(orgId, id)).then((r) => { if (!r.success) return void toast.error(r.error); toast.success("Removed from the library"); onGone(); refresh(); })}>Remove</button></span> : null}
         </div>)}
@@ -242,6 +248,8 @@ export function LabLibraryCard({ orgId, slug }: { orgId: string; slug: string })
     <OrgCard title="Library" testId="lab-library-card" action={<a className={FORM_SECONDARY_CLASS + " inline-flex items-center"} href={href}>Open the Library</a>}>
       <p className="text-[13px]">{d.total ? `${d.total} ${d.total === 1 ? "source" : "sources"}` : d.admin ? "Add your lab’s key papers: paste BibTeX or RIS in the Library." : "No sources yet."}
         {d.toRead || d.reading ? <span className="text-muted-foreground"> · Your list: {[d.toRead ? `${d.toRead} to read` : null, d.reading ? `${d.reading} reading` : null].filter(Boolean).join(", ")}</span> : null}</p>
+      {d.next ? <p className="mt-1 text-[13px]" data-testid="lab-next-session">Reading group {new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date(d.next.at))}
+        {d.next.presenter ? ` · ${d.next.presenter}` : ""} · {d.next.title ?? "Waiting for a paper"}</p> : null}
     </OrgCard>
   );
 }
