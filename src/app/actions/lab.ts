@@ -32,6 +32,11 @@ async function lab(orgId: string) {
 const alumniStill = sql`NOT EXISTS (SELECT 1 FROM workspace_members cm WHERE cm.workspace_id = a.workspace_id AND cm.user_id = a.user_id AND cm.role <> 'viewer')
   AND NOT EXISTS (SELECT 1 FROM org_join_blocks j WHERE j.org_id = a.workspace_id AND j.user_id = a.user_id)`;
 
+async function targetIsResearcher(orgId: string, userId: string) {
+  const [r] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid AND role = 'admin') AS ok`));
+  return Boolean(r?.ok);
+}
+
 async function stillLead(orgId: string, userId: string | null) {
   if (!userId) return false;
   const [r] = Array.from(await db.execute<{ ok: boolean }>(sql`
@@ -149,6 +154,8 @@ export async function startFinishAction(orgId: string, userId: string, input: un
   const self = userId === ctx.userId;
   if (!ctx.admin && !self) return DENIED;
   if (userId === ctx.owner) return { success: false, error: "The PI transfers the lab before finishing in it." };
+  // Review: finishing ends a membership, so like removal a Researcher can't finish another Researcher; the PI can.
+  if (!self && ctx.userId !== ctx.owner && (await targetIsResearcher(orgId, userId))) return DENIED;
   const today = new Date().toISOString().slice(0, 10);
   const { end, keepAsViewer } = parsed.data;
   if (end < today || end > new Date(Date.now() + 366 * 864e5).toISOString().slice(0, 10)) return { success: false, error: "Pick an end date from today to a year ahead." };
@@ -194,6 +201,7 @@ export async function cancelFinishAction(orgId: string, userId: string): Promise
     const [row] = Array.from(await tx.execute<{ leaving: LeavingRecord | null }>(sql`
       SELECT view_prefs->'leaving' AS leaving FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid FOR UPDATE`));
     if (!row?.leaving || (!ctx.admin && row.leaving.by !== ctx.userId)) return null;
+    if (userId !== ctx.userId && ctx.userId !== ctx.owner && row.leaving.by !== ctx.userId && (await targetIsResearcher(orgId, userId))) return null;
     await tx.execute(sql`UPDATE workspace_members SET view_prefs = view_prefs - 'leaving' WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`);
     return row;
   });

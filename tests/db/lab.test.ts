@@ -164,6 +164,9 @@ test("B6.1c: Finish in the lab → Leaving plan → Finished on the end date; al
   assert.equal((await lab.cancelFinishAction(org, keep!)).success, false, "nothing to cancel");
   viewerId = researcher!;
   assert.equal((await lab.startFinishAction(org, keep!, { end: today, keepAsViewer: true })).success, false, "only the PI keeps someone as Viewer");
+  const [r2] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${r2!}, 'admin')`;
+  assert.equal((await lab.startFinishAction(org, r2!, { end: today, keepAsViewer: false })).success, false, "a Researcher doesn't finish another Researcher");
   viewerId = pi!;
   assert.equal((await lab.startFinishAction(org, pi!, { end: today, keepAsViewer: false })).success, false, "the PI transfers first");
   assert.ok((await lab.startFinishAction(org, keep!, { end: today, keepAsViewer: true })).success);

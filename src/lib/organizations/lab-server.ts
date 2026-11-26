@@ -41,6 +41,14 @@ async function finishOne(orgId: string, userId: string, today: string) {
       await tx.execute(sql`UPDATE workspace_members SET view_prefs = view_prefs - 'leaving' WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`);
       return null;
     }
+    // Review: the starter must still have the authority — the person themselves, the PI, or a Researcher finishing a non-Researcher.
+    const [starter] = leaving.by === userId || leaving.by === m.owner ? [{ ok: true }] : Array.from(await tx.execute<{ ok: boolean }>(sql`
+      SELECT (EXISTS (SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${leaving.by}::uuid AND role = 'admin' AND completed_at IS NULL)
+        AND ${m.role} <> 'admin') AS ok`));
+    if (!starter?.ok) {
+      await tx.execute(sql`UPDATE workspace_members SET view_prefs = view_prefs - 'leaving' WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`);
+      return null;
+    }
     const reportsTo = ((m.settings as { staffGrowth?: { reportsTo?: Record<string, string> } } | null)?.staffGrowth?.reportsTo ?? {})[userId];
     const [sup] = reportsTo ? Array.from(await tx.execute<{ ok: boolean }>(sql`
       SELECT true AS ok FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${reportsTo}::uuid AND role IN ('owner', 'admin') AND completed_at IS NULL AND user_id <> ${userId}::uuid`)) : [];
