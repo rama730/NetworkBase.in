@@ -953,6 +953,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "A group has up to 3 open polls; pick or wait for one first.": {"title": "A group has up to 3 open polls; pick or wait for one first.", "type": "warning"},
   "You have an open poll here; pick or wait for it first.": {"title": "You have an open poll here; pick or wait for it first.", "type": "warning"},
   "A poll closes within 30 days.": {"title": "A poll closes within 30 days.", "type": "warning"},
+  "Couldn’t save that. Try again.": {"title": "Couldn’t save that. Try again."},
   "You host 5 groups here already.": {"title": "You host 5 groups here already.", "type": "warning"},
   "You’ve started a lot just now. Try again in a while.": {"title": "You’ve started a lot just now. Try again in a while.", "type": "warning"},
   "Join the community first: its chapters are for its members.": {"title": "Join the community first: its chapters are for its members.", "type": "warning"},

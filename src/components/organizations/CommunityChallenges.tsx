@@ -253,7 +253,7 @@ function PromptEditor({ orgId, masterId, initial, onDone }: { orgId: string; mas
         <div key={i} className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-muted-foreground">Day {i + 1}</span>
           <Input value={r.title} maxLength={120} placeholder="Prompt" aria-label={`Day ${i + 1} prompt`} onChange={(x) => setRows(rows.map((y, j) => (j === i ? { ...y, title: x.target.value } : y)))} className="min-w-0 flex-1" />
-          <Input type="datetime-local" value={r.opensAt} aria-label={`Day ${i + 1} opens on`} onChange={(x) => setRows(rows.map((y, j) => (j === i ? { ...y, opensAt: x.target.value } : y)))} className="w-[200px] font-mono" />
+          <Input type="datetime-local" value={r.opensAt} aria-label={`Day ${i + 1} opens on`} onChange={(x) => setRows(rows.map((y, j) => (j === i ? { ...y, opensAt: x.target.value } : y)))} className="w-auto font-mono" />
         </div>
       ))}
       <span className="flex gap-2">

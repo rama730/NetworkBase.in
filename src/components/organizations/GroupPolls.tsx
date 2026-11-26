@@ -21,12 +21,12 @@ export function GroupPolls({ groupId }: { groupId: string }) {
   const { polls } = q.data;
   const tick = async (pollId: string, option: number, on: boolean) => {
     setLocal((x) => ({ ...x, [`${pollId}:${option}`]: on }));
-    const r = await voteGroupPollAction(groupId, pollId, option, on);
+    const r = await voteGroupPollAction(groupId, pollId, option, on).catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
     if (!r.success) { toast.error(r.error); setLocal((x) => ({ ...x, [`${pollId}:${option}`]: !on })); }
     void q.refetch();
   };
   const pick = async (pollId: string, option: number) => {
-    const r = await pickGroupPollAction(groupId, pollId, option);
+    const r = await pickGroupPollAction(groupId, pollId, option).catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
     if (!r.success) return void toast.error(r.error);
     toast.success("Picked. The group has been told.");
     void q.refetch();
@@ -45,7 +45,7 @@ export function GroupPolls({ groupId }: { groupId: string }) {
             <ul className="space-y-1">{p.options.map((o, i) => (
               <li key={i} className="flex flex-wrap items-center gap-2">
                 <label className="flex min-w-[150px] items-center gap-2"><input type="checkbox" className="nb-check" checked={local[`${p.id}:${i}`] ?? o.mine} disabled={!p.open} onChange={(x) => void tick(p.id, i, x.target.checked)} />{o.label}</label>
-                <span aria-hidden="true" className="h-2 rounded-sm bg-primary" style={{ width: `${Math.round((o.count / max) * 120)}px` }} />
+                <span aria-hidden="true" className="h-2 w-[120px] rounded-sm bg-muted"><span className="block h-2 rounded-sm bg-primary" style={{ width: `${Math.round((o.count / max) * 100)}%` }} /></span>
                 <span className="font-mono">{o.count}</span>
                 {o.who.length ? <span className="text-muted-foreground">{o.who.join(", ")}</span> : null}
                 {p.open && p.canPick ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void pick(p.id, i)}>Pick</button> : null}
@@ -78,7 +78,7 @@ function NewPoll({ groupId, onDone }: { groupId: string; onDone: () => void }) {
       </span>
       {f.options.map((o, i) => <Input key={i} value={o} maxLength={80} placeholder={f.kind === "times" ? "Tue 20:00" : "An option"} aria-label={`Choice ${i + 1}`} onChange={(x) => setF({ ...f, options: f.options.map((y, j) => (j === i ? x.target.value : y)) })} />)}
       {f.options.length < 5 ? <button type="button" className="nb-link" onClick={() => setF({ ...f, options: [...f.options, ""] })}>Add a choice</button> : null}
-      <label className="flex flex-wrap items-center gap-2">Closes<Input type="datetime-local" value={f.closes} onChange={(x) => setF({ ...f, closes: x.target.value })} className="w-[210px] font-mono" /></label>
+      <label className="flex flex-wrap items-center gap-2">Closes<Input type="datetime-local" value={f.closes} onChange={(x) => setF({ ...f, closes: x.target.value })} className="w-auto font-mono" /></label>
       <button type="button" className={FORM_PRIMARY_CLASS} disabled={!f.question.trim() || f.options.filter((o) => o.trim()).length < 2} onClick={() => void save()}>Start poll</button>
     </fieldset>
   );
