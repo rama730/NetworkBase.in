@@ -72,3 +72,14 @@ test('a saved search opens its own results', () => {
   assert.equal(savedSearchHref('react', 'discover', {}), '/search?q=react');
   assert.match(read('src/components/layout/header/search-box/BoxExtras.tsx'), /savedSearchHref\(/);
 });
+
+// Live check 2026-11-27: ⌘J is My work's shortcut, so moving the chat switcher there opened both. Decision 5 read
+// literally: the switcher keeps ⌘K inside Messages and the chat window; the top bar's search opens the one box there.
+test('⌘K stays the chat switcher in Messages; nothing else takes ⌘J from My work', () => {
+  assert.match(read('src/components/messages/MessagesChrome.tsx'), /\(e\.metaKey \|\| e\.ctrlKey\) && \(e\.key === "k" \|\| e\.key === "K"\)/);
+  assert.match(read('src/components/messages/ShortcutsDialog.tsx'), /k\("mod\+k"\), "Jump to a conversation or person"/);
+  const topNav = read('src/components/layout/header/TopNav.tsx');
+  assert.match(topNav, /closest\("\[data-messages-surface\]"\) \|\| document\.getElementById\("chat-window"\)/);
+  assert.doesNotMatch(topNav, /key\.toLowerCase\(\) === "j"/);
+  assert.doesNotMatch(read('src/components/messages/ChatSections.tsx'), /useModKeyHint\("j"\)/);
+});

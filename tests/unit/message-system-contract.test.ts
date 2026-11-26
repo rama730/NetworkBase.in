@@ -355,7 +355,7 @@ test("Section 3 (Keyboard Power-User Ergonomics) contracts", () => {
         "utf8",
     );
 
-    // Shortcuts: Cmd+J (the chat switcher; Cmd+K is the global search since 2026-11-26), Alt+Up/Down, Esc, Shift+Esc
+    // Shortcuts: Cmd+K, Alt+Up/Down, Esc, Shift+Esc
     assert.match(
         chromeSource,
         /useMessagesKeyboardShortcuts/,
@@ -363,7 +363,7 @@ test("Section 3 (Keyboard Power-User Ergonomics) contracts", () => {
     );
     assert.match(
         chromeSource,
-        /\(e\.metaKey \|\| e\.ctrlKey\) && \(e\.key === "j" \|\| e\.key === "J"\)/,
+        /\(e\.metaKey \|\| e\.ctrlKey\) && \(e\.key === "k" \|\| e\.key === "K"\)/,
         "MessagesChrome must handle Cmd/Ctrl+K quick switcher shortcut",
     );
     assert.match(

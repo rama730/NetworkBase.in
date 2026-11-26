@@ -32,11 +32,11 @@ test.describe("Chat shell", () => {
     await expect(aside.locator("[data-testid^='chat-project-']").first()).toBeVisible();
   });
 
-  test("quick switcher opens with Cmd/Ctrl+J and filters", async ({ page }) => {
+  test("quick switcher opens with Cmd/Ctrl+K and filters", async ({ page }) => {
     await login(page);
     await page.goto("/messages");
     await page.locator("[data-messages-surface]").first().click({ position: { x: 5, y: 5 } });
-    await page.keyboard.press(process.platform === "darwin" ? "Meta+J" : "Control+J");
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("combobox")).toBeVisible();
     await dialog.getByRole("combobox").fill("zzzz-no-match");

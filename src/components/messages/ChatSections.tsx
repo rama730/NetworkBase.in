@@ -456,7 +456,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   const otherUnread = open ? projects.reduce((sum, project) => sum + (project.id === open.id ? 0 : badges.get(project.id) ?? 0), 0) : 0;
   const projectHref = open ? `/${open.kind === "organization" ? "org" : "projects"}/${open.slug ?? open.id}` : "";
   const shortcutHint = useModKeyHint("/");
-  const searchHint = useModKeyHint("j");
+  const searchHint = useModKeyHint("k");
 
   const people = open ? workspacePeople(data, open.id) : null;
   const sub = open
@@ -552,7 +552,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
     {inPage ? (
       <div className="flex items-center gap-1.5 px-3 pb-1.5 pt-2.5">
         {/* The row is 259 px with All / Unread: "Jump to…" gets the room, its shortcut goes in the tooltip. */}
-        <button type="button" className="nb-chat-jump" title={`Jump to… (${searchHint})`} onClick={() => useChatUi.getState().setSwitcherOpen(true)} aria-keyshortcuts="Meta+J Control+J">
+        <button type="button" className="nb-chat-jump" title={`Jump to… (${searchHint})`} onClick={() => useChatUi.getState().setSwitcherOpen(true)} aria-keyshortcuts="Meta+K Control+K">
           <Search size={14} aria-hidden="true" /><span className="min-w-0 flex-1 truncate text-left">Jump to…</span>
         </button>
         {seg}
@@ -591,7 +591,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const setSwitcherOpen = useChatUi((state) => state.setSwitcherOpen);
   const inPage = !onSelect;
   const markAll = useMarkAllRead();
-  const searchHint = useModKeyHint("j");
+  const searchHint = useModKeyHint("k");
   const drafts = useDrafts();
   const scheduled = useQuery({
     queryKey: queryKeys.chat.scheduled(),
@@ -642,7 +642,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
 
   const self = sections.dms.find((c) => isSelfDm(c, meId));
   const others = sections.dms.filter((c) => c !== self).filter(keep);
-  // ponytail: "N more" expands the bootstrap's DMs (the 100 most recent) in place; older ones via ⌘J
+  // ponytail: "N more" expands the bootstrap's DMs (the 100 most recent) in place; older ones via ⌘K
   // or search. upgrade: page older DMs from the server when someone has more than 100.
   const [allDms, setAllDms] = useState(false);
   const [decidedOpen, setDecidedOpen] = useState<Record<string, boolean>>({});
@@ -812,7 +812,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       ) : (
         <div className="space-y-0.5">
           {/* The window gets the same Jump to… as the page. */}
-          <button type="button" className="nb-chat-row" onClick={() => setSwitcherOpen(true)} aria-keyshortcuts="Meta+J Control+J">
+          <button type="button" className="nb-chat-row" onClick={() => setSwitcherOpen(true)} aria-keyshortcuts="Meta+K Control+K">
             <Search size={16} aria-hidden="true" /><span className="flex-1">Jump to…</span>
             <kbd className="nb-meta font-normal pointer-coarse:hidden">{searchHint}</kbd>
           </button>

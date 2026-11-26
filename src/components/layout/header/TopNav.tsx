@@ -102,7 +102,7 @@ export default function TopNav() {
     }, []);
 
     const openGlobalSearch = useCallback((query = "", requestedContext?: GlobalSearchContext) => {
-        // One search on every page, Messages too (global search decision 5); the chat switcher is ⌘J there.
+        // One search on every page; in Messages the top bar's search opens it too, while ⌘K there stays the chat switcher.
         const nextContext = requestedContext ?? resolveGlobalSearchContext(pathname).context;
         setCommandPaletteQuery(query);
         setCommandPaletteContext(nextContext);
@@ -131,15 +131,15 @@ export default function TopNav() {
     // Global keyboard shortcut for command palette
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // The chat window keeps the chat switcher on ⌘J, like Messages (MessagesChrome has its own).
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j" && document.getElementById("chat-window") && !document.querySelector("[data-messages-surface]")) {
-                e.preventDefault();
-                closeGlobalSearch();
-                useChatUi.getState().setSwitcherOpen(true);
-                return;
-            }
             if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
                 e.preventDefault();
+                // Global search decision 5: inside Messages, or with the chat window open, ⌘K stays the chat switcher
+                // (⌘J is My work's); the top bar's search opens the one box there too.
+                if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]") || document.getElementById("chat-window")) {
+                    closeGlobalSearch();
+                    useChatUi.getState().setSwitcherOpen(true);
+                    return;
+                }
                 if (showCommandPalette) {
                     closeGlobalSearch();
                 } else {
