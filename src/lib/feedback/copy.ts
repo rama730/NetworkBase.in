@@ -972,6 +972,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "It goes through internal review before it’s submitted.": {"title": "It goes through internal review before it’s submitted.", "type": "warning"},
   "Only the paper’s member authors change its author list.": {"title": "Only the paper’s member authors change its author list.", "type": "warning"},
   "The draft is a document in this workspace.": {"title": "The draft is a document in this workspace.", "type": "warning"},
+  "Link a draft you can edit.": {"title": "Link a draft you can edit.", "type": "warning"},
+  "Someone who edits the draft document sends it for review.": {"title": "Someone who edits the draft document sends it for review.", "type": "warning"},
   "Couldn’t read the draft document. Write something in it, or unlink it from the paper.": {"title": "Couldn’t read the draft document. Write something in it, or unlink it from the paper.", "type": "warning"},
   "The draft sent for review was removed with its document.": {"title": "The draft sent for review was removed with its document.", "type": "warning"},
   "Once it’s submitted, the authors and kind stay as sent. Withdraw it or move it to Revising first.": {"title": "Once it’s submitted, the authors and kind stay as sent. Withdraw it or move it to Revising first.", "type": "warning"},

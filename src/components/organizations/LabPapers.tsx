@@ -7,6 +7,7 @@ import { FileText } from "lucide-react";
 import { confirmAuthorsAction, movePaperAction, readFrozenDraftAction, readLabPapersAction, readPapersAction, reviewPaperAction, savePaperAction } from "@/app/actions/lab-papers";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { NEXT, PAPER_KINDS, PAPER_STAGE_WORDS, type PaperKind, type PaperStage } from "@/lib/organizations/lab-papers";
@@ -95,7 +96,7 @@ function FrozenDraft({ workspaceId, paperId, version }: { workspaceId: string; p
   return (
     <details onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
       <summary className="cursor-pointer text-muted-foreground">Draft sent for internal review (v{version})</summary>
-      {!q.data ? <p className="mt-1 text-muted-foreground">Loading…</p> : q.data.success
+      {!q.data ? <p role="status" className="nb-waiting mt-1 text-muted-foreground"><PixelBeat />Loading the draft…</p> : q.data.success
         ? <pre className="mt-1 max-h-96 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-2 font-mono text-[12px]" data-testid="lab-paper-frozen">{q.data.content}</pre>
         : <p className="mt-1 text-muted-foreground">{q.data.error}</p>}
     </details>

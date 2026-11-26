@@ -12,7 +12,7 @@ import { authorListKey, LOCKED_STAGES, memberAuthors, moveProblem, paperSchema, 
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { statusForStage } from "@/lib/workflows/rules";
-import { getOrBuildWorkspaceDocPublishMetadata } from "@/lib/workspaces/doc";
+import { getOrBuildWorkspaceDocPublishMetadata, resolveWorkspaceDocPermission } from "@/lib/workspaces/doc";
 
 /**
  * Report 35.3 (plan B6.3a, R2 calls 1–10): a paper is a `paper` item in the lab workspace where the work lives. Its
@@ -40,6 +40,15 @@ async function paperContext(workspaceId: string) {
   if (!a.canRead || !(member || labMember)) return null;
   return { userId, access: a, orgId: w.org, slug: w.slug ?? workspaceId, title: w.title, pi: w.owner, isPi: w.owner === userId, blocked: Boolean(a.writeBlocked),
     writer: !a.writeBlocked && (a.isOwner || (a.isMember && a.memberRole !== "viewer")), settings: readLabSettings(w.settings) };
+}
+
+/** Security review (B6.3b): a draft document follows its own rules (leaders-only, members-only, who edits drafts). */
+type Ctx = NonNullable<Awaited<ReturnType<typeof paperContext>>>;
+function docPerm(ctx: Ctx, settings: unknown) {
+  const a = ctx.access;
+  const role = a.isOwner ? "owner" : a.memberRole ?? (a.isInheritedAdmin ? "admin" : null);
+  return resolveWorkspaceDocPermission({ actorUserId: ctx.userId, projectVisibility: a.project?.visibility, projectStatus: a.project?.status, publicTabVisibility: a.project?.publicTabVisibility,
+    settings, membershipRole: role, isOwner: a.isOwner, isActiveMember: Boolean(role), hasPublishedReadme: true, roleAbilities: a.project?.roleAbilities, orgRules: true });
 }
 
 /** Call 10: a private paper only for its authors and the PI. */
@@ -86,8 +95,9 @@ export async function readPapersAction(workspaceId: string) {
     SELECT DISTINCT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
     WHERE m.workspace_id IN (${workspaceId}::uuid, ${ctx.orgId}::uuid) AND m.role <> 'viewer' AND m.completed_at IS NULL AND p.deleted_at IS NULL ORDER BY 2 LIMIT 300`));
   // B6.3b: the workspace's documents, to pick a paper's draft from.
-  const docs = ctx.writer ? Array.from(await db.execute<{ id: string; name: string }>(sql`
-    SELECT id, regexp_replace(filename, '\.md$', '', 'i') AS name FROM workspace_documents WHERE workspace_id = ${workspaceId}::uuid ORDER BY filename LIMIT 200`)) : [];
+  const docs = ctx.writer ? Array.from(await db.execute<{ id: string; name: string; settings: unknown }>(sql`
+    SELECT id, regexp_replace(filename, '\.md$', '', 'i') AS name, settings FROM workspace_documents WHERE workspace_id = ${workspaceId}::uuid ORDER BY filename LIMIT 200`))
+    .filter((d) => docPerm(ctx, d.settings).canEdit).map(({ id, name }) => ({ id, name })) : [];
   return { success: true as const, me: ctx.userId, writer: ctx.writer, people, docs, papers: rows.map((r) => shape(r, ctx.userId, names, ctx.isPi, ctx.settings.paperReview)) };
 }
 
@@ -106,8 +116,12 @@ export async function savePaperAction(workspaceId: string, paperId: string | nul
     if (ok.length !== members.length) return { success: false, error: "Member authors are people in the lab; add others as typed names." };
   }
   if (rest.draftDocId) {
-    const [doc] = Array.from(await db.execute<{ id: string }>(sql`SELECT id FROM workspace_documents WHERE id = ${rest.draftDocId}::uuid AND workspace_id = ${workspaceId}::uuid`));
+    const [doc] = Array.from(await db.execute<{ id: string; settings: unknown; same: boolean }>(sql`
+      SELECT id, settings, ${paperId ? sql`EXISTS (SELECT 1 FROM tasks WHERE id = ${paperId}::uuid AND type_fields->>'draftDocId' = ${rest.draftDocId})` : sql`false`} AS same
+      FROM workspace_documents WHERE id = ${rest.draftDocId}::uuid AND workspace_id = ${workspaceId}::uuid`));
     if (!doc) return { success: false, error: "The draft is a document in this workspace." };
+    // Security review: linking a document needs edit rights on it (it is frozen into its versions later).
+    if (!doc.same && !docPerm(ctx, doc.settings).canEdit) return { success: false, error: "Link a draft you can edit." };
   }
   if (!paperId) {
     if (!ctx.writer) return DENIED;
@@ -179,10 +193,12 @@ export async function movePaperAction(workspaceId: string, paperId: string, inpu
   // B6.3b: Ask for internal review freezes the draft document as it is now (read before the transaction: a file read).
   let draft: { docId: string; content: string } | null = null;
   if (to === "internal_review") {
-    const [d] = Array.from(await db.execute<{ id: string; node: string | null }>(sql`
-      SELECT d.id, d.linked_node_id AS node FROM tasks t JOIN workspace_documents d ON d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id
+    const [d] = Array.from(await db.execute<{ id: string; node: string | null; settings: unknown }>(sql`
+      SELECT d.id, d.linked_node_id AS node, d.settings FROM tasks t JOIN workspace_documents d ON d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id
       WHERE t.id = ${paperId}::uuid AND t.workspace_id = ${workspaceId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL`));
     if (d) {
+      // Security review: freezing writes a version of the document, so only someone who edits it sends it.
+      if (!docPerm(ctx, d.settings).canEdit) return { success: false, error: "Someone who edits the draft document sends it for review." };
       const content = d.node && ctx.access.project ? await readWorkspaceFileText({ ...ctx.access, project: ctx.access.project }, workspaceId, d.node).catch(() => null)
         : (Array.from(await db.execute<{ content: string }>(sql`SELECT content FROM workspace_document_versions WHERE doc_id = ${d.id}::uuid AND deleted_at IS NULL ORDER BY version_number DESC LIMIT 1`))[0]?.content ?? null);
       if (!content?.trim()) return { success: false, error: "Couldn’t read the draft document. Write something in it, or unlink it from the paper." };
@@ -264,11 +280,15 @@ export async function reviewPaperAction(workspaceId: string, paperId: string, in
 export async function readFrozenDraftAction(workspaceId: string, paperId: string) {
   const ctx = await paperContext(workspaceId);
   if (!ctx || !isLooseUuid(paperId)) return DENIED;
-  const [v] = Array.from(await db.execute<{ content: string; version: number; at: string }>(sql`
-    SELECT v.content, v.version_number AS version, v.created_at::text AS at FROM tasks t
+  const [v] = Array.from(await db.execute<{ content: string; version: number; at: string; settings: unknown }>(sql`
+    SELECT v.content, v.version_number AS version, v.created_at::text AS at, d.settings FROM tasks t
     JOIN workspace_document_versions v ON v.id::text = t.type_fields->'frozen'->>'versionId' AND v.workspace_id = t.workspace_id
+    JOIN workspace_documents d ON d.id = v.doc_id
     WHERE t.id = ${paperId}::uuid AND t.workspace_id = ${workspaceId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL AND ${canSee(ctx.userId)}`));
-  return v ? { success: true as const, ...v } : { success: false as const, error: "The draft sent for review was removed with its document." };
+  if (!v) return { success: false as const, error: "The draft sent for review was removed with its document." };
+  // Security review: people who may read the document's drafts, and the PI it was sent to.
+  if (!ctx.isPi && !docPerm(ctx, v.settings).canReadDraft) return DENIED;
+  return { success: true as const, content: v.content, version: v.version, at: v.at };
 }
 
 /** The lab's Papers (lab members): every workspace's papers by stage, private ones per call 10; the PI's internal reviews first. */
