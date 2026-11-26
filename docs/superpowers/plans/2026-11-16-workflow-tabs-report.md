@@ -13427,6 +13427,13 @@ LAB · Equipment                                                       Book · R
 9. Raw data stays in Files or as typed outside links, never fetched.
 10. Parked: stock and reagents, witnessing for patents, instrument data pipelines.
 
+**Build calls (B6.2a, 2026-11-26):**
+1. **A protocol is a lab document made from the Protocol template** (Purpose · Safety · Materials · Equipment · Steps · Notes · References), which lands in How we work; the Data management plan template lands in Computing and data. A lab's Documents offer these two templates (a company's offer its handbook ones).
+2. **Versions live in `lab_protocol_versions` (0161)**, with the text frozen when someone asks to approve. Any member but a Viewer can ask (Steps required), and asking again updates the open Draft. The PI approves, or Researchers too when Settings → Lab says so. Approving retires the previous Approved version. At most one Approved and one Draft per protocol (unique indexes), so v2 drafts while v1 stays usable. Retire leaves nothing runnable until a new approval.
+3. **Training:** per protocol, Needs training and trainers (people in the lab) are set by the PI, Researchers or the page's owner. Trainers, the PI or Researchers sign people off (`lab_trainings`, with trainer and date); nobody signs themselves. People hear it (Normal).
+4. Review fixes: only the PI decides whether Researchers approve. Approve names the draft's timestamp, so text updated after the approver read it is refused, and approvers see the frozen text before approving. Only the person who asked, the page's owner or an admin replaces an open Draft. Others freeze only the published text. Draft and leaders-only pages stay hidden from members. Retire names its version. Only the PI and Researchers choose trainers.
+5. Where it shows: a Protocols card on the lab Overview (Approved and Draft versions, Needs training with my status, owner) and a Protocol panel on each protocol's page. The lab home lists the trainings you still need. The lab-wide Trainings matrix and the Review queue entry are deferred, because approvers are told by notification.
+
 ### 35.6 R5 · Lab meetings and progress reviews (agreed 2026-11-17)
 **References** (18 searches for lab meetings, 1:1s, progress reports, reviews and development plans: 145 templates, 48 rated; 4 more screens studied):
 
