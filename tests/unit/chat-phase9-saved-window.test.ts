@@ -52,7 +52,7 @@ test("toast links navigate in-app; left drafts; search project label (#142-144)"
   // The workspace travels with the place on every screen size (round 2 #78, #87).
   assert.match(views, /item\.project_title \? <span className="text-muted-foreground"> · \{item\.project_title\}/);
   assert.match(read("src/app/actions/chat/later.ts"), /p\.title AS project_title/);
-  assert.match(read("src/app/actions/chat/search.ts"), /p\.title AS project_title/);
+  assert.match(read("src/lib/messaging/search-messages.ts"), /p\.title AS project_title/);
 });
 
 test("New message: listbox keys, Backspace removes a chip, cap explained (#145)", () => {

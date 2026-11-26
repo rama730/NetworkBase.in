@@ -371,6 +371,8 @@ export const buildBaseConditions = (
     }
 
     conditions.push(...buildSearchConditions(filters.search));
+    // Global search decision 1 (2026-11-26): unlisted workspaces open by their link only, never from a search.
+    if (filters.search?.trim()) conditions.push(sql<boolean>`${workspaces.visibility} = 'public'`);
 
     // Skills match by identity, not substring ("java" isn't "javascript"; "C" and "R" count):
     // the catalog key, the skill's own name, or one of its aliases.

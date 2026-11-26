@@ -80,6 +80,8 @@ function visibilityConditions(filters: DiscoverFilters, view: FilterView, viewer
         ...buildBaseConditions({ ...filters, search: undefined }, view, viewerId, { followedOrgChildren: false }),
         updatesTabVisible(viewerId),
     ];
+    // Global search decision 1: a search never reaches an unlisted workspace's posts.
+    if (filters.search?.trim()) conditions.push(sql<boolean>`${workspaces.visibility} = 'public'`);
     if (viewerId) {
         // Neither side of a block sees the other's posts.
         conditions.push(sql<boolean>`NOT app_private.blocked_between(${viewerId}, ${workspaceUpdates.authorId})`);
