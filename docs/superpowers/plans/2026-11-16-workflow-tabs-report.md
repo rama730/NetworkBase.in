@@ -12316,6 +12316,16 @@ ORGANISERS · Sprints → Rituals
 9. Entries can go on the maker's profile with their yes.
 10. Prompt notices go only to people who joined; daily challenges send one daily line.
 
+
+**Build calls (B5.4, 2026-11-26):**
+1. A challenge is an assignment with a new target, **Optional** (communities only). Nobody gets a copy at publish; Join makes one copy (under a lock on the challenge), and the copy carries no due date of its own, so every Missing and Overdue rule skips it. The challenge's closing time is the master's due date; Join stops after it. Remind is refused, and the digest's "missing work" count leaves optional work out.
+2. Leave removes your copy only while nothing is handed in; a handed-in entry stays until its maker deletes it.
+3. Entries, Featured and the public yes live in `community_showcase` (0157), not on the task, so no task-field write can set them. A team entry's "every member" rule waits until challenges take teams (solo only for now).
+4. Prompts live in `challenge_prompts` (0158) with Opens on; a prompt's title and text never leave the server before then, except to organisers. People who joined get one line a day when prompts open (hourly job step).
+5. The Showcase on About shows members every entry; visitors see only entries whose makers said yes, and only in a public community. Featured first, then newest; never by likes.
+6. Rituals live in `org_settings.community.rituals` (up to 20): Thread or Ask me anything, weekly or the first weekday of the month, at a time in the community's zone. The hourly job claims each due occurrence under the row lock, then posts it as an Update by the host ("hosted by …"); a host who left or a failed post pauses it and tells organisers. Ask me anything posts `leadDays` early; questions are comments and likes rank nothing.
+7. Event rituals (show & tell as an event series) wait for repeating events; until then organisers add each event. Season breaks, the Season recap and "Add to my profile" wait for Seasons (club L1) and profile stories.
+
 ### 34.6 M5 · Chapters and small groups (agreed 2026-11-17)
 **References** (20 searches, 143 templates, 44 rated; few templates are about chapters, so small-group templates and the 29.2 structure carry this one; 5 screens studied):
 
