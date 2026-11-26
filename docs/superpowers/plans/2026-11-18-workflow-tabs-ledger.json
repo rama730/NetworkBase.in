@@ -1280,7 +1280,7 @@
       "milestone": "B5",
       "status": "live-pending",
       "test": "tests/unit/community-chapters.test.ts; tests/db/community-chapters.test.ts; tests/db/community-groups.test.ts; tests/browser/community-chapters.spec.ts",
-      "evidence": "Pushed 2026-11-26: 39731e109 chapters (propose/approve, chapterOf, gates), 3a092e012 + 19ce40f85 pause parity, 5da440394 small groups (groupOf), fad10e740 polls (0159 prod), 5dd2ab27f poll caps. Open (B5.5d): report chain through chapters, takeover when last organiser leaves, full Chapter kit snapshot, Pick your chapter, community calendar with chapter events. revisit 2026-11-28."
+      "evidence": "Pushed 2026-11-26: 39731e109 chapters (propose/approve, chapterOf, gates), 3a092e012 + 19ce40f85 pause parity, 5da440394 small groups (groupOf), fad10e740 polls (0159 prod), 5dd2ab27f poll caps, 17830aab7 poll review (30-day close, one open per person). LIVE-checked 2026-11-26 in Chrome on wt-test-b5-community: propose WT Pune chapter → declined with reason (proposer sees ‘not approved: Test decline’); WT Study group started (1 of 12, You're in it, Our commitment); poll WT When should we meet? → tick → bar/count/who → Pick closes it. Live fixes e7eb503d2 (tick/pick undo on a failed call — a deploy mid-session lost the first tick; bar track so Pick lines up; datetime fields no longer cut AM/PM). Approve needs an account under the 5-org limit: DB-tested. Open (B5.5d): report chain through chapters, takeover when last organiser leaves, full Chapter kit snapshot, Pick your chapter, community calendar with chapter events. revisit 2026-11-28."
     },
     {
       "key": "B6.1",
