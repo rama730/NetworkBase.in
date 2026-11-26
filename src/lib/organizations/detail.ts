@@ -292,6 +292,8 @@ export type ParentOrgLink = {
   title: string;
   slug: string | null;
   coverImage: string | null;
+  /** B6.2b: the parent's type (a lab's workspaces have a Notebook). */
+  orgType: string | null;
   isPublic: boolean;
   archived: boolean;
   /** Report §27.7: a suspended organization makes its workspaces read only, and they say so. */
@@ -342,6 +344,7 @@ export async function readChildOrgLink(
     pendingMoveIn: null,
     moveTargets: [],
     parentOrg: {
+      orgType: org.orgType ?? null,
       id: org.id,
       title: org.title,
       slug: org.slug,

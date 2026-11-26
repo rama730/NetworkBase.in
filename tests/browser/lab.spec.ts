@@ -27,6 +27,16 @@ async function open(page: Page, admin: boolean, view = 'people') {
       retireProtocolAction: async () => ({ success: true }),
       saveProtocolSettingsAction: async () => ({ success: true }),
       signOffTrainingAction: async (_o: string, _d: string, id: string, on: boolean) => { calls.push(['signoff', id, on]); return { success: true }; },
+      readNotebookAction: async () => ({ success: true, me: 'u1', writer: true, canAmend: true, tz: 'Asia/Calcutta',
+        experiments: [{ id: 'x1', title: 'Depth at 0.1 lux', hypothesis: 'It works', status: 'running', conclusion: '', entries: 1 }],
+        protocols: [{ id: 'p1', title: 'Capture rig setup', version: 1, needsTraining: true, trained: false }],
+        entries: [{ id: 'e1', authorId: 'u1', author: 'Mei', day: '2026-11-25', title: 'Night run 7', body: { deviations: 'Exposure 1/30', steps: '1. Power on', links: [] },
+          protocol: { title: 'Capture rig setup', version: 1, state: 'approved' }, experimentId: 'x1', experiment: 'Depth at 0.1 lux', untrained: true, writtenLater: false,
+          locked: true, locksAt: '2026-11-25T18:30:00Z', amendments: [{ id: 'a1', body: 'Exposure was 1/30', at: '2026-11-26T03:42:00Z', by: 'Mei' }] }] }),
+      readProtocolStepsAction: async () => ({ success: true, title: 'Capture rig setup', version: 1, steps: ['Power on', 'Calibrate'] }),
+      saveEntryAction: async (_w: string, id: string | null, v: unknown) => { calls.push(['entry', id, v]); return { success: true, id: 'e2', untrained: true }; },
+      amendEntryAction: async (_w: string, id: string, b: string) => { calls.push(['amend', id, b]); return { success: true }; },
+      saveExperimentAction: async () => ({ success: true, id: 'x2' }),
       readMyTrainingsAction: async () => ({ success: true, trainings: [{ id: 'p1', title: 'Capture rig setup', trained: false }] }),
       saveLabSettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
       startFinishAction: async (_o: string, id: string, v: unknown) => { calls.push(['finish', id, v]); return { success: true }; },
@@ -138,4 +148,25 @@ test('A protocol page: the PI approves v2 and signs Mei off; members only ask to
   await open(page, false, 'protocol');
   await expect(page.getByRole('button', { name: /Approve v/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Update the draft to approve' })).toBeVisible();
+});
+
+test('Notebook: a locked entry shows Locked, Amended and Not trained; amendments add below; Run this protocol fills the Steps', async ({ page }) => {
+  await open(page, false, 'notebook');
+  const entry = page.getByTestId('lab-entry');
+  await expect(entry).toContainText('Locked');
+  await expect(entry).toContainText('Not trained on this protocol');
+  await expect(entry).toContainText('Amendment');
+  await entry.getByRole('button', { name: 'Add an amendment' }).click();
+  await entry.getByLabel('Amendment to Night run 7').fill('Sample 3 was mislabelled');
+  await entry.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['amend', 'e1', 'Sample 3 was mislabelled']);
+  await page.getByRole('button', { name: '+ Entry' }).click();
+  const form = page.getByTestId('lab-entry-form');
+  await form.getByLabel('Run this protocol (optional)').selectOption('p1');
+  await expect(form.getByLabel('Steps done')).toHaveValue('1. Power on\n2. Calibrate');
+  await expect(form).toContainText('not trained on this protocol yet');
+  await form.getByRole('button', { name: 'Save entry' }).click();
+  await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"protocolDocId":"p1"');
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
 });

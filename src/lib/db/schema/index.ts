@@ -1510,6 +1510,46 @@ export const labTrainings = pgTable("lab_trainings", {
   signedAt: timestamp("signed_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.docId, t.userId] }), index("lab_trainings_user_idx").on(t.userId), index("lab_trainings_workspace_idx").on(t.projectId),
   index("lab_trainings_trainer_idx").on(t.trainerId).where(sql`trainer_id IS NOT NULL`)]);
+/** B6.2b (0162): a lab workspace's Notebook — experiments, entries that lock at the end of their day, amendments. */
+export const labExperiments = pgTable("lab_experiments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  hypothesis: text("hypothesis").default("").notNull(),
+  status: text("status").$type<"planned" | "running" | "done" | "stopped">().default("planned").notNull(),
+  conclusion: text("conclusion").default("").notNull(),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_experiments_workspace_idx").on(t.projectId, t.createdAt.desc()),
+  index("lab_experiments_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`)]);
+export const labEntries = pgTable("lab_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  entryDate: date("entry_date").notNull(),
+  title: text("title").notNull(),
+  body: jsonb("body").$type<Record<string, unknown>>().default({}).notNull(),
+  protocolDocId: uuid("protocol_doc_id").references(() => workspaceDocuments.id, { onDelete: "set null" }),
+  protocolVersionId: uuid("protocol_version_id").references(() => labProtocolVersions.id, { onDelete: "set null" }),
+  protocolTitle: text("protocol_title"),
+  protocolVersion: integer("protocol_version"),
+  experimentId: uuid("experiment_id").references(() => labExperiments.id, { onDelete: "set null" }),
+  untrained: boolean("untrained").default(false).notNull(),
+  writtenLater: boolean("written_later").default(false).notNull(),
+  locksAt: timestamp("locks_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_entries_workspace_idx").on(t.projectId, t.entryDate.desc()),
+  index("lab_entries_author_idx").on(t.authorId).where(sql`author_id IS NOT NULL`), index("lab_entries_experiment_idx").on(t.experimentId).where(sql`experiment_id IS NOT NULL`),
+  index("lab_entries_protocol_doc_idx").on(t.protocolDocId).where(sql`protocol_doc_id IS NOT NULL`), index("lab_entries_protocol_version_idx").on(t.protocolVersionId).where(sql`protocol_version_id IS NOT NULL`)]);
+export const labEntryAmendments = pgTable("lab_entry_amendments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entryId: uuid("entry_id").notNull().references(() => labEntries.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_entry_amendments_entry_idx").on(t.entryId, t.createdAt), index("lab_entry_amendments_author_idx").on(t.authorId).where(sql`author_id IS NOT NULL`)]);
 export const groupPollVotes = pgTable("group_poll_votes", {
   pollId: uuid("poll_id").notNull().references(() => groupPolls.id, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),

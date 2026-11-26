@@ -68,6 +68,7 @@ import { CommunitySprints } from '@/components/organizations/CommunityEvents';
 import { CommunityTasks } from '@/components/organizations/CommunityChallenges';
 import { CommunityProjects } from '@/components/organizations/CommunityChapters';
 import { GroupPolls } from '@/components/organizations/GroupPolls';
+import { LabNotebook } from '@/components/organizations/LabNotebook';
 import { ClassMembers } from '@/components/organizations/Sections';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
@@ -1295,6 +1296,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                         {parentOrg ? <div className="mb-4"><ProjectGoalLine projectId={project.id} /></div> : null}
                         {/* Report 34.6 (B5.5c): a community small group's polls (hidden on other workspaces). */}
                         {!parentOrg ? <GroupPolls groupId={project.id} /> : null}
+                        {/* Report 35.5 (B6.2b): a lab workspace's Notebook (its members and the lab's PI and Researchers). */}
+                        {parentOrg?.orgType === 'research' ? <div className="mb-4"><LabNotebook workspaceId={project.id} /></div> : null}
                         <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} recentActivityStarted={started?.recentActivity} />
                         </>}
                     </TabErrorBoundary>

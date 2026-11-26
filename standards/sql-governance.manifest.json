@@ -164,7 +164,8 @@
     "drizzle/0158_challenge_prompts.sql",
     "drizzle/0159_group_polls.sql",
     "drizzle/0160_lab_alumni.sql",
-    "drizzle/0161_lab_protocols.sql"
+    "drizzle/0161_lab_protocols.sql",
+    "drizzle/0162_lab_notebook.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
