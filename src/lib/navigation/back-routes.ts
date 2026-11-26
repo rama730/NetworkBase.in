@@ -18,6 +18,8 @@ export const DETAIL_RULES: { pattern: RegExp; fallback: string }[] = [
   { pattern: /^\/org\/[^/]+/, fallback: "/discover" },
   { pattern: /^\/admin\/trust\/(cases|appeals|people)\/[^/]+/, fallback: "/admin/trust" },
   { pattern: /^\/appeal\/[^/]+/, fallback: "/discover" },
+  // Search results (global search mix): back returns to the page you searched from; Discover if you arrived by link.
+  { pattern: /^\/search$/, fallback: "/discover" },
   // An agent's access page is opened from Settings → Integrations or an inbox item (report A8).
   { pattern: /^\/settings\/agents\/[^/]+$/, fallback: "/settings" },
 ];

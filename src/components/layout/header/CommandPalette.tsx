@@ -13,7 +13,6 @@ import { copyText } from "@/lib/clipboard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTheme } from "@/components/providers/theme-provider";
 import { useSidebarWorkspacesQuery } from "@/components/layout/AppSidebar";
 import { placeForPath } from "@/components/layout/SidebarWorkspaces";
 import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/hooks/useConnections";
@@ -26,6 +25,7 @@ import { searchGoto, type GotoPlace } from "@/lib/search/global/goto";
 import { contextFromPath, type SearchKind } from "@/lib/search/global/parse";
 import type { SearchHit } from "@/lib/search/global/types";
 import { BoxRow, HitAvatar, KIND_LABEL, Marked } from "./search-box/BoxRow";
+import { SettingControl } from "./search-box/SettingControl";
 import { BoxExtras, BoxPreview, useBoxExtras } from "./search-box/BoxExtras";
 import { buildBoxGroups, type BoxGroupKind } from "./search-box/groups";
 import "./search-box/search-box.css";
@@ -67,7 +67,6 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
     const queryClient = useQueryClient();
     const pathname = usePathname() ?? "/";
     const router = useRouter();
-    const { theme, setThemeWithTransition } = useTheme();
     const { key: ctx, place: placeSlug } = contextFromPath(pathname);
     const { data: sidebar } = useSidebarWorkspacesQuery();
     const sidebarPlace = useMemo(() => placeForPath(sidebar, pathname), [sidebar, pathname]);
@@ -198,12 +197,6 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         }
     };
 
-    const setFindMe = async (value: "everyone" | "my_places" | "connections") => {
-        const response = await fetch("/api/v1/privacy", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ searchVisibility: value }) }).catch(() => null);
-        if (response?.ok) toast.success(`Who can find me in search: ${FIND_ME_LABEL[value]} · saved`);
-        else toast.error("Couldn’t save that. Open Settings › Privacy to try again.");
-    };
-
     const rowAction = (hit: SearchHit) => {
         if (hit.kind === "people" && hit.act === "Connect") {
             const busy = sendRequest.isPending && sendRequest.variables?.userId === hit.meta.userId;
@@ -212,26 +205,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         if (hit.kind === "people" && hit.act === "Message") {
             return <button type="button" className="nb-sx-btn" onClick={(event) => { event.stopPropagation(); confirmAppNavigation(() => { router.push(`/messages?userId=${encodeURIComponent(String(hit.meta.userId))}`); onClose(); }); }}>Message</button>;
         }
-        if (hit.meta.control === "theme") {
-            return (
-                <span className="nb-sx-seg" role="group" aria-label="Theme">
-                    {(["dark", "light", "system"] as const).map((value) => (
-                        <button key={value} type="button" aria-pressed={theme === value} onClick={(event) => { event.stopPropagation(); setThemeWithTransition(value); toast.success(`Appearance: ${value} · saved`); }}>
-                            {value[0]!.toUpperCase() + value.slice(1)}
-                        </button>
-                    ))}
-                </span>
-            );
-        }
-        if (hit.meta.control === "findMe") {
-            return (
-                <span className="nb-sx-seg" role="group" aria-label="Who can find me in search">
-                    {(["everyone", "my_places", "connections"] as const).map((value) => (
-                        <button key={value} type="button" onClick={(event) => { event.stopPropagation(); void setFindMe(value); }}>{FIND_ME_SHORT[value]}</button>
-                    ))}
-                </span>
-            );
-        }
+        if (hit.meta.control === "theme" || hit.meta.control === "findMe") return <SettingControl control={hit.meta.control} />;
         return null;
     };
 
@@ -464,5 +438,3 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
     );
 }
 
-const FIND_ME_LABEL = { everyone: "Everyone on NetworkBase", my_places: "People in my workspaces and organizations", connections: "Only my connections" } as const;
-const FIND_ME_SHORT = { everyone: "Everyone", my_places: "My places", connections: "Connections" } as const;

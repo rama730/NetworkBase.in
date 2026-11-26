@@ -36,6 +36,7 @@ function getWorkerOnlyFunctions() {
   const { trustUrgentAlert, trustDecisionNotices, trustDeadlines, trustRestrictions, trustDailySummary, trustRetention } = loadModule("./functions/trust-safety");
   const { reportFailureToSentry } = loadModule("./functions/report-failure-to-sentry");
   const { agentNotificationFlush } = loadModule("./functions/agent-notifications");
+  const { savedSearchAlerts } = loadModule("./functions/saved-search-alerts");
 
   return [
     projectImport,
@@ -85,6 +86,7 @@ function getWorkerOnlyFunctions() {
     trustDailySummary,
     trustRetention,
     reportFailureToSentry,
+    savedSearchAlerts,
   ] as const;
 }
 

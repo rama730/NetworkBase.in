@@ -54,7 +54,9 @@ export type NotificationKind =
     /** A merge request event: review requested, ready, comment, approved, changes requested, checks failed, merged, closed (report H4). */
     | "merge_request"
     /** Saves on a branch, for its watchers: one per branch per 15 minutes (report H8, H24). */
-    | "branch_saves";
+    | "branch_saves"
+    /** New matches for a search you saved (global search mix): daily or weekly, one a day at most. */
+    | "saved_search_matches";
 
 export type NotificationImportance = "important" | "more";
 

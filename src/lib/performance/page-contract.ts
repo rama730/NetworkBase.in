@@ -257,6 +257,15 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 340,
     allowForceDynamic: true,
   }),
+  "/search": buildUserShellContract("/search", "src/app/(site)/(main)/search/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "server-action",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "auth_snapshot",
+    maxInitialPayloadKb: 260,
+    allowForceDynamic: true,
+  }),
   "/network": buildUserShellContract("/network", "src/app/(site)/(main)/network/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 30,
