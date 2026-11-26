@@ -91,6 +91,10 @@ test("34.6 call 10: a group poll — members tick (several times each), counts, 
   viewerId = a!;
   await groups.joinGroupAction(org, gid);
   assert.ok((await groups.createGroupPollAction(gid, { question: "When should we meet?", kind: "times", options: ["Tue 20:00", "Wed 19:00", "Sat 11:00"], closesAt: new Date(Date.now() + 864e5).toISOString() })).success);
+  assert.equal((await groups.createGroupPollAction(gid, { question: "Second?", kind: "options", options: ["a", "b"], closesAt: new Date(Date.now() + 864e5).toISOString() })).success, false, "one open poll per person");
+  viewerId = host!;
+  assert.equal((await groups.createGroupPollAction(gid, { question: "Far?", kind: "options", options: ["a", "b"], closesAt: new Date(Date.now() + 40 * 864e5).toISOString() })).success, false, "closes within 30 days");
+  viewerId = a!;
   let view = await groups.readGroupPollsAction(gid);
   assert.ok(view.success && view.isGroup);
   const pollId = view.success ? view.polls[0]!.id : "";

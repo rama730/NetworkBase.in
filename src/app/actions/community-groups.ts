@@ -237,10 +237,12 @@ export async function createGroupPollAction(groupId: string, input: unknown): Pr
   if (!parsed.success) return { success: false, error: "A poll has a question, 2 to 5 choices and a closing time." };
   const d = parsed.data;
   if (Date.parse(d.closesAt) <= Date.now()) return { success: false, error: "Pick a closing time that hasn’t passed." };
+  if (Date.parse(d.closesAt) > Date.now() + 30 * 86_400_000) return { success: false, error: "A poll closes within 30 days." };
   // Security review: no poll spam — a few per hour per person, and up to 3 open at once in a group.
   const { consumeRateLimit } = await import("@/lib/security/rate-limit");
   if (!(await consumeRateLimit(`group-poll:${g.userId}`, 5, 60 * 60)).allowed) return { success: false, error: "You’ve started a lot just now. Try again in a while." };
-  const [openPolls] = Array.from(await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM group_polls WHERE workspace_id = ${groupId}::uuid AND closes_at > now() AND picked IS NULL`));
+  const [openPolls] = Array.from(await db.execute<{ n: number; mine: number }>(sql`SELECT count(*)::int AS n, count(*) FILTER (WHERE created_by = ${g.userId}::uuid)::int AS mine FROM group_polls WHERE workspace_id = ${groupId}::uuid AND closes_at > now() AND picked IS NULL`));
+  if ((openPolls?.mine ?? 0) >= 1) return { success: false, error: "You have an open poll here; pick or wait for it first." };
   if ((openPolls?.n ?? 0) >= 3) return { success: false, error: "A group has up to 3 open polls; pick or wait for one first." };
   await db.execute(sql`INSERT INTO group_polls (workspace_id, created_by, question, kind, options, closes_at) VALUES (${groupId}::uuid, ${g.userId}::uuid, ${d.question}, ${d.kind}, ${JSON.stringify(d.options)}::jsonb, ${d.closesAt}::timestamptz)`);
   const members = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${groupId}::uuid AND role <> 'viewer' AND user_id <> ${g.userId}::uuid`));
