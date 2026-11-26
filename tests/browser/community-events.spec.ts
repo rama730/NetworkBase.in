@@ -20,6 +20,8 @@ async function open(page: Page, opts: { full: boolean; mine: string | null }) {
       rsvpCommunityEventAction: async (_o: string, id: string, v: { choice: string }) => { calls.push(['rsvp', id, v]); return { success: true, state: v.choice === 'going' ? (opts.full ? 'waitlisted' : 'going') : 'cant_go' }; },
       saveCommunityEventAction: async (_o: string, id: string | null, v: unknown) => { calls.push(['save', id, v]); return { success: true, id: 'e2' }; },
       cancelCommunityEventAction: async () => ({ success: true }),
+      readEventTalksAction: async () => ({ success: true, host: true, talks: [{ id: 't1', title: 'Async in 5 min', line: null, minutes: 5, state: 'proposed', slot: null, speaker: 'Mei', mine: false }] }),
+      decideTalkAction: async (_o: string, id: string, v: unknown) => { calls.push(['talk', id, v]); return { success: true }; },
     };
   }, opts);
   await openApp(page, 'tests/browser/community-events.fixture.tsx', { path: '/' });
@@ -66,4 +68,15 @@ test('+ Event: title, times, format, place, who can come, a place limit and the 
   const save = (await calls(page)).find((c: unknown[]) => c[0] === 'save') as [string, null, { fields: { who: string; runOfShow: unknown[] } }];
   expect(save[2].fields.who).toBe('public');
   expect(save[2].fields.runOfShow).toEqual([{ time: '18:30', title: 'Doors' }, { time: '19:00', title: 'Talk' }]);
+});
+
+test('Call for talks: hosts Accept a proposal into a slot', async ({ page }) => {
+  await open(page, { full: false, mine: null });
+  await page.getByTestId('event-row').click();
+  const p = page.getByTestId('talk-proposal');
+  await expect(p).toContainText('Async in 5 min');
+  await p.getByLabel('Time for Async in 5 min').fill('19:15');
+  await p.getByRole('button', { name: 'Accept' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['talk', 't1', { accept: true, slot: '19:15' }]);
+  await expect(page.getByRole('button', { name: 'Propose a talk' })).toBeVisible();
 });

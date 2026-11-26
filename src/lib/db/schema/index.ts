@@ -1453,6 +1453,23 @@ export const communityEvents = pgTable("community_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("community_events_workspace_idx").on(t.projectId)]);
 
+/** Call for talks (0156): a member's proposal for an event; hosts Accept it into a run-of-show slot or say Not this time. */
+export const communityTalks = pgTable("community_talks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  line: text("line"),
+  minutes: integer("minutes").notNull(),
+  state: text("state").$type<"proposed" | "accepted" | "declined">().default("proposed").notNull(),
+  slot: text("slot"),
+  decidedBy: uuid("decided_by").references(() => profiles.id, { onDelete: "set null" }),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("community_talks_event_idx").on(t.taskId, t.state), index("community_talks_user_idx").on(t.userId), index("community_talks_workspace_idx").on(t.projectId),
+  index("community_talks_decided_by_idx").on(t.decidedBy).where(sql`decided_by IS NOT NULL`)]);
+
 /** RSVPs (0155): Going · Waitlisted · Can't go; first come for the waitlist; private ones counted, never named. */
 export const communityRsvps = pgTable("community_rsvps", {
   taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),

@@ -1086,6 +1086,13 @@
       "when": 1795691982971,
       "tag": "0155_community_events",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1795694845799,
+      "tag": "0156_community_talks",
+      "breakpoints": true
     }
   ]
 }

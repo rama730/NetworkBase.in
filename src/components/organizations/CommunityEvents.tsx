@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, MapPin, Users, Video } from "lucide-react";
 
-import { cancelCommunityEventAction, checkInCommunityAction, saveEventLinksAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
+import { cancelCommunityEventAction, checkInCommunityAction, decideTalkAction, proposeTalkAction, readEventTalksAction, saveEventLinksAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -110,6 +110,7 @@ function EventPage({ orgId, eventId, onClose, onEdit }: { orgId: string; eventId
             <div className="grid gap-4 text-[13px] sm:grid-cols-[1fr_220px]" data-testid="event-page">
               <div className="space-y-3">
                 {e.description ? <p className="whitespace-pre-wrap">{e.description}</p> : null}
+                {e.state !== "cancelled" ? <Talks orgId={orgId} eventId={e.id} open={e.state === "published" || e.state === "full"} onAccepted={refresh} /> : null}
                 {e.after.length ? <div><h3 className="font-medium">Slides and recordings</h3><ul className="mt-1 space-y-0.5">{e.after.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noopener noreferrer" className="nb-link">{l.label}</a></li>)}</ul></div> : null}
                 {e.canEdit && e.state === "ended" ? <AfterLinks orgId={orgId} eventId={e.id} links={e.after} onSaved={refresh} /> : null}
                 {e.runOfShow.length ? <div><h3 className="font-medium">Run of show</h3><ol className="mt-1 space-y-0.5">{e.runOfShow.map((s, i) => <li key={i}><span className="font-mono">{s.time}</span> {s.title}</li>)}</ol></div> : null}
@@ -217,7 +218,7 @@ export function NextEventCard({ orgId, base }: { orgId: string; base: string }) 
   const next = q.data?.success ? q.data.events.find((e) => e.state !== "cancelled" && e.state !== "ended") : null;
   if (!next) return null;
   return (
-    <section aria-label="Next event" className="space-y-1 rounded-md border border-border p-3 text-[13px]" data-testid="next-event">
+    <section aria-label="Next event" className="space-y-1 rounded-md border border-border bg-card p-3 text-[13px]" data-testid="next-event">
       <h3 className="font-medium">Next event</h3>
       <p><a href={`${base}?tab=sprints&event=${next.id}`} className="nb-link font-medium">{next.title}</a></p>
       <p className="font-mono text-muted-foreground">{when(next.start, next.end)}</p>
@@ -290,5 +291,59 @@ function AfterLinks({ orgId, eventId, links, onSaved }: { orgId: string; eventId
       <Input value={url} maxLength={500} placeholder="https://" aria-label="Link" onChange={(x) => setUrl(x.target.value)} className="w-[240px]" />
       <button type="button" className={FORM_SECONDARY_CLASS} disabled={!label.trim() || !url.trim()} onClick={() => void add()}>Add link</button>
     </fieldset>
+  );
+}
+
+/** Call for talks (B5.3d): accepted talks for everyone; Propose a talk before the event; hosts Accept into a slot or say Not this time. */
+function Talks({ orgId, eventId, open, onAccepted }: { orgId: string; eventId: string; open: boolean; onAccepted: () => void }) {
+  const q = useQuery({ queryKey: ["community-talks", orgId, eventId], queryFn: () => readEventTalksAction(orgId, eventId) });
+  const [f, setF] = useState({ title: "", line: "", minutes: "5" });
+  const [proposing, setProposing] = useState(false);
+  const [slots, setSlots] = useState<Record<string, string>>({});
+  if (!q.data?.success) return null;
+  const { talks, host } = q.data;
+  const accepted = talks.filter((t) => t.state === "accepted");
+  const waiting = talks.filter((t) => t.state === "proposed");
+  const mine = talks.filter((t) => t.mine && t.state !== "accepted");
+  const propose = async () => {
+    const r = await proposeTalkAction(orgId, eventId, { title: f.title, line: f.line.trim() || null, minutes: Number(f.minutes) });
+    if (!r.success) return void toast.error(r.error);
+    toast.success("Talk proposed. The hosts will let you know.");
+    setF({ title: "", line: "", minutes: "5" }); setProposing(false);
+    void q.refetch();
+  };
+  const decide = async (id: string, accept: boolean) => {
+    const r = await decideTalkAction(orgId, id, { accept, slot: accept ? slots[id] ?? "" : null });
+    if (!r.success) return void toast.error(accept && !slots[id] ? "Pick a time for the talk." : r.error);
+    toast.success(accept ? "Talk accepted and added to the run of show" : "Not this time. They’ve been told kindly.");
+    void q.refetch(); if (accept) onAccepted();
+  };
+  return (
+    <div className="space-y-2" data-testid="event-talks">
+      {accepted.length ? <div><h3 className="font-medium">Talks</h3><ul className="mt-1 space-y-0.5">{accepted.map((t) => <li key={t.id}><span className="font-mono">{t.slot}</span> “{t.title}” · {t.speaker} <span className="font-mono text-muted-foreground">{t.minutes} min</span></li>)}</ul></div> : null}
+      {mine.length ? <p className="text-muted-foreground">Your proposals: {mine.map((t) => `“${t.title}” (${t.state === "declined" ? "not this time" : "waiting"})`).join(", ")}</p> : null}
+      {host && waiting.length ? (
+        <div><h3 className="font-medium">Proposed talks</h3>
+          <ul className="mt-1 space-y-2">{waiting.map((t) => (
+            <li key={t.id} className="space-y-1 rounded-md border border-border p-2" data-testid="talk-proposal">
+              <p>“{t.title}” · {t.speaker} <span className="font-mono text-muted-foreground">{t.minutes} min</span></p>
+              {t.line ? <p className="text-muted-foreground">{t.line}</p> : null}
+              <span className="flex flex-wrap items-center gap-2">
+                <Input type="time" aria-label={`Time for ${t.title}`} value={slots[t.id] ?? ""} onChange={(x) => setSlots({ ...slots, [t.id]: x.target.value })} className="w-[120px] font-mono" />
+                <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void decide(t.id, true)}>Accept</button>
+                <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void decide(t.id, false)}>Not this time</button>
+              </span>
+            </li>))}</ul></div>
+      ) : null}
+      {open ? (proposing ? (
+        <fieldset className="space-y-2 rounded-md border border-border p-2" data-testid="propose-talk">
+          <legend className="px-1">Propose a talk</legend>
+          <Input value={f.title} maxLength={120} placeholder="Title" aria-label="Talk title" onChange={(x) => setF({ ...f, title: x.target.value })} />
+          <Input value={f.line} maxLength={300} placeholder="One line about it (optional)" aria-label="About the talk" onChange={(x) => setF({ ...f, line: x.target.value })} />
+          <label className="flex items-center gap-2">Length<Input type="number" min={1} max={120} value={f.minutes} onChange={(x) => setF({ ...f, minutes: x.target.value })} className="w-[80px] font-mono" />minutes</label>
+          <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!f.title.trim()} onClick={() => void propose()}>Send proposal</button><button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setProposing(false)}>Cancel</button></span>
+        </fieldset>
+      ) : <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setProposing(true)}>Propose a talk</button>) : null}
+    </div>
   );
 }

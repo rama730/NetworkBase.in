@@ -286,3 +286,69 @@ export async function saveEventLinksAction(orgId: string, eventId: string, links
       AND (${ctx.organiser} OR type_fields->'hosts' ? ${ctx.userId}::text) RETURNING id`));
   return r ? { success: true } : DENIED;
 }
+
+const talkSchema = z.object({ title: z.string().trim().min(1).max(120), line: z.string().trim().max(300).nullable(), minutes: z.number().int().min(1).max(120) }).strict();
+
+/** Propose a talk (B5.3d, call 5): members, not paused, before the event; up to 3 proposals each per event. */
+export async function proposeTalkAction(orgId: string, eventId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  const parsed = talkSchema.safeParse(input);
+  if (!ctx || !isLooseUuid(eventId)) return DENIED;
+  if (!ctx.member || !ctx.userId) return { success: false, error: "Join the community to propose a talk." };
+  if (ctx.paused) return { success: false, error: "You can propose a talk when your pause ends." };
+  if (!parsed.success) return { success: false, error: "Give the talk a title and a length in minutes." };
+  const [r] = Array.from(await db.execute<{ id: string }>(sql`
+    INSERT INTO community_talks (task_id, workspace_id, user_id, title, line, minutes)
+    SELECT t.id, t.workspace_id, ${ctx.userId}::uuid, ${parsed.data.title}, ${parsed.data.line}, ${parsed.data.minutes}
+    FROM tasks t WHERE t.id = ${eventId}::uuid AND t.workspace_id = ${orgId}::uuid AND t.item_type = 'event' AND t.type_fields->>'kind' = 'community'
+      AND t.deleted_at IS NULL AND t.stage <> 'cancelled' AND (t.type_fields->>'start')::timestamptz > now()
+      AND (SELECT count(*) FROM community_talks c WHERE c.task_id = t.id AND c.user_id = ${ctx.userId}::uuid) < 3
+    RETURNING id`));
+  return r ? { success: true } : { success: false, error: "This event isn’t taking talks." };
+}
+
+/** Talks on an event: accepted ones for members; hosts and organisers also see proposals to decide; you see your own. */
+export async function readEventTalksAction(orgId: string, eventId: string) {
+  const ctx = await community(orgId);
+  if (!ctx?.member || !ctx.userId || !isLooseUuid(eventId)) return DENIED;
+  const [ev] = Array.from(await db.execute<{ hosts: string[] }>(sql`
+    SELECT type_fields->'hosts' AS hosts FROM tasks WHERE id = ${eventId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'event' AND type_fields->>'kind' = 'community' AND deleted_at IS NULL`));
+  if (!ev) return DENIED;
+  const host = ctx.organiser || (ctx.host && ev.hosts.includes(ctx.userId));
+  const talks = Array.from(await db.execute<{ id: string; title: string; line: string | null; minutes: number; state: string; slot: string | null; user_id: string; name: string | null; username: string | null }>(sql`
+    SELECT c.id, c.title, c.line, c.minutes, c.state, c.slot, c.user_id, p.full_name AS name, p.username
+    FROM community_talks c JOIN profiles p ON p.id = c.user_id
+    WHERE c.task_id = ${eventId}::uuid AND (c.state = 'accepted' OR c.user_id = ${ctx.userId}::uuid OR ${host})
+    ORDER BY c.slot NULLS LAST, c.created_at`));
+  return { success: true as const, host, talks: talks.map((t) => ({ id: t.id, title: t.title, line: t.line, minutes: t.minutes, state: t.state as "proposed" | "accepted" | "declined",
+    slot: t.slot, speaker: t.name ?? t.username ?? "Someone", mine: t.user_id === ctx.userId })) };
+}
+
+/** Accept (into a run-of-show slot) or Not this time, with a kind default line (hosts and organisers). The speaker is told (Normal). */
+export async function decideTalkAction(orgId: string, talkId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  const parsed = z.object({ accept: z.boolean(), slot: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable() }).strict().safeParse(input);
+  if (!ctx?.member || !ctx.userId || !isLooseUuid(talkId) || !parsed.success || (parsed.data.accept && !parsed.data.slot)) return DENIED;
+  if (ctx.paused && !ctx.organiser) return { success: false, error: "You can add or change events again when your pause ends." };
+  const { accept, slot } = parsed.data;
+  const done = await db.transaction(async (tx) => {
+    const [t] = Array.from(await tx.execute<{ task_id: string; user_id: string; title: string; event: string; fields: CommunityEventFields; name: string | null }>(sql`
+      SELECT c.task_id, c.user_id, c.title, e.title AS event, e.type_fields AS fields, p.full_name AS name
+      FROM community_talks c JOIN tasks e ON e.id = c.task_id JOIN profiles p ON p.id = c.user_id
+      WHERE c.id = ${talkId}::uuid AND c.workspace_id = ${orgId}::uuid AND c.state = 'proposed' AND e.deleted_at IS NULL AND e.stage <> 'cancelled' FOR UPDATE OF c, e`));
+    if (!t || !(ctx.organiser || (ctx.host && t.fields.hosts.includes(ctx.userId!)))) return null;
+    await tx.execute(sql`UPDATE community_talks SET state = ${accept ? "accepted" : "declined"}, slot = ${accept ? slot : null}, decided_by = ${ctx.userId}::uuid, decided_at = now() WHERE id = ${talkId}::uuid`);
+    if (accept) {
+      // The accepted talk lands in the run of show at its slot.
+      const runOfShow = [...t.fields.runOfShow, { time: slot!, title: `${t.title} (${t.name ?? "speaker"})`.slice(0, 120) }].sort((a, b) => a.time.localeCompare(b.time)).slice(0, 30);
+      await tx.execute(sql`UPDATE tasks SET type_fields = jsonb_set(type_fields, '{runOfShow}', ${JSON.stringify(runOfShow)}::jsonb), updated_at = now() WHERE id = ${t.task_id}::uuid`);
+    }
+    return t;
+  });
+  if (!done) return DENIED;
+  await createNotification({ recipientUserId: done.user_id, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "more",
+    title: accept ? `Your talk “${done.title}” is on at ${slot} at ${done.event}` : `Thanks for proposing “${done.title}”. It isn’t in ${done.event} this time — we’d love to hear it at another event.`,
+    href: `/org/${encodeURIComponent(ctx.slug)}?tab=sprints&event=${done.task_id}`, entityRefs: { projectId: orgId, projectSlug: ctx.slug },
+    dedupeKey: `community-talk:${talkId}` }).catch(() => undefined);
+  return { success: true };
+}

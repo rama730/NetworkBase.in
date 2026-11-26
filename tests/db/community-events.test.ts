@@ -202,3 +202,35 @@ test("B5.3c: My events lists what you're going to or waiting for in the next 14 
   assert.ok(mine.success);
   assert.deepEqual(mine.events.map((e) => e.title), ["Near"]);
 });
+
+test("B5.3d Call for talks: members propose (3 at most); hosts Accept into the run of show or say Not this time; the speaker is told", async () => {
+  const [owner, host, m1, m2] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public" }));
+  created.push(org);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, view_prefs) VALUES (${org}, ${owner!}, 'owner', '{}'), (${org}, ${host!}, 'member', ${sql.json({ community: { labels: ["host"] } })}), (${org}, ${m1!}, 'member', '{}'), (${org}, ${m2!}, 'member', '{}')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'community', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  viewerId = host!;
+  const made = await ev.saveCommunityEventAction(org, null, { title: "Talks night", description: null, fields: fields({ who: "members" }), link: null, placeLimit: null });
+  assert.ok(made.success);
+  viewerId = m1!;
+  assert.ok((await ev.proposeTalkAction(org, made.id, { title: "Async in 5 min", line: "A quick tour", minutes: 5 })).success);
+  for (let i = 0; i < 2; i++) await ev.proposeTalkAction(org, made.id, { title: `Extra ${i}`, line: null, minutes: 5 });
+  assert.equal((await ev.proposeTalkAction(org, made.id, { title: "Fourth", line: null, minutes: 5 })).success, false, "3 at most");
+  viewerId = m2!;
+  let view = await ev.readEventTalksAction(org, made.id);
+  assert.ok(view.success && view.talks.length === 0, "members don't see others' proposals");
+  const talks = await sql`SELECT id, title FROM community_talks WHERE task_id = ${made.id} ORDER BY created_at`;
+  assert.equal((await ev.decideTalkAction(org, talks[0]!.id, { accept: true, slot: "19:15" })).success, false, "members don't decide");
+  viewerId = host!;
+  view = await ev.readEventTalksAction(org, made.id);
+  assert.ok(view.success && view.host && view.talks.length === 3);
+  assert.ok((await ev.decideTalkAction(org, talks[0]!.id, { accept: true, slot: "19:15" })).success);
+  assert.ok((await ev.decideTalkAction(org, talks[1]!.id, { accept: false, slot: null })).success);
+  const [t] = await sql`SELECT type_fields->'runOfShow' AS ros FROM tasks WHERE id = ${made.id}`;
+  assert.ok((t!.ros as Array<{ time: string; title: string }>).some((s) => s.time === "19:15" && s.title.startsWith("Async in 5 min")), "lands in a run-of-show slot");
+  const told = await sql`SELECT title FROM user_notifications WHERE user_id = ${m1!} AND (title LIKE 'Your talk%' OR title LIKE 'Thanks for proposing%') ORDER BY title`;
+  assert.equal(told.length, 2);
+  viewerId = m2!;
+  view = await ev.readEventTalksAction(org, made.id);
+  assert.ok(view.success && view.talks.length === 1 && view.talks[0]!.state === "accepted", "everyone sees accepted talks");
+});
