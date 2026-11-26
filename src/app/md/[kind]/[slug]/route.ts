@@ -7,7 +7,8 @@ const notAvailable = () => new Response("# Not available\n\nThis page is private
   { status: 404, headers: { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'private, max-age=0' } });
 
 function markdown(path: string, preview: SharePreview, body: string) {
-  if (new URL(preview.url).pathname !== path) return new Response(null, { status: 301, headers: { Location: `${preview.url}.md` } });
+  // Not cached as permanent: a rename changes the slug, and an old id link must follow it.
+  if (new URL(preview.url).pathname !== path) return new Response(null, { status: 301, headers: { Location: `${preview.url}.md`, 'Cache-Control': 'private, max-age=0' } });
   return new Response(body, {
     headers: {
       'Content-Type': 'text/markdown; charset=utf-8',
@@ -15,6 +16,8 @@ function markdown(path: string, preview: SharePreview, body: string) {
       'X-Robots-Tag': 'noindex',
       Link: `<${preview.url}>; rel="canonical"`,
       'Cache-Control': 'private, max-age=0',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'",
     },
   });
 }

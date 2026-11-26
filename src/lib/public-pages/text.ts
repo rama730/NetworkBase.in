@@ -29,6 +29,8 @@ export function readmeToPublicMarkdown(content: string): string {
   // Function replacements: a label like "$&" must stay literal, never expand.
   for (const block of parseWorkspaceDocSmartBlocks(out)) out = out.replace(block.raw, () => '');
   for (const ref of parseWorkspaceDocInlineReferences(out)) out = out.replace(ref.raw, () => ref.label);
+  // Images become their alt text: no hotlinked pictures in the copy (same as the reader article).
+  out = out.replace(/!\[([^\]]*)\]\([^)]*\)/g, (_m, alt: string) => alt);
   return cap(out.replace(/\n{3,}/g, '\n\n').trim());
 }
 

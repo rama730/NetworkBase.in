@@ -116,3 +116,8 @@ test('a reference label with $ patterns stays literal (no replace-pattern expans
   const out = readmeToPublicMarkdown('A {% ref.contributors id="u1" label="$`$&$\'" %} B');
   assert.equal(out, "A $`$&$' B");
 });
+
+test('readme images become their alt text in the markdown copy', () => {
+  const out = readmeToPublicMarkdown('Look ![Architecture diagram](https://evil.example/x.png "t") here and ![](https://x.example/y.png).');
+  assert.equal(out, 'Look Architecture diagram here and .');
+});

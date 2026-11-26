@@ -45,7 +45,7 @@ export function isShareCrawler(userAgent: string | null): boolean {
   const ua = userAgent ?? '';
   // Anything that isn't a browser (no Mozilla/, curl, AI link fetchers) or names itself a bot reads the plain page.
   return !ua.includes('Mozilla/')
-    || /facebookexternalhit|facebot|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|pinterestbot|googlebot|bingbot|linkpreviewbot|bot[/;)]|\bbot\b|crawl|spider|slurp|-user\/|searchbot|google-extended|meta-externalagent/i.test(ua);
+    || /facebookexternalhit|facebot|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|pinterestbot|googlebot|bingbot|linkpreviewbot|bot[/;)]|\bbot\b|crawl|spider|slurp|-user\/|searchbot|google-extended|google-inspectiontool|googleother|meta-externalagent/i.test(ua);
 }
 
 export function profileSharePath(username: unknown): string | null {

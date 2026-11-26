@@ -16,6 +16,8 @@ const readers = [
   'Google-Extended',
   'Applebot/0.1',
   'meta-externalagent/1.1',
+  'Mozilla/5.0 (compatible; Google-InspectionTool/1.0;)',
+  'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GoogleOther) Chrome/131.0.0.0 Safari/537.36',
   'DuckDuckBot/1.1',
   'YandexBot/3.0',
   'curl/8.7.1',
