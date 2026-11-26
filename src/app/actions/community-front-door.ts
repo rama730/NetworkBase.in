@@ -63,7 +63,8 @@ export async function readMyCommunityAction(orgId: string) {
   const [m, coc] = await Promise.all([mine(orgId, ctx.userId), codeOfConduct(orgId)]);
   if (!m) return { success: true as const, agree: null, gettingStarted: null };
   const agreedVersion = m.prefs.agreed?.version ?? null;
-  const must = coc ? needsAgreement(ctx.settings.agreeRequired, coc.version, agreedVersion) : false;
+  // Organisers (owner, admins) set the rules, so they aren't asked to agree to them (B5.1 live check).
+  const must = coc && !ctx.organiser ? needsAgreement(ctx.settings.agreeRequired, coc.version, agreedVersion) : false;
   const items = ctx.settings.gettingStarted;
   const done = (m.prefs.started ?? []).filter((id) => items.some((i) => i.id === id));
   return { success: true as const,

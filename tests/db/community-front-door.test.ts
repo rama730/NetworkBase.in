@@ -123,6 +123,13 @@ test("34.2 call 4 (B5.1c): a member behind the current Code of conduct reads on 
   assert.equal(await communityPostBlock(id, m!), null);
   await sql`UPDATE workspace_documents SET settings = jsonb_set(settings, '{org,readVersion}', '1') WHERE id = ${d!.id}`;
   assert.match(String(await communityPostBlock(id, m!)), /Agree to the Code of conduct/);
+  // Organisers set the rules: the owner (never agreed) and an admin post without agreeing and aren't asked to.
+  assert.equal(await communityPostBlock(id, owner!), null);
+  await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${id} AND user_id = ${m!}`;
+  assert.equal(await communityPostBlock(id, m!), null);
+  viewerId = m!;
+  const me = await fd.readMyCommunityAction(id);
+  assert.ok(me.success && me.agree === null, "an admin isn't asked to agree");
 });
 
 test("34.5 + B5.1 live check: the wizard's starter doc in a community is the Code of conduct the front door reads", async () => {
