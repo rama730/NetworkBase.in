@@ -275,7 +275,8 @@ export async function readLabAboutAction(orgId: string) {
       AND (${userId ?? null}::uuid IS NULL OR NOT app_private.blocked_between(${userId ?? null}::uuid, a.user_id))
     ORDER BY a.end_year DESC LIMIT 200`)) : [];
   const positions = s.positions;
-  return { success: true as const, signedIn: Boolean(userId), contactId: (await stillLead(orgId, s.contactId)) ? s.contactId! : w.owner,
+  const contactId = (await stillLead(orgId, s.contactId)) ? s.contactId! : w.owner;
+  return { success: true as const, signedIn: Boolean(userId), contactId, isContact: userId === contactId,
     areas: s.about.areas ? s.researchAreas : [], joinUs: s.about.joinUs ? s.joinUs || null : null,
     people: people.map((p) => { const pos = readPosition(p.prefs); return { id: p.id, name: p.name ?? p.username ?? "Someone", position: pos.position, startYear: pos.startYear }; }),
     positions, showPeople: s.about.people, showAlumni: s.about.alumni,

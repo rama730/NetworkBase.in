@@ -87,12 +87,12 @@ function PersonRow({ orgId, p, me, admin, pi, positions, leads }: { orgId: strin
       {p.avatarUrl ? <img src={p.avatarUrl} alt="" className="size-8 rounded-sm object-cover" /> : <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-sm bg-muted font-mono">{p.name.slice(0, 1)}</span>}
       <span className="min-w-[180px] flex-1">
         <span className="font-medium">{p.name}{me ? " (you)" : ""}</span>
-        <span className="block text-muted-foreground">{[label, p.startYear ? `since ${p.startYear}` : null, ROLE_WORDS[p.role]].filter(Boolean).join(" · ") || "No position yet"}</span>
+        <span className="block text-muted-foreground">{[label, p.startYear ? `since ${p.startYear}` : null, ROLE_WORDS[p.role] !== label ? ROLE_WORDS[p.role] : null].filter(Boolean).join(" · ") || "No position yet"}</span>
         {p.supervisor ? <span className="block text-muted-foreground">Supervisor: {leads.find((l) => l.id === p.supervisor)?.name ?? "someone who left"}</span> : null}
         {p.interests.length ? <span className="block text-muted-foreground">Interests: {p.interests.join(", ")}</span> : null}
       </span>
       {p.workspaces.length ? <span className="flex flex-wrap gap-1">{p.workspaces.map((w) => <Link key={w.id} href={`/workspaces/${encodeURIComponent(w.slug ?? w.id)}`} className="nb-tag">{w.title}</Link>)}</span> : null}
-      {!me ? <Link href={`/messages?userId=${encodeURIComponent(p.id)}`} className={FORM_SECONDARY_CLASS}>Message<span className="sr-only"> {p.name}</span></Link> : null}
+      {!me ? <Link href={`/messages?userId=${encodeURIComponent(p.id)}`} className={`${FORM_SECONDARY_CLASS} inline-flex items-center`}>Message<span className="sr-only"> {p.name}</span></Link> : null}
       {admin && !editing ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setEditing(true)}>Set position<span className="sr-only"> for {p.name}</span></button> : null}
       {p.leavingOn ? <span className="flex items-center gap-2"><StatusBadge state="at_risk">Leaving {fullDay(p.leavingOn)}</StatusBadge>
         <button type="button" className="nb-link" onClick={() => void cancel()}>Cancel Leaving plan<span className="sr-only"> for {p.name}</span></button></span>
@@ -127,7 +127,7 @@ export function LabHomeCard({ orgId, slug }: { orgId: string; slug: string }) {
         {d.contact ? (
           <p className="flex flex-wrap items-center gap-2" data-testid="reach-the-pi">
             <span className="font-medium">Reach the PI:</span>
-            <Link href={`/messages?userId=${encodeURIComponent(d.contact.id)}`} className={FORM_SECONDARY_CLASS}><MessageSquare className="size-3.5" aria-hidden="true" />Message {d.contact.name}</Link>
+            <Link href={`/messages?userId=${encodeURIComponent(d.contact.id)}`} className={`${FORM_SECONDARY_CLASS} inline-flex items-center gap-1.5`}><MessageSquare className="size-3.5" aria-hidden="true" />Message {d.contact.name}</Link>
             {d.officeHours ? <span className="text-muted-foreground">Office hours: {d.officeHours}</span> : null}
           </p>
         ) : null}
@@ -282,7 +282,7 @@ export function LabAboutSections({ orgId }: { orgId: string }) {
       {d.showAlumni && d.alumni.length ? <section aria-labelledby="lab-alumni-public" className="space-y-2"><h2 id="lab-alumni-public" className="nb-card-title">Alumni</h2><AlumniList alumni={d.alumni} /></section> : null}
       {d.joinUs ? (
         <section aria-labelledby="lab-join" className="space-y-2"><h2 id="lab-join" className="nb-card-title">Join us</h2><p className="whitespace-pre-wrap text-[13px]">{d.joinUs}</p>
-          {d.signedIn ? <Link href={`/messages?userId=${encodeURIComponent(d.contactId)}`} className={FORM_SECONDARY_CLASS}><MessageSquare className="size-3.5" aria-hidden="true" />Message the PI</Link> : null}</section>
+          {d.signedIn && !d.isContact ? <Link href={`/messages?userId=${encodeURIComponent(d.contactId)}`} className={`${FORM_SECONDARY_CLASS} inline-flex items-center gap-1.5`}><MessageSquare className="size-3.5" aria-hidden="true" />Message the PI</Link> : null}</section>
       ) : null}
       <MyAlumniCard orgId={orgId} />
     </div>

@@ -24,7 +24,7 @@ async function open(page: Page, admin: boolean, view = 'people') {
       readLabAlumniAction: async () => ({ success: true, alumni: [{ id: 'a1', name: 'Arjun', position: 'PhD student', startYear: 2019, endYear: 2025, nowAt: 'a robotics startup' }] }),
       readMyAlumniAction: async () => ({ success: true, entry: { listed: false, nowAt: '', position: 'PhD student', startYear: 2021, endYear: 2026 } }),
       saveMyAlumniAction: async (_o: string, v: unknown) => { calls.push(['alumni', v]); return { success: true }; },
-      readLabAboutAction: async () => ({ success: true, signedIn: true, contactId: 'u1', areas: ['3D scenes', 'Video understanding'], joinUs: 'We take 1 to 2 PhD students a year.',
+      readLabAboutAction: async () => ({ success: true, signedIn: true, contactId: 'u1', isContact: false, areas: ['3D scenes', 'Video understanding'], joinUs: 'We take 1 to 2 PhD students a year.',
         people: [{ id: 'u1', name: 'Dr. Rao', position: 'pi', startYear: 2015 }, { id: 'u2', name: 'Mei', position: 'phd', startYear: 2023 }], positions: POSITIONS, showPeople: true, showAlumni: true,
         alumni: [{ id: 'a1', name: 'Arjun', position: 'PhD student', startYear: 2019, endYear: 2025, nowAt: 'a robotics startup' }] }),
     };
