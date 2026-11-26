@@ -144,7 +144,7 @@ export async function cancelBookingAction(orgId: string, bookingId: string): Pro
 const reportSchema = z.string().trim().min(1).max(1000);
 
 /** Report a problem (any member, call 8): Out of order, booking pauses, the caretaker (else the PI) gets a task, bookers are told. */
-export async function reportEquipmentProblemAction(orgId: string, equipmentId: string, body: unknown): Promise<{ success: true } | Failure> {
+export async function reportEquipmentProblemAction(orgId: string, equipmentId: string, body: unknown): Promise<{ success: true; to?: "caretaker" | "pi" } | Failure> {
   const ctx = await lab(orgId);
   const parsed = reportSchema.safeParse(body);
   if (!ctx || ctx.blocked || !isLooseUuid(equipmentId)) return DENIED;
@@ -174,6 +174,7 @@ export async function reportEquipmentProblemAction(orgId: string, equipmentId: s
   });
   if (!out) return DENIED;
   if (out.again) return { success: true };
+  const to = out.assignee === ctx.owner && !(await db.execute(sql`SELECT 1 FROM lab_equipment WHERE id = ${equipmentId}::uuid AND caretaker_id = ${ctx.owner}::uuid`)).length ? "pi" as const : "caretaker" as const;
   const href = `/org/${encodeURIComponent(ctx.slug)}`;
   if (out.assignee !== ctx.userId) {
     await createNotification({ recipientUserId: out.assignee, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "more",
@@ -184,7 +185,7 @@ export async function reportEquipmentProblemAction(orgId: string, equipmentId: s
     await createNotification({ recipientUserId: u, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "important",
       title: `${out.name}, which you booked, is Out of order`, href, entityRefs: { projectId: orgId, projectSlug: ctx.slug }, dedupeKey: `lab-report-booked:${equipmentId}:${u}:${out.reportId}` }).catch(() => undefined);
   }
-  return { success: true };
+  return { success: true, to };
 }
 
 /** Set the status (the caretaker, the PI and Researchers): Fixed → Available reopens booking and closes open reports. */

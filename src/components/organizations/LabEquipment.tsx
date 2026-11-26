@@ -48,7 +48,7 @@ function EquipmentRow({ orgId, e, d }: { orgId: string; e: Item; d: Data }) {
   const report = async () => {
     const r = await safe(reportEquipmentProblemAction(orgId, e.id, problem));
     if (!r.success) return void toast.error(r.error);
-    toast.success(`${e.name} is Out of order. Its caretaker has a task.`);
+    toast.success(`${e.name} is Out of order. ${"to" in r && r.to === "pi" ? "The PI has" : "Its caretaker has"} a task.`);
     setReporting(false); setProblem(""); refresh();
   };
   const status = async (s: EquipmentStatus) => {
