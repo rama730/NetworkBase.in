@@ -27,3 +27,9 @@ test("34.5 call 8: Ask me anything posts lead days early; monthly means the firs
   assert.equal(nextAt(ama, new Date("2026-12-04T00:00:00Z"), "UTC"), "2027-01-07T19:00:00.000Z");
   assert.equal(repeatWords(ama), "First Thursday of the month at 19:00");
 });
+
+test("review: resuming a paused ritual never posts what was missed while paused", () => {
+  const after = new Date("2026-11-27T11:45:00Z");
+  assert.equal(dueRitual({ ...base, lastPostedFor: "2026-11-13T11:30:00.000Z", resumedAt: "2026-11-27T11:40:00Z" }, after, "Asia/Kolkata"), null);
+  assert.ok(dueRitual({ ...base, lastPostedFor: "2026-11-13T11:30:00.000Z", resumedAt: "2026-11-26T00:00:00Z" }, after, "Asia/Kolkata"));
+});

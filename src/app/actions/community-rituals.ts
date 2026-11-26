@@ -53,7 +53,8 @@ export async function saveRitualAction(orgId: string, input: unknown): Promise<{
     const old = list.find((x) => x.id === r.id);
     if (!old && list.length >= 20) return { success: false as const, error: "A community can have up to 20 rituals." };
     // Security review: posts go out as this organiser, naming the host in the text; never as the host themselves.
-    const next: Ritual = { ...r, lastPostedFor: old?.lastPostedFor ?? null, createdAt: old?.createdAt ?? new Date().toISOString(), savedBy: ctx.userId };
+    const next: Ritual = { ...r, lastPostedFor: old?.lastPostedFor ?? null, createdAt: old?.createdAt ?? new Date().toISOString(), savedBy: ctx.userId,
+      resumedAt: old?.paused && !r.paused ? new Date().toISOString() : old?.resumedAt ?? null };
     const rituals = old ? list.map((x) => (x.id === r.id ? next : x)) : [...list, next];
     await tx.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('community', coalesce(org_settings->'community', '{}'::jsonb)
       || jsonb_build_object('rituals', ${JSON.stringify(rituals)}::jsonb)), updated_at = now() WHERE id = ${orgId}::uuid`);

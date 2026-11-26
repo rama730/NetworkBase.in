@@ -85,6 +85,12 @@ test("34.5 call 1: nobody gets a copy until they Join; a joined copy has no due 
   await sql`UPDATE tasks SET due_date = now() - interval '1 hour' WHERE id = ${masterId}`;
   viewerId = o.a;
   assert.equal((await ch.joinChallengeAction(o.id, masterId)).success, false, "closed");
+  // Review: after the closing date nobody hands in, even with a copy and no Close pressed.
+  await sql`UPDATE tasks SET due_date = now() + interval '1 hour' WHERE id = ${masterId}`;
+  const late = await ch.joinChallengeAction(o.id, masterId);
+  assert.ok(late.success);
+  await sql`UPDATE tasks SET due_date = now() - interval '1 minute' WHERE id = ${masterId}`;
+  assert.equal((await assignments.submitAssignmentAction(late.success ? late.copyId : "", { link: "https://example.com/late" })).success, false);
 });
 
 test("34.5: optional challenges are for communities only; a handed-in entry stays when you Leave", async () => {
@@ -132,6 +138,16 @@ test("34.5 calls 4–6: the maker's card and public yes; organisers Feature with
   viewerId = o.owner;
   assert.ok((await ch.featureEntryAction(o.id, copies[o.b]!, "tiny and useful")).success);
 
+  viewerId = o.a;
+  // Review: a featured entry that changes loses Featured; give-a-copy never works on a challenge.
+  viewerId = o.b;
+  await assignments.unsubmitAssignmentAction(copies[o.b]!);
+  assert.ok((await assignments.submitAssignmentAction(copies[o.b]!, { link: "https://example.com/swapped" })).success);
+  const [f] = await sql`SELECT featured_at FROM community_showcase WHERE copy_id = ${copies[o.b]!}`;
+  assert.equal(f!.featured_at, null, "changed entry: no longer featured");
+  viewerId = o.owner;
+  assert.equal((await assignments.giveCopyAction(masterId, o.viewer, new Date(Date.now() + 864e5).toISOString())).success, false);
+  assert.ok((await ch.featureEntryAction(o.id, copies[o.b]!, "tiny and useful")).success);
   viewerId = o.a;
   const inside = await ch.readShowcaseAction(o.id);
   assert.ok(inside.success);

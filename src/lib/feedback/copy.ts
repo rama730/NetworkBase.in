@@ -926,6 +926,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "A community can have up to 20 rituals.": {"title": "A community can have up to 20 rituals.", "type": "warning"},
   "A ritual needs a name, a repeat, a time and a host.": {"title": "A ritual needs a name, a repeat, a time and a host.", "type": "warning"},
   "The host has to be a member of the community.": {"title": "The host has to be a member of the community.", "type": "warning"},
+  "Challenges are joined, never given.": {"title": "Challenges are joined, never given.", "type": "warning"},
   "Your posting here is paused until {when}.": {"title": "Your posting here is paused until {when}.", "type": "warning"},
   "{name} can’t report to someone who reports to {who}.": {"title": "{name} can’t report to someone who reports to {who}.", "type": "warning"},
   "Name each value.": {"title": "Name each value.", "type": "warning"},

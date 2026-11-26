@@ -79,7 +79,7 @@ export async function notifyChallengePrompts() {
     WHERE p.opens_at > now() - interval '75 minutes' AND p.opens_at <= now() AND m.deleted_at IS NULL AND w.deleted_at IS NULL
       AND w.kind = 'organization' AND w.org_type = 'community' AND m.kind = 'assignment' AND m.assignment_id IS NULL
       AND m.assignment_settings->'target'->>'mode' = 'optional' AND m.assignment_settings->>'publishedAt' IS NOT NULL
-      AND m.assignment_settings->>'closedAt' IS NULL
+      AND m.assignment_settings->>'closedAt' IS NULL AND (m.due_date IS NULL OR m.due_date > now())
     ORDER BY m.id, c.assignee_id, p.opens_at DESC LIMIT 5000`));
   const day = new Date().toISOString().slice(0, 10);
   for (const r of rows) {

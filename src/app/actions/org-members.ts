@@ -681,7 +681,9 @@ export async function readProgressExportAction(orgId: string): Promise<{ success
     const viewer = await orgManager(orgId, 'export_progress', 'read');
     if (!viewer) return DENIED;
     const read = await db.execute<{ name: string | null; assignment: string; due: Date | string | null; status: string | null; review_status: string | null; submitted_at: Date | string | null; completed_at: Date | string | null; excused_at: Date | string | null; late_after: number | null }>(sql`
-        SELECT coalesce(p.full_name, p.username) AS name, m.title AS assignment, coalesce(c.due_date, m.due_date) AS due, c.status, c.review_status,
+        SELECT coalesce(p.full_name, p.username) AS name, m.title AS assignment,
+               -- B5.4 review: a joined challenge copy has no due date and is never Missing.
+               CASE WHEN m.assignment_settings->'target'->>'mode' = 'optional' THEN c.due_date ELSE coalesce(c.due_date, m.due_date) END AS due, c.status, c.review_status,
                c.review_submitted_at AS submitted_at, c.completed_at, c.excused_at, (m.assignment_settings->>'lateAfterMinutes')::int AS late_after
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${orgId} AND m.deleted_at IS NULL
         JOIN LATERAL (SELECT c.assignee_id AS user_id WHERE c.assignee_id IS NOT NULL UNION SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id) who ON true

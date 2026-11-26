@@ -20,7 +20,7 @@ export const ritualSchema = z.object({
   paused: z.boolean(),
 }).strict();
 /** savedBy: the organiser who last saved it — posts go out as them (the community's voice), naming the host. */
-export type Ritual = z.infer<typeof ritualSchema> & { lastPostedFor?: string | null; createdAt?: string; savedBy?: string };
+export type Ritual = z.infer<typeof ritualSchema> & { lastPostedFor?: string | null; createdAt?: string; savedBy?: string; resumedAt?: string | null };
 
 const matches = (r: Pick<Ritual, "freq" | "weekday">, day: string) =>
   new Date(`${day}T00:00:00Z`).getUTCDay() === r.weekday && (r.freq === "weekly" || Number(day.slice(8, 10)) <= 7);
@@ -58,6 +58,8 @@ export function dueRitual(r: Ritual, now: Date, tz: string | null) {
   if (!due) return null;
   if (r.lastPostedFor && Date.parse(r.lastPostedFor) >= Date.parse(due.at)) return null;
   if (r.createdAt && Date.parse(due.post) < Date.parse(r.createdAt)) return null;
+  // Resuming never posts what was missed while paused (review).
+  if (r.resumedAt && Date.parse(due.post) < Date.parse(r.resumedAt)) return null;
   return due;
 }
 

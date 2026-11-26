@@ -697,6 +697,7 @@ export async function giveCopyAction(masterId: string, userId: string, dueDate: 
     const ctx = await adminOfMaster(masterId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     if (!ctx.master.settings.publishedAt) return { success: false, error: 'Publish it first.' };
+    if (ctx.master.settings.target?.mode === 'optional') return { success: false, error: 'Challenges are joined, never given.' };
     const [member] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, ctx.master.projectId), eq(workspaceMembers.userId, userId))).limit(1);
     if (member?.role !== 'member') return { success: false, error: 'Only members get assignments.' };
     const [existing] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt),
@@ -722,6 +723,12 @@ export async function closeAssignmentAction(masterId: string): Promise<{ success
     touch(ctx.viewer.slug, ctx.master.projectId);
     return { success: true };
 }
+
+/** B5.4 review: an optional challenge closes at its master's due date (its copies carry none), whether or not anyone pressed Close. */
+const challengeClosed = (master: { settings: AssignmentSettings; dueDate: Date | null }) =>
+    master.settings.target?.mode === 'optional' && Boolean(master.dueDate && Date.now() > master.dueDate.getTime());
+/** B5.4 review: a featured challenge entry that changes loses Featured (the organiser picked what was there). */
+const clearFeatured = (copyId: string) => db.execute(sql`UPDATE community_showcase SET featured_at = NULL, featured_by = NULL, why = NULL, updated_at = now() WHERE copy_id = ${copyId}::uuid AND featured_at IS NOT NULL`);
 
 async function loadCopy(copyId: string) {
     const [copy] = await db.select().from(tasks).where(and(eq(tasks.id, copyId), isNull(tasks.deletedAt))).limit(1);
@@ -758,6 +765,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     // only a copy given to them by name or by the admin role, which the holder check above already proves.
     const submitter = await orgRole(master.projectId, 'read');
     if (copy.projectId === master.projectId && (!submitter || ['guest', 'visitor'].includes(orgRoleOf(submitter.role)))) return DENIED;
+    if (challengeClosed(master)) return { success: false, error: 'This challenge is closed.' };
     if (copy.excusedAt) return { success: false, error: "You’re excused from this one." };
     const submitExam = readExam(master.settings);
     if (submitExam?.format === 'timed' && examPhase(submitExam) === 'before') return { success: false, error: 'The paper isn’t open yet.' };
@@ -821,6 +829,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     if (locked) return { success: false, error: 'Approved work is locked.' };
     revalidatePath(`/workspaces/${copy.projectId}`);
     await notifyAssignmentSubmitted(copyId, userId);
+    await clearFeatured(copyId);
     return { success: true };
 }
 
@@ -841,6 +850,7 @@ export async function unsubmitAssignmentAction(copyId: string): Promise<{ succes
     if (copy.assigneeId !== userId && !teammate) return DENIED;
     const copyAccess = await getWorkspaceAccessById(copy.projectId, userId);
     if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
+    if (challengeClosed(master)) return { success: false, error: 'This challenge is closed.' };
     if (copy.status !== 'done' || !copy.submission) return { success: false, error: 'There’s no hand-in to take back.' };
     if (copy.reviewStatus === 'none' && copy.completionSource === 'review') return { success: false, error: 'Approved work is locked.' };
     const now = new Date();
@@ -867,6 +877,7 @@ export async function unsubmitAssignmentAction(copyId: string): Promise<{ succes
     });
     if (!taken) return { success: false, error: 'This was approved or changed just now. Reload to see it.' };
     revalidatePath(`/workspaces/${copy.projectId}`);
+    await clearFeatured(copyId);
     return { success: true };
 }
 
@@ -1355,7 +1366,7 @@ export async function remindCopiesAction(masterId: string, copyIds?: string[]): 
     const ctx = await adminOfMaster(masterId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     // B5.4a (report 34.5, M1): an optional challenge sends no reminders to take part.
-    if ((ctx.master.assignmentSettings as AssignmentSettings | null)?.target?.mode === 'optional') return { success: false, error: 'Challenges send no reminders: taking part is a choice.' };
+    if (ctx.master.settings.target?.mode === 'optional') return { success: false, error: 'Challenges send no reminders: taking part is a choice.' };
     const open = await db.select({ id: tasks.id }).from(tasks).where(and(
         eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`NOT ${handedInSql}`,
         ...(copyIds?.length ? [inArray(tasks.id, copyIds.slice(0, 2000))] : []),
