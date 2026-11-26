@@ -41,7 +41,7 @@ export function OrgReportsSection({ orgId, showEmpty = false }: { orgId: string;
                 <div key={c.id} className="space-y-2 rounded-md bg-muted p-3 text-[13px]">
                     <p><span className="font-medium">{REPORT_REASON_LABEL[c.reason]}</span> <span className="text-muted-foreground">· {KIND_NOUN[c.target_kind]} · {c.reports} {c.reports === 1 ? 'report' : 'reports'} · {dueText(c.org_deadline_at)}</span></p>
                     <p className="line-clamp-2 text-muted-foreground">{c.href ? <Link href={c.href} className="nb-link">{c.label}</Link> : c.label}</p>
-                    {c.content ? <blockquote className="line-clamp-3 rounded-[3px] bg-muted px-2 py-1.5">{c.content}</blockquote> : null}
+                    {c.content ? <blockquote className="line-clamp-3 rounded-sm bg-background px-2 py-1.5">{c.content}</blockquote> : null}
                     {c.details ? <p className="line-clamp-2 text-muted-foreground">“{c.details}”</p> : null}
                     <div className="flex flex-wrap gap-1.5">
                         <Button size="sm" variant="outline" disabled={pending} onClick={() => decide(c.id, 'dismiss', 'Report dismissed')}>Dismiss</Button>
