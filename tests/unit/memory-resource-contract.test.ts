@@ -31,7 +31,8 @@ describe("Ponytail memory (RAM) resource contracts", () => {
     );
     const runnerStage = dockerfile.slice(dockerfile.indexOf("FROM base AS runner"));
 
-    assert.match(builderStage, /NODE_OPTIONS=--max-old-space-size=4096\b/);
+    // The build needs just over 4 GB (ef7af5d04: deploys died with a heap OOM at 4096).
+    assert.match(builderStage, /NODE_OPTIONS=--max-old-space-size=6144\b/);
     assert.match(runnerStage, /MALLOC_ARENA_MAX=2\b/);
     assert.match(runnerStage, /NODE_OPTIONS="--max-old-space-size=384"/);
     assert.doesNotMatch(runnerStage, /\bgit\b/, "runner image must not install unused git CLI binary");
