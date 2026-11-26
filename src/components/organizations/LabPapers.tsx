@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
 
-import { confirmAuthorsAction, movePaperAction, readFrozenDraftAction, readLabPapersAction, readPapersAction, reviewPaperAction, savePaperAction } from "@/app/actions/lab-papers";
+import { addPaperToProfileAction, confirmAuthorsAction, importPastPapersAction, movePaperAction, readFrozenDraftAction, readLabPapersAction, readPapersAction, reviewPaperAction, savePaperAction } from "@/app/actions/lab-papers";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { NEXT, PAPER_KINDS, PAPER_STAGE_WORDS, type PaperKind, type PaperStage } from "@/lib/organizations/lab-papers";
+import { matchAuthors, NEXT, PAPER_KINDS, PAPER_STAGE_WORDS, type PaperAuthor, type PaperKind, type PaperStage } from "@/lib/organizations/lab-papers";
+import { parseBibtex } from "@/lib/workflows/literature";
 
 // Report 35.3 (plan B6.3a, R2): Papers on a lab workspace's Overview (add, authors and confirmations, stage moves,
 // internal review) and the lab's Papers on its Overview. Deadlines and venues are typed; nothing is submitted anywhere.
@@ -25,11 +26,15 @@ const MOVE_WORDS: Record<string, string> = { drafting: "Start drafting", interna
 export function WorkspacePapers({ workspaceId }: { workspaceId: string }) {
   const q = useQuery({ queryKey: wsKey(workspaceId), queryFn: () => readPapersAction(workspaceId), staleTime: 30_000 });
   const [adding, setAdding] = useState(false);
+  const [past, setPast] = useState(false);
   const d = q.data?.success ? q.data : null;
   if (!d) return null;
   return (
-    <OrgCard title="Papers" testId="lab-papers" action={d.writer && !adding ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setAdding(true)}>+ Paper</button> : null}>
+    <OrgCard title="Papers" testId="lab-papers" action={d.writer && !adding && !past ? <span className="flex gap-2">
+      <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setPast(true)}>Add past papers</button>
+      <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setAdding(true)}>+ Paper</button></span> : null}>
       <div className="space-y-3 text-[13px]">
+        {past ? <PastPapers workspaceId={workspaceId} people={d.people} onDone={() => setPast(false)} /> : null}
         {adding ? <PaperForm workspaceId={workspaceId} people={d.people} docs={d.docs} me={d.me} onDone={() => setAdding(false)} /> : null}
         {d.papers.length ? <ul className="divide-y divide-border">{d.papers.map((p) => <PaperRow key={p.id} workspaceId={workspaceId} p={p} people={d.people} docs={d.docs} me={d.me} />)}</ul>
           : <p className="text-muted-foreground">No papers yet. A paper (or preprint, talk, poster, dataset, software) goes Idea to Published here, with its authors.</p>}
@@ -69,6 +74,8 @@ function PaperRow({ workspaceId, p, people, docs, me }: { workspaceId: string; p
         <li key={i}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(h.at))} · {h.stage === "rejected" ? "Rejected" : PAPER_STAGE_WORDS[h.stage]}{h.venue ? ` · ${h.venue}` : ""}{h.note ? ` · ${h.note}` : ""}</li>))}</ol></details> : null}
       <span className="flex flex-wrap gap-2">
         {p.mine && !p.iConfirmed ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmAuthorsAction(workspaceId, p.id), "You confirmed the author list")}>Confirm the author list</button> : null}
+        {p.canAddToProfile ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(addPaperToProfileAction(workspaceId, p.id), "Added to your profile")}>Add to my profile</button> : null}
+        {p.onProfile ? <span className="self-center text-muted-foreground">On your profile</span> : null}
         {next.map((s) => <button key={s} type="button" className={FORM_SECONDARY_CLASS} onClick={() => (s === "rejected" || s === "submitted" ? (setMoving(s), setNote(s === "submitted" ? p.venue ?? "" : "")) : void run(movePaperAction(workspaceId, p.id, { to: s }), `${PAPER_STAGE_WORDS[s as PaperStage] ?? "Moved"}`))}>{s === "drafting" && p.stage !== "idea" ? "Back to drafting" : MOVE_WORDS[s]}</button>)}
         {p.canReview && !p.reviewed ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(reviewPaperAction(workspaceId, p.id, { approve: true, note: "" }), "Approved for submission")}>Approve for submission</button> : null}
         {p.canReview ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setMoving("return")}>Return with notes</button> : null}
@@ -86,6 +93,47 @@ function PaperRow({ workspaceId, p, people, docs, me }: { workspaceId: string; p
         </span>
       ) : null}
     </li>
+  );
+}
+
+/** B6.3c Add past papers: paste BibTeX (read here, in the browser), tick the rows to add; authors matched to lab people. */
+function PastPapers({ workspaceId, people, onDone }: { workspaceId: string; people: Array<{ id: string; name: string }>; onDone: () => void }) {
+  const client = useQueryClient();
+  const [paste, setPaste] = useState("");
+  const [rows, setRows] = useState<Array<{ title: string; venue: string; year: number | null; link: string; doi: string; authors: PaperAuthor[]; on: boolean }> | null>(null);
+  const nameOf = (a: PaperAuthor) => ("userId" in a ? people.find((p) => p.id === a.userId)?.name ?? "Someone" : a.name);
+  const read = () => {
+    const { sources, errors } = parseBibtex(paste);
+    errors.forEach((e) => toast.warning(e));
+    if (!sources.length) return void toast.error("No entries with a title were found.");
+    setRows(sources.slice(0, 50).map((x) => ({ title: x.title.slice(0, 300), venue: x.venue ?? "", year: x.year && x.year >= 1900 ? x.year : null, link: x.link ?? "", doi: x.doi ?? "",
+      authors: matchAuthors((x.authors ?? "").split(";"), people), on: true })).map((r) => ({ ...r, authors: r.authors.length ? r.authors : [{ name: "Unknown author" }] })));
+  };
+  const chosen = rows?.filter((r) => r.on) ?? [];
+  const add = async () => {
+    const r = await safe(importPastPapersAction(workspaceId, chosen.map(({ on: _on, ...x }) => ({ ...x, kind: "paper" as const }))));
+    if (!r.success) return void toast.error(r.error);
+    toast.success(r.skipped ? `Added ${r.added}; ${r.skipped} already in the lab` : `Added ${r.added}`);
+    void client.invalidateQueries({ queryKey: wsKey(workspaceId) });
+    onDone();
+  };
+  return (
+    <fieldset className="space-y-2 rounded-md border border-border p-3" data-testid="lab-past-papers">
+      <legend className="px-1 font-medium">Add past papers</legend>
+      {!rows ? <>
+        <label className="flex flex-col">BibTeX<textarea className="nb-textarea mt-1 min-h-[120px] font-mono text-[12px]" value={paste} maxLength={200_000} onChange={(e) => setPaste(e.target.value)} placeholder="@article{rao2024, title={…}, author={…}, year={2024}}" /></label>
+        <p className="text-muted-foreground">Read here, in your browser; nothing is looked up. Authors who are people in the lab confirm before a paper shows on About.</p>
+        <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!paste.trim()} onClick={read}>Read</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={onDone}>Cancel</button></span>
+      </> : <>
+        <ul className="divide-y divide-border">{rows.map((r, i) => (
+          <li key={i} className="py-1.5"><label className="flex items-start gap-2"><input type="checkbox" className="nb-check mt-0.5" checked={r.on} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} />
+            <span><span className="font-medium">{r.title}</span>{r.year ? ` · ${r.year}` : ""}{r.venue ? ` · ${r.venue}` : ""}
+              <span className="block text-muted-foreground">{r.authors.map((a) => `${nameOf(a)}${"userId" in a ? " (in the lab)" : ""}`).join(", ")}</span></span></label></li>))}</ul>
+        <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!chosen.length} onClick={() => void add()}>Add {chosen.length} {chosen.length === 1 ? "paper" : "papers"}</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setRows(null)}>Back</button></span>
+      </>}
+    </fieldset>
   );
 }
 
@@ -218,6 +266,8 @@ export function LabPapersCard({ orgId, slug }: { orgId: string; slug: string }) 
             <a href={`/workspaces/${encodeURIComponent(p.workspace.slug ?? p.workspace.id)}`} className="nb-link">{p.workspace.title}</a>
             {p.mine && !p.iConfirmed ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void safe(confirmAuthorsAction(p.workspace.id, p.id)).then((r) => {
               if (!r.success) return void toast.error(r.error); toast.success("You confirmed the author list"); void q.refetch(); })}>Confirm the author list<span className="sr-only"> of {p.title}</span></button> : null}
+            {p.canAddToProfile ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void safe(addPaperToProfileAction(p.workspace.id, p.id)).then((r) => {
+              if (!r.success) return void toast.error(r.error); toast.success("Added to your profile"); void q.refetch(); })}>Add to my profile<span className="sr-only"> {p.title}</span></button> : null}
             {p.deadline ? <span className="font-mono text-muted-foreground">due {p.deadline}</span> : null}</li>))}</ul>
       </div>
     </OrgCard>

@@ -94,6 +94,9 @@ test("35.3: confirm → review → submit; rejected back to Drafting; private; A
   let about = await lab.readLabAboutAction(org);
   assert.ok(about.success && about.publications.length === 0, "unpublished titles never reach About");
   await sql`UPDATE tasks SET stage = 'published' WHERE id = ${id}`;
+  viewerId = student!;
+  await pa.confirmAuthorsAction(ws, id); // B6.3c: About shows it once every member author confirmed the list as it stands.
+  viewerId = "";
   about = await lab.readLabAboutAction(org);
   assert.ok(about.success && about.publications[0]?.title === "Low-light depth from video");
 
@@ -140,4 +143,30 @@ test("35.3: confirm → review → submit; rejected back to Drafting; private; A
   assert.ok(frozen.success && frozen.version === 2 && frozen.content.includes("First words.") && !frozen.content.includes("Later"), "the review reads the draft as it was sent");
   viewerId = other!;
   assert.equal((await pa.readFrozenDraftAction(ws, lid)).success, false, "a private workspace's draft stays with people who can read the workspace");
+
+
+  // B6.3c: Add past papers lands Published, skips what the lab has, and waits on About for member authors.
+  viewerId = student!;
+  const past = (title: string, doi = "") => ({ title, kind: "paper", venue: "CVPR", year: 2021, link: "", doi, authors: [{ userId: researcher! }, { name: "B. Partner" }] });
+  const imp = await pa.importPastPapersAction(ws, [past("Old depth paper", "10.1/old"), past("low-light depth from video"), past("Old depth paper again", "10.1/OLD")]);
+  assert.ok(imp.success && imp.added === 1 && imp.skipped === 2, "same title or DOI is skipped");
+  viewerId = "";
+  about = await lab.readLabAboutAction(org);
+  assert.ok(about.success && !about.publications.some((x) => x.title === "Old depth paper"), "an imported paper waits for its member authors");
+  viewerId = researcher!;
+  const [old] = await sql`SELECT id FROM tasks WHERE title = 'Old depth paper' AND item_type = 'paper'`;
+  assert.match(String((await pa.addPaperToProfileAction(ws, old!.id) as { error?: string }).error), /Confirm the author list first/);
+  assert.ok((await pa.confirmAuthorsAction(ws, old!.id)).success);
+  viewerId = "";
+  about = await lab.readLabAboutAction(org);
+  assert.ok(about.success && about.publications.some((x) => x.title === "Old depth paper" && x.year === "2021"), "after confirming, with its BibTeX year");
+  viewerId = researcher!;
+  assert.ok((await pa.addPaperToProfileAction(ws, old!.id)).success);
+  assert.match(String((await pa.addPaperToProfileAction(ws, old!.id) as { error?: string }).error), /already on your profile/);
+  const [entry] = await sql`SELECT project_title, role_title, summary, visibility FROM profile_contributions WHERE profile_id = ${researcher!} AND external_key = ${`lab-paper:${old!.id}`}`;
+  assert.equal(entry?.project_title, "Old depth paper");
+  assert.match(String(entry?.summary), /Paper · CVPR · 2021/);
+  viewerId = other!;
+  assert.equal((await pa.addPaperToProfileAction(ws, old!.id)).success, false, "only its member authors");
+  assert.equal((await pa.importPastPapersAction(ws, [past("X")])).success, false, "only the workspace's writers import");
 });

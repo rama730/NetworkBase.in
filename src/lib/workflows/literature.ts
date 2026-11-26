@@ -2,7 +2,9 @@
  * Report 30.6 W5 (plan B1.8b): the literature list, pure. BibTeX is read and written here, in the browser; nothing is
  * looked up from a DOI (14.3). Errors are reported per entry (layer 14).
  */
-export type Source = { title: string; authors: string | null; year: number | null; link: string | null; doi: string | null; keyIssues: string[]; summary: string | null };
+export type Source = { title: string; authors: string | null; year: number | null; link: string | null; doi: string | null; keyIssues: string[]; summary: string | null;
+  /** B6.3c: the journal or proceedings, for a lab's past papers (the literature list ignores it). */
+  venue?: string | null };
 
 const clean = (v: string) => v.replace(/[{}]/g, "").replace(/\\&/g, "&").replace(/\s+/g, " ").trim();
 
@@ -24,7 +26,7 @@ export function parseBibtex(text: string): { sources: Source[]; errors: string[]
     sources.push({
       title: fields.title.slice(0, 500), authors: fields.author ? fields.author.split(/\s+and\s+/i).map((a) => a.trim()).join("; ").slice(0, 1000) : null,
       year: year >= 1000 && year <= 3000 ? year : null, link: fields.url && /^https?:\/\//.test(fields.url) ? fields.url.slice(0, 1000) : null,
-      doi: doi ? doi.slice(0, 200) : null, keyIssues: fields.keywords ? fields.keywords.split(/[;,]/).map((k) => k.trim()).filter(Boolean).slice(0, 10) : [], summary: null,
+      doi: doi ? doi.slice(0, 200) : null, venue: (fields.journal || fields.booktitle || fields.publisher || "").slice(0, 200) || null, keyIssues: fields.keywords ? fields.keywords.split(/[;,]/).map((k) => k.trim()).filter(Boolean).slice(0, 10) : [], summary: null,
     });
   });
   return { sources, errors };

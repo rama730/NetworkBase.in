@@ -1,14 +1,16 @@
 "use server";
 
 import { sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { createNotification } from "@/lib/notifications/service";
+import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
 import { readLabSettings } from "@/lib/organizations/lab";
-import { authorListKey, LOCKED_STAGES, memberAuthors, moveProblem, paperSchema, type PaperFields, type PaperHistory, type PaperStage } from "@/lib/organizations/lab-papers";
+import { allConfirmed, authorListKey, LOCKED_STAGES, memberAuthors, moveProblem, PAPER_KINDS, paperSchema, type PaperFields, type PaperHistory, type PaperKind, type PaperStage } from "@/lib/organizations/lab-papers";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { statusForStage } from "@/lib/workflows/rules";
@@ -55,12 +57,13 @@ function docPerm(ctx: Ctx, settings: unknown) {
 const canSee = (me: string) => sql`(coalesce((t.type_fields->>'private')::boolean, false) = false OR t.type_fields->'authors' @> jsonb_build_array(jsonb_build_object('userId', ${me}::text))
   OR ${me}::uuid = (SELECT o.owner_id FROM workspaces o JOIN workspaces w2 ON w2.parent_id = o.id WHERE w2.id = t.workspace_id))`;
 
-type Row = { id: string; title: string; stage: PaperStage; fields: PaperFields; workspace_id: string; workspace: string; slug: string | null; draft_name: string | null; draft_slug: string | null };
+type Row = { id: string; title: string; stage: PaperStage; fields: PaperFields; workspace_id: string; workspace: string; slug: string | null; draft_name: string | null; draft_slug: string | null; on_profile: boolean };
 async function paperRows(where: ReturnType<typeof sql>, me: string) {
   return Array.from(await db.execute<Row>(sql`
     SELECT t.id, t.title, t.stage, t.type_fields AS fields, t.workspace_id, w.title AS workspace, w.slug,
       (SELECT d.filename FROM workspace_documents d WHERE d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id) AS draft_name,
-      (SELECT d.slug FROM workspace_documents d WHERE d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id) AS draft_slug
+      (SELECT d.slug FROM workspace_documents d WHERE d.id::text = t.type_fields->>'draftDocId' AND d.workspace_id = t.workspace_id) AS draft_slug,
+      EXISTS (SELECT 1 FROM profile_contributions pc WHERE pc.profile_id = ${me}::uuid AND pc.external_key = 'lab-paper:' || t.id::text AND pc.deleted_at IS NULL) AS on_profile
     FROM tasks t JOIN workspaces w ON w.id = t.workspace_id
     WHERE t.item_type = 'paper' AND t.deleted_at IS NULL AND ${where} AND ${canSee(me)}
     ORDER BY CASE WHEN t.stage IN ('published', 'withdrawn') THEN 1 ELSE 0 END, (t.type_fields->>'deadline') NULLS LAST, t.updated_at DESC LIMIT 300`));
@@ -82,7 +85,9 @@ const shape = (r: Row, me: string, names: Map<string, string>, isPi: boolean, re
     frozen: f.frozen ? { version: f.frozen.version, at: f.frozen.at } : null,
     authors: (f.authors ?? []).map((a) => ("userId" in a ? { userId: a.userId, name: names.get(a.userId) ?? "Someone", confirmed: f.confirmed?.[a.userId] === key } : { name: a.name })),
     mine: memberAuthors(f.authors ?? []).includes(me), iConfirmed: f.confirmed?.[me] === key, reviewed: Boolean(f.review && f.review.listKey === key && (f.review.kind ?? "paper") === f.kind),
-    history: (f.history ?? []).slice(-20), canReview: isPi && r.stage === "internal_review", reviewOn };
+    history: (f.history ?? []).slice(-20), canReview: isPi && r.stage === "internal_review", reviewOn,
+    // B6.3c (call 9): a Published paper's member author adds it to their profile, once they confirmed the list.
+    canAddToProfile: r.stage === "published" && memberAuthors(f.authors ?? []).includes(me) && f.confirmed?.[me] === key && !r.on_profile, onProfile: r.on_profile };
 };
 
 /** A workspace's Papers (its members and the lab's members; private ones per call 10). */
@@ -273,6 +278,84 @@ export async function reviewPaperAction(workspaceId: string, paperId: string, in
       title: parsed.data.approve ? `${out.title} is approved for submission` : `${out.title} is back in Drafting: ${parsed.data.note.slice(0, 80)}`,
       href: `/workspaces/${encodeURIComponent(ctx.slug)}`, entityRefs: { projectId: workspaceId, projectSlug: ctx.slug }, dedupeKey: `lab-paper-review:${paperId}:${Date.now()}` }).catch(() => undefined);
   }
+  return { success: true };
+}
+
+const pastSchema = z.array(z.object({ title: z.string().trim().min(1).max(300), kind: z.enum(["paper", "preprint", "talk", "poster", "dataset", "software"]),
+  venue: z.string().trim().max(200), year: z.number().int().min(1900).max(3000).nullable(), link: z.string().trim().max(500).refine((u) => !u || /^https?:\/\//i.test(u)),
+  doi: z.string().trim().max(200), authors: paperSchema.shape.authors }).strict()).min(1).max(50);
+const titleKey = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/**
+ * B6.3c (report 35.3 "Add past papers"): BibTeX parsed in the browser, rows ticked one by one, authors matched to lab
+ * people. They land as Published; one the lab already has (same DOI or title) is skipped. Member authors confirm before
+ * the paper reaches About (the importer counts as confirming for themselves).
+ */
+export async function importPastPapersAction(workspaceId: string, input: unknown): Promise<{ success: true; added: number; skipped: number } | Failure> {
+  const ctx = await paperContext(workspaceId);
+  const parsed = pastSchema.safeParse(input);
+  if (!ctx || ctx.blocked || !ctx.writer) return DENIED;
+  if (!parsed.success) return { success: false, error: "Each past paper needs a title and at least one author." };
+  const members = [...new Set(parsed.data.flatMap((r) => memberAuthors(r.authors)))];
+  if (members.length) {
+    const ok = Array.from(await db.execute<{ id: string }>(sql`
+      SELECT DISTINCT user_id AS id FROM workspace_members WHERE workspace_id IN (${workspaceId}::uuid, ${ctx.orgId}::uuid) AND role <> 'viewer' AND completed_at IS NULL
+        AND user_id = ANY(${`{${members.join(",")}}`}::uuid[])`));
+    if (ok.length !== members.length) return { success: false, error: "Member authors are people in the lab; add others as typed names." };
+  }
+  const { insertTask } = await import("@/lib/organizations/assignments");
+  return db.transaction(async (tx) => {
+    // One import at a time per lab, so two pastes of the same file don't both add it.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`lab-papers-import:${ctx.orgId}`}))`);
+    const have = Array.from(await tx.execute<{ title: string; doi: string | null }>(sql`
+      SELECT t.title, nullif(lower(t.type_fields->>'doi'), '') AS doi FROM tasks t JOIN workspaces w ON w.id = t.workspace_id
+      WHERE w.parent_id = ${ctx.orgId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL`));
+    const titles = new Set(have.map((h) => titleKey(h.title)));
+    const dois = new Set(have.flatMap((h) => (h.doi ? [h.doi] : [])));
+    let added = 0;
+    let skipped = 0;
+    for (const r of parsed.data) {
+      if ((r.doi && dois.has(r.doi.toLowerCase())) || titles.has(titleKey(r.title))) { skipped += 1; continue; }
+      titles.add(titleKey(r.title));
+      if (r.doi) dois.add(r.doi.toLowerCase());
+      const at = new Date().toISOString();
+      const mine = memberAuthors(r.authors).includes(ctx.userId);
+      const fields: PaperFields = { kind: r.kind, venue: r.venue, deadline: null, link: r.link, doi: r.doi, authors: r.authors, private: false, preprintPublic: false, year: r.year,
+        confirmed: mine ? { [ctx.userId]: authorListKey(r.authors) } : {}, history: [{ stage: "published", at, by: ctx.userId, note: "Added as a past paper" }], review: null };
+      const tid = await insertTask(tx as never, { projectId: workspaceId, title: r.title, description: null, dueDate: null, sprintId: null, assigneeId: null, creatorId: ctx.userId,
+        kind: "task", assignmentId: null, assignmentSettings: null, teamName: null });
+      await tx.execute(sql`UPDATE tasks SET item_type = 'paper', stage = 'published', status = ${statusForStage("paper", "published")}, on_board = false, type_fields = ${JSON.stringify(fields)}::jsonb WHERE id = ${tid}::uuid`);
+      added += 1;
+    }
+    return { success: true as const, added, skipped };
+  });
+}
+
+/**
+ * B6.3c (call 9): Add to my profile — a Published paper's member author, who confirmed its list, adds it as an entry on
+ * their own profile (public, which they can change there). Once per paper.
+ */
+export async function addPaperToProfileAction(workspaceId: string, paperId: string): Promise<{ success: true } | Failure> {
+  if (!isLooseUuid(workspaceId) || !isLooseUuid(paperId)) return DENIED;
+  const { userId } = await getViewerAuthContext();
+  if (!userId) return DENIED;
+  const [p] = Array.from(await db.execute<{ title: string; stage: string; fields: PaperFields; lab: string; year: string }>(sql`
+    SELECT t.title, t.stage, t.type_fields AS fields, o.title AS lab, coalesce(t.type_fields->>'year', to_char(t.updated_at, 'YYYY')) AS year
+    FROM tasks t JOIN workspaces w ON w.id = t.workspace_id AND w.deleted_at IS NULL
+      JOIN workspaces o ON o.id = w.parent_id AND o.org_type = 'research' AND o.deleted_at IS NULL AND o.deletion_scheduled_at IS NULL
+    WHERE t.id = ${paperId}::uuid AND t.workspace_id = ${workspaceId}::uuid AND t.item_type = 'paper' AND t.deleted_at IS NULL`));
+  const f = p?.fields;
+  if (!p || !f || p.stage !== "published" || !memberAuthors(f.authors ?? []).includes(userId)) return DENIED;
+  if (f.confirmed?.[userId] !== authorListKey(f.authors)) return { success: false, error: "Confirm the author list first." };
+  const url = f.link || (f.doi ? `https://doi.org/${f.doi}` : null);
+  const summary = [PAPER_KINDS[f.kind as PaperKind], f.venue || null, p.year, p.lab].filter(Boolean).join(" · ");
+  const [made] = Array.from(await db.execute<{ id: string }>(sql`
+    INSERT INTO profile_contributions (profile_id, external_key, project_title, project_url, source, role_kind, role_title, summary, visibility)
+    VALUES (${userId}::uuid, ${`lab-paper:${paperId}`}, ${p.title.slice(0, 300)}, ${url}, 'manual', 'contributor', 'Author', ${summary.slice(0, 500)}, 'public')
+    ON CONFLICT (profile_id, external_key) WHERE deleted_at IS NULL AND workspace_id IS NULL DO NOTHING RETURNING id`));
+  if (!made) return { success: false, error: "It’s already on your profile." };
+  await markProfileCollaborationSummaryStale([userId]).catch(() => undefined);
+  revalidatePath("/my-profile");
   return { success: true };
 }
 

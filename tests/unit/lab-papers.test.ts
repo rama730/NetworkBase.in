@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { allConfirmed, authorLine, authorListKey, isPublicPaper, moveProblem, type PaperFields } from "../../src/lib/organizations/lab-papers";
+import { allConfirmed, authorLine, authorListKey, isPublicPaper, matchAuthors, moveProblem, type PaperFields } from "../../src/lib/organizations/lab-papers";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -38,4 +38,13 @@ test("call 8: only Published, or a marked preprint, and never private, goes publ
   assert.equal(isPublicPaper("drafting", { kind: "preprint", private: false, preprintPublic: true }), true);
   assert.equal(isPublicPaper("published", { kind: "paper", private: true, preprintPublic: false }), false);
   assert.equal(authorLine([{ userId: A }, { name: "X" }, { userId: B }], new Map([[A, "Dr. Rao"], [B, "Mei"]])), "Dr. Rao, X and Mei");
+});
+
+test("B6.3c: past papers match lab people by full name; About waits for their confirmation", () => {
+  const people = [{ id: A, name: "Asha Rao" }, { id: B, name: "Mei Lin" }];
+  assert.deepEqual(matchAuthors(["Rao, Asha", " mei  lin ", "A. Outsider", "Asha Rao", ""], people), [{ userId: A }, { userId: B }, { name: "A. Outsider" }, { name: "Asha Rao" }]);
+  const authors = [{ userId: A }, { name: "A. Outsider" }];
+  const base = { kind: "paper" as const, private: false, preprintPublic: false, authors };
+  assert.equal(isPublicPaper("published", { ...base, confirmed: {} }), false, "an imported paper waits for its member authors");
+  assert.equal(isPublicPaper("published", { ...base, confirmed: { [A]: authorListKey(authors) } }), true);
 });

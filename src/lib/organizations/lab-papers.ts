@@ -31,6 +31,8 @@ export const paperSchema = z.object({
   preprintPublic: z.boolean(),
   /** B6.3b: the workspace document that is the draft; Ask for internal review freezes it as a version. */
   draftDocId: z.string().uuid().nullable().optional(),
+  /** B6.3c: a past paper's year (from BibTeX); About uses it before the history. */
+  year: z.number().int().min(1900).max(3000).nullable().optional(),
 }).strict();
 export type PaperInput = z.infer<typeof paperSchema>;
 
@@ -80,9 +82,26 @@ export function moveProblem(f: PaperFields, from: PaperStage, to: PaperStage | "
   return null;
 }
 
-/** About (call 8): only Published work, or a preprint its authors marked, and never a private one. */
-export const isPublicPaper = (stage: string, f: Pick<PaperFields, "kind" | "private" | "preprintPublic">) =>
-  !f.private && (stage === "published" || (f.kind === "preprint" && f.preprintPublic && stage !== "withdrawn"));
+/**
+ * About (call 8): only Published work, or a preprint its authors marked, and never a private one. B6.3c: and only once
+ * every member author confirmed the list — always true for papers sent through the flow, and what keeps an imported
+ * past paper off About until the people it names say yes.
+ */
+export const isPublicPaper = (stage: string, f: Pick<PaperFields, "kind" | "private" | "preprintPublic" | "authors" | "confirmed">) =>
+  !f.private && (stage === "published" || (f.kind === "preprint" && f.preprintPublic && stage !== "withdrawn")) && allConfirmed({ authors: f.authors ?? [], confirmed: f.confirmed ?? {} });
+
+/** B6.3c Add past papers: a BibTeX author matches a lab person by full name (case and spaces ignored); others stay typed. */
+export function matchAuthors(names: string[], people: Array<{ id: string; name: string }>): PaperAuthor[] {
+  const norm = (x: string) => x.toLowerCase().replace(/\s+/g, " ").trim();
+  // "Rao, Asha" reads as "Asha Rao".
+  const flip = (x: string) => (x.includes(",") ? x.split(",").map((p) => p.trim()).reverse().join(" ") : x);
+  const used = new Set<string>();
+  return names.map((raw) => flip(raw.trim())).filter(Boolean).slice(0, 50).map((n) => {
+    const hit = people.find((p) => !used.has(p.id) && norm(p.name) === norm(n));
+    if (hit) { used.add(hit.id); return { userId: hit.id }; }
+    return { name: n.slice(0, 120) };
+  });
+}
 /** From Submitted on, the author list and kind are what was sent (review): changes go through Withdrawn or Revising. */
 export const LOCKED_STAGES: PaperStage[] = ["submitted", "accepted", "published"];
 

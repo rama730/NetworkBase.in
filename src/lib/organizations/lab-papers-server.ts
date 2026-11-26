@@ -10,7 +10,7 @@ export async function readLabPublications(orgId: string, viewerId: string | null
   const rows = Array.from(await db.execute<{ id: string; title: string; stage: string; fields: PaperFields; year: string }>(sql`
     SELECT t.id, t.title, t.stage, t.type_fields AS fields,
       -- Review: the year it was published (its history), not the last edit.
-      coalesce((SELECT left(max(h->>'at'), 4) FROM jsonb_array_elements(coalesce(t.type_fields->'history', '[]'::jsonb)) h WHERE h->>'stage' = 'published'), to_char(t.created_at, 'YYYY')) AS year
+      coalesce(t.type_fields->>'year', (SELECT left(max(h->>'at'), 4) FROM jsonb_array_elements(coalesce(t.type_fields->'history', '[]'::jsonb)) h WHERE h->>'stage' = 'published'), to_char(t.created_at, 'YYYY')) AS year
     FROM tasks t JOIN workspaces w ON w.id = t.workspace_id
     WHERE w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND w.deletion_scheduled_at IS NULL AND t.item_type = 'paper' AND t.deleted_at IS NULL
       AND coalesce((t.type_fields->>'private')::boolean, false) = false

@@ -13084,6 +13084,12 @@ PAPER (in Meera's thesis workspace)
 4. **Reviews and response** is a document template (Learning and research) with a table per reviewer (comment, response, change) and a summary of changes.
 5. **Not built:** the optional co-author step ("Then approved by") waits until a lab asks for it. Today the PI's approval is the only step.
 6. **Live-check fixes (B6.3a):** Mark submitted waits for the PI's approval, Approve hides once given, the venue is prefilled, "Back to drafting" replaces "Start drafting" after review, the first author has no Up and the last has no Down, and the Deadline label sits above its field.
+7. **Security review:** linking and freezing a draft need edit rights on the document, and the picker lists only documents you edit. The frozen draft is for people who read the document's drafts, and for the PI it was sent to.
+
+**Build calls (B6.3c, 2026-11-27):**
+1. **Add past papers** (a workspace's writers, from its Papers card): paste BibTeX, read in the browser (the W5 reader, now also keeping the journal or proceedings as the venue). Tick rows one by one. Authors match lab people by full name ("Rao, Asha" reads as "Asha Rao"); others stay typed names. At most 50 at a time. They land as Published with the BibTeX year. One the lab already has (same DOI or title) is skipped and counted.
+2. **About waits for the people it names:** a paper reaches Selected publications only once every member author has confirmed the list as it stands. Papers sent through the flow already have; imported ones wait. The importer counts as confirming for themselves.
+3. **Add to my profile** (call 9): a Published paper's member author who confirmed it adds it once as a public entry on their profile: the title, a link (or its DOI), "Author", and "Paper · venue · year · lab". They can change or hide it there. It isn't marked "Verified" because nobody verified it. That waits for a lab-verified entry type.
 
 ### 35.4 R3 · Shared library and reading group (agreed 2026-11-17)
 **References** (35.1, plus 12 searches for reading lists, paper notes, journal clubs and bibliographies: 100 templates, 32 rated; 5 more screens studied; no rated journal-club template exists, so the reading group follows the pattern):

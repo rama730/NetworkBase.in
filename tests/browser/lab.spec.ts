@@ -49,10 +49,14 @@ async function open(page: Page, admin: boolean, view = 'people') {
       readPapersAction: async () => ({ success: true, me: 'u1', writer: true, people: [{ id: 'u1', name: 'Dr. Rao' }, { id: 'u2', name: 'Mei' }], docs: [{ id: 'd1', name: 'Paper draft' }, { id: 'd2', name: 'Reviews and response' }],
         papers: [{ id: 'pp1', title: 'Low-light depth from video', stage: 'drafting', kind: 'paper', venue: 'ICCV 2027', deadline: '2026-12-15', link: '', doi: '', private: false, preprintPublic: false,
           workspace: { id: 'w', title: 'Thesis', slug: 'thesis' }, draft: { id: 'd1', slug: 'paper-draft', name: 'Paper draft' }, frozen: { version: 3, at: '2026-11-21T10:00:00Z' }, authors: [{ userId: 'u1', name: 'Dr. Rao', confirmed: false }, { name: 'A. Collaborator' }, { userId: 'u2', name: 'Mei', confirmed: true }],
-          mine: true, iConfirmed: false, reviewed: false, history: [{ stage: 'rejected', at: '2026-11-20T10:00:00Z', by: 'u2', venue: 'CVPR 2026', note: 'Needs a baseline' }], canReview: false, reviewOn: true }] }),
+          mine: true, iConfirmed: false, reviewed: false, history: [{ stage: 'rejected', at: '2026-11-20T10:00:00Z', by: 'u2', venue: 'CVPR 2026', note: 'Needs a baseline' }], canReview: false, reviewOn: true },
+          { id: 'pp4', title: 'Depth at dusk', stage: 'published', kind: 'paper', venue: 'ECCV 2024', deadline: null, link: '', doi: '', private: false, preprintPublic: false, workspace: { id: 'w', title: 'Thesis', slug: 'thesis' },
+            draft: null, frozen: null, authors: [{ userId: 'u1', name: 'Dr. Rao', confirmed: true }], mine: true, iConfirmed: true, reviewed: false, history: [], canReview: false, reviewOn: true, canAddToProfile: true, onProfile: false }] }),
       confirmAuthorsAction: async (_w: string, id: string) => { calls.push(['confirm', id]); return { success: true }; },
       movePaperAction: async (_w: string, id: string, v: unknown) => { calls.push(['move', id, v]); return { success: true }; },
       reviewPaperAction: async (_w: string, id: string, v: unknown) => { calls.push(['review', id, v]); return { success: true }; },
+      importPastPapersAction: async (_w: string, v: unknown) => { calls.push(['import', v]); return { success: true, added: 1, skipped: 1 }; },
+      addPaperToProfileAction: async (_w: string, id: string) => { calls.push(['profile', id]); return { success: true }; },
       readFrozenDraftAction: async () => ({ success: true, content: '# Low-light depth\n\nAbstract as sent.', version: 3, at: '2026-11-21T10:00:00Z' }),
       readLabPapersAction: async () => ({ success: true, isPi: true, papers: [{ id: 'pp3', title: 'Event cameras at night', stage: 'internal_review', kind: 'paper', venue: 'CVPR 2027', deadline: null, link: '', doi: '',
         private: false, preprintPublic: false, workspace: { id: 'w', title: 'Thesis', slug: 'thesis' }, draft: { id: 'd1', slug: 'paper-draft', name: 'Paper draft' }, frozen: { version: 3, at: '2026-11-21T10:00:00Z' },
@@ -215,7 +219,7 @@ test('Equipment: Out of order shows paused with no Book; Book picks a slot; Repo
 
 test('Papers: authors with confirmations, history with the rejection, Confirm and Ask for internal review; About lists publications', async ({ page }) => {
   await open(page, false, 'papers');
-  const paper = page.getByTestId('lab-paper');
+  const paper = page.getByTestId('lab-paper').first();
   await expect(paper).toContainText('Dr. Rao (not confirmed), A. Collaborator, Mei (confirmed)');
   await expect(paper).toContainText('Waiting for Dr. Rao to confirm');
   await paper.getByRole('button', { name: 'Confirm the author list' }).click();
@@ -238,7 +242,7 @@ test('Papers: authors with confirmations, history with the rejection, Confirm an
 
 test('B6.3b: a paper names its draft document; the draft as sent opens; the PI approves or returns it from the Review queue', async ({ page }) => {
   await open(page, false, 'papers');
-  const paper = page.getByTestId('lab-paper');
+  const paper = page.getByTestId('lab-paper').first();
   await expect(paper.getByRole('link', { name: 'Paper draft' })).toHaveAttribute('href', '/workspaces/thesis?tab=docs&doc=paper-draft');
   await paper.getByText('Draft sent for internal review (v3)').click();
   await expect(paper.getByTestId('lab-paper-frozen')).toContainText('Abstract as sent.');
@@ -258,6 +262,24 @@ test('B6.3b: a paper names its draft document; the draft as sent opens; the PI a
   await review.getByLabel('What to change').fill('Add the 0.1 lux baseline');
   await review.getByRole('button', { name: 'Return', exact: true }).click();
   await expect.poll(() => calls(page)).toContainEqual(['review', 'pp3', { approve: false, note: 'Add the 0.1 lux baseline' }]);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B6.3c: Add past papers reads BibTeX here, matches lab people, adds the ticked rows; a published author adds it to their profile', async ({ page }) => {
+  await open(page, false, 'papers');
+  await page.getByRole('button', { name: 'Add past papers' }).click();
+  const box = page.getByTestId('lab-past-papers');
+  await box.getByLabel('BibTeX').fill('@inproceedings{a, title={Night depth}, author={Mei and B. Partner}, booktitle={CVPR}, year={2021}}\n@article{b, title={Skip me}, author={Dr. Rao}, year={2020}}');
+  await box.getByRole('button', { name: 'Read' }).click();
+  await expect(box).toContainText('Night depth · 2021 · CVPR');
+  await expect(box).toContainText('Mei (in the lab), B. Partner');
+  await box.getByRole('checkbox').nth(1).uncheck();
+  await box.getByRole('button', { name: 'Add 1 paper' }).click();
+  await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"title":"Night depth","venue":"CVPR","year":2021,"link":"","doi":"","authors":[{"userId":"u2"},{"name":"B. Partner"}],"kind":"paper"');
+  await expect.poll(async () => JSON.stringify(await calls(page))).not.toContain('Skip me');
+  await page.getByTestId('lab-paper').filter({ hasText: 'Depth at dusk' }).getByRole('button', { name: 'Add to my profile' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['profile', 'pp4']);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
