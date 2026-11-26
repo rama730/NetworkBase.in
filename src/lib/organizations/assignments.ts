@@ -29,7 +29,8 @@ export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | nu
   // of every task read for anyone outside the workspace (visitors of a public Tasks tab, outside tokens).
   // Security review (A5.4): rows of a members-only or leaders-only document (an off-site's checklists, a private meeting's
   // action items) stay out too.
-  if (access.project?.kind !== "organization") return access.isOwner || access.isMember ? undefined : sql`(coalesce(${tasks.itemType}, 'task') NOT IN ('objective', 'key_result', 'idea')
+  // B6.3a review: lab papers are read only through Papers (private ones for their authors and the PI), never by task readers.
+  if (access.project?.kind !== "organization") return access.isOwner || access.isMember ? sql`coalesce(${tasks.itemType}, 'task') <> 'paper'` : sql`(coalesce(${tasks.itemType}, 'task') NOT IN ('objective', 'key_result', 'idea', 'paper')
     AND (${tasks.sourceDocId} IS NULL OR NOT EXISTS (SELECT 1 FROM workspace_documents d WHERE d.id = ${tasks.sourceDocId} AND d.settings->>'visibilityOverride' IN ('members_only', 'leaders_only'))))`;
   const isAdmin = access.isOwner || access.memberRole === "admin";
   // Mine shows an admin their own copies too (an assignment given to admins); the scope itself narrows to theirs.

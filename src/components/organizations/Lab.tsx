@@ -200,6 +200,7 @@ function LabSettingsForm({ orgId, initial, owner, pi, leads, onSaved }: { orgId:
         <fieldset className="space-y-1">
           <legend className="font-medium">Plans</legend>
           <p className="text-muted-foreground">The New people plan (Start here) is on by default; edit its steps under Onboarding plan.</p>
+          <label className="flex items-center gap-2"><input type="checkbox" className="nb-check" checked={f.paperReview} onChange={(e) => setF({ ...f, paperReview: e.target.checked })} />Internal review of papers before they’re submitted</label>
           <label className="flex items-center gap-2"><input type="checkbox" className="nb-check" checked={f.plans.leaving} onChange={(e) => setF({ ...f, plans: { ...f.plans, leaving: e.target.checked } })} />Leaving plan (Finish in the lab)</label>
         </fieldset>
         <fieldset className="space-y-1">
@@ -296,6 +297,12 @@ export function LabAboutSections({ orgId }: { orgId: string }) {
       {d.showPeople && groups.length ? (
         <section aria-labelledby="lab-people-public" className="space-y-2"><h2 id="lab-people-public" className="nb-card-title"><GraduationCap className="mr-1 inline size-4" aria-hidden="true" />People</h2>
           {groups.map((g) => <p key={g.id || "members"} className="text-[13px]"><span className="font-medium">{g.label}:</span> {g.people.map((p) => p.name).join(", ")}</p>)}</section>
+      ) : null}
+      {d.publications?.length ? (
+        <section aria-labelledby="lab-publications" className="space-y-2"><h2 id="lab-publications" className="nb-card-title">Selected publications</h2>
+          <ul className="space-y-1.5 text-[13px]" data-testid="lab-publications">{d.publications.map((p) => (
+            <li key={p.id}><span className="font-medium">{p.link ? <a href={p.link} target="_blank" rel="noreferrer noopener" className="nb-link">{p.title}</a> : p.title}</span>
+              <span className="block text-muted-foreground">{p.authors.join(", ")}{p.venue ? ` · ${p.venue}` : ""} · {p.year}{p.doi ? ` · DOI ${p.doi}` : ""}</span></li>))}</ul></section>
       ) : null}
       {d.showAlumni && d.alumni.length ? <section aria-labelledby="lab-alumni-public" className="space-y-2"><h2 id="lab-alumni-public" className="nb-card-title">Alumni</h2><AlumniList alumni={d.alumni} /></section> : null}
       {d.joinUs ? (

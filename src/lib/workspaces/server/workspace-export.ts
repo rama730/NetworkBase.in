@@ -3,7 +3,7 @@ import "server-only";
  * `nb export` (report F8, M7), for the workspace's owners and admins: its tasks, their comments and its docs as one JSON file, written into the zip
  * next to the files. Messages and chats stay out (they're people's private conversations). Up to 20,000 tasks.
  */
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { listWorkspaceDocsAction } from "@/app/actions/workspace/doc";
 import { db } from "@/lib/db";
@@ -16,7 +16,8 @@ export async function buildExportJson(workspaceId: string) {
   const rows = await db.select({
     id: tasks.id, number: tasks.taskNumber, title: tasks.title, description: tasks.description, status: tasks.status, priority: tasks.priority,
     dueDate: tasks.dueDate, createdAt: tasks.createdAt, updatedAt: tasks.updatedAt, completedAt: tasks.completedAt, assigneeId: tasks.assigneeId, sprintId: tasks.sprintId,
-  }).from(tasks).where(and(eq(tasks.projectId, workspaceId), isNull(tasks.deletedAt))).orderBy(asc(tasks.taskNumber)).limit(EXPORT_MAX_TASKS + 1);
+    // B6.3a review: lab papers (some private) leave only through Papers, never in a task export.
+  }).from(tasks).where(and(eq(tasks.projectId, workspaceId), isNull(tasks.deletedAt), sql`coalesce(${tasks.itemType}, 'task') <> 'paper'`)).orderBy(asc(tasks.taskNumber)).limit(EXPORT_MAX_TASKS + 1);
   if (rows.length > EXPORT_MAX_TASKS) throw new Error(`An export holds at most ${EXPORT_MAX_TASKS.toLocaleString()} tasks`);
   const ids = rows.map((r) => r.id);
   const comments: Array<{ taskId: string; userId: string | null; content: string | null; createdAt: Date }> = [];

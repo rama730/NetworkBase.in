@@ -28,12 +28,14 @@ export const labSettingsSchema = z.object({
   protocolApprovers: z.enum(["pi", "researchers"]),
   /** B6.2c: equipment booking — bookable hours, slot length and a weekly cap per person (call 7). */
   booking: bookingRulesSchema,
+  /** B6.3a (call 6): papers go through the PI's internal review before Submitted; on by default. */
+  paperReview: z.boolean(),
 }).strict();
 export type LabSettings = z.infer<typeof labSettingsSchema>;
 
 export const DEFAULT_LAB: LabSettings = {
   positions: DEFAULT_POSITIONS, officeHours: "", contactId: null, plans: { leaving: true },
-  about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "", protocolApprovers: "pi", booking: DEFAULT_BOOKING,
+  about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "", protocolApprovers: "pi", booking: DEFAULT_BOOKING, paperReview: true,
 };
 
 export function readLabSettings(orgSettings: unknown): LabSettings {

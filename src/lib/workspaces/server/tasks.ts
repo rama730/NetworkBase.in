@@ -1722,12 +1722,15 @@ export async function deleteTaskAs(user: { id: string }, taskId: string, project
           title: true,
           taskNumber: true,
           status: true,
+          itemType: true,
         },
       });
 
       if (!existingTask) {
         throw new Error("Task not found in this workspace");
       }
+      // B6.3a review: a lab paper is kept or withdrawn from Papers, never deleted as a task.
+      if (existingTask.itemType === "paper") throw new Error("Change papers from the workspace’s Papers.");
       // Assignment work follows the assignment rule (report §42.12 problems 22 and 32, decision 142): the
       // organization's admins only, never once handed in, and a main assignment goes with its copies.
       const assignment = await assignmentWriteContext(tx, taskId);

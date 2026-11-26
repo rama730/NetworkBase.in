@@ -17,7 +17,7 @@ async function open(page: Page, admin: boolean, view = 'people') {
       setLabPositionAction: async (_o: string, id: string, v: unknown) => { calls.push(['position', id, v]); return { success: true }; },
       readLabHomeAction: async () => ({ success: true, admin, welcome: 'We study how machines see.', officeHours: 'Thursdays 15:00, room 204', contact: { id: 'u1', name: 'Dr. Rao' }, people: 9, projects: 14 }),
       readLabSettingsAction: async () => ({ success: true, owner: 'u1', pi: true, leads: [{ id: 'u1', name: 'Dr. Rao' }],
-        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '', protocolApprovers: 'pi', booking: { from: '08:00', to: '20:00', slotMinutes: 60, weeklyCapHours: 8 } } }),
+        settings: { positions: POSITIONS, officeHours: '', contactId: null, plans: { leaving: true }, about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: '', protocolApprovers: 'pi', booking: { from: '08:00', to: '20:00', slotMinutes: 60, weeklyCapHours: 8 }, paperReview: true } }),
       readProtocolsAction: async () => ({ success: true, slug: 'vision-lab', protocols: [{ id: 'p1', title: 'Capture rig setup', slug: 'rig', owner: 'Arjun', reviewBy: null, approved: 1, draft: 2, needsTraining: true, trained: false }] }),
       readProtocolAction: async () => ({ success: true, pageDraft: false, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
         versions: [{ id: 'v2', version: 2, state: 'draft', by: null, at: null, created: '2026-11-20', content: admin ? '## Steps\n1. Power on' : '' }, { id: 'v1', version: 1, state: 'approved', by: 'Dr. Rao', at: '2026-10-02T10:00:00Z', created: '2026-10-01', content: '' }],
@@ -46,16 +46,26 @@ async function open(page: Page, admin: boolean, view = 'people') {
       reportEquipmentProblemAction: async (_o: string, id: string, body: string) => { calls.push(['report', id, body]); return { success: true }; },
       setEquipmentStatusAction: async () => ({ success: true }),
       saveEquipmentAction: async () => ({ success: true, id: 'q3' }),
+      readPapersAction: async () => ({ success: true, me: 'u1', writer: true, people: [{ id: 'u1', name: 'Dr. Rao' }, { id: 'u2', name: 'Mei' }],
+        papers: [{ id: 'pp1', title: 'Low-light depth from video', stage: 'drafting', kind: 'paper', venue: 'ICCV 2027', deadline: '2026-12-15', link: '', doi: '', private: false, preprintPublic: false,
+          workspace: { id: 'w', title: 'Thesis', slug: 'thesis' }, authors: [{ userId: 'u1', name: 'Dr. Rao', confirmed: false }, { name: 'A. Collaborator' }, { userId: 'u2', name: 'Mei', confirmed: true }],
+          mine: true, iConfirmed: false, reviewed: false, history: [{ stage: 'rejected', at: '2026-11-20T10:00:00Z', by: 'u2', venue: 'CVPR 2026', note: 'Needs a baseline' }], canReview: false, reviewOn: true }] }),
+      confirmAuthorsAction: async (_w: string, id: string) => { calls.push(['confirm', id]); return { success: true }; },
+      movePaperAction: async (_w: string, id: string, v: unknown) => { calls.push(['move', id, v]); return { success: true }; },
+      reviewPaperAction: async () => ({ success: true }),
+      savePaperAction: async (_w: string, id: string | null, v: unknown) => { calls.push(['savePaper', id, v]); return { success: true, id: 'pp2' }; },
       readMyTrainingsAction: async () => ({ success: true, trainings: [{ id: 'p1', title: 'Capture rig setup', trained: false }] }),
       saveLabSettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
       startFinishAction: async (_o: string, id: string, v: unknown) => { calls.push(['finish', id, v]); return { success: true }; },
       cancelFinishAction: async () => ({ success: true }),
-      readLabAlumniAction: async () => ({ success: true, alumni: [{ id: 'a1', name: 'Arjun', position: 'PhD student', startYear: 2019, endYear: 2025, nowAt: 'a robotics startup' }] }),
+      readLabAlumniAction: async () => ({ success: true, alumni: [{ id: 'a1', name: 'Arjun', position: 'PhD student', startYear: 2019, endYear: 2025, nowAt: 'a robotics startup' }],
+        publications: [{ id: 'pp1', title: 'Low-light depth from video', kind: 'paper', venue: 'ICCV 2026', year: '2026', link: null, doi: '10.1/xyz', authors: ['Mei', 'Dr. Rao'] }] }),
       readMyAlumniAction: async () => ({ success: true, entry: { listed: false, nowAt: '', position: 'PhD student', startYear: 2021, endYear: 2026 } }),
       saveMyAlumniAction: async (_o: string, v: unknown) => { calls.push(['alumni', v]); return { success: true }; },
       readLabAboutAction: async () => ({ success: true, signedIn: true, contactId: 'u1', isContact: false, areas: ['3D scenes', 'Video understanding'], joinUs: 'We take 1 to 2 PhD students a year.',
         people: [{ id: 'u1', name: 'Dr. Rao', position: 'pi', startYear: 2015 }, { id: 'u2', name: 'Mei', position: 'phd', startYear: 2023 }], positions: POSITIONS, showPeople: true, showAlumni: true,
-        alumni: [{ id: 'a1', name: 'Arjun', position: 'PhD student', startYear: 2019, endYear: 2025, nowAt: 'a robotics startup' }] }),
+        alumni: [{ id: 'a1', name: 'Arjun', position: 'PhD student', startYear: 2019, endYear: 2025, nowAt: 'a robotics startup' }],
+        publications: [{ id: 'pp1', title: 'Low-light depth from video', kind: 'paper', venue: 'ICCV 2026', year: '2026', link: null, doi: '10.1/xyz', authors: ['Mei', 'Dr. Rao'] }] }),
     };
   }, { admin, POSITIONS });
   await openApp(page, 'tests/browser/lab.fixture.tsx', { path: `/?view=${view}` });
@@ -197,4 +207,27 @@ test('Equipment: Out of order shows paused with no Book; Book picks a slot; Repo
   await expect.poll(() => calls(page)).toContainEqual(['report', 'q2', 'Fan noise']);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('Papers: authors with confirmations, history with the rejection, Confirm and Ask for internal review; About lists publications', async ({ page }) => {
+  await open(page, false, 'papers');
+  const paper = page.getByTestId('lab-paper');
+  await expect(paper).toContainText('Dr. Rao (not confirmed), A. Collaborator, Mei ✓');
+  await expect(paper).toContainText('Waiting for Dr. Rao to confirm');
+  await paper.getByRole('button', { name: 'Confirm the author list' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['confirm', 'pp1']);
+  await paper.getByRole('button', { name: 'Ask for internal review' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['move', 'pp1', { to: 'internal_review' }]);
+  await page.getByRole('button', { name: '+ Paper' }).click();
+  const form = page.getByTestId('lab-paper-form');
+  await form.getByLabel('Title').fill('A dataset of night scenes');
+  await form.getByLabel('Kind').selectOption('dataset');
+  await form.getByLabel('Outside author name').fill('B. Partner');
+  await form.getByRole('button', { name: 'Add name' }).click();
+  await form.getByRole('button', { name: 'Save paper' }).click();
+  await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"name":"B. Partner"');
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+  await open(page, false, 'about');
+  await expect(page.getByTestId('lab-publications')).toContainText('Low-light depth from video');
 });

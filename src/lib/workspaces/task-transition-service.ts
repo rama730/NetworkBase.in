@@ -169,6 +169,8 @@ export async function lockTaskForWrite(
   if (row.deleted_at) {
     throw new Error("You don’t have access to this");
   }
+  // B6.3a review: a lab paper changes only from Papers, under its own rules (confirmations, internal review, privacy).
+  if (row.item_type === "paper") throw new Error("Change papers from the workspace’s Papers.");
   const isOwner = row.owner_id === userId;
   // Assignment copies are reviewed by the assignment's org (report §16.4, §16.6): its admins act as leaders,
   // even on a group copy inside a child project they are not members of.

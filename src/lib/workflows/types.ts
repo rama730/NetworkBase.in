@@ -89,6 +89,14 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
     // B3.1b (report 32.2 call 3): a school or class event, never on the board: Planned → Confirmed → Done, or Cancelled.
     stages: [s("planned", "Planned", "todo", false), s("confirmed", "Confirmed", "todo", false), s("done", "Done", "done", false, true), s("cancelled", "Cancelled", "done", false, true)],
   },
+  // B6.3a (report 35.3 calls 1–3): a lab paper (or preprint, talk, poster, dataset, software), never on the board.
+  // Rejected is recorded in its history and returns to Drafting; Withdrawn ends it.
+  paper: {
+    id: "paper", label: "Paper", icon: "FileText", joinStage: null, doneStage: "published",
+    stages: [s("idea", "Idea", "todo", false), s("drafting", "Drafting", "in_progress", false), s("internal_review", "Internal review", "in_progress", false),
+      s("submitted", "Submitted", "in_progress", false), s("revising", "Revising", "in_progress", false), s("accepted", "Accepted", "in_progress", false),
+      s("published", "Published", "done", false, true), s("withdrawn", "Withdrawn", "done", false, true)],
+  },
 };
 
 export function workflowType(id: string): WorkflowType {

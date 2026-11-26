@@ -14,7 +14,7 @@ export async function getWorkspaceTaskSummary(projectId: string) {
       lastTaskUpdatedAt: sql<Date | null>`max(${tasks.updatedAt})`,
     })
     .from(tasks)
-    .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)));
+    .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), sql`coalesce(${tasks.itemType}, 'task') <> 'paper'`));
   return {
     taskCount: Number(summary?.taskCount) || 0,
     lastTaskUpdatedAt: summary?.lastTaskUpdatedAt ?? null,
@@ -29,7 +29,7 @@ export async function getWorkspaceTaskCountMap(projectIds: string[]) {
       count: sql<number>`count(*)`,
     })
     .from(tasks)
-    .where(and(inArray(tasks.projectId, projectIds), isNull(tasks.deletedAt)))
+    .where(and(inArray(tasks.projectId, projectIds), isNull(tasks.deletedAt), sql`coalesce(${tasks.itemType}, 'task') <> 'paper'`))
     .groupBy(tasks.projectId);
   return new Map(rows.map((row) => [row.projectId, Number(row.count) || 0]));
 }
