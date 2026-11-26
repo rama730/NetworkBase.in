@@ -54,6 +54,13 @@ function formatPrivacyActivityEntry(entry: Awaited<ReturnType<typeof listPrivacy
               : "Connection requests are now open to everyone eligible.",
       };
     }
+    case "search_visibility_changed": {
+      const next = String(entry.nextValue?.searchVisibility ?? "everyone");
+      const label = next === "connections" ? "only your connections" : next === "my_places" ? "people in your workspaces and organizations" : "everyone";
+      return { id: entry.id, eventType: entry.eventType, createdAt: entry.createdAt, label: "Search privacy updated", summary: `Who can find you in search changed to ${label}.` };
+    }
+    case "find_by_email_changed":
+      return { id: entry.id, eventType: entry.eventType, createdAt: entry.createdAt, label: "Find by email updated", summary: entry.nextValue?.findableByEmail ? "People can now find you by your email address." : "People can no longer find you by your email address." };
     case "account_blocked":
       return {
         id: entry.id,
@@ -149,6 +156,22 @@ const PRIVACY_SETTINGS = [
     values: ["everyone", "connections"] as const,
     invalidMessage: "Invalid messaging privacy",
     failureMessage: "Couldn’t update messaging privacy",
+  },
+  {
+    kind: "searchVisibility",
+    bodyKey: "searchVisibility",
+    responseKey: "searchVisibility",
+    values: ["everyone", "my_places", "connections"] as const,
+    invalidMessage: "Invalid search privacy",
+    failureMessage: "Couldn’t update who can find you in search",
+  },
+  {
+    kind: "findableByEmail",
+    bodyKey: "findableByEmail",
+    responseKey: "findableByEmail",
+    values: ["on", "off"] as const,
+    invalidMessage: "Invalid find-by-email choice",
+    failureMessage: "Couldn’t update find by email",
   },
 ] as const;
 

@@ -34,6 +34,8 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacyData = {
     profileVisibility: "public",
     messagePrivacy: "connections",
     connectionPrivacy: "everyone",
+    searchVisibility: "everyone",
+    findableByEmail: false,
     blockedCount: 0,
   },
   blockedAccounts: [],

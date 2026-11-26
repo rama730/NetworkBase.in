@@ -46,6 +46,12 @@ const REQUEST_CHOICES: Record<ConnectionPrivacySetting, { label: string; line: s
   mutuals_only: { label: "Mutual", line: "Only people you share a connection with." },
   nobody: { label: "Nobody", line: "No new requests. Your connections stay." },
 };
+// Who can find me in search (global search mix, decision 4): Everyone by default; find by email stays off unless you turn it on.
+const FIND_CHOICES: Record<"everyone" | "my_places" | "connections", { label: string; line: string }> = {
+  everyone: { label: "Everyone", line: "Anyone on NetworkBase can find you by name, skills or place." },
+  my_places: { label: "My places", line: "Only people in your workspaces and organizations find you." },
+  connections: { label: "Connections", line: "Only people you’re connected with find you in search." },
+};
 const options = <T extends string>(choices: Record<T, { label: string }>) => (Object.keys(choices) as T[]).map((value) => ({ value, label: choices[value].label }));
 
 async function patchPrivacy(body: Record<string, unknown>) {
@@ -176,7 +182,7 @@ function StrangerPreview({ visibility }: { visibility: ProfileVisibilitySetting 
 }
 
 type Confirmation = { title: string; description: string; confirmLabel: string; run: () => void };
-type Field = "visibility" | "messagePrivacy" | "connectionPrivacy";
+type Field = "visibility" | "messagePrivacy" | "connectionPrivacy" | "searchVisibility" | "findableByEmail";
 
 export default function PrivacySettings() {
   const queryClient = useQueryClient();
@@ -197,7 +203,8 @@ export default function PrivacySettings() {
       await queryClient.cancelQueries({ queryKey: queryKeys.settings.privacy() });
       const previous = queryClient.getQueryData(queryKeys.settings.privacy());
       const key = update.field === "visibility" ? "profileVisibility" : update.field;
-      queryClient.setQueryData(queryKeys.settings.privacy(), (current: typeof data) => current ? { ...current, settings: { ...current.settings, [key]: update.value } } : current);
+      const value = update.field === "findableByEmail" ? update.value === "on" : update.value;
+      queryClient.setQueryData(queryKeys.settings.privacy(), (current: typeof data) => current ? { ...current, settings: { ...current.settings, [key]: value } } : current);
       return { previous };
     },
     onSuccess: async () => { await refreshPrivacy(); },
@@ -288,6 +295,7 @@ export default function PrivacySettings() {
   const messages = (settings?.messagePrivacy ?? "connections") as MessagePrivacySetting;
   const requests = (settings?.connectionPrivacy ?? "everyone") as ConnectionPrivacySetting;
   const blockedCount = data.blockedAccounts.length;
+  const findMe = (settings?.searchVisibility ?? "everyone") as keyof typeof FIND_CHOICES;
 
   return <>
     <SettingsSectionCard id="settings-privacy-reach" title="Who can…" flush findKeys="visibility profile messages requests">
@@ -305,6 +313,16 @@ export default function PrivacySettings() {
           <StrangerPreview visibility={visibility} />
         </div>
       </div>
+    </SettingsSectionCard>
+
+    <SettingsSectionCard id="settings-privacy-find" title="Who can find me in search" flush findKeys="search find discover email lookup">
+      <SettingsRows>
+        <SettingsRow id="settings-privacy-find-who" findKeys="search find" title="Find me in search" description={FIND_CHOICES[findMe].line}
+          right={<>{retry("searchVisibility")}<SegChoice label="Who can find me in search" value={findMe} options={options(FIND_CHOICES)} onChange={(value) => change("searchVisibility", value)} busy={busy} /></>} />
+        <SettingsRow id="settings-privacy-find-email" findKeys="email address lookup" title="Find me by email address"
+          description="Off: typing your email finds nothing, and never shows that you have an account."
+          right={<>{retry("findableByEmail")}<SettingsSwitch aria-label="Find me by email address" checked={Boolean(settings?.findableByEmail)} disabled={busy} onCheckedChange={(on) => change("findableByEmail", on ? "on" : "off")} /></>} />
+      </SettingsRows>
     </SettingsSectionCard>
 
     <SettingsSectionCard id="settings-privacy-activity" title="Activity and discovery" flush>

@@ -7,6 +7,8 @@ export const PRIVACY_ACTIVITY_EVENT_TYPES = [
   "profile_visibility_changed",
   "message_privacy_changed",
   "connection_privacy_changed",
+  "search_visibility_changed",
+  "find_by_email_changed",
   "account_blocked",
   "account_unblocked",
 ] as const;

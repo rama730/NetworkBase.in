@@ -31,6 +31,8 @@ async function requireProfilePrivacySettingsRow(
       visibility: profiles.visibility,
       messagePrivacy: profiles.messagePrivacy,
       connectionPrivacy: profiles.connectionPrivacy,
+      searchVisibility: profiles.searchVisibility,
+      findableByEmail: profiles.findableByEmail,
     })
     .from(profiles)
     .where(eq(profiles.id, userId))
@@ -45,13 +47,18 @@ async function requireProfilePrivacySettingsRow(
     visibility: (profile.visibility ?? "public") as ProfileVisibilitySetting,
     messagePrivacy: (profile.messagePrivacy ?? "connections") as MessagePrivacySetting,
     connectionPrivacy: (profile.connectionPrivacy ?? "everyone") as ConnectionPrivacySetting,
+    searchVisibility: profile.searchVisibility,
+    findableByEmail: profile.findableByEmail,
   };
 }
 
 type PrivacyUpdateInput =
   | { kind: "profileVisibility"; nextValue: ProfileVisibilitySetting }
   | { kind: "messagePrivacy"; nextValue: MessagePrivacySetting }
-  | { kind: "connectionPrivacy"; nextValue: ConnectionPrivacySetting };
+  | { kind: "connectionPrivacy"; nextValue: ConnectionPrivacySetting }
+  /** Who can find me in search (0163). */
+  | { kind: "searchVisibility"; nextValue: "everyone" | "my_places" | "connections" }
+  | { kind: "findableByEmail"; nextValue: "on" | "off" };
 
 export async function updatePrivacySetting(input: PrivacyUpdateInput & {
   userId: string;
@@ -63,7 +70,11 @@ export async function updatePrivacySetting(input: PrivacyUpdateInput & {
       ? { visibility: input.nextValue }
       : input.kind === "messagePrivacy"
         ? { messagePrivacy: input.nextValue }
-        : { connectionPrivacy: input.nextValue };
+        : input.kind === "searchVisibility"
+          ? { searchVisibility: input.nextValue }
+          : input.kind === "findableByEmail"
+            ? { findableByEmail: input.nextValue === "on" }
+            : { connectionPrivacy: input.nextValue };
     const rows = await tx
       .update(profiles)
       .set({ ...update, updatedAt: new Date() })
@@ -73,6 +84,10 @@ export async function updatePrivacySetting(input: PrivacyUpdateInput & {
 
     const event = input.kind === "profileVisibility"
       ? { eventType: "profile_visibility_changed" as const, previousValue: { visibility: current.visibility }, nextValue: { visibility: input.nextValue } }
+      : input.kind === "searchVisibility"
+        ? { eventType: "search_visibility_changed" as const, previousValue: { searchVisibility: current.searchVisibility }, nextValue: { searchVisibility: input.nextValue } }
+      : input.kind === "findableByEmail"
+        ? { eventType: "find_by_email_changed" as const, previousValue: { findableByEmail: current.findableByEmail }, nextValue: { findableByEmail: input.nextValue === "on" } }
       : input.kind === "messagePrivacy"
         ? { eventType: "message_privacy_changed" as const, previousValue: { messagePrivacy: current.messagePrivacy }, nextValue: { messagePrivacy: input.nextValue } }
         : { eventType: "connection_privacy_changed" as const, previousValue: { connectionPrivacy: current.connectionPrivacy }, nextValue: { connectionPrivacy: input.nextValue } };
@@ -92,6 +107,8 @@ export async function getPrivacySettingsPayload(userId: string): Promise<Privacy
       visibility: profiles.visibility,
       messagePrivacy: profiles.messagePrivacy,
       connectionPrivacy: profiles.connectionPrivacy,
+      searchVisibility: profiles.searchVisibility,
+      findableByEmail: profiles.findableByEmail,
     })
     .from(profiles)
     .where(eq(profiles.id, userId))
@@ -106,6 +123,8 @@ export async function getPrivacySettingsPayload(userId: string): Promise<Privacy
     profileVisibility: (profile?.visibility ?? "public") as ProfileVisibilitySetting,
     messagePrivacy: (profile?.messagePrivacy ?? "connections") as MessagePrivacySetting,
     connectionPrivacy: (profile?.connectionPrivacy ?? "everyone") as ConnectionPrivacySetting,
+    searchVisibility: profile?.searchVisibility ?? "everyone",
+    findableByEmail: profile?.findableByEmail ?? false,
     blockedCount: Number(blockedAggregate?.count ?? 0),
   };
 }

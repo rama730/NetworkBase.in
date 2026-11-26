@@ -110,6 +110,9 @@ export interface PrivacySettingsState {
   profileVisibility: "public" | "connections" | "private";
   messagePrivacy: "everyone" | "connections";
   connectionPrivacy: "everyone" | "mutuals_only" | "nobody";
+  /** Who can find me in search (global search mix, 0163). */
+  searchVisibility: "everyone" | "my_places" | "connections";
+  findableByEmail: boolean;
   blockedCount: number;
 }
 
