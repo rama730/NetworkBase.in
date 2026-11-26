@@ -906,6 +906,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Add where it happens.": {"title": "Add where it happens.", "type": "warning"},
   "You can add or change events again when your pause ends.": {"title": "You can add or change events again when your pause ends.", "type": "warning"},
   "Add community events from Events": {"title": "Add community events from Events", "type": "warning"},
+  "Check-in opens an hour before the event and closes the day after.": {"title": "Check-in opens an hour before the event and closes the day after.", "type": "warning"},
+  "Only people going can be checked in.": {"title": "Only people going can be checked in.", "type": "warning"},
   "Your posting here is paused until {when}.": {"title": "Your posting here is paused until {when}.", "type": "warning"},
   "{name} can’t report to someone who reports to {who}.": {"title": "{name} can’t report to someone who reports to {who}.", "type": "warning"},
   "Name each value.": {"title": "Name each value.", "type": "warning"},

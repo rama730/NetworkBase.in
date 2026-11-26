@@ -235,3 +235,21 @@ export async function cancelCommunityEventAction(orgId: string, eventId: string)
   await tellGoing(orgId, eventId, ctx, `${ev.title} is cancelled`, "cancelled");
   return { success: true };
 }
+
+/**
+ * Check-in (B5.3b, call 5): an event's hosts and organisers tick names from the Going list, from an hour before it
+ * starts until the day after it ends. It counts toward "events attended". No QR codes, no penalties for not coming.
+ */
+export async function checkInCommunityAction(orgId: string, eventId: string, person: string, on: boolean): Promise<{ success: true } | Failure> {
+  const ctx = await community(orgId);
+  if (!ctx?.member || !ctx.userId || !isLooseUuid(eventId) || !isLooseUuid(person) || typeof on !== "boolean") return DENIED;
+  const [ev] = Array.from(await db.execute<{ fields: CommunityEventFields; stage: string }>(sql`
+    SELECT type_fields AS fields, stage FROM tasks WHERE id = ${eventId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'event' AND type_fields->>'kind' = 'community' AND deleted_at IS NULL`));
+  if (!ev || ev.stage === "cancelled" || !(ctx.organiser || (ctx.host && ev.fields.hosts.includes(ctx.userId)))) return DENIED;
+  const now = Date.now();
+  if (now < Date.parse(ev.fields.start) - 3_600_000 || now > Date.parse(ev.fields.end) + 86_400_000) return { success: false, error: "Check-in opens an hour before the event and closes the day after." };
+  const [r] = Array.from(await db.execute<{ id: string }>(sql`
+    UPDATE community_rsvps SET checked_in_at = ${on ? sql`coalesce(checked_in_at, now())` : sql`NULL`}
+    WHERE task_id = ${eventId}::uuid AND user_id = ${person}::uuid AND state = 'going' RETURNING user_id AS id`));
+  return r ? { success: true } : { success: false, error: "Only people going can be checked in." };
+}

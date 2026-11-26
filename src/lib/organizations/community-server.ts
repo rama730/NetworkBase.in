@@ -39,3 +39,27 @@ export async function logCommunityAction(orgId: string, entry: Omit<CommunityLog
     || jsonb_build_object('log', (SELECT coalesce(jsonb_agg(x), '[]'::jsonb) FROM (SELECT x FROM jsonb_array_elements(${JSON.stringify([e])}::jsonb || coalesce(org_settings->'community'->'log', '[]'::jsonb)) x LIMIT 200) t)))
     WHERE id = ${orgId}::uuid`);
 }
+
+/**
+ * B5.3b (report 34.4 layer 15): reminders to everyone Going, Normal, the day before and about an hour before. Runs in
+ * the hourly job; the windows overlap a little and the dedupe key makes each reminder send once.
+ */
+export async function notifyCommunityEventReminders() {
+  const { createNotification } = await import("@/lib/notifications/service");
+  const rows = Array.from(await db.execute<{ event_id: string; title: string; start: string; slug: string | null; org_id: string; user_id: string; kind: "day" | "hour" }>(sql`
+    SELECT t.id AS event_id, t.title, t.type_fields->>'start' AS start, w.slug, w.id AS org_id, r.user_id,
+      CASE WHEN (t.type_fields->>'start')::timestamptz <= now() + interval '75 minutes' THEN 'hour' ELSE 'day' END AS kind
+    FROM tasks t JOIN workspaces w ON w.id = t.workspace_id JOIN community_rsvps r ON r.task_id = t.id AND r.state = 'going'
+    WHERE t.item_type = 'event' AND t.type_fields->>'kind' = 'community' AND t.deleted_at IS NULL AND t.stage <> 'cancelled' AND w.deleted_at IS NULL
+      AND ((t.type_fields->>'start')::timestamptz BETWEEN now() AND now() + interval '75 minutes'
+        OR (t.type_fields->>'start')::timestamptz BETWEEN now() + interval '23 hours' AND now() + interval '25 hours')
+    LIMIT 5000`));
+  for (const r of rows) {
+    const at = new Intl.DateTimeFormat("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(new Date(r.start));
+    await createNotification({ recipientUserId: r.user_id, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "more",
+      title: r.kind === "hour" ? `${r.title} starts soon (${at} UTC)` : `Tomorrow: ${r.title} (${at} UTC)`,
+      href: `/org/${encodeURIComponent(r.slug ?? r.org_id)}?tab=sprints&event=${r.event_id}`, entityRefs: { projectId: r.org_id, projectSlug: r.slug },
+      dedupeKey: `community-event:reminder:${r.kind}:${r.event_id}:${r.user_id}:${r.start}` }).catch(() => undefined);
+  }
+  return { sent: rows.length };
+}

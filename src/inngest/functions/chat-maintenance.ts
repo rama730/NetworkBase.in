@@ -89,6 +89,8 @@ export const chatDue = inngest.createFunction(
       await step.run("handbook-review", async () => (await import("@/lib/organizations/handbook-server")).notifyHandbookReview());
       // B4.4 (report 33.5): onboarding starts for people who joined a company after its plan was switched on.
       await step.run("company-onboarding", async () => (await import("@/lib/organizations/company-onboarding-server")).sweepCompanyOnboarding());
+      // B5.3b (report 34.4 layer 15): community event reminders to everyone Going, the day before and about an hour before.
+      await step.run("community-event-reminders", async () => (await import("@/lib/organizations/community-server")).notifyCommunityEventReminders());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

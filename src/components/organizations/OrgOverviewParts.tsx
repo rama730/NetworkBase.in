@@ -1,5 +1,6 @@
 'use client'
 
+import { NextEventCard } from '@/components/organizations/CommunityEvents'
 import { NeedsReviewCard, WhatsNewCard } from '@/components/organizations/CompanyParts'
 import { CompanyGoalsCard } from '@/components/organizations/CompanyGoals'
 import { StartHere } from '@/components/organizations/CompanyOnboarding'
@@ -277,6 +278,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'company' ? <StartHere orgId={orgId} /> : null}
                 {/* Report 34.2 (B5.1): a community's I agree and Getting started come first for members. */}
                 {orgType === 'community' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
+                {orgType === 'community' ? <NextEventCard orgId={orgId} base={base} /> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
                 {isClass ? <ClassNextLine orgId={orgId} /> : null}
                 {isClass ? <ThisWeekAtSchool orgId={orgId} /> : null}

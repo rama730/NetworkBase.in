@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, MapPin, Users, Video } from "lucide-react";
 
-import { cancelCommunityEventAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
+import { cancelCommunityEventAction, checkInCommunityAction, readCommunityEventAction, readCommunityEventsAction, rsvpCommunityEventAction, saveCommunityEventAction } from "@/app/actions/community-events";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -88,6 +88,10 @@ function EventPage({ orgId, eventId, onClose, onEdit }: { orgId: string; eventId
     toast.success(r.state === "going" ? "You’re going" : r.state === "waitlisted" ? "You’re on the waitlist" : "Marked as can’t go");
     refresh();
   };
+  const checkIn = async (person: string, on: boolean) => {
+    const r = await checkInCommunityAction(orgId, eventId, person, on);
+    if (!r.success) toast.error(r.error);
+  };
   const cancel = async () => {
     const r = await cancelCommunityEventAction(orgId, eventId);
     if (!r.success) return void toast.error(r.error);
@@ -107,7 +111,10 @@ function EventPage({ orgId, eventId, onClose, onEdit }: { orgId: string; eventId
                 {e.description ? <p className="whitespace-pre-wrap">{e.description}</p> : null}
                 {e.runOfShow.length ? <div><h3 className="font-medium">Run of show</h3><ol className="mt-1 space-y-0.5">{e.runOfShow.map((s, i) => <li key={i}><span className="font-mono">{s.time}</span> {s.title}</li>)}</ol></div> : null}
                 {q.data.people.length ? <div><h3 className="font-medium"><Users className="mr-1 inline size-3.5" aria-hidden="true" />Going</h3>
-                  <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{q.data.people.map((p) => <li key={p.id}>{p.name}{p.private ? <span className="text-muted-foreground"> (private)</span> : null}</li>)}</ul></div> : null}
+                  {q.data.hostView && (e.state === "happening" || Date.parse(e.start) - Date.now() < 3_600_000) && e.state !== "cancelled"
+                    ? <ul className="mt-1 space-y-1" aria-label="Check in">{q.data.people.map((p) => (
+                        <li key={p.id}><label className="flex items-center gap-2"><input type="checkbox" className="nb-check" defaultChecked={p.checkedIn} onChange={(x) => void checkIn(p.id, x.target.checked)} />{p.name}{p.private ? <span className="text-muted-foreground"> (private)</span> : null}</label></li>))}</ul>
+                    : <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{q.data.people.map((p) => <li key={p.id}>{p.name}{p.private ? <span className="text-muted-foreground"> (private)</span> : null}</li>)}</ul>}</div> : null}
                 {q.data.hostView && q.data.waitlist.length ? <div><h3 className="font-medium">Waitlist</h3><ol className="mt-1 list-decimal pl-5">{q.data.waitlist.map((p) => <li key={p.id}>{p.name}</li>)}</ol></div> : null}
               </div>
               <aside className="space-y-3 rounded-md border border-border p-3" aria-label="When and where">
@@ -198,5 +205,20 @@ function EventFormBody({ orgId, eventId, onClose, client, initial }: { orgId: st
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The next event on About and the Overview (34.4 layer 1): when, title, where and the going count. */
+export function NextEventCard({ orgId, base }: { orgId: string; base: string }) {
+  const q = useQuery({ queryKey: listKey(orgId, "upcoming"), queryFn: () => readCommunityEventsAction(orgId, "upcoming"), staleTime: 60_000 });
+  const next = q.data?.success ? q.data.events.find((e) => e.state !== "cancelled" && e.state !== "ended") : null;
+  if (!next) return null;
+  return (
+    <section aria-label="Next event" className="space-y-1 rounded-md border border-border p-3 text-[13px]" data-testid="next-event">
+      <h3 className="font-medium">Next event</h3>
+      <p><a href={`${base}?tab=sprints&event=${next.id}`} className="nb-link font-medium">{next.title}</a></p>
+      <p className="font-mono text-muted-foreground">{when(next.start, next.end)}</p>
+      <p className="text-muted-foreground">{EVENT_FORMATS[next.format as EventFormat]}{next.place ? ` · ${next.place}` : ""} · <span className="font-mono">{next.going} going</span>{next.mine === "going" ? " · You’re going" : ""}</p>
+    </section>
   );
 }

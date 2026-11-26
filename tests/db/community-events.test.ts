@@ -149,3 +149,35 @@ test("34.4 security review: a newcomer never jumps the waitlist; bad times are r
   const generic2 = await createTaskAction({ projectId: org, title: "Sneaky", status: "todo", priority: "medium", itemType: "event", stage: "planned", typeFields: fields() } as Parameters<typeof createTaskAction>[0]);
   assert.equal(generic2.success, false, "organisers too: events come from Events");
 });
+
+test("B5.3b: hosts check people in around the event; reminders go once to people Going, the day before and an hour before", async () => {
+  const [owner, m1, m2] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public" }));
+  created.push(org);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${m1!}, 'member'), (${org}, ${m2!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'community', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  viewerId = owner!;
+  const soonEv = await ev.saveCommunityEventAction(org, null, { title: "Soon", description: null, fields: fields({ start: soon(0.5), end: soon(2) }), link: null, placeLimit: null });
+  const tomorrow = await ev.saveCommunityEventAction(org, null, { title: "Tomorrow", description: null, fields: fields({ start: soon(24), end: soon(26) }), link: null, placeLimit: null });
+  assert.ok(soonEv.success && tomorrow.success);
+  for (const id of [soonEv.id, tomorrow.id]) { viewerId = m1!; await ev.rsvpCommunityEventAction(org, id, { choice: "going", private: false }); }
+  viewerId = m2!;
+  await ev.rsvpCommunityEventAction(org, soonEv.id, { choice: "cant_go", private: false });
+
+  viewerId = m1!;
+  assert.equal((await ev.checkInCommunityAction(org, soonEv.id, m1!, true)).success, false, "members don't check people in");
+  viewerId = owner!;
+  assert.equal((await ev.checkInCommunityAction(org, soonEv.id, m2!, true)).success, false, "only people going");
+  assert.equal((await ev.checkInCommunityAction(org, tomorrow.id, m1!, true)).success, false, "not a day early");
+  assert.equal((await ev.checkInCommunityAction(org, soonEv.id, m1!, true)).success, true);
+  const [ci] = await sql`SELECT checked_in_at IS NOT NULL AS ok FROM community_rsvps WHERE task_id = ${soonEv.id} AND user_id = ${m1!}`;
+  assert.equal(ci!.ok, true);
+
+  const { notifyCommunityEventReminders } = await loadAppModule(() => import("../../src/lib/organizations/community-server"));
+  await notifyCommunityEventReminders();
+  await notifyCommunityEventReminders();
+  const sent = await sql`SELECT title FROM user_notifications WHERE user_id = ${m1!} AND (title LIKE 'Tomorrow:%' OR title LIKE '%starts soon%') ORDER BY title`;
+  assert.equal(sent.length, 2, "one of each, once");
+  const [none] = await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${m2!} AND title LIKE '%starts soon%'`;
+  assert.equal(none!.n, 0, "Can't go gets no reminder");
+});
