@@ -74,6 +74,11 @@ test("34.6 calls 1–4: propose → approve → a chapter owned by the proposer 
   const memberView = await chap.readChaptersAction(org);
   assert.ok(memberView.success && !("dormant" in memberView.chapters[0]!), "flags are for organisers only");
 
+  // A pause in the community holds in the chapter, even for its owner.
+  const { communityPostBlock } = await loadAppModule(() => import("../../src/lib/organizations/community-server"));
+  await sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{community}', coalesce(org_settings->'community', '{}'::jsonb) || jsonb_build_object('pauses', jsonb_build_object(${a!}::text, jsonb_build_object('until', ${new Date(Date.now() + 36e5).toISOString()}::text)))) WHERE id = ${org}`;
+  assert.match(String(await communityPostBlock(chapterId, a!)), /paused/);
+  await sql`UPDATE workspaces SET org_settings = org_settings #- '{community,pauses}' WHERE id = ${org}`;
   // Rules: the chapter reads its community's Code of conduct.
   viewerId = b!;
   const rules = await fd.readCommunityRulesAction(chapterId);

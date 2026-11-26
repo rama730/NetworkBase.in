@@ -10,17 +10,19 @@ import { needsAgreement, pauseActive, readCommunitySettings, type CommunityLabel
  * published Code of conduct can keep reading but not post. Null when they can post (an organiser, or not a community).
  */
 export async function communityPostBlock(orgId: string, userId: string): Promise<string | null> {
-  const [r] = Array.from(await db.execute<{ type: string | null; settings: unknown; organiser: boolean; paused: string | null; agreed: number | null; current: number | null }>(sql`
+  const [r] = Array.from(await db.execute<{ type: string | null; settings: unknown; organiser: boolean; paused: string | null; parent_paused: string | null; agreed: number | null; current: number | null }>(sql`
     SELECT w.org_type AS type, w.org_settings AS settings,
       -- B5.5a (34.6 edge): a pause in the community holds in every chapter.
-      greatest(w.org_settings->'community'->'pauses'->${userId}::text->>'until',
-        (SELECT p.org_settings->'community'->'pauses'->${userId}::text->>'until' FROM workspaces p WHERE p.id = (w.org_settings->>'chapterOf')::uuid)) AS paused,
+      w.org_settings->'community'->'pauses'->${userId}::text->>'until' AS paused,
+      (SELECT p.org_settings->'community'->'pauses'->${userId}::text->>'until' FROM workspaces p WHERE p.id = (w.org_settings->>'chapterOf')::uuid) AS parent_paused,
       (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role IN ('owner', 'admin'))) AS organiser,
       (SELECT (m.view_prefs->'community'->'agreed'->>'version')::int FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid) AS agreed,
       (SELECT coalesce((d.settings->'org'->>'readVersion')::int, 0) FROM workspace_documents d WHERE d.workspace_id = coalesce((w.org_settings->>'chapterOf')::uuid, w.id) AND lower(d.filename) LIKE '%code of conduct%'
         AND d.published_version_id IS NOT NULL ORDER BY d.created_at LIMIT 1) AS current
     FROM workspaces w WHERE w.id = ${orgId}::uuid`));
   // Organisers set the rules: they post without agreeing to them (B5.1 live check).
+  // Security review: a pause in the community holds in its chapters, even for someone who organises the chapter.
+  if (r?.type === "community" && pauseActive(r.parent_paused ? { until: r.parent_paused } : null, new Date())) return `Your posting here is paused until ${new Date(r.parent_paused!).toUTCString().replace(" GMT", " UTC")}.`;
   if (r?.type !== "community" || r.organiser) return null;
   // B5.2 (34.3): Pause posting, until its end time; reading goes on.
   if (pauseActive(r.paused ? { until: r.paused } : null, new Date())) return `Your posting here is paused until ${new Date(r.paused!).toUTCString().replace(" GMT", " UTC")}.`;

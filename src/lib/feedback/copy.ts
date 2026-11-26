@@ -937,6 +937,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "The proposer is no longer a member of the community.": {"title": "The proposer is no longer a member of the community.", "type": "warning"},
   "You can propose a chapter when your pause ends.": {"title": "You can propose a chapter when your pause ends.", "type": "warning"},
   "You have 3 proposals waiting already.": {"title": "You have 3 proposals waiting already.", "type": "warning"},
+  "The proposer’s posting is paused; decide when the pause ends.": {"title": "The proposer’s posting is paused; decide when the pause ends.", "type": "warning"},
   "Join the community first: its chapters are for its members.": {"title": "Join the community first: its chapters are for its members.", "type": "warning"},
   "Your posting here is paused until {when}.": {"title": "Your posting here is paused until {when}.", "type": "warning"},
   "{name} can’t report to someone who reports to {who}.": {"title": "{name} can’t report to someone who reports to {who}.", "type": "warning"},

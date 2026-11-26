@@ -118,6 +118,9 @@ export async function decideChapterProposalAction(orgId: string, proposalId: str
       // The proposer owns it (their 5-organization limit counts it); the co-organiser joins as an admin if still a member.
       const [stillIn] = Array.from(await tx.execute<{ ok: boolean }>(sql`SELECT true AS ok FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${p.by}::uuid AND role IN ('member', 'admin', 'owner')`));
       if (!stillIn) return { error: "The proposer is no longer a member of the community." } as const;
+      // Security review: someone paused in the community doesn't get a chapter to run meanwhile.
+      const pauses = (w!.settings as { community?: { pauses?: Record<string, { until: string }> } } | null)?.community?.pauses ?? {};
+      if (pauseActive(pauses[p.by] ?? null, new Date())) return { error: "The proposer’s posting is paused; decide when the pause ends." } as const;
       const limit = await accountOrgLimit(tx, p.by, "own");
       if (limit) return { error: "The proposer already owns 5 organizations, so this chapter can’t be theirs yet." } as const;
       const handle = `${p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "chapter"}-${randomUUID().slice(0, 4)}`;
