@@ -123,3 +123,29 @@ test("34.4: raising the limit moves the waitlist up; a host edits only events th
   assert.ok(other.success);
   assert.equal((await ev.saveCommunityEventAction(org, other.id, { title: "Mine now", description: null, fields: fields({ who: "members" }), link: null, placeLimit: null })).success, false);
 });
+
+test("34.4 security review: a newcomer never jumps the waitlist; bad times are refused; community events only come from Events", async () => {
+  const [owner, m1, m2, m3] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public" }));
+  created.push(org);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, view_prefs) VALUES (${org}, ${owner!}, 'owner', '{}'), (${org}, ${m1!}, 'member', ${sql.json({ community: { labels: ["host"] } })}), (${org}, ${m2!}, 'member', '{}'), (${org}, ${m3!}, 'member', '{}')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'community', status = 'active', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  viewerId = owner!;
+  assert.equal((await ev.saveCommunityEventAction(org, null, { title: "Bad", description: null, fields: fields({ end: "3000" }), link: null, placeLimit: null })).success, false, "a time the database can't read");
+  const made = await ev.saveCommunityEventAction(org, null, { title: "Small", description: null, fields: fields(), link: null, placeLimit: 1 });
+  assert.ok(made.success);
+  for (const who of [m1!, m2!]) { viewerId = who; await ev.rsvpCommunityEventAction(org, made.id, { choice: "going", private: false }); }
+  // m2 waits; the limit rises by one place while m2 is waiting, then m3 arrives: m2 had the place, m3 waits.
+  await sql`UPDATE community_events SET place_limit = 2 WHERE task_id = ${made.id}`;
+  viewerId = m3!;
+  const r = await ev.rsvpCommunityEventAction(org, made.id, { choice: "going", private: false });
+  assert.ok(r.success && r.state === "waitlisted", "someone is already waiting");
+  // The generic New module can't make a community event, even for a Host.
+  const { createTaskAction } = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
+  viewerId = m1!;
+  const generic = await createTaskAction({ projectId: org, title: "Sneaky", status: "todo", priority: "medium", itemType: "event", stage: "planned", typeFields: fields() } as Parameters<typeof createTaskAction>[0]);
+  assert.equal(generic.success, false);
+  viewerId = owner!;
+  const generic2 = await createTaskAction({ projectId: org, title: "Sneaky", status: "todo", priority: "medium", itemType: "event", stage: "planned", typeFields: fields() } as Parameters<typeof createTaskAction>[0]);
+  assert.equal(generic2.success, false, "organisers too: events come from Events");
+});

@@ -106,6 +106,7 @@ const saveSchema = z.object({
 export async function saveCommunityEventAction(orgId: string, eventId: string | null, input: unknown): Promise<{ success: true; id: string } | Failure> {
   const ctx = await community(orgId);
   if (!ctx?.member || !ctx.userId || !(ctx.organiser || ctx.host)) return DENIED;
+  if (ctx.paused && !ctx.organiser) return { success: false, error: "You can add or change events again when your pause ends." };
   const parsed = saveSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Check the event’s title, times and link (https only)." };
   const d = parsed.data;
@@ -121,7 +122,8 @@ export async function saveCommunityEventAction(orgId: string, eventId: string | 
   if (!eventId) {
     if (Date.parse(fields.end) <= Date.now()) return { success: false, error: "Pick a time that hasn’t passed." };
     const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
-    const r = await createTaskAction({ projectId: orgId, title: d.title, description: d.description ?? undefined, status: "todo", priority: "medium", itemType: "event", stage: "planned", typeFields: fields } as Parameters<typeof createTaskAction>[0]);
+    const { communityEventScope } = await import("@/lib/organizations/community-event-scope");
+    const r = await communityEventScope.run(true, () => createTaskAction({ projectId: orgId, title: d.title, description: d.description ?? undefined, status: "todo", priority: "medium", itemType: "event", stage: "planned", typeFields: fields } as Parameters<typeof createTaskAction>[0]));
     if (!r.success || !("task" in r) || !r.task) return { success: false, error: (r.success ? null : r.error) ?? "Couldn’t add the event." };
     await db.execute(sql`INSERT INTO community_events (task_id, workspace_id, online_link, place_limit) VALUES (${r.task.id}::uuid, ${orgId}::uuid, ${link}, ${d.placeLimit})`);
     return { success: true, id: r.task.id };
@@ -132,12 +134,16 @@ export async function saveCommunityEventAction(orgId: string, eventId: string | 
   if (!old || old.stage === "cancelled" || !(ctx.organiser || old.fields.hosts.includes(ctx.userId))) return DENIED;
   // A host can't hand the event to people who aren't hosting it; organisers pick the hosts.
   if (!ctx.organiser) fields.hosts = old.fields.hosts;
-  await db.execute(sql`UPDATE tasks SET title = ${d.title}, description = ${d.description}, type_fields = ${JSON.stringify(fields)}::jsonb, updated_at = now() WHERE id = ${eventId}::uuid`);
-  await db.execute(sql`INSERT INTO community_events (task_id, workspace_id, online_link, place_limit) VALUES (${eventId}::uuid, ${orgId}::uuid, ${link}, ${d.placeLimit})
-    ON CONFLICT (task_id) DO UPDATE SET online_link = excluded.online_link, place_limit = excluded.place_limit`);
-  // A raised limit lets the waitlist move up; a lowered one keeps everyone already Going.
-  await promote(orgId, eventId, ctx);
-  if (old.fields.start !== fields.start || old.fields.end !== fields.end) await tellGoing(orgId, eventId, ctx, `${d.title} moved to ${new Date(fields.start).toUTCString().replace(" GMT", " UTC")}`, "moved");
+  const moved = await db.transaction(async (tx) => {
+    await tx.execute(sql`UPDATE tasks SET title = ${d.title}, description = ${d.description}, type_fields = ${JSON.stringify(fields)}::jsonb, updated_at = now() WHERE id = ${eventId}::uuid`);
+    await tx.execute(sql`INSERT INTO community_events (task_id, workspace_id, online_link, place_limit) VALUES (${eventId}::uuid, ${orgId}::uuid, ${link}, ${d.placeLimit})
+      ON CONFLICT (task_id) DO UPDATE SET online_link = excluded.online_link, place_limit = excluded.place_limit`);
+    // A raised limit lets the waitlist move up (under the event's lock); a lowered one keeps everyone already Going.
+    await tx.execute(sql`SELECT 1 FROM community_events WHERE task_id = ${eventId}::uuid FOR UPDATE`);
+    return promoteIn(tx, eventId);
+  });
+  await tellMovedUp(orgId, eventId, ctx, moved);
+  if (old.fields.start !== fields.start || old.fields.end !== fields.end) await tellGoing(orgId, eventId, ctx, `${d.title} moved to ${new Date(fields.start).toUTCString().replace(" GMT", " UTC")}`, `moved:${fields.start}`);
   return { success: true, id: eventId };
 }
 
@@ -147,19 +153,29 @@ async function tellGoing(orgId: string, eventId: string, ctx: { userId: string |
     if (g.id === ctx.userId) continue;
     await createNotification({ recipientUserId: g.id, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "important", title,
       href: `/org/${encodeURIComponent(ctx.slug)}?tab=sprints&event=${eventId}`, entityRefs: { projectId: orgId, projectSlug: ctx.slug },
-      dedupeKey: `community-event:${why}:${eventId}:${g.id}:${Date.now()}` }).catch(() => undefined);
+      dedupeKey: `community-event:${why}:${eventId}:${g.id}` }).catch(() => undefined);
   }
 }
 
-/** Call 3: while places are free, the longest-waiting people move to Going and are told (Important). */
-async function promote(orgId: string, eventId: string, ctx: { userId: string | null; slug: string; title?: string }) {
-  const moved = Array.from(await db.execute<{ id: string; title: string }>(sql`
-    WITH ev AS (SELECT e.place_limit FROM community_events e WHERE e.task_id = ${eventId}::uuid FOR UPDATE),
-    free AS (SELECT CASE WHEN (SELECT place_limit FROM ev) IS NULL THEN 100000
-      ELSE greatest(0, (SELECT place_limit FROM ev) - (SELECT count(*) FROM community_rsvps WHERE task_id = ${eventId}::uuid AND state = 'going')) END AS n),
-    next AS (SELECT user_id FROM community_rsvps WHERE task_id = ${eventId}::uuid AND state = 'waitlisted' ORDER BY responded_at LIMIT (SELECT n FROM free))
+/**
+ * Call 3: while places are free, the longest-waiting people move to Going. The caller holds the event's lock (the
+ * same one every RSVP takes) inside its transaction, so counts are fresh and no one takes a place ahead of the queue.
+ */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+async function promoteIn(tx: Tx, eventId: string) {
+  const [ev] = Array.from(await tx.execute<{ place_limit: number | null }>(sql`SELECT place_limit FROM community_events WHERE task_id = ${eventId}::uuid`));
+  if (!ev) return [];
+  const [{ going } = { going: 0 }] = Array.from(await tx.execute<{ going: number }>(sql`SELECT count(*)::int AS going FROM community_rsvps WHERE task_id = ${eventId}::uuid AND state = 'going'`));
+  const free = ev.place_limit === null ? 100000 : Math.max(0, ev.place_limit - going);
+  if (!free) return [];
+  return Array.from(await tx.execute<{ id: string; title: string }>(sql`
+    WITH next AS (SELECT user_id FROM community_rsvps WHERE task_id = ${eventId}::uuid AND state = 'waitlisted' ORDER BY responded_at LIMIT ${free})
     UPDATE community_rsvps r SET state = 'going' FROM next WHERE r.task_id = ${eventId}::uuid AND r.user_id = next.user_id
     RETURNING r.user_id AS id, (SELECT title FROM tasks WHERE id = ${eventId}::uuid) AS title`));
+}
+
+/** Moved up from the waitlist: Important, once per person and event. */
+async function tellMovedUp(orgId: string, eventId: string, ctx: { slug: string }, moved: Array<{ id: string; title: string }>) {
   for (const m of moved) {
     await createNotification({ recipientUserId: m.id, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "important",
       title: `A place opened: you’re going to ${m.title}`, href: `/org/${encodeURIComponent(ctx.slug)}?tab=sprints&event=${eventId}`,
@@ -183,21 +199,24 @@ export async function rsvpCommunityEventAction(orgId: string, eventId: string, i
       SELECT t.type_fields AS fields, t.stage, e.place_limit FROM tasks t JOIN community_events e ON e.task_id = t.id
       WHERE t.id = ${eventId}::uuid AND t.workspace_id = ${orgId}::uuid AND t.item_type = 'event' AND t.deleted_at IS NULL FOR UPDATE OF e`));
     if (!ev) return null;
-    const [{ going } = { going: 0 }] = Array.from(await tx.execute<{ going: number }>(sql`SELECT count(*)::int AS going FROM community_rsvps WHERE task_id = ${eventId}::uuid AND state = 'going' AND user_id <> ${ctx.userId}::uuid`));
+    const [{ going, waiting } = { going: 0, waiting: 0 }] = Array.from(await tx.execute<{ going: number; waiting: number }>(sql`
+      SELECT count(*) FILTER (WHERE state = 'going')::int AS going, count(*) FILTER (WHERE state = 'waitlisted')::int AS waiting
+      FROM community_rsvps WHERE task_id = ${eventId}::uuid AND user_id <> ${ctx.userId}::uuid`));
     if (!canRsvp(eventState(ev.fields, ev.stage === "cancelled", ev.place_limit, going, new Date()))) return "closed" as const;
     const [prev] = Array.from(await tx.execute<{ state: string }>(sql`SELECT state FROM community_rsvps WHERE task_id = ${eventId}::uuid AND user_id = ${ctx.userId}::uuid`));
-    // Already Going keeps the place; otherwise Going is a place if one's free, else the end of the waitlist.
-    const state: "going" | "waitlisted" | "cant_go" = choice === "cant_go" ? "cant_go" : prev?.state === "going" ? "going" : prev?.state === "waitlisted" ? "waitlisted" : placeFor(ev.place_limit, going);
+    // Already Going keeps the place; a newcomer gets one only when it's free and nobody is waiting (first come).
+    const state: "going" | "waitlisted" | "cant_go" = choice === "cant_go" ? "cant_go" : prev?.state === "going" ? "going" : prev?.state === "waitlisted" ? "waitlisted"
+      : waiting > 0 ? "waitlisted" : placeFor(ev.place_limit, going);
     await tx.execute(sql`INSERT INTO community_rsvps (task_id, user_id, workspace_id, state, private) VALUES (${eventId}::uuid, ${ctx.userId}::uuid, ${orgId}::uuid, ${state}, ${parsed.data.private})
       ON CONFLICT (task_id, user_id) DO UPDATE SET state = excluded.state, private = excluded.private,
         responded_at = CASE WHEN community_rsvps.state = excluded.state THEN community_rsvps.responded_at ELSE now() END,
         checked_in_at = CASE WHEN excluded.state = 'going' THEN community_rsvps.checked_in_at ELSE NULL END`);
-    return { state, freed: prev?.state === "going" && state === "cant_go" };
+    // Can't go after Going frees the place: the waitlist moves up in the same transaction, under the same lock.
+    return { state, moved: prev?.state === "going" && state === "cant_go" ? await promoteIn(tx, eventId) : [] };
   });
   if (!result) return DENIED;
   if (result === "closed") return { success: false, error: "This event isn’t taking RSVPs." };
-  // Can't go after Going frees the place: the waitlist moves up.
-  if (result.freed) await promote(orgId, eventId, ctx);
+  await tellMovedUp(orgId, eventId, ctx, result.moved);
   return { success: true, state: result.state };
 }
 
@@ -205,6 +224,8 @@ export async function rsvpCommunityEventAction(orgId: string, eventId: string, i
 export async function cancelCommunityEventAction(orgId: string, eventId: string): Promise<{ success: true } | Failure> {
   const ctx = await community(orgId);
   if (!ctx?.member || !ctx.userId || !isLooseUuid(eventId)) return DENIED;
+  if (!ctx.organiser && !ctx.host) return DENIED;
+  if (ctx.paused && !ctx.organiser) return { success: false, error: "You can add or change events again when your pause ends." };
   const [ev] = Array.from(await db.execute<{ title: string; fields: CommunityEventFields }>(sql`
     UPDATE tasks SET stage = 'cancelled', status = 'done', updated_at = now()
     WHERE id = ${eventId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'event' AND type_fields->>'kind' = 'community' AND deleted_at IS NULL AND stage <> 'cancelled'

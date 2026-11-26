@@ -6,7 +6,8 @@ import { z } from "zod";
 export const EVENT_FORMATS = { in_person: "In person", online: "Online", hybrid: "Hybrid" } as const;
 export type EventFormat = keyof typeof EVENT_FORMATS;
 
-const iso = z.string().refine((v) => !Number.isNaN(Date.parse(v)), "date");
+// Strict ISO with an offset (security review): anything else could fail the database cast and break the list for everyone.
+const iso = z.string().datetime({ offset: true }).refine((v) => { const y = new Date(v).getUTCFullYear(); return y >= 2000 && y <= 2200; }, "date");
 export const communityEventSchema = z.object({
   kind: z.literal("community"),
   start: iso,
