@@ -19,7 +19,8 @@ export const ritualSchema = z.object({
   leadDays: z.number().int().min(0).max(7),
   paused: z.boolean(),
 }).strict();
-export type Ritual = z.infer<typeof ritualSchema> & { lastPostedFor?: string | null; createdAt?: string };
+/** savedBy: the organiser who last saved it — posts go out as them (the community's voice), naming the host. */
+export type Ritual = z.infer<typeof ritualSchema> & { lastPostedFor?: string | null; createdAt?: string; savedBy?: string };
 
 const matches = (r: Pick<Ritual, "freq" | "weekday">, day: string) =>
   new Date(`${day}T00:00:00Z`).getUTCDay() === r.weekday && (r.freq === "weekly" || Number(day.slice(8, 10)) <= 7);

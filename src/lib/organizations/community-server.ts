@@ -128,8 +128,14 @@ export async function postDueRituals() {
       const content = r.kind === "ama"
         ? `**Ask me anything with ${hostName}** · questions are open now; ${hostName} answers on ${when}. Ask in the comments and like the questions you want answered.${r.prompt ? `\n\n${r.prompt}` : ""}`
         : `**${r.name}** · hosted by ${hostName}${r.prompt ? `\n\n${r.prompt}` : ""}`;
-      const result = host ? await runAsUser(r.hostId, () => createWorkspaceUpdateAction(id, { content, updateType: "discussion", visibility: "members" }))
-        .catch((e: unknown) => ({ success: false as const, error: e instanceof Error ? e.message : "Couldn’t post" })) : { success: false as const, error: "The host is no longer a member." };
+      // Posted as the organiser who saved the ritual (the community's voice), naming the host; never as the host.
+      const [poster] = r.savedBy ? Array.from(await db.execute<{ ok: boolean }>(sql`
+        SELECT true AS ok FROM workspaces w WHERE w.id = ${id}::uuid AND (w.owner_id = ${r.savedBy}::uuid
+          OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${r.savedBy}::uuid AND m.role IN ('owner', 'admin')))`)) : [];
+      const result = !host ? { success: false as const, error: "The host is no longer a member." }
+        : !poster ? { success: false as const, error: "Whoever set it up is no longer an organiser. Save it again to keep it going." }
+        : await runAsUser(r.savedBy!, () => createWorkspaceUpdateAction(id, { content, updateType: "announcement", visibility: "members" }))
+          .catch((e: unknown) => ({ success: false as const, error: e instanceof Error ? e.message : "Couldn’t post" }));
       if (result.success) { posted += 1; continue; }
       // Edge (layer 12): no host left, or the post couldn't go out — pause it and tell the organisers.
       await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{community,rituals}', (

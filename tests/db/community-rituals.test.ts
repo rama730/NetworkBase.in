@@ -57,13 +57,13 @@ test("34.5 call 7: organisers add a ritual with a member host; it posts once as 
   await sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{community,rituals,0,createdAt}', to_jsonb((now() - interval '7 days')::text)) WHERE id = ${org}`;
   if (earlier.getUTCDate() !== now.getUTCDate()) return; // ponytail: the test straddles midnight UTC; skip rather than flake.
 
-  // The job posts through runAsUser(host); this suite's auth stub stands in for it.
-  viewerId = host!;
+  // The job posts through runAsUser(the organiser who saved it); this suite's auth stub stands in for it.
+  viewerId = owner!;
   await server.postDueRituals();
   await server.postDueRituals();
   const posts = await sql`SELECT author_id, content FROM workspace_updates WHERE workspace_id = ${org} AND content LIKE '%Weekly wins%'`;
   assert.equal(posts.length, 1, "once");
-  assert.equal(posts[0]!.author_id, host);
+  assert.equal(posts[0]!.author_id, owner, "posted as the organiser who saved it, never as the host");
   assert.match(String(posts[0]!.content), /hosted by/);
 
   // The host leaves; next time it's due, the ritual pauses and the organisers hear.

@@ -97,7 +97,7 @@ function RitualForm({ orgId, initial, onClose, onSaved }: { orgId: string; initi
             {f.kind === "ama" ? <label>Questions open<Input type="number" min={0} max={7} value={f.leadDays} onChange={(x) => setF({ ...f, leadDays: Number(x.target.value) })} className="w-[80px] font-mono" />days before</label> : null}
           </span>
           <label className="block">Prompt<textarea className="nb-textarea mt-1 w-full" rows={3} maxLength={2000} value={f.prompt} onChange={(x) => setF({ ...f, prompt: x.target.value })} /></label>
-          <p className="text-muted-foreground">It posts in Updates, naming the host{f.hostId ? "" : " (you, unless you change it later)"}. Replies are comments; the host can pin a good one.</p>
+          <p className="text-muted-foreground">It posts in Updates from you, naming the host. Replies are comments.</p>
           <div className="flex justify-end gap-2"><button type="button" className={FORM_SECONDARY_CLASS} onClick={onClose}>Cancel</button><button type="button" className={FORM_PRIMARY_CLASS} disabled={!f.name.trim() || !f.hostId} onClick={() => void save()}>Save</button></div>
         </div>
       </DialogContent>
