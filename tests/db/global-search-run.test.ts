@@ -232,3 +232,22 @@ test("post previews are plain text, without embed codes", async () => {
   const post = result.groups.posts!.find((hit) => hit.sub.includes(`${w.t}x`))!;
   assert.doesNotMatch(post.sub, /\{%|%\}/);
 });
+
+// Live check 2026-11-27: "Only things tagged React" emptied the page because tags were the first four skills
+// alphabetically and React wasn't among them. The skill that matched comes first.
+test("the skill that matched is among a card's tags", async () => {
+  const w = await world();
+  const names = ["Alpha", "Beta", "Gamma", "Delta", `Zz${letters()}`];
+  const ids: string[] = [];
+  for (const name of names) {
+    const [row] = await sql`INSERT INTO skills (name, slug, canonical_key) VALUES (${name + letters()}, ${`s-${letters()}${letters()}`}, ${`k-${letters()}${letters()}`}) RETURNING id, name`;
+    ids.push(row!.id); names[names.indexOf(name)] = row!.name;
+  }
+  for (const id of ids) await sql`INSERT INTO workspace_skills (workspace_id, skill_id) VALUES (${w.space}, ${id})`;
+  const last = names[names.length - 1]!;
+  await sql`UPDATE profiles SET skills = ${sql.json(["Alpha one", "Beta two", "Gamma three", "Delta four", last])} WHERE id = ${w.person}`;
+  const result = await run.runGlobalSearch({ viewerId: w.viewer, q: last, ctx: "discover", place: null, scope: null, perKind: 10 });
+  assert.equal(result.groups.workspaces?.[0]?.tags[0], last);
+  assert.equal(result.groups.people?.[0]?.tags[0], last);
+  await sql`DELETE FROM skills WHERE id IN ${sql(ids)}`;
+});

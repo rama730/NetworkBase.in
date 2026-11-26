@@ -67,7 +67,9 @@ export async function searchPlaces(viewerId: string, q: string, kind: "workspace
                (SELECT coalesce(u.full_name, u.username) FROM profiles u WHERE u.id = coalesce(workspaces.last_update_by, workspaces.owner_id)) AS updated_by,
                ${mine} AS mine,
                (SELECT s.name FROM workspace_skills ps JOIN skills s ON s.id = ps.skill_id WHERE ps.workspace_id = workspaces.id AND s.name ILIKE ${pattern} LIMIT 1) AS matched_skill,
-               to_jsonb(ARRAY(SELECT s.name FROM workspace_skills ps JOIN skills s ON s.id = ps.skill_id WHERE ps.workspace_id = workspaces.id ORDER BY s.name LIMIT 4)) AS skills
+               -- The skill that matched comes first, so "Only things tagged X" keeps this card (live check).
+               to_jsonb(ARRAY(SELECT s.name FROM workspace_skills ps JOIN skills s ON s.id = ps.skill_id WHERE ps.workspace_id = workspaces.id
+                   ORDER BY (s.name ILIKE ${pattern}) DESC, s.name LIMIT 4)) AS skills
         FROM workspaces
         WHERE workspaces.kind = ${kind} AND workspaces.deleted_at IS NULL AND workspaces.status <> 'draft'
           AND ${discoverListedSql()}
@@ -185,7 +187,7 @@ function toPersonHit(row: PersonRow, q: string): SearchHit {
         score: Math.min(matchScore(name, q), row.username?.toLocaleLowerCase() === word ? 0 : 4),
         createdAt: iso(row.created_at),
         avatarUrl: row.avatar_url,
-        tags: skills.slice(0, 4),
+        tags: [...skills.filter((value) => value.toLocaleLowerCase().includes(word)), ...skills.filter((value) => !value.toLocaleLowerCase().includes(word))].slice(0, 4),
         act: row.connected ? "Message" : row.pending ? "Pending" : "Connect",
         meta: {
             userId: row.id, username: row.username, location: row.location, mutual, relation,
