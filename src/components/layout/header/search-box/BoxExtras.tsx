@@ -92,7 +92,7 @@ export function BoxPreview({ hit, q, action, onOpen }: { hit: SearchHit; q: stri
             </div>
             {hit.kind !== "people" ? <p className="nb-sx-preview-text">{hit.sub}</p> : null}
             {facts.length ? <dl className="nb-sx-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl> : null}
-            {hit.tags.length ? <div className="nb-sx-chips">{hit.tags.map((tag) => <span key={tag} className="nb-sx-tag">{tag}</span>)}</div> : null}
+            {Array.isArray(hit.tags) && hit.tags.length ? <div className="nb-sx-chips">{hit.tags.map((tag) => <span key={tag} className="nb-sx-tag">{tag}</span>)}</div> : null}
             <div className="nb-sx-preview-acts">
                 {action}
                 <button type="button" className="nb-sx-btn" onClick={onOpen}>{hit.kind === "people" ? "View profile" : hit.kind === "messages" ? "Jump to message" : "Open"} <kbd className="nb-sx-kbd">↵</kbd></button>

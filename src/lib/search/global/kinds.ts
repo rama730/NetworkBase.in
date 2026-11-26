@@ -9,6 +9,7 @@ import { discoverListedSql, orgQualifiesSql } from "@/lib/discover/listed-sql";
 import { searchMessagesAs } from "@/lib/messaging/search-messages";
 import { messageHref } from "@/lib/messaging/routes";
 import { profileHref } from "@/lib/routing/identifiers";
+import { buildWorkspaceDocPlainText } from "@/lib/workspaces/doc-plain-text";
 import { containsLikePattern, escapeLikePattern, normalizeSearchQuery, tokenizeSearchQuery } from "@/lib/search/query";
 
 import { peopleFindableSql } from "./people-rule";
@@ -40,6 +41,9 @@ function nameRank(column: SQL, q: string): SQL {
         WHEN lower(${column}) LIKE ${`%${escaped}%`} THEN 3 ELSE 4 END)`;
 }
 
+/** `profiles.skills` is jsonb: some rows hold a string or an object, never trust it to be a list (live check 2026-11-27). */
+const skillList = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
+
 type PlaceRow = {
     id: string; title: string; slug: string | null; kind: "workspace" | "organization"; short_description: string | null;
     description: string | null; org_type: string | null; created_at: string; followers_count: number; open_roles_count: number;
@@ -63,7 +67,7 @@ export async function searchPlaces(viewerId: string, q: string, kind: "workspace
                (SELECT coalesce(u.full_name, u.username) FROM profiles u WHERE u.id = coalesce(workspaces.last_update_by, workspaces.owner_id)) AS updated_by,
                ${mine} AS mine,
                (SELECT s.name FROM workspace_skills ps JOIN skills s ON s.id = ps.skill_id WHERE ps.workspace_id = workspaces.id AND s.name ILIKE ${pattern} LIMIT 1) AS matched_skill,
-               ARRAY(SELECT s.name FROM workspace_skills ps JOIN skills s ON s.id = ps.skill_id WHERE ps.workspace_id = workspaces.id ORDER BY s.name LIMIT 4) AS skills
+               to_jsonb(ARRAY(SELECT s.name FROM workspace_skills ps JOIN skills s ON s.id = ps.skill_id WHERE ps.workspace_id = workspaces.id ORDER BY s.name LIMIT 4)) AS skills
         FROM workspaces
         WHERE workspaces.kind = ${kind} AND workspaces.deleted_at IS NULL AND workspaces.status <> 'draft'
           AND ${discoverListedSql()}
@@ -91,7 +95,7 @@ export async function searchPlaces(viewerId: string, q: string, kind: "workspace
             score: matchScore(row.title, q),
             createdAt: iso(row.created_at),
             avatarUrl: row.cover_image,
-            tags: row.skills ?? [],
+            tags: skillList(row.skills),
             act: row.mine ? "Open" : "Follow",
             meta: {
                 orgType: row.org_type, followers: Number(row.followers_count) || 0, openRoles: Number(row.open_roles_count) || 0,
@@ -112,7 +116,8 @@ export async function searchPosts(viewerId: string, q: string, limit: number): P
             id: `post:${update.id}`,
             kind: "posts",
             title: author,
-            sub: update.content.replace(/\s+/g, " ").slice(0, 220),
+            // Plain text: embedded task, file and project references ({% ref.… %}) are not for reading (live check).
+            sub: buildWorkspaceDocPlainText(update.content, { maxLength: 220 }) || update.content.replace(/\s+/g, " ").slice(0, 220),
             href: `/discover?updateId=${encodeURIComponent(update.id)}`,
             why: null,
             score: 3,
@@ -148,9 +153,9 @@ const personSelect = (viewerId: string) => sql`
     EXISTS (SELECT 1 FROM connections c WHERE c.status = 'pending' AND ((c.requester_id = ${viewerId}::uuid AND c.addressee_id = p.id) OR (c.requester_id = p.id AND c.addressee_id = ${viewerId}::uuid))) AS pending,
     (SELECT count(*)::int FROM friends vf JOIN connections pc ON pc.status = 'accepted'
         AND ((pc.requester_id = p.id AND pc.addressee_id = vf.id) OR (pc.addressee_id = p.id AND pc.requester_id = vf.id))) AS mutual,
-    ARRAY(SELECT coalesce(fp.full_name, fp.username) FROM friends vf JOIN connections pc ON pc.status = 'accepted'
+    to_jsonb(ARRAY(SELECT coalesce(fp.full_name, fp.username) FROM friends vf JOIN connections pc ON pc.status = 'accepted'
         AND ((pc.requester_id = p.id AND pc.addressee_id = vf.id) OR (pc.addressee_id = p.id AND pc.requester_id = vf.id))
-        JOIN profiles fp ON fp.id = vf.id LIMIT 2) AS mutual_names,
+        JOIN profiles fp ON fp.id = vf.id LIMIT 2)) AS mutual_names,
     (SELECT w.title FROM app_private.search_places(p.id) a JOIN viewer_places b ON b.id = a
         JOIN workspaces w ON w.id = a WHERE w.deleted_at IS NULL ORDER BY w.kind DESC, w.title LIMIT 1) AS shared_place`;
 
@@ -162,13 +167,14 @@ const friendsCte = (viewerId: string) => sql`friends AS (
 
 function toPersonHit(row: PersonRow, q: string): SearchHit {
     const name = row.full_name || row.username || "Person";
+    const skills = skillList(row.skills);
     const word = firstToken(q).toLocaleLowerCase();
-    const skill = (row.skills ?? []).find((value) => value.toLocaleLowerCase().includes(word));
+    const skill = skills.find((value) => value.toLocaleLowerCase().includes(word));
     const nameMatches = matchScore(name, q) < 4 || Boolean(row.username?.toLocaleLowerCase().includes(word));
     const mutual = Number(row.mutual) || 0;
     const relation = row.connected ? "Your connection"
         : row.shared_place ? `Works with you in ${row.shared_place}`
-            : mutual ? `${mutual} mutual · ${(row.mutual_names ?? []).join(", ")}` : null;
+            : mutual ? `${mutual} mutual · ${skillList(row.mutual_names).join(", ")}` : null;
     return {
         id: `person:${row.id}`,
         kind: "people",
@@ -179,7 +185,7 @@ function toPersonHit(row: PersonRow, q: string): SearchHit {
         score: Math.min(matchScore(name, q), row.username?.toLocaleLowerCase() === word ? 0 : 4),
         createdAt: iso(row.created_at),
         avatarUrl: row.avatar_url,
-        tags: (row.skills ?? []).slice(0, 4),
+        tags: skills.slice(0, 4),
         act: row.connected ? "Message" : row.pending ? "Pending" : "Connect",
         meta: {
             userId: row.id, username: row.username, location: row.location, mutual, relation,

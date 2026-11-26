@@ -213,3 +213,22 @@ test("a typo in a long organization name is corrected", async () => {
   assert.equal(result.fixedFrom, typo);
   assert.equal(result.groups.orgs?.[0]?.title, `${word} Hyderabad Developers Community`);
 });
+
+// Live check 2026-11-27: ARRAY(...) columns arrive as "{a,b}" strings on production's connection; tags and mutual names
+// must be lists (the preview pane crashed on tags.map). Arrays go through to_jsonb, which every connection parses.
+test("tags and mutual names are lists, read through to_jsonb", async () => {
+  const w = await world();
+  const source = (await import("node:fs")).readFileSync("src/lib/search/global/kinds.ts", "utf8");
+  assert.doesNotMatch(source, /(?<!to_jsonb\()ARRAY\(SELECT/);
+  const result = await run.runGlobalSearch({ viewerId: w.viewer, q: w.t, ctx: "discover", place: null, scope: null, perKind: 10 });
+  for (const hit of [...(result.groups.workspaces ?? []), ...(result.groups.people ?? [])]) assert.ok(Array.isArray(hit.tags), hit.title);
+});
+
+// Live check 2026-11-27: a post's embedded task or file reference showed as raw {% … %} text.
+test("post previews are plain text, without embed codes", async () => {
+  const w = await world();
+  await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${w.space}, ${w.owner}, ${`Linked {% ref.tasks id="9fbd" label="Task one" %} for ${w.t}x`})`;
+  const result = await run.runGlobalSearch({ viewerId: w.viewer, q: `${w.t}x`, ctx: "discover", place: null, scope: null, perKind: 10 });
+  const post = result.groups.posts!.find((hit) => hit.sub.includes(`${w.t}x`))!;
+  assert.doesNotMatch(post.sub, /\{%|%\}/);
+});
