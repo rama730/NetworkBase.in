@@ -73,7 +73,7 @@
 /* Phone (Phone board): a full-screen sheet, 52 px rows, Cancel. */
 @media (max-width: 639px) {
   .nb-sx-row, .nb-sx-row-main { min-height: 52px; }
-  .nb-sx-input { padding-top: env(safe-area-inset-top, 0px); }
-  .nb-sx-foot { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .nb-sx-input { height: calc(52px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); }
+  .nb-sx-foot { height: calc(40px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
 @media (prefers-reduced-motion: reduce) { .nb-sx-dim { transition: none; } }

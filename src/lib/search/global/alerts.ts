@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 
 import { countNewMatches, type SavedTab } from "./saved";
+import { savedSearchHref } from "./saved-href";
 
 const rows = <T>(result: unknown) => result as unknown as T[];
 // ponytail: up to 500 due saved searches a run, one at a time. Upgrade: batches across runs if this grows past that.
@@ -31,12 +32,6 @@ export async function collectDueAlerts(now: Date): Promise<DueAlert[]> {
     return found;
 }
 
-export function savedSearchHref(query: string, tab: SavedTab, filters: Record<string, unknown>) {
-    const params = new URLSearchParams({ q: query });
-    if (tab !== "discover") params.set("tab", tab);
-    for (const [key, value] of Object.entries(filters)) if (typeof value === "string" && value && !params.has(key)) params.set(key, value);
-    return `/search?${params.toString()}`;
-}
 
 /** The daily job: alerts for saved searches, and the query log trimmed to 30 days ("Trending near you"). */
 export async function runSavedSearchAlerts(now = new Date()) {

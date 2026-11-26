@@ -5,6 +5,7 @@ import { Bookmark, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import type { SavedSearch } from "@/lib/search/global/saved";
+import { savedSearchHref } from "@/lib/search/global/saved-href";
 import type { SearchHit } from "@/lib/search/global/types";
 import { HitAvatar, KIND_LABEL, Marked } from "./BoxRow";
 
@@ -26,7 +27,7 @@ export function useBoxExtras({ enabled, ownerId }: { enabled: boolean; ownerId: 
     }).data ?? { saved: [], trending: [] };
 }
 
-export function BoxExtras({ extras, onPick, onOpenSaved }: { extras: Extras; onPick: (value: string) => void; onOpenSaved: (value: string) => void }) {
+export function BoxExtras({ extras, onPick, onOpenSaved }: { extras: Extras; onPick: (value: string) => void; onOpenSaved: (href: string) => void }) {
     return (
         <>
             {extras.saved.length ? (
@@ -36,7 +37,7 @@ export function BoxExtras({ extras, onPick, onOpenSaved }: { extras: Extras; onP
                         <div key={item.id} className="nb-sx-row">
                             <button type="button" className="nb-sx-row-main" onClick={() => {
                                 void fetch("/api/v1/search/saved", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id, seen: true }) }).catch(() => undefined);
-                                onOpenSaved(item.query);
+                                onOpenSaved(savedSearchHref(item.query, item.tab, item.filters));
                             }}>
                                 <span className="nb-sx-icon" aria-hidden><Bookmark className="size-4" /></span>
                                 <span className="nb-sx-tx"><span className="nb-sx-t1">{item.query}</span><span className="nb-sx-t2">{item.tab === "people" ? "People" : item.tab === "msgs" ? "Messages" : "Discover"} · {NOTIFY_LABEL[item.notify]}</span></span>

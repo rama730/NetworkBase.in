@@ -1,5 +1,6 @@
 'use client'
 
+import { forgetOfflineSearch } from "@/lib/privacy/device-forget";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect, type ReactNode } from 'react'
 import { maskLinkPreviewAccess } from '@/lib/links/client-preview-cache'
@@ -31,6 +32,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
         const handleSignOut = () => {
             maskLinkPreviewAccess(queryClient);
             queryClient.clear();
+            // Search results kept for offline moments are this account's; the next person never sees them.
+            void forgetOfflineSearch();
         };
         window.addEventListener('auth:signout', handleSignOut);
         return () => window.removeEventListener('auth:signout', handleSignOut);

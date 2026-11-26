@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useTheme } from "@/components/providers/theme-provider";
+import { usePrivacySettings } from "@/hooks/useSettingsQueries";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -14,6 +15,8 @@ export function SettingControl({ control }: { control: "theme" | "findMe" }) {
     const { theme, setThemeWithTransition } = useTheme();
     const queryClient = useQueryClient();
     const [findMe, setFindMe] = useState<string | null>(null);
+    const privacy = usePrivacySettings();
+    const current = findMe ?? privacy.data?.settings.searchVisibility ?? null;
 
     if (control === "theme") {
         return (
@@ -31,7 +34,7 @@ export function SettingControl({ control }: { control: "theme" | "findMe" }) {
     return (
         <span className="nb-sx-seg" role="group" aria-label="Who can find me in search">
             {FIND_ME.map(([value, short, long]) => (
-                <button key={value} type="button" aria-pressed={findMe === value} onClick={async (event) => {
+                <button key={value} type="button" aria-pressed={current === value} onClick={async (event) => {
                     event.stopPropagation();
                     const response = await fetch("/api/v1/privacy", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ searchVisibility: value }) }).catch(() => null);
                     if (!response?.ok) { toast.error("Couldn’t save that. Open Settings › Privacy to try again."); return; }

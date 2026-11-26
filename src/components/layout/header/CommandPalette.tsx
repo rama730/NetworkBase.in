@@ -28,6 +28,7 @@ import { BoxRow, HitAvatar, KIND_LABEL, Marked } from "./search-box/BoxRow";
 import { SettingControl } from "./search-box/SettingControl";
 import { BoxExtras, BoxPreview, useBoxExtras } from "./search-box/BoxExtras";
 import { buildBoxGroups, type BoxGroupKind } from "./search-box/groups";
+import { acceptsSuggestion, isStoredHit } from "./search-box/recent";
 import "./search-box/search-box.css";
 import {
     readRecentGlobalSearches,
@@ -58,9 +59,6 @@ const ONLY_CHIPS: Array<{ only: SearchKind; label: string }> = [
 const chipLabel = (chip: Chip) => chip.kind === "channels" ? "Channels" : chip.kind === "actions" ? "Actions and settings" : ONLY_CHIPS.find((c) => c.only === chip.only)?.label ?? chip.only;
 const TAB_FOR: Partial<Record<BoxGroupKind, string>> = { people: "people", messages: "msgs", goto: "goto", orgs: "discover", workspaces: "discover", posts: "discover" };
 const KIND_FOR_TAB: Partial<Record<BoxGroupKind, string>> = { orgs: "orgs", workspaces: "spaces", posts: "posts" };
-const isHit = (value: unknown): value is SearchHit => Boolean(value && typeof value === "object" && typeof (value as SearchHit).id === "string"
-    && typeof (value as SearchHit).title === "string" && typeof (value as SearchHit).href === "string" && (value as SearchHit).href.startsWith("/") && !(value as SearchHit).href.startsWith("//")
-    && typeof (value as SearchHit).kind === "string" && typeof (value as SearchHit).meta === "object");
 const domId = (hit: SearchHit) => `nb-sx-${hit.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
 export default function CommandPalette({ isOpen, onClose, initialQuery = "", initialActiveIndex, recentSearchOwnerId = "" }: CommandPaletteProps) {
@@ -106,6 +104,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         setInPlace(true);
         setExact(false);
         setActiveIndex(initialActiveIndex ?? -1);
+        lastReset.current = `${initialQuery.trim()}||true`;
         setRecents(readRecentGlobalSearches(recentSearchOwnerId, RECENT_SCOPE));
         // The box hangs under the top bar's search cell (Main board), clear of the window's edge.
         const cell = document.querySelector(".nb-cell-search")?.getBoundingClientRect();
@@ -123,6 +122,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         only: chip?.kind === "only" ? chip.only : null,
         exact,
         enabled: isOpen && !actionsOnly && (q.length > 0 || chip?.kind === "channels"),
+        viewerId: recentSearchOwnerId,
     });
     const extras = useBoxExtras({ enabled: isOpen && !q, ownerId: recentSearchOwnerId });
     const goto = useMemo(() => (chip && !actionsOnly ? [] : searchGoto(q, { place })), [actionsOnly, chip, place, q]);
@@ -137,7 +137,14 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
     const active = flat[activeIndex] ?? null;
     const nothing = Boolean(q) && !search.isFetching && !search.error && !search.isFirstLoad && total === 0 && !invite && (result || actionsOnly);
 
-    useEffect(() => { setActiveIndex(-1); }, [q, chip, inPlace]);
+    // New words or scope clear the highlight; opening the box doesn't, so back-to-search marks the result you opened.
+    const resetKey = `${q}|${chip ? chipLabel(chip) : ""}|${inPlace}`;
+    const lastReset = useRef(resetKey);
+    useEffect(() => {
+        if (lastReset.current === resetKey) return;
+        lastReset.current = resetKey;
+        setActiveIndex(-1);
+    }, [resetKey]);
     useEffect(() => {
         if (active) document.getElementById(domId(active))?.scrollIntoView({ block: "nearest" });
     }, [active]);
@@ -226,6 +233,8 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
             const step = event.key === "ArrowDown" ? 1 : -1;
             setActiveIndex((current) => current < 0 ? (step === 1 ? 0 : flat.length - 1) : (current + step + flat.length) % flat.length);
         } else if (event.key === "Enter") {
+            // An input method is still choosing the word: Enter belongs to it.
+            if (event.nativeEvent.isComposing) return;
             event.preventDefault();
             if (event.metaKey || event.ctrlKey) seeAll();
             else if (active) openHit(active);
@@ -234,9 +243,9 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         } else if (event.key === "Backspace" && !text) {
             if (chip) setChip(null);
             else if (place && inPlace) setInPlace(false);
-        } else if (event.key === "Tab" && !event.shiftKey && result?.suggestions[0] && q) {
-            event.preventDefault();
-            setText(result.suggestions[0]);
+        } else if (event.key === "Tab" && !event.shiftKey) {
+            const word = acceptsSuggestion({ q, suggestions: result?.suggestions ?? [], shown: Boolean(result && !result.fixedFrom) });
+            if (word) { event.preventDefault(); setText(word); }
         }
     };
 
@@ -247,7 +256,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
         setRecents(next);
     };
     const recentQueries = recents.filter((item) => item.kind === "query");
-    const viewed = recents.flatMap((item) => (item.kind === "preview" && isHit(item.preview) ? [{ key: item.key, hit: item.preview }] : []));
+    const viewed = recents.flatMap((item) => (item.kind === "preview" && isStoredHit(item.preview) ? [{ key: item.key, hit: item.preview }] : []));
 
     const placeholder = place && inPlace ? `Search ${place.name}, or everywhere` : "Search people, workspaces, organizations, posts…";
     const showPreview = Boolean(active) && typeof window !== "undefined" && window.innerWidth >= 1100;
@@ -337,7 +346,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                                             ))}
                                         </section>
                                     ) : null}
-                                    <BoxExtras extras={extras} onPick={(value) => setText(value)} onOpenSaved={(value) => { setText(value); }} />
+                                    <BoxExtras extras={extras} onPick={(value) => setText(value)} onOpenSaved={(href) => confirmAppNavigation(() => { router.push(href); onClose(); })} />
                                     <section>
                                         <div className="nb-sx-glabel"><b>Search only</b><span className="nb-sx-rule" /></div>
                                         <div className="nb-sx-chips">

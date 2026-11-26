@@ -36,28 +36,36 @@ export class GlobalSearchError extends Error {
 }
 
 type Answer = { result: GlobalSearchResult; staleAt: number | null };
-const cacheKey = (url: string) => `global-search:v2:${url}`;
+/**
+ * The kept copy for busy or offline moments: one account's, under the prefix that a block (forgetOnDevice) and
+ * sign-out (query-provider) clear, so the next person on a shared computer never sees it. No account, no copy.
+ */
+export function offlineKey(viewerId: string, url: string) {
+    return viewerId ? `offline:search:global:${viewerId}:${url}` : null;
+}
 
 /**
  * The box's one read (global search mix §5, speed budget): 120 ms after typing, one GET, older calls aborted, the
  * same words cached 60 s. While new results come the old ones stay (dimmed); when the line is busy or offline the
  * last answer for these words is served with its age.
  */
-export function useGlobalSearch({ q, ctx, place = null, enabled, per = 3, only = null, exact = false, log = false }: SearchRequest & { enabled: boolean }) {
+export function useGlobalSearch({ q, ctx, place = null, enabled, per = 3, only = null, exact = false, log = false, viewerId }: SearchRequest & { enabled: boolean; viewerId: string }) {
     const [debounced] = useDebounce(normalizeSearchQuery(q), 120);
     const url = searchUrl({ q: debounced, ctx, place, per, only, exact, log });
     const query = useQuery<Answer, GlobalSearchError>({
-        queryKey: queryKeys.globalSearch.all(ctx, place, debounced.toLowerCase(), per, only, exact),
+        queryKey: [...queryKeys.globalSearch.all(ctx, place, debounced.toLowerCase(), per, only, exact), viewerId],
         queryFn: async ({ signal }) => {
             try {
                 const response = await fetch(url, { signal, headers: { accept: "application/json" } });
                 const body = await response.json().catch(() => null) as { success?: boolean; data?: GlobalSearchResult; message?: string } | null;
                 if (!response.ok || !body?.success || !body.data) throw new GlobalSearchError(body?.message || "Couldn’t search just now", response.status);
-                void setIdb(cacheKey(url), { at: Date.now(), result: body.data }).catch(() => undefined);
+                const key = offlineKey(viewerId, url);
+                if (key) void setIdb(key, { at: Date.now(), result: body.data }).catch(() => undefined);
                 return { result: body.data, staleAt: null };
             } catch (error) {
                 if (signal.aborted) throw error;
-                const kept = await getIdb<{ at: number; result: GlobalSearchResult }>(cacheKey(url)).catch(() => undefined);
+                const key = offlineKey(viewerId, url);
+                const kept = key ? await getIdb<{ at: number; result: GlobalSearchResult }>(key).catch(() => undefined) : undefined;
                 if (kept) return { result: kept.result, staleAt: kept.at };
                 throw error instanceof GlobalSearchError ? error : new GlobalSearchError("Couldn’t search just now", 0);
             }
@@ -67,6 +75,8 @@ export function useGlobalSearch({ q, ctx, place = null, enabled, per = 3, only =
         staleTime: 60_000,
         gcTime: 5 * 60_000,
         retry: false,
+        // Offline the fetch fails at once and the kept copy shows with its age (TanStack would otherwise pause).
+        networkMode: "always",
         refetchOnWindowFocus: false,
     });
 

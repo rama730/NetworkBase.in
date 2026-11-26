@@ -15,6 +15,11 @@ export async function forgetOnDevice(otherUserId: string) {
   } catch {
     // Notifications are optional on this device.
   }
+  await forgetOfflineSearch();
+}
+
+/** Drops every offline search copy on this device: after a block, and on sign-out (a shared computer). */
+export async function forgetOfflineSearch() {
   try {
     const stored = await idbKeys();
     const search = stored.filter((key) => typeof key === "string" && key.startsWith("offline:search:"));
