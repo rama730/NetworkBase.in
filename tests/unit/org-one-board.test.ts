@@ -64,8 +64,9 @@ test("live-fix 10: the board opens at its first column; only a column added by h
 
 test("live-fix 47, 48: org search is labelled for the organization and grouped by kind", () => {
   const palette = source("src/components/layout/header/CommandPalette.tsx");
-  assert.match(palette, /label: "this organization"/);
-  assert.match(palette, /organization: onOrgPage/);
+  // Global search mix: an org page searches the org first ("In CSE-3A"), then everywhere.
+  assert.match(palette, /In \{place\.name\}/);
+  assert.match(palette, /kind: ctx === "org" \? "org" : "workspace"/);
   const search = source("src/app/actions/org-workspace.ts");
   assert.match(search, /linked_node_id/);
   assert.doesNotMatch(search, /tab=assignments/);

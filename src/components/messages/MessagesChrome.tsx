@@ -28,7 +28,7 @@ function drawerOpen() {
 }
 
 /**
- * ⌘K switcher, ⌘/ shortcuts, Alt+↑/↓ next conversation needing attention (sidebar order), Shift+Esc mark the
+ * ⌘J switcher, ⌘/ shortcuts, Alt+↑/↓ next conversation needing attention (sidebar order), Shift+Esc mark the
  * visible list read (asks first above 5), Esc mark the open conversation read. None fire while typing.
  */
 function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[], label?: string) => void) {
@@ -39,7 +39,8 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+      // ⌘K is the one search everywhere (global search decision 5); the chat switcher keeps its own key, ⌘J.
+      if ((e.metaKey || e.ctrlKey) && (e.key === "j" || e.key === "J")) {
         e.preventDefault();
         useChatUi.getState().setSwitcherOpen(true);
         return;
@@ -109,7 +110,7 @@ function useKeyboardSafeHeight() {
   }, []);
 }
 
-/** Every /messages screen: the keys above, the ⌘K switcher, and the shared dialogs (opened through the chat UI store). */
+/** Every /messages screen: the keys above, the ⌘J switcher, and the shared dialogs (opened through the chat UI store). */
 export function MessagesChrome() {
   useKeyboardSafeHeight();
   // A reload keeps the project picked earlier in this tab (pages whose URL has no project).

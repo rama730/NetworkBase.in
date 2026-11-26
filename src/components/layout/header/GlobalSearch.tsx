@@ -14,6 +14,8 @@ import {
     type GlobalSearchContext,
 } from "./global-search";
 
+export const GLOBAL_SEARCH_PLACEHOLDER = "Search people, workspaces, organizations, posts…";
+
 interface GlobalSearchProps {
     onOpenCommandPalette: (initialQuery?: string, context?: GlobalSearchContext) => void;
     condensed?: boolean;
@@ -37,31 +39,9 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false, 
 
     const shortcut = useModKeyHint("k");
 
-    const triggerLabel = useMemo(() => {
-        const contextLabel = (() => {
-            switch (context) {
-                case "discover":
-                    return "Search workspaces";
-                case "network":
-                    return placeholder.replace(/\.\.\.$/, "");
-                case "messages":
-                    return "Find a conversation";
-                case "project":
-                    // Live-check follow-up: on an organization's page the button names the organization, like the palette.
-                    return placeholder.startsWith("Search this organization") ? "Search this organization" : "Search this workspace";
-                case "settings":
-                    return "Search settings";
-                default:
-                    return "Search workspaces";
-            }
-        })();
-
-        if (!query.trim()) {
-            return contextLabel;
-        }
-
-        return `${contextLabel}. Current query: ${query.trim()}`;
-    }, [context, placeholder, query]);
+    // One search on every page (global search mix §3): the same words in the top bar, wherever you are.
+    const shown = context === "project" ? `Search ${placeholder.includes("organization") ? "this organization" : "this workspace"}, or everywhere` : GLOBAL_SEARCH_PLACEHOLDER;
+    const triggerLabel = query.trim() ? `${shown}. Current query: ${query.trim()}` : shown;
 
     const handleClear = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -90,12 +70,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false, 
         >
             <button
                 type="button"
-                onClick={() => {
-                    // A page with its own search box (Discover): one search, so the top bar goes to it.
-                    const pageSearch = document.querySelector<HTMLInputElement>('[data-page-search] input');
-                    if (pageSearch) pageSearch.focus();
-                    else onOpenCommandPalette(query, context);
-                }}
+                onClick={() => onOpenCommandPalette(query, context)}
                 aria-label={triggerLabel}
                 className={`flex min-w-0 items-center rounded-[5px] transition-colors duration-[130ms] focus:outline-none ${
                     condensed ? 'justify-center' : 'flex-1 gap-2'
@@ -110,7 +85,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false, 
 
                 <div className={`items-center flex-1 overflow-hidden ${condensed ? 'hidden' : 'flex w-auto opacity-100'}`}>
                     <span className={`text-xs whitespace-nowrap truncate transition-colors ${query ? "text-foreground font-medium" : "text-muted-foreground group-hover:text-foreground"}`}>
-                        {query || placeholder}
+                        {query || shown}
                     </span>
                 </div>
             </button>

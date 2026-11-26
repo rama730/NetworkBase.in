@@ -7,32 +7,20 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("CommandPalette enforces canonical max-w-640px geometry, rounded-12px radius, and nb-micro section headers", () => {
+test("the box hangs under the top bar, rows and group labels follow the prototype", () => {
     const palette = source("src/components/layout/header/CommandPalette.tsx");
-
-    // Geometry & Radius
-    assert.match(palette, /sm:max-w-\[640px\]/);
-    assert.match(palette, /sm:rounded-\[12px\]/);
-    assert.match(palette, /sm:border-border sm:bg-card/);
-
-    // Search Input Bar (Zero orange focus-visible outline)
-    assert.match(palette, /h-14 shrink-0 items-center gap-3 border-b border-border/);
+    const css = source("src/components/layout/header/search-box/search-box.css");
+    // A full-screen sheet on a phone; on wider screens a panel under the search cell (Main and Phone boards).
+    assert.match(palette, /h-dvh w-screen/);
+    assert.match(palette, /sm:rounded-\[6px\] sm:border sm:border-border sm:bg-card/);
+    assert.match(css, /top: calc\(var\(--ui-topnav-height, 56px\) \+ 6px\); width: min\(720px/);
+    assert.match(css, /\.nb-sx-panel:has\(\.nb-sx-preview\) \{ width: min\(1040px/);
+    assert.match(css, /\.nb-sx-row, \.nb-sx-row-main \{ min-height: 52px; \}/);
     assert.match(palette, /nb-command-input h-full min-w-0 flex-1/);
-    assert.match(palette, /focus-visible:outline-none focus-visible:ring-0/);
     assert.match(palette, /style=\{\{ outline: "none", boxShadow: "none" \}\}/);
     assert.match(palette, /data-testid="global-search-enter-hint"/);
-
-    // Monospace Micro-Label Section Headers
-    assert.match(palette, /className="nb-micro uppercase tracking-\[0\.09em\] text-muted-foreground"/);
-    assert.match(palette, /Workspaces · \$\{projectResults\.length\}/);
-    assert.match(palette, /People · \$\{profileResults\.length\}/);
-
-    // Related Skills as Drafting-Table Chips
-    assert.match(palette, /Skills in these workspaces/);
-    assert.match(palette, /data-testid="related-skills-scroll"/);
-    assert.match(palette, /rounded-\[3px\] border px-2\.5 text-xs font-mono/);
-    assert.doesNotMatch(palette, /Scroll to explore/, "Must not include redundant 'Scroll to explore' text");
-    assert.doesNotMatch(palette, /rounded-full.*related-skills/, "Skills chips must follow 3px drafting-table radius");
+    assert.match(css, /\.nb-sx-glabel \{[^}]*text-transform: uppercase/);
+    assert.doesNotMatch(css, /border-left: [23]px solid var\(--nb-brand\)|inset 3px/, "no coloured edge accents");
 });
 
 test("GlobalSearchResultCards renders canonical status badges, squared avatars, and tabular metrics", () => {

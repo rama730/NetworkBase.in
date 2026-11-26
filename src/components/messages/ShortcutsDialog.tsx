@@ -9,7 +9,8 @@ function groups() {
   const k = keyLabel;
   return [
     { title: "Anywhere in Messages", keys: [
-      [k("mod+k"), "Jump to a conversation or person"],
+      [k("mod+j"), "Jump to a conversation or person"],
+      [k("mod+k"), "Search everything, your messages first"],
       [`${k("mod+enter")} in the switcher`, "Search messages"],
       [`${k("alt+up")} / ${k("alt+down")}`, "Previous / next conversation with something new"],
       [k("esc"), "Mark this conversation as read, or close the thread or details"],

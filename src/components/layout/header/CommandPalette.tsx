@@ -3,44 +3,39 @@
 import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
-import { History, RotateCcw, Search, ShieldCheck, X } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { History, Search, ShieldCheck, X } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "@/lib/feedback";
+import { copyText } from "@/lib/clipboard";
 
-import { SkillIcon } from "@/components/skills";
-import { AppScrollArea } from "@/components/ui/AppScrollArea";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isGlobalSearchPreview, useGlobalSearchPreviews, type GlobalSearchPreview } from "@/hooks/useGlobalSearchPreviews";
+import { useTheme } from "@/components/providers/theme-provider";
+import { useSidebarWorkspacesQuery } from "@/components/layout/AppSidebar";
+import { placeForPath } from "@/components/layout/SidebarWorkspaces";
 import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/hooks/useConnections";
-import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
-import { SearchPreviewError } from "@/lib/search/contracts";
-import {
-    ProfileSearchResultCard,
-    WorkspaceSearchResultCard,
-    LinkSearchResultCard,
-    SettingsSearchResultCard,
-    TaskSearchResultCard,
-    OrgSearchResultCard,
-} from "./GlobalSearchResultCards";
+import { ageLabel, useGlobalSearch } from "@/hooks/useGlobalSearch";
 import { currentEntry } from "@/lib/navigation/in-app-history";
 import { rememberSearchReturn } from "@/lib/navigation/search-return";
+import { usePlaceName } from "@/lib/navigation/place-name";
+import { queryKeys } from "@/lib/query-keys";
+import { searchGoto, type GotoPlace } from "@/lib/search/global/goto";
+import { contextFromPath, type SearchKind } from "@/lib/search/global/parse";
+import type { SearchHit } from "@/lib/search/global/types";
+import { BoxRow, HitAvatar, KIND_LABEL, Marked } from "./search-box/BoxRow";
+import { BoxExtras, BoxPreview, useBoxExtras } from "./search-box/BoxExtras";
+import { buildBoxGroups, type BoxGroupKind } from "./search-box/groups";
+import "./search-box/search-box.css";
 import {
-    buildGlobalSearchHref,
-    getNetworkSearchScope,
-    getWorkspaceIdentifierFromPathname,
-    getGlobalSearchRecentScope,
     readRecentGlobalSearches,
     removeRecentGlobalSearch,
     rememberRecentGlobalSearch,
     rememberRecentGlobalSearchPreview,
-    resolveGlobalSearchContext,
-    searchSettings,
     type GlobalSearchContext,
     type RecentGlobalSearchItem,
-    type SettingsSearchItem,
 } from "./global-search";
 
 type CommandPaletteProps = {
@@ -53,119 +48,44 @@ type CommandPaletteProps = {
     recentSearchOwnerId?: string;
 };
 
-const CONTEXT_PRESENTATION = {
-    default: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
-    discover: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
-    network: { label: "Network / People", hints: ["Name", "Skill", "Location"] },
-    project: { label: "Workspace / Work and Links", hints: ["Task title", "Link name", "Link category"] },
-    settings: { label: "Settings", hints: ["Theme", "Privacy", "Integrations"] },
-    messages: { label: "Messages", hints: [] },
-} satisfies Record<GlobalSearchContext, { label: string; hints: string[] }>;
-// An organization's page (problem 47): its own words, not the workspace's.
-const ORG_PRESENTATION = { label: "this organization", hints: ["Assignments", "Documents", "Files", "Sprints", "People"] };
-const ORG_GROUP_LABEL: Record<string, string> = { action: "Actions", assignment: "Assignments", task: "Tasks", doc: "Documents", file: "Files", sprint: "Sprints", child: "Workspaces", member: "People", org: "Organizations" };
+/** Recent searches are one list for every page (report §4 item 1). */
+export const RECENT_SCOPE = "everywhere";
+type Chip = { kind: "only"; only: SearchKind } | { kind: "channels" } | { kind: "actions" };
+const ONLY_CHIPS: Array<{ only: SearchKind; label: string }> = [
+    { only: "people", label: "People" }, { only: "workspaces", label: "Workspaces" }, { only: "orgs", label: "Orgs" },
+    { only: "posts", label: "Posts" }, { only: "messages", label: "Messages" },
+];
+const chipLabel = (chip: Chip) => chip.kind === "channels" ? "Channels" : chip.kind === "actions" ? "Actions and settings" : ONLY_CHIPS.find((c) => c.only === chip.only)?.label ?? chip.only;
+const TAB_FOR: Partial<Record<BoxGroupKind, string>> = { people: "people", messages: "msgs", goto: "goto", orgs: "discover", workspaces: "discover", posts: "discover" };
+const KIND_FOR_TAB: Partial<Record<BoxGroupKind, string>> = { orgs: "orgs", workspaces: "spaces", posts: "posts" };
+const isHit = (value: unknown): value is SearchHit => Boolean(value && typeof value === "object" && typeof (value as SearchHit).id === "string"
+    && typeof (value as SearchHit).title === "string" && typeof (value as SearchHit).href === "string" && (value as SearchHit).href.startsWith("/") && !(value as SearchHit).href.startsWith("//")
+    && typeof (value as SearchHit).kind === "string" && typeof (value as SearchHit).meta === "object");
+const domId = (hit: SearchHit) => `nb-sx-${hit.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
-function resultDomId(result: GlobalSearchPreview | SettingsSearchItem, settings = false) {
-    return `global-search-preview-${settings ? `settings-${result.id}` : result.id}`;
-}
-
-function SearchSkeletons() {
-    return (
-        <div className="space-y-2 p-3" role="status" aria-label="Loading search previews">
-            <span className="sr-only">Loading search previews…</span>
-            {[0, 1, 2].map((item) => (
-                <div key={item} className="flex items-start gap-3 rounded-[8px] border border-border/60 bg-card p-3" aria-hidden="true">
-                    <Skeleton kind="tile" className="size-10 shrink-0 rounded-[5px]" />
-                    <div className="min-w-0 flex-1 space-y-2">
-                        <Skeleton className="h-3 w-1/3 rounded-[3px]" />
-                        <Skeleton className="h-2.5 w-3/4 rounded-[3px]" />
-                        <Skeleton className="h-2.5 w-1/2 rounded-[3px]" />
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function RecentSearchList({
-    items,
-    onSelectQuery,
-    onOpenPreview,
-    onConnect,
-    connectingUserId,
-    onRemove,
-}: {
-    items: RecentGlobalSearchItem[];
-    onSelectQuery: (query: string) => void;
-    onOpenPreview: (preview: GlobalSearchPreview) => void;
-    onConnect: (result: Extract<GlobalSearchPreview, { kind: "profile" }>) => Promise<void>;
-    connectingUserId?: string;
-    onRemove: (key: string) => void;
-}) {
-    if (!items.length) return null;
-    return (
-        <section aria-labelledby="global-search-recents-heading">
-            <p id="global-search-recents-heading" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Recent searches</p>
-            <div className="mt-2 space-y-1">
-                {items.map((recent) => {
-                    if (recent.kind === "preview" && isGlobalSearchPreview(recent.preview)) {
-                        const interaction = { index: 0, activeIndex: -1, onActivate: () => undefined, onOpen: onOpenPreview, onRemove: () => onRemove(recent.key) };
-                        if (recent.preview.kind === "project") return <WorkspaceSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
-                        if (recent.preview.kind === "profile") return <ProfileSearchResultCard key={recent.key} result={recent.preview} {...interaction} onConnect={onConnect} isConnecting={connectingUserId === recent.preview.userId} />;
-                        if (recent.preview.kind === "task") return <TaskSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
-                        if (recent.preview.kind === "link") return <LinkSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
-                        if (recent.preview.kind === "org") return <OrgSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
-                    }
-                    if (recent.kind !== "query") return null;
-                    return (
-                        <div key={recent.key} className="group relative flex min-h-10 items-center rounded-[8px] text-foreground transition-colors hover:bg-muted focus-within:bg-muted">
-                            <button
-                                type="button"
-                                onClick={() => onSelectQuery(recent.query)}
-                                className="flex min-h-10 min-w-0 flex-1 items-center gap-2.5 rounded-[8px] px-3 pr-12 text-left text-sm outline-none"
-                                aria-label={`Use recent search ${recent.label}`}
-                            >
-                                <History className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                                <span className="truncate">{recent.label}</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onRemove(recent.key)}
-                                className="nb-touch-target absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
-                                aria-label={`Remove ${recent.label} from recent searches`}
-                            >
-                                <X className="size-3.5" aria-hidden />
-                            </button>
-                        </div>
-                    );
-                })}
-            </div>
-        </section>
-    );
-}
-
-export default function CommandPalette({ isOpen, onClose, initialQuery = "", initialActiveIndex, context, recentSearchOwnerId = "" }: CommandPaletteProps) {
-    useSkillCatalog();
+export default function CommandPalette({ isOpen, onClose, initialQuery = "", initialActiveIndex, recentSearchOwnerId = "" }: CommandPaletteProps) {
     const queryClient = useQueryClient();
-    const pathname = usePathname();
+    const pathname = usePathname() ?? "/";
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const [query, setQuery] = useState(initialQuery);
+    const { theme, setThemeWithTransition } = useTheme();
+    const { key: ctx, place: placeSlug } = contextFromPath(pathname);
+    const { data: sidebar } = useSidebarWorkspacesQuery();
+    const sidebarPlace = useMemo(() => placeForPath(sidebar, pathname), [sidebar, pathname]);
+    const placeName = usePlaceName(pathname) ?? sidebarPlace?.title ?? null;
+    const place: GotoPlace | null = placeSlug && (ctx === "workspace" || ctx === "org")
+        ? { kind: ctx === "org" ? "org" : "workspace", name: placeName ?? placeSlug, href: `/${ctx === "org" ? "org" : "workspaces"}/${encodeURIComponent(placeSlug)}` }
+        : null;
+
+    const [text, setText] = useState(initialQuery);
+    const [chip, setChip] = useState<Chip | null>(null);
+    const [inPlace, setInPlace] = useState(true);
+    const [exact, setExact] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
-    const [recentSearches, setRecentSearches] = useState<RecentGlobalSearchItem[]>([]);
+    const [recents, setRecents] = useState<RecentGlobalSearchItem[]>([]);
     const { sendRequest } = useConnectionMutations();
-    const paramsString = searchParams?.toString() ?? "";
-    const currentParams = useMemo(() => new URLSearchParams(paramsString), [paramsString]);
-    const routeContext = resolveGlobalSearchContext(pathname, currentParams);
-    const searchContext = context ?? routeContext.context;
-    const peopleScope = getNetworkSearchScope(currentParams);
-    const projectIdentifier = getWorkspaceIdentifierFromPathname(pathname);
-    const recentSearchScope = getGlobalSearchRecentScope(searchContext, peopleScope, projectIdentifier);
-    const onOrgPage = searchContext === "project" && Boolean(pathname?.startsWith("/org/"));
-    const presentation = searchContext === "network" && peopleScope === "network"
-        ? { label: "Connections / Network", hints: ["Connection name", "Username"] }
-        : onOrgPage ? ORG_PRESENTATION : CONTEXT_PRESENTATION[searchContext];
-    const palettePlaceholder = `Search ${presentation.label}…`;
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [left, setLeft] = useState<number | null>(null);
+
     // Staff only (trust and safety C2): "trust" or a case number opens the console. Asked once per opening.
     const [isStaff, setIsStaff] = useState(false);
     useEffect(() => {
@@ -174,388 +94,375 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
     }, [isOpen, recentSearchOwnerId]);
     const staffCommand = useMemo(() => {
         if (!isStaff) return null;
-        const q = query.trim();
+        const q = text.trim();
         const caseNumber = q.match(/^nb-?(\d{1,9})$/i)?.[1];
         if (caseNumber) return { label: `Open case NB-${caseNumber}`, href: `/admin/trust?case=NB-${caseNumber}` };
         return q.length >= 2 && /^(t(r(u(st?)?)?)?|safety|report|reports|moderation|case|cases)/i.test(q) ? { label: "Open Trust and safety", href: "/admin/trust" } : null;
-    }, [isStaff, query]);
-    const normalizedQuery = query.trim();
-    const settingsResults = useMemo(
-        () => searchContext === "settings" ? searchSettings(query).slice(0, 10) : [],
-        [query, searchContext],
-    );
-    const previews = useGlobalSearchPreviews({
-        context: searchContext,
-        query,
-        enabled: isOpen,
-        projectIdentifier,
-        peopleScope,
-        organization: onOrgPage,
+    }, [isStaff, text]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setText(initialQuery);
+        setChip(null);
+        setInPlace(true);
+        setExact(false);
+        setActiveIndex(initialActiveIndex ?? -1);
+        setRecents(readRecentGlobalSearches(recentSearchOwnerId, RECENT_SCOPE));
+        // The box hangs under the top bar's search cell (Main board), clear of the window's edge.
+        const cell = document.querySelector(".nb-cell-search")?.getBoundingClientRect();
+        const width = Math.min(window.innerWidth >= 1100 ? 1040 : 720, window.innerWidth - 32);
+        setLeft(cell ? Math.max(16, Math.min(cell.left, window.innerWidth - width - 16)) : null);
+    }, [initialActiveIndex, initialQuery, isOpen, recentSearchOwnerId]);
+
+    const q = text.trim();
+    const actionsOnly = chip?.kind === "actions";
+    const search = useGlobalSearch({
+        q: chip?.kind === "channels" ? `#${q}` : q,
+        ctx,
+        place: inPlace && place ? placeSlug : null,
+        per: 3,
+        only: chip?.kind === "only" ? chip.only : null,
+        exact,
+        enabled: isOpen && !actionsOnly && (q.length > 0 || chip?.kind === "channels"),
     });
-    const previewResults = previews.isDebouncing ? [] : previews.data ?? [];
-    const orgResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "org" }>; index: number } => entry.result.kind === "org");
-    const projectResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "project" }>; index: number } => entry.result.kind === "project");
-    const profileResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "profile" }>; index: number } => entry.result.kind === "profile");
-    const taskResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "task" }>; index: number } => entry.result.kind === "task");
-    const linkResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "link" }>; index: number } => entry.result.kind === "link");
-    const skillResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "skill" }>; index: number } => entry.result.kind === "skill");
-    const supportsPreviews = searchContext === "discover" || searchContext === "network" || searchContext === "project" || searchContext === "default";
-    const resultCount = searchContext === "settings" ? settingsResults.length : previewResults.length;
-    const activeResult = searchContext === "settings" ? settingsResults[activeIndex] : previewResults[activeIndex];
-    const isRateLimited = previews.error instanceof SearchPreviewError && previews.error.code === "RATE_LIMITED";
+    const extras = useBoxExtras({ enabled: isOpen && !q, ownerId: recentSearchOwnerId });
+    const goto = useMemo(() => (chip && !actionsOnly ? [] : searchGoto(q, { place })), [actionsOnly, chip, place, q]);
+    const result = q ? search.result : null;
+    const box = useMemo(() => result || goto.length
+        ? buildBoxGroups(result ?? { q, fixedFrom: null, groups: {}, counts: {}, skill: null, suggestions: [], email: null, tookMs: 0 }, ctx, { goto, placeName: place?.name })
+        : null, [ctx, goto, place?.name, q, result]);
+    const emailHit = result?.email?.kind === "person" ? result.email.hit : null;
+    const invite = result?.email?.kind === "invite" ? result.email.address : null;
+    const flat = useMemo(() => [...(emailHit ? [emailHit] : []), ...(box?.flat ?? [])], [box, emailHit]);
+    const total = (box?.total ?? 0) + (emailHit ? 1 : 0);
+    const active = flat[activeIndex] ?? null;
+    const nothing = Boolean(q) && !search.isFetching && !search.error && !search.isFirstLoad && total === 0 && !invite && (result || actionsOnly);
 
+    useEffect(() => { setActiveIndex(-1); }, [q, chip, inPlace]);
     useEffect(() => {
-        if (!isOpen) return;
-        setQuery(initialQuery);
-        setActiveIndex(initialActiveIndex ?? (searchContext === "settings" ? 0 : -1));
-    }, [initialActiveIndex, initialQuery, isOpen, searchContext]);
-
+        if (active) document.getElementById(domId(active))?.scrollIntoView({ block: "nearest" });
+    }, [active]);
     useEffect(() => {
-        if (!isOpen) return;
-        setRecentSearches(readRecentGlobalSearches(recentSearchOwnerId, recentSearchScope).filter(
-            (recent) => recent.kind === "query" || isGlobalSearchPreview(recent.preview),
-        ));
-    }, [isOpen, recentSearchOwnerId, recentSearchScope]);
+        if (!isOpen || !active || active.meta.external) return;
+        const timer = window.setTimeout(() => router.prefetch(active.href), 150);
+        return () => window.clearTimeout(timer);
+    }, [active, isOpen, router]);
 
-    useEffect(() => {
-        setActiveIndex(searchContext === "settings" ? 0 : -1);
-    }, [query, searchContext]);
-
-    useEffect(() => {
-        if (activeIndex < 0 || activeIndex >= resultCount) return;
-        const result = searchContext === "settings" ? settingsResults[activeIndex] : previewResults[activeIndex];
-        if (!result) return;
-        document.getElementById(resultDomId(result, searchContext === "settings"))?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }, [activeIndex, previewResults, resultCount, searchContext, settingsResults]);
-
-    useEffect(() => {
-        const href = activeResult?.href;
-        if (!isOpen || !href) return;
-        const prefetchTimer = window.setTimeout(() => router.prefetch(href), 150);
-        return () => window.clearTimeout(prefetchTimer);
-    }, [activeResult?.href, isOpen, router]);
-
-    const recordRecentSearch = (value: string) => {
-        setRecentSearches(rememberRecentGlobalSearch(recentSearchOwnerId, recentSearchScope, value));
-    };
-
-    const recordRecentPreview = (value: GlobalSearchPreview) => {
-        setRecentSearches(rememberRecentGlobalSearchPreview(recentSearchOwnerId, recentSearchScope, value));
-    };
-
-    const removeRecentSearch = (key: string) => {
-        setRecentSearches(removeRecentGlobalSearch(recentSearchOwnerId, recentSearchScope, key));
-    };
-
-    const cancelActivePreviews = () => {
-        const previewContext = searchContext === "default" ? "discover" : searchContext;
-        queryClient.cancelQueries({
-            queryKey: ["global-search", "previews", previewContext],
-        });
-    };
-
-    /** Going back to this page reopens the search with this query and result (unified back R2). */
+    const record = (value: string) => setRecents(rememberRecentGlobalSearch(recentSearchOwnerId, RECENT_SCOPE, value));
     const rememberForBack = (index: number) => {
         const entryId = currentEntry()?.id;
-        if (entryId) rememberSearchReturn(window.sessionStorage, { entryId, query, context: searchContext, activeIndex: index });
+        if (entryId) rememberSearchReturn(window.sessionStorage, { entryId, query: text, activeIndex: index });
     };
 
-    const openSettingsResult = (result: SettingsSearchItem) => confirmAppNavigation(() => {
-        cancelActivePreviews();
-        recordRecentSearch(query);
-        rememberForBack(settingsResults.indexOf(result));
-        router.push(result.href);
-        onClose();
-    });
-
-    const openPreviewResult = (result: GlobalSearchPreview) => {
-        const open = () => {
-            cancelActivePreviews();
-            if (result.kind === "skill") recordRecentSearch(result.title);
-            else recordRecentPreview(result);
-            if (result.kind === "link") window.open(result.href, "_blank", "noopener,noreferrer");
+    const openHit = (hit: SearchHit) => {
+        const go = () => {
+            if (q) record(q);
+            if (hit.kind !== "goto") setRecents(rememberRecentGlobalSearchPreview(recentSearchOwnerId, RECENT_SCOPE, { ...hit, id: hit.id, title: hit.title }));
+            if (hit.meta.external) window.open(hit.href, "_blank", "noopener,noreferrer");
             else {
-                rememberForBack(previewResults.indexOf(result));
-                router.push(result.href);
+                rememberForBack(flat.indexOf(hit));
+                router.push(hit.href);
             }
             onClose();
         };
-        // A link opens in a new tab, so nothing here is left behind.
-        if (result.kind === "link") open();
-        else confirmAppNavigation(open);
+        if (hit.meta.external) go();
+        else confirmAppNavigation(go);
     };
 
-    const connectProfile = async (result: Extract<GlobalSearchPreview, { kind: "profile" }>) => {
+    const seeAll = (kind?: BoxGroupKind) => {
+        if (!q) return;
+        const params = new URLSearchParams({ q, ctx });
+        if (kind && TAB_FOR[kind]) params.set("tab", TAB_FOR[kind]!);
+        if (kind && KIND_FOR_TAB[kind]) params.set("kind", KIND_FOR_TAB[kind]!);
+        if (exact) params.set("exact", "1");
+        confirmAppNavigation(() => {
+            record(q);
+            rememberForBack(-1);
+            router.push(`/search?${params.toString()}`);
+            onClose();
+        });
+    };
+
+    const connect = async (hit: SearchHit) => {
+        const userId = String(hit.meta.userId ?? "");
+        if (!userId) return;
         try {
-            await toast.promise(sendRequest.mutateAsync({ userId: result.userId }), {
+            await toast.promise(sendRequest.mutateAsync({ userId }), {
                 loading: CONNECTION_COPY.sending,
                 success: (response) => getConnectionRequestSuccessMessage(response.status),
                 error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.sendFailed,
             }).unwrap();
+            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.root() });
         } catch {
-            // The shared mutation and toast already restore and report the failed state.
+            // The shared mutation and toast already report the failed state.
         }
     };
 
-    const searchAll = () => {
-        const href = buildGlobalSearchHref({
-            pathname: pathname || "/",
-            searchParams: currentParams,
-            context: searchContext,
-            query,
-        });
-        if (!href) return;
-        confirmAppNavigation(() => {
-            cancelActivePreviews();
-            recordRecentSearch(query);
-            rememberForBack(-1);
-            router.push(href);
-            onClose();
-        });
+    const setFindMe = async (value: "everyone" | "my_places" | "connections") => {
+        const response = await fetch("/api/v1/privacy", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ searchVisibility: value }) }).catch(() => null);
+        if (response?.ok) toast.success(`Who can find me in search: ${FIND_ME_LABEL[value]} · saved`);
+        else toast.error("Couldn’t save that. Open Settings › Privacy to try again.");
     };
 
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (searchContext === "settings") {
-            const result = settingsResults[activeIndex] ?? settingsResults[0];
-            if (result) openSettingsResult(result);
-            return;
+    const rowAction = (hit: SearchHit) => {
+        if (hit.kind === "people" && hit.act === "Connect") {
+            const busy = sendRequest.isPending && sendRequest.variables?.userId === hit.meta.userId;
+            return <button type="button" className="nb-sx-btn" disabled={busy} onClick={(event) => { event.stopPropagation(); void connect(hit); }}>{busy ? "Sending…" : "Connect"}</button>;
         }
-        const preview = activeIndex >= 0 ? previewResults[activeIndex] : undefined;
-        if (preview) {
-            openPreviewResult(preview);
-            return;
+        if (hit.kind === "people" && hit.act === "Message") {
+            return <button type="button" className="nb-sx-btn" onClick={(event) => { event.stopPropagation(); confirmAppNavigation(() => { router.push(`/messages?userId=${encodeURIComponent(String(hit.meta.userId))}`); onClose(); }); }}>Message</button>;
         }
-        searchAll();
+        if (hit.meta.control === "theme") {
+            return (
+                <span className="nb-sx-seg" role="group" aria-label="Theme">
+                    {(["dark", "light", "system"] as const).map((value) => (
+                        <button key={value} type="button" aria-pressed={theme === value} onClick={(event) => { event.stopPropagation(); setThemeWithTransition(value); toast.success(`Appearance: ${value} · saved`); }}>
+                            {value[0]!.toUpperCase() + value.slice(1)}
+                        </button>
+                    ))}
+                </span>
+            );
+        }
+        if (hit.meta.control === "findMe") {
+            return (
+                <span className="nb-sx-seg" role="group" aria-label="Who can find me in search">
+                    {(["everyone", "my_places", "connections"] as const).map((value) => (
+                        <button key={value} type="button" onClick={(event) => { event.stopPropagation(); void setFindMe(value); }}>{FIND_ME_SHORT[value]}</button>
+                    ))}
+                </span>
+            );
+        }
+        return null;
     };
 
-    const moveActive = (direction: 1 | -1) => {
-        if (!resultCount) return;
-        setActiveIndex((current) => current < 0
-            ? direction === 1 ? 0 : resultCount - 1
-            : (current + direction + resultCount) % resultCount);
+    const onInput = (value: string) => {
+        // A typed shortcut turns into the scope chip, so it's visible and one Backspace undoes it (States board).
+        const typed = value.match(/^([@#>])\s?([\s\S]*)$/);
+        if (typed && !chip) {
+            setChip(typed[1] === "@" ? { kind: "only", only: "people" } : typed[1] === "#" ? { kind: "channels" } : { kind: "actions" });
+            setText(typed[2] ?? "");
+        } else setText(value);
+        setExact(false);
     };
 
-    const moveWithinSkills = (direction: 1 | -1) => {
-        if (!skillResults.length) return false;
-        const currentSkillPosition = skillResults.findIndex(({ index }) => index === activeIndex);
-        if (currentSkillPosition < 0) return false;
-        const next = skillResults[(currentSkillPosition + direction + skillResults.length) % skillResults.length];
-        if (next) setActiveIndex(next.index);
-        return true;
+    const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            if (!flat.length) return;
+            const step = event.key === "ArrowDown" ? 1 : -1;
+            setActiveIndex((current) => current < 0 ? (step === 1 ? 0 : flat.length - 1) : (current + step + flat.length) % flat.length);
+        } else if (event.key === "Enter") {
+            event.preventDefault();
+            if (event.metaKey || event.ctrlKey) seeAll();
+            else if (active) openHit(active);
+            else if (staffCommand) { onClose(); router.push(staffCommand.href); }
+            else seeAll();
+        } else if (event.key === "Backspace" && !text) {
+            if (chip) setChip(null);
+            else if (place && inPlace) setInPlace(false);
+        } else if (event.key === "Tab" && !event.shiftKey && result?.suggestions[0] && q) {
+            event.preventDefault();
+            setText(result.suggestions[0]);
+        }
     };
 
-    const resultLabel = onOrgPage && orgResults.length
-        ? ORG_GROUP_LABEL[orgResults[0]!.result.orgKind] ?? "Results"
-        : projectResults.length
-        ? `Workspaces · ${projectResults.length}`
-        : profileResults.length
-            ? `People · ${profileResults.length}`
-            : taskResults.length
-                ? `Tasks · ${taskResults.length}`
-                : linkResults.length
-                    ? `Workspace Links · ${linkResults.length}`
-                    : settingsResults.length
-                        ? `Settings · ${settingsResults.length}`
-                        : "Results";
+    const removeRecent = (key: string) => setRecents(removeRecentGlobalSearch(recentSearchOwnerId, RECENT_SCOPE, key));
+    const clearRecents = () => {
+        let next = recents;
+        for (const item of recents.filter((recent) => recent.kind === "query")) next = removeRecentGlobalSearch(recentSearchOwnerId, RECENT_SCOPE, item.key);
+        setRecents(next);
+    };
+    const recentQueries = recents.filter((item) => item.kind === "query");
+    const viewed = recents.flatMap((item) => (item.kind === "preview" && isHit(item.preview) ? [{ key: item.key, hit: item.preview }] : []));
+
+    const placeholder = place && inPlace ? `Search ${place.name}, or everywhere` : "Search people, workspaces, organizations, posts…";
+    const showPreview = Boolean(active) && typeof window !== "undefined" && window.innerWidth >= 1100;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
             <DialogContent size="wide"
                 showCloseButton={false}
                 data-command-palette-dialog=""
-                overlayClassName="bg-black/45 backdrop-blur-[2px]"
-                className="left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-2xl duration-[130ms] motion-reduce:duration-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:left-1/2 sm:top-[12%] sm:h-auto sm:max-h-[76dvh] sm:w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px] sm:-translate-x-1/2 sm:translate-y-0 sm:rounded-[12px] sm:border sm:border-border sm:bg-card"
+                overlayClassName="bg-black/35"
+                className="nb-sx-panel left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 duration-[130ms] motion-reduce:duration-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:h-auto sm:max-h-[min(640px,calc(100dvh-var(--ui-topnav-height)-24px))] sm:rounded-[6px] sm:border sm:border-border sm:bg-card"
+                style={{ outline: "none", ...(left !== null ? { "--nb-sx-left": `${left}px` } : {}) } as React.CSSProperties}
                 aria-describedby="topnav-search-description"
-                style={{ outline: "none" }}
             >
-                <DialogTitle className="sr-only">{presentation.label}</DialogTitle>
-                <DialogDescription id="topnav-search-description" className="sr-only">{routeContext.description}</DialogDescription>
-
-                <form onSubmit={handleSubmit} className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
-                    <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
+                <DialogTitle className="sr-only">Search NetworkBase</DialogTitle>
+                <DialogDescription id="topnav-search-description" className="sr-only">One search for people, workspaces, organizations, posts, your messages and pages. The page you are on sets the order.</DialogDescription>
+                <form ref={undefined} onSubmit={(event) => event.preventDefault()} className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    <div className="nb-sx-input">
                         <Search className="size-[18px] shrink-0 text-muted-foreground" aria-hidden />
+                        {place && inPlace && !chip ? (
+                            <span className="nb-sx-scope">In {place.name}<button type="button" aria-label="Search everywhere" onClick={() => setInPlace(false)}><X className="size-3" aria-hidden /></button></span>
+                        ) : null}
+                        {chip ? <span className="nb-sx-scope">{chipLabel(chip)}<button type="button" aria-label={`Stop searching only ${chipLabel(chip)}`} onClick={() => setChip(null)}><X className="size-3" aria-hidden /></button></span> : null}
                         <input
                             autoFocus
                             type="search"
                             autoComplete="off"
                             maxLength={100}
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
-                            onKeyDown={(event) => {
-                                if (event.key === "ArrowDown") {
-                                    event.preventDefault();
-                                    moveActive(1);
-                                } else if (event.key === "ArrowUp") {
-                                    event.preventDefault();
-                                    moveActive(-1);
-                                } else if (event.key === "ArrowRight" && moveWithinSkills(1)) {
-                                    event.preventDefault();
-                                } else if (event.key === "ArrowLeft" && moveWithinSkills(-1)) {
-                                    event.preventDefault();
-                                }
-                            }}
-                            placeholder={palettePlaceholder}
-                            className="nb-command-input h-full min-w-0 flex-1 border-0 bg-transparent text-[15px] font-medium text-foreground outline-none ring-0 shadow-none focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 placeholder:font-normal placeholder:text-muted-foreground/60 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                            value={text}
+                            onChange={(event) => onInput(event.target.value)}
+                            onKeyDown={onKeyDown}
+                            placeholder={placeholder}
+                            className="nb-command-input h-full min-w-0 flex-1 border-0 bg-transparent text-[15px] font-medium text-foreground outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 placeholder:font-normal placeholder:text-muted-foreground/70 [&::-webkit-search-cancel-button]:hidden"
                             style={{ outline: "none", boxShadow: "none" }}
-                            aria-label={palettePlaceholder}
+                            aria-label="Search NetworkBase"
                             role="combobox"
                             aria-expanded={isOpen}
                             aria-autocomplete="list"
-                            aria-busy={previews.isFetching || previews.isDebouncing}
-                            aria-controls={searchContext === "settings" ? "settings-search-results" : supportsPreviews && normalizedQuery ? "global-search-preview-results" : undefined}
-                            aria-activedescendant={activeResult ? resultDomId(activeResult, searchContext === "settings") : undefined}
+                            aria-busy={search.isFetching}
+                            aria-controls="nb-sx-results"
+                            aria-activedescendant={active ? domId(active) : undefined}
                         />
-                        {normalizedQuery ? (
-                            <>
-                                <button type="button" onClick={() => setQuery("")} className="nb-touch-target inline-flex size-7 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Clear search">
-                                    <X className="size-4" aria-hidden />
-                                </button>
-                                <span data-testid="global-search-enter-hint" aria-hidden className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
-                                    <span className="hidden sm:inline">Enter</span><kbd>↵</kbd>
-                                </span>
-                            </>
-                        ) : (
-                            <button type="button" onClick={onClose} className="nb-touch-target inline-flex h-7 shrink-0 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-2 text-[11px] font-mono font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close search">
-                                <kbd>Esc</kbd>
-                            </button>
-                        )}
+                        {q ? <button type="button" onClick={() => setText("")} className="nb-sx-ib" aria-label="Clear search"><X className="size-4" aria-hidden /></button> : null}
+                        <button type="button" onClick={onClose} className="nb-sx-cancel sm:hidden">Cancel</button>
+                        <kbd className="nb-sx-kbd max-sm:hidden" aria-hidden>esc</kbd>
                     </div>
 
-                    <div className="sr-only" aria-live="polite">{previews.isDebouncing
-                        ? ""
-                        : previews.isFetching && resultCount === 0
-                            ? "Searching"
-                            : normalizedQuery.length >= 2
-                                ? `${resultCount} preview results`
-                                : "Type at least two characters to preview results"}</div>
+                    <div className="sr-only" aria-live="polite">{q ? (search.isFetching && !result ? "Searching" : `${total} results`) : ""}</div>
 
-                    {staffCommand ? (
-                        <div className="shrink-0 border-b border-border p-2">
-                            <button type="button" onClick={() => { onClose(); router.push(staffCommand.href); }}
-                                className="flex min-h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
-                                <ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" />
-                                <span className="flex-1">{staffCommand.label}</span>
-                                <span className="nb-meta">Staff</span>
-                            </button>
-                        </div>
-                    ) : null}
-
-                    {searchContext === "settings" ? (
-                        <div className="flex min-h-0 flex-1 flex-col sm:max-h-[480px]">
-                            {!normalizedQuery && recentSearches.length ? (
-                                <div className="shrink-0 border-b border-border px-5 py-4">
-                                    <RecentSearchList items={recentSearches} onSelectQuery={setQuery} onOpenPreview={openPreviewResult} onConnect={connectProfile} connectingUserId={sendRequest.isPending ? sendRequest.variables?.userId : undefined} onRemove={removeRecentSearch} />
-                                </div>
+                    <div className="nb-sx-split">
+                        <div id="nb-sx-results" role="listbox" aria-label="Search results" className="nb-sx-body">
+                            {staffCommand ? (
+                                <button type="button" className="nb-sx-row nb-sx-row-main" onClick={() => { onClose(); router.push(staffCommand.href); }}>
+                                    <span className="nb-sx-icon" aria-hidden><ShieldCheck className="size-4" /></span>
+                                    <span className="nb-sx-tx"><span className="nb-sx-t1">{staffCommand.label}</span><span className="nb-sx-t2">Staff</span></span>
+                                </button>
                             ) : null}
-                            <AppScrollArea id="settings-search-results" axis="y" role="listbox" aria-label="Settings search results" className="min-h-0 flex-1 p-2">
-                                <div className="flex items-center justify-between px-3 pb-1.5 pt-2">
-                                    <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Settings · {settingsResults.length}</span>
-                                </div>
-                                {settingsResults.length ? settingsResults.map((result, index) => (
-                                    <SettingsSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openSettingsResult} />
-                                )) : (
-                                    <div className="px-5 py-12 text-center">
-                                        <p className="text-sm font-medium text-foreground">No setting matches “{normalizedQuery}”.</p>
-                                        <p className="mt-1 text-xs text-muted-foreground">Try theme, privacy, notifications, or editor.</p>
-                                    </div>
-                                )}
-                            </AppScrollArea>
-                        </div>
-                    ) : supportsPreviews ? (
-                        <AppScrollArea id="global-search-preview-results" axis="y" role={normalizedQuery ? "listbox" : "region"} aria-busy={previews.isFetching || previews.isDebouncing} aria-label={normalizedQuery ? searchContext === "network" ? "People results" : searchContext === "project" ? "Task search results" : "Workspace search results" : "Search guidance and recent searches"} className="min-h-0 min-w-0 flex-1 sm:max-h-[480px]">
-                            {normalizedQuery.length === 0 ? (
-                                <div className="px-5 pt-3 pb-6 sm:pt-3 sm:pb-6">
-                                    {recentSearches.length ? (
-                                        <RecentSearchList items={recentSearches} onSelectQuery={setQuery} onOpenPreview={openPreviewResult} onConnect={connectProfile} connectingUserId={sendRequest.isPending ? sendRequest.variables?.userId : undefined} onRemove={removeRecentSearch} />
-                                    ) : (
-                                        /* Hide Search by options when recent searches are present */
-                                        <div>
-                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Search by</p>
-                                            <div className="mt-2.5 flex flex-wrap gap-1.5">
-                                                {presentation.hints.map((hint) => (
-                                                    <span key={hint} className="rounded-[3px] border border-border bg-muted/50 px-2.5 py-1 font-mono text-xs text-muted-foreground">
-                                                        {hint}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <p className="mt-4 nb-meta text-xs text-muted-foreground/80">Start typing to preview matching {searchContext === "network" ? "builders" : onOrgPage ? "assignments, documents, files and people" : searchContext === "project" ? "tasks" : "projects"}.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : normalizedQuery.length < 2 ? (
-                                <div className="px-5 py-5 nb-meta text-xs text-muted-foreground">Type one more character to preview results.</div>
-                            ) : previews.isDebouncing || previews.isFetching && previewResults.length === 0 ? (
-                                <SearchSkeletons />
-                            ) : previews.isError ? (
-                                <div className="flex flex-col items-center px-5 py-12 text-center">
-                                    <span className="flex size-10 items-center justify-center rounded-[5px] bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                        <RotateCcw className="size-4" aria-hidden />
-                                    </span>
-                                    <p className="mt-3 text-sm font-medium text-foreground">{isRateLimited ? "Search is temporarily paused" : "Preview unavailable"}</p>
-                                    <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{isRateLimited ? "Wait a moment before trying again." : "Retry the preview or press Enter to run the full search without losing your query."}</p>
-                                    {!isRateLimited ? (
-                                        <button type="button" onClick={() => void previews.refetch()} className="mt-3 inline-flex items-center gap-2 rounded-[5px] border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
-                                            <RotateCcw className="size-3.5" aria-hidden />
-                                            Retry preview
-                                        </button>
-                                    ) : null}
-                                </div>
-                            ) : previewResults.length === 0 ? (
-                                <div className="px-5 py-12 text-center">
-                                    <p className="text-sm font-medium text-foreground">No {searchContext === "network" ? "builders" : searchContext === "project" ? "workspace work or links" : "projects"} match “{normalizedQuery}”.</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">Try a {presentation.hints.map((hint) => hint.toLowerCase()).join(", ")}.</p>
-                                </div>
-                            ) : (
-                                <div className="p-2">
-                                    <div className="flex items-center justify-between px-3 pb-1.5 pt-2">
-                                        <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{resultLabel}</span>
-                                        {previews.isFetching ? <span className="nb-meta text-[11px] text-muted-foreground/70">Refreshing…</span> : null}
-                                    </div>
-                                    {orgResults.map(({ result, index }, i) => (
-                                        <Fragment key={result.id}>
-                                            {onOrgPage && i > 0 && orgResults[i - 1]!.result.orgKind !== result.orgKind ? <p className="nb-micro px-3 pb-1.5 pt-3 uppercase tracking-[0.09em] text-muted-foreground">{ORG_GROUP_LABEL[result.orgKind] ?? result.orgKind}</p> : null}
-                                            <OrgSearchResultCard result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />
-                                        </Fragment>
-                                    ))}
-                                    {projectResults.map(({ result, index }) => <WorkspaceSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
-                                    {profileResults.map(({ result, index }) => <ProfileSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} onConnect={connectProfile} isConnecting={sendRequest.isPending && sendRequest.variables?.userId === result.userId} />)}
-                                    {taskResults.map(({ result, index }) => <TaskSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
-                                    {linkResults.map(({ result, index }) => <LinkSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
-                                    {skillResults.length ? (
-                                        <div className="mt-2 border-t border-border pt-3">
-                                            <div className="flex items-center justify-between px-3 pb-2">
-                                                <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Skills in these workspaces</span>
-                                            </div>
-                                            <div className="relative before:pointer-events-none before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-6 before:bg-gradient-to-r before:from-card before:to-transparent after:pointer-events-none after:absolute after:right-0 after:top-0 after:z-10 after:h-full after:w-8 after:bg-gradient-to-l after:from-card after:to-transparent">
-                                                <AppScrollArea axis="x" variant="hidden" stableGutter={false} className="flex w-full min-w-0 flex-nowrap gap-1.5 px-3 pb-2" data-testid="related-skills-scroll">
-                                                    {skillResults.map(({ result, index }) => (
-                                                        <button
-                                                            id={resultDomId(result)}
-                                                            key={result.id}
-                                                            type="button"
-                                                            role="option"
-                                                            tabIndex={-1}
-                                                            aria-selected={index === activeIndex}
-                                                            onMouseEnter={() => setActiveIndex(index)}
-                                                            onFocus={() => setActiveIndex(index)}
-                                                            onClick={() => openPreviewResult(result)}
-                                                            className={`nb-touch-target inline-flex h-[28px] shrink-0 items-center gap-1.5 rounded-[3px] border px-2.5 text-xs font-mono transition-colors ${index === activeIndex ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-                                                        >
-                                                            <SkillIcon skill={resolveClientSkill(result.title)} size={14} />{result.title}
-                                                        </button>
-                                                    ))}
-                                                </AppScrollArea>
-                                            </div>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            )}
-                        </AppScrollArea>
-                    ) : null}
 
+                            {!q ? (
+                                <>
+                                    {recentQueries.length ? (
+                                        <section>
+                                            <div className="nb-sx-glabel"><b>Recent</b><span className="nb-sx-rule" /><button type="button" className="nb-sx-link" onClick={clearRecents}>Clear</button></div>
+                                            {recentQueries.map((recent) => (
+                                                <div key={recent.key} className="nb-sx-row">
+                                                    <button type="button" className="nb-sx-row-main" onClick={() => setText(recent.label)} aria-label={`Use recent search ${recent.label}`}>
+                                                        <span className="nb-sx-icon" aria-hidden><History className="size-4" /></span>
+                                                        <span className="nb-sx-tx"><span className="nb-sx-t1">{recent.label}</span></span>
+                                                    </button>
+                                                    <button type="button" className="nb-sx-ib" onClick={() => removeRecent(recent.key)} aria-label={`Remove ${recent.label} from recent searches`}><X className="size-3.5" aria-hidden /></button>
+                                                </div>
+                                            ))}
+                                        </section>
+                                    ) : null}
+                                    {viewed.length ? (
+                                        <section>
+                                            <div className="nb-sx-glabel"><b>Recently viewed</b><span className="nb-sx-rule" /></div>
+                                            {viewed.slice(0, 3).map(({ key, hit }) => (
+                                                <div key={key} className="nb-sx-row">
+                                                    <button type="button" className="nb-sx-row-main" onClick={() => openHit(hit)}>
+                                                        <HitAvatar hit={hit} />
+                                                        <span className="nb-sx-tx"><span className="nb-sx-t1">{hit.title}</span><span className="nb-sx-t2">{hit.sub}</span></span>
+                                                    </button>
+                                                    <span className="nb-sx-kind">{KIND_LABEL[hit.kind]}</span>
+                                                    <button type="button" className="nb-sx-ib" onClick={() => removeRecent(key)} aria-label={`Remove ${hit.title} from recently viewed`}><X className="size-3.5" aria-hidden /></button>
+                                                </div>
+                                            ))}
+                                        </section>
+                                    ) : null}
+                                    <BoxExtras extras={extras} onPick={(value) => setText(value)} onOpenSaved={(value) => { setText(value); }} />
+                                    <section>
+                                        <div className="nb-sx-glabel"><b>Search only</b><span className="nb-sx-rule" /></div>
+                                        <div className="nb-sx-chips">
+                                            {ONLY_CHIPS.map((item) => <button key={item.only} type="button" className="nb-sx-chip" onClick={() => setChip({ kind: "only", only: item.only })}>{item.label}</button>)}
+                                        </div>
+                                        <p className="nb-sx-hint"><kbd className="nb-sx-kbd">@</kbd> people · <kbd className="nb-sx-kbd">#</kbd> channels · <kbd className="nb-sx-kbd">in:</kbd> one workspace · <kbd className="nb-sx-kbd">&gt;</kbd> actions and settings</p>
+                                    </section>
+                                </>
+                            ) : (
+                                <>
+                                    {search.staleAt || (search.error && !result) ? (
+                                        <div className="nb-sx-banner" role="status">
+                                            <span>{search.staleAt ? `Couldn’t search just now. Showing results from ${ageLabel(search.staleAt)}.` : "Couldn’t search just now."}</span>
+                                            <button type="button" className="nb-sx-btn" onClick={search.retry}>Retry</button>
+                                        </div>
+                                    ) : null}
+                                    {result?.fixedFrom ? (
+                                        <div className="nb-sx-note">Showing results for <b>{result.q}</b> · <button type="button" className="nb-sx-link" onClick={() => setExact(true)}>Search “{result.fixedFrom}” instead</button></div>
+                                    ) : null}
+                                    {result?.suggestions.length && !result.fixedFrom ? (
+                                        <section aria-label="Finish your words">
+                                            {result.suggestions.map((word) => (
+                                                <button key={word} type="button" className="nb-sx-row nb-sx-row-main nb-sx-suggest" onClick={() => setText(word)}>
+                                                    <span className="nb-sx-icon" aria-hidden><Search className="size-3.5" /></span>
+                                                    <span className="nb-sx-tx"><span className="nb-sx-t1">{word.toLowerCase().startsWith(q.toLowerCase()) ? <>{word.slice(0, q.length)}<b>{word.slice(q.length)}</b></> : word}</span></span>
+                                                    <kbd className="nb-sx-kbd" aria-hidden>tab</kbd>
+                                                </button>
+                                            ))}
+                                        </section>
+                                    ) : null}
+                                    {search.isFirstLoad && !box?.groups.length ? (
+                                        <div className="nb-sx-skel" role="status" aria-label="Searching">
+                                            {[60, 72, 48].map((width) => <div key={width} className="nb-sx-row nb-sx-skel-row"><Skeleton kind="tile" className="size-7 shrink-0 rounded-[4px]" /><span className="nb-sx-tx gap-1.5"><Skeleton className="h-2.5 rounded-[2px]" style={{ width: `${width}%` }} /><Skeleton className="h-2.5 rounded-[2px]" style={{ width: `${width - 24}%` }} /></span></div>)}
+                                        </div>
+                                    ) : null}
+                                    <div className={search.isPlaceholder ? "nb-sx-dim" : undefined}>
+                                        {invite ? (
+                                            <div className="nb-sx-row">
+                                                <span className="nb-sx-icon" aria-hidden>@</span>
+                                                <span className="nb-sx-tx"><span className="nb-sx-t1">Invite {invite}</span><span className="nb-sx-t2">Copy a sign-up link to send them</span></span>
+                                                <button type="button" className="nb-sx-btn" onClick={() => { void copyText(`${window.location.origin}/signup?ref=invite`).then(() => toast.success("Invite link copied"), () => toast.error("Couldn’t copy the link")); }}>Copy invite link</button>
+                                            </div>
+                                        ) : null}
+                                        {emailHit ? <BoxRow hit={emailHit} q={q} active={active?.id === emailHit.id} domId={domId(emailHit)} onHover={() => setActiveIndex(0)} onOpen={() => openHit(emailHit)} action={rowAction(emailHit)} /> : null}
+                                        {box?.best ? (
+                                            <div id={domId(box.best)} role="option" aria-selected={active?.id === box.best.id} data-active={active?.id === box.best.id || undefined} className="nb-sx-best" onMouseMove={() => setActiveIndex(flat.indexOf(box.best!))}>
+                                                <button type="button" tabIndex={-1} className="nb-sx-row-main" onClick={() => openHit(box.best!)}>
+                                                    <HitAvatar hit={box.best} size={40} />
+                                                    <span className="nb-sx-tx">
+                                                        <span className="nb-sx-best-t"><Marked text={box.best.title} q={q} /> <span className="nb-sx-kind">{KIND_LABEL[box.best.kind]}</span></span>
+                                                        <span className="nb-sx-t2">{box.best.sub}</span>
+                                                        {box.best.meta.relation ? <span className="nb-sx-t2">{String(box.best.meta.relation)}</span> : null}
+                                                    </span>
+                                                </button>
+                                                <span className="nb-sx-end">{rowAction(box.best)}<span className="nb-sx-kind">Best match</span></span>
+                                            </div>
+                                        ) : null}
+                                        {box?.groups.map((group) => (
+                                            <section key={group.kind} aria-label={group.label}>
+                                                <div className="nb-sx-glabel"><b>{group.label}</b><span className="nb-sx-count">{group.count}</span><span className="nb-sx-rule" />{group.hasMore ? <button type="button" className="nb-sx-link" onClick={() => seeAll(group.kind)}>See all</button> : null}</div>
+                                                {group.rows.map((hit) => (
+                                                    <Fragment key={hit.id}>
+                                                        <BoxRow hit={hit} q={q} active={active?.id === hit.id} domId={domId(hit)} onHover={() => setActiveIndex(flat.indexOf(hit))} onOpen={() => openHit(hit)} action={rowAction(hit)} />
+                                                    </Fragment>
+                                                ))}
+                                            </section>
+                                        ))}
+                                    </div>
+                                    {nothing ? (
+                                        <div className="nb-sx-empty">
+                                            <b>Nothing called “{q}” yet</b>
+                                            <span className="nb-sx-t2">Searched people, workspaces, organizations, posts, your messages and pages.</span>
+                                            <span className="nb-sx-chips">
+                                                <button type="button" className="nb-sx-btn" onClick={() => confirmAppNavigation(() => { router.push(`/workspaces/new?title=${encodeURIComponent(q)}`); onClose(); })}>New workspace “{q}”</button>
+                                                {q.includes(" ") ? <button type="button" className="nb-sx-btn" onClick={() => setText(q.split(" ").slice(0, -1).join(" "))}>Try fewer words</button> : null}
+                                            </span>
+                                        </div>
+                                    ) : null}
+                                </>
+                            )}
+                        </div>
+                        {showPreview && active ? <BoxPreview hit={active} q={q} action={rowAction(active)} onOpen={() => openHit(active)} /> : null}
+                    </div>
+
+                    <div className="nb-sx-foot">
+                        {q ? (
+                            <button type="button" className="nb-sx-all" onClick={() => seeAll()}>
+                                <Search className="size-3.5" aria-hidden />See all {total} results for “{q}”<kbd className="nb-sx-kbd" data-testid="global-search-enter-hint">⌘↵</kbd>
+                            </button>
+                        ) : <span>Type to search everything</span>}
+                        {search.slow ? <span className="nb-sx-slow"><PixelBeat />STILL SEARCHING</span> : null}
+                        <span className="nb-sx-keys max-sm:hidden"><kbd className="nb-sx-kbd">↑↓</kbd> move <kbd className="nb-sx-kbd">↵</kbd> open <kbd className="nb-sx-kbd">tab</kbd> finish</span>
+                    </div>
                 </form>
+                <div ref={panelRef} hidden />
             </DialogContent>
         </Dialog>
     );
 }
+
+const FIND_ME_LABEL = { everyone: "Everyone on NetworkBase", my_places: "People in my workspaces and organizations", connections: "Only my connections" } as const;
+const FIND_ME_SHORT = { everyone: "Everyone", my_places: "My places", connections: "Connections" } as const;

@@ -38,6 +38,9 @@ const BROWSER_ONLY = new Set([
   "integrations/unlink",
   "legal/acceptance",
   "link-preview",
+  // Global search reads your messages and saves searches: a browser session only (global search mix).
+  "search",
+  "search/saved",
   "privacy",
   "privacy/blocks",
   "privacy/blocks/[userId]",

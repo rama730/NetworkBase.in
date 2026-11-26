@@ -94,10 +94,11 @@ test("round 2: keyboard focus shows everywhere (a tone, never a ring)", () => {
   assert.equal(picker.match(/role="option"\s*\n\s*tabIndex=\{-1\}/g)?.length, 2);
 });
 
-test("round 2: one search field for Discover and Network; the top bar defers to it on Discover", () => {
+test("round 2: one search field for Discover and Network; the top bar opens the one global search (2026-11-26)", () => {
   assert.match(read("src/components/discover/DiscoverHeader.tsx"), /<SearchField[\s\S]*?pageSearch/);
   assert.match(read("src/components/network/NetworkClient.tsx"), /<SearchField/);
-  assert.match(read("src/components/layout/header/GlobalSearch.tsx"), /\[data-page-search\] input/);
+  assert.doesNotMatch(read("src/components/layout/header/GlobalSearch.tsx"), /\[data-page-search\] input/);
+  assert.match(read("src/components/layout/header/GlobalSearch.tsx"), /onClick=\{\(\) => onOpenCommandPalette\(query, context\)\}/);
 });
 
 test("round 2: legal links and the card avatar read cleanly", () => {
