@@ -30,7 +30,7 @@ const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").repla
 export function VolunteersCard({ orgId }: { orgId: string }) {
   const q = useQuery({ queryKey: ["volunteers", orgId], queryFn: () => readVolunteersAction(orgId), staleTime: 30_000 });
   const [settings, setSettings] = useState<{ on: boolean; roles: VolunteerRole[]; agreement: string } | null>(null);
-  const [shift, setShift] = useState<{ roleId: string; place: string; day: string; from: string; to: string; places: number; note: string; weeks: number } | null>(null);
+  const [shift, setShift] = useState<{ roleId: string; place: string; day: string; from: string; to: string; places: number; note: string; weeks: number; programId: string } | null>(null);
   const [swapTo, setSwapTo] = useState<Record<string, string>>({});
   const [add, setAdd] = useState<{ day: string; hours: string; roleId: string; note: string } | null>(null);
   const [avail, setAvail] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export function VolunteersCard({ orgId }: { orgId: string }) {
   const openShifts = d.shifts.filter((s) => !s.started && s.mine !== "going" && s.mine !== "waitlisted");
   return (
     <OrgCard title="Volunteers" testId="volunteers" action={d.coordinator ? <span className="flex gap-3 text-[13px]">
-      <button type="button" className="nb-link" onClick={() => setShift({ roleId: d.roles[0]?.id ?? "", place: "", day: "", from: "09:00", to: "12:00", places: 6, note: "", weeks: 0 })}>Add a shift</button>
+      <button type="button" className="nb-link" onClick={() => setShift({ roleId: d.roles[0]?.id ?? "", place: "", day: "", from: "09:00", to: "12:00", places: 6, note: "", weeks: 0, programId: "" })}>Add a shift</button>
       <button type="button" className="nb-link" onClick={() => setSettings({ on: d.on, roles: d.roles, agreement: d.agreement.text })}>Settings</button></span> : null}>
       <div className="space-y-3 text-[13px]">
         {!d.on ? <p className="text-muted-foreground">Volunteers is off. Turn it on in Settings, add roles, then shifts.</p> : null}
@@ -75,8 +75,10 @@ export function VolunteersCard({ orgId }: { orgId: string }) {
           <label className="flex flex-col">To<Input type="time" value={shift.to} onChange={(e) => setShift({ ...shift, to: e.target.value })} className="mt-0.5 w-auto font-mono" /></label>
           <label className="flex flex-col">Places<Input type="number" min={1} max={500} value={shift.places} onChange={(e) => setShift({ ...shift, places: Number(e.target.value) })} className="mt-0.5 w-[80px] font-mono" /></label>
           <label className="flex flex-col">Place<Input value={shift.place} maxLength={120} onChange={(e) => setShift({ ...shift, place: e.target.value })} className="mt-0.5 w-[200px]" /></label>
+          {"programs" in d && d.programs.length ? <label className="flex flex-col">Program<select className="nb-select mt-0.5" value={shift.programId} onChange={(e) => setShift({ ...shift, programId: e.target.value })}>
+            <option value="">None</option>{d.programs.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label> : null}
           <label className="flex flex-col">Repeat every week for (weeks)<Input type="number" min={0} max={12} value={shift.weeks} onChange={(e) => setShift({ ...shift, weeks: Number(e.target.value) })} className="mt-0.5 w-[90px] font-mono" /></label>
-          <button type="button" className={FORM_PRIMARY_CLASS} disabled={!shift.roleId || !shift.day} onClick={() => void run(saveShiftAction(orgId, { roleId: shift.roleId, place: shift.place, note: shift.note, places: shift.places,
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={!shift.roleId || !shift.day} onClick={() => void run(saveShiftAction(orgId, { roleId: shift.roleId, place: shift.place, note: shift.note, places: shift.places, programId: shift.programId || null,
             start: new Date(`${shift.day}T${shift.from}`).toISOString(), end: new Date(`${shift.day}T${shift.to}`).toISOString() }, shift.weeks), shift.weeks ? "Shifts added" : "Shift added").then(() => setShift(null))}>Save</button>
           <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setShift(null)}>Cancel</button></fieldset> : null}
         {d.on && !d.agreed && d.agreement.text ? <div className="space-y-1.5 rounded-md border border-border p-3" data-testid="volunteer-agreement">

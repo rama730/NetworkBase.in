@@ -2055,6 +2055,21 @@ export const volunteerSwaps = pgTable("volunteer_swaps", {
   answeredAt: timestamp("answered_at", { withTimezone: true }),
 }, (t) => [uniqueIndex("volunteer_swaps_one_open").on(t.shiftId, t.fromUser).where(sql`state = 'asked'`), index("volunteer_swaps_org_idx").on(t.orgId),
   index("volunteer_swaps_from_idx").on(t.fromUser), index("volunteer_swaps_to_idx").on(t.toUser)]);
+/** B8.3a (0179): numbers typed for a program's measures, kept as history, counted once an admin confirms them. */
+export const programNumbers = pgTable("program_numbers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  programId: uuid("program_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  measureId: text("measure_id").notNull(),
+  value: numeric("value", { precision: 14, scale: 2 }).notNull(),
+  note: text("note").default("").notNull(),
+  state: text("state").default("waiting").notNull(),
+  typedBy: uuid("typed_by").references(() => profiles.id, { onDelete: "set null" }),
+  typedAt: timestamp("typed_at", { withTimezone: true }).defaultNow().notNull(),
+  confirmedBy: uuid("confirmed_by").references(() => profiles.id, { onDelete: "set null" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+}, (t) => [index("program_numbers_program_idx").on(t.programId, t.measureId, t.typedAt), index("program_numbers_org_waiting_idx").on(t.orgId).where(sql`state = 'waiting'`),
+  index("program_numbers_typed_by_idx").on(t.typedBy).where(sql`typed_by IS NOT NULL`), index("program_numbers_confirmed_by_idx").on(t.confirmedBy).where(sql`confirmed_by IS NOT NULL`)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

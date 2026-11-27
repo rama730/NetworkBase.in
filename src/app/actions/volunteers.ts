@@ -78,7 +78,8 @@ export async function readVolunteersAction(orgId: string) {
     regular: ctx.prefs.regular ?? [], availability: ctx.prefs.availability ?? "", volunteers,
     swapsIn: swaps.filter((w) => w.to_user === ctx.userId).map((w) => ({ id: w.id, shiftId: w.shift_id, from: w.name })),
     swapsOut: swaps.filter((w) => w.from_user === ctx.userId).map((w) => ({ id: w.id, shiftId: w.shift_id, to: w.name })) };
-  if (!ctx.coordinator) return { ...base, coverage: [], people: [], waitingHours: [] };
+  if (!ctx.coordinator) return { ...base, coverage: [], people: [], waitingHours: [], programs: [] };
+  const programs = Array.from(await db.execute<{ id: string; title: string }>(sql`SELECT id, title FROM workspaces WHERE parent_id = ${orgId}::uuid AND deleted_at IS NULL AND org_settings ? 'program' ORDER BY title LIMIT 100`));
   // Coordinators: who volunteers, their trainings and attended / missed as counts — never a score, never shown to others.
   const people = Array.from(await db.execute<{ id: string; name: string; trained: string[] | null; attended: number; missed: number; availability: string | null; regular: boolean; joined: string }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name, coalesce(m.view_prefs->'volunteer'->'trained', '[]'::jsonb) AS trained,
@@ -94,7 +95,7 @@ export async function readVolunteersAction(orgId: string) {
   const involvement = (p: { regular: boolean; joined: string; attended: number }) => p.regular ? "Regular" : now - Date.parse(p.joined) < 30 * 86_400_000 || p.attended === 0 ? "New" : "Occasional";
   return { ...base, coverage: shaped.filter((x) => x.short).sort((a, b) => a.start.localeCompare(b.start)),
     people: people.map(({ joined, regular, ...p }) => ({ ...p, trained: p.trained ?? [], availability: p.availability ?? "", involvement: involvement({ regular, joined: new Date(joined).toISOString(), attended: p.attended }) })),
-    waitingHours: waitingHours.map((h) => ({ id: h.id, name: h.name, day: h.day, hours: Number(h.hours), role: roleOf(h.role_id ?? "")?.name ?? null, note: h.note })) };
+    programs, waitingHours: waitingHours.map((h) => ({ id: h.id, name: h.name, day: h.day, hours: Number(h.hours), role: roleOf(h.role_id ?? "")?.name ?? null, note: h.note })) };
 }
 
 /** Settings → Volunteers (coordinators): on or off, roles (some need training), the agreement (a new text is a new version). */
@@ -141,6 +142,10 @@ export async function saveShiftAction(orgId: string, input: unknown, repeatWeeks
   if (!parsed.success) return { success: false, error: "Pick a role, a start and an end within a day, and how many places." };
   const { places, ...f } = parsed.data;
   if (!ctx.settings.roles.some((r) => r.id === f.roleId)) return { success: false, error: "Pick a role from Settings → Volunteers." };
+  if (f.programId) {
+    const [prog] = Array.from(await db.execute(sql`SELECT 1 FROM workspaces WHERE id = ${f.programId}::uuid AND parent_id = ${orgId}::uuid AND deleted_at IS NULL AND org_settings ? 'program'`));
+    if (!prog) return DENIED;
+  }
   const { insertTask } = await import("@/lib/organizations/assignments");
   const { statusForStage } = await import("@/lib/workflows/rules");
   const weeks = Number.isInteger(repeatWeeks) ? Math.max(0, Math.min(12, repeatWeeks)) : 0;

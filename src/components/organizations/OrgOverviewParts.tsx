@@ -8,6 +8,7 @@ import { StartHere } from '@/components/organizations/CompanyOnboarding'
 import { AskTeamCard } from '@/components/organizations/CompanyRequests'
 import { CommunityFrontDoor } from '@/components/organizations/CommunityFrontDoor'
 import { FixedTimeCard } from '@/components/organizations/FixedTime'
+import { ProgramsCard } from '@/components/organizations/Programs'
 import { VolunteersCard } from '@/components/organizations/Volunteers'
 import { ClubMeetingCard, CommitteeCard, CompetitionsCard, ConstitutionCard, DecisionsCard, ElectionCard, MotionVotesCard, HandoverCard, RecruitingCard, RenewalCard } from '@/components/organizations/Club'
 import { LabHomeCard } from '@/components/organizations/Lab'
@@ -304,6 +305,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'club' ? <RecruitingCard orgId={orgId} /> : null}
                 <FixedTimeCard orgId={orgId} other={orgType === 'other'} />
                 {orgType === 'other' ? <VolunteersCard orgId={orgId} /> : null}
+                {orgType === 'other' ? <ProgramsCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <CompetitionsCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <ClubMeetingCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <MotionVotesCard orgId={orgId} /> : null}

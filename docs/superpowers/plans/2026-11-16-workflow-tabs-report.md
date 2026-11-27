@@ -15482,6 +15482,12 @@ ORG · Impact report 2026 (draft)   Letter · Numbers (confirmed only) · Storie
 9. The Impact report uses confirmed numbers, stories and a letter; finance and donor parts wait for Money.
 10. Programs and numbers are private unless shown on About.
 
+**Build calls (B8.3a, 2026-11-27):**
+1. **A program** is a private workspace under an Other organization, marked Program, started by an admin from its brief (What we want to change · The desired reality · Why now · How it fits our mission · Who it's for · How we'll know). The brief becomes its starter page. It has an owner (the workspace's lead), a place, dates or Ongoing, the impact goal it supports (a name), and whether it shows on About. States: Planned · Running · Paused · Closed (with a closing note). Members see programs they're in and public ones; admins see all, with "Not linked" where no goal is named.
+2. **Measures** (up to 5, each with a target): volunteer hours from X2 shifts tagged to the program that were checked in (the shift form has a Program picker); sessions held, counted from the program's finished meetings; or a typed number. Values show as text ("46 of 50", "not yet confirmed").
+3. **Confirmation** (0179): a typed number waits for an admin's Confirm before it counts. A later value waits too, while the last confirmed one stays shown, and every value is kept as history (server test). Admins are told once a day. Numbers are counts only; no table holds a person served (server test).
+4. **Not built yet (B8.3b):** Story updates with consent, the Mission and values template, the Year plan, the impact report, About → Our programs, and the check-in day notice.
+
 ### 37.6 Other: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |

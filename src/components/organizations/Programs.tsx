@@ -1,158 +1,79 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { HeartHandshake } from "lucide-react";
 
-import { readProgramsAction, saveAsProgramAction, startCohortAction, updateProgramAction, type ProgramRow } from "@/app/actions/programs";
-import { StatusBadge } from "@/components/organizations/org-ui";
+import { confirmNumberAction, readProgramsAction, setProgramStateAction, startProgramAction, typeNumberAction } from "@/app/actions/programs";
+import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { COHORT_WORDS, cohortEnd } from "@/lib/organizations/programs";
-import { cohortBars } from "@/lib/organizations/school-kind";
-import { cn } from "@/lib/utils";
+import { measureLine, MEASURE_SOURCES, PROGRAM_STATE_WORDS, PROGRAM_STATES, SOURCE_WORDS, type Measure, type ProgramState } from "@/lib/organizations/programs";
 
-// Report 31.2 C1 (plan B2.1a): the school's Programs — cohorts by program, Start a cohort, Retire, Save as program.
-const LINK = "nb-touch-target text-[13px] font-medium text-primary underline-offset-2 hover:underline";
-const DAY = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const fmt = (d: string | null) => (d ? DAY.format(new Date(`${d}T00:00:00Z`)) : "—");
-const COPY = [["sprints", "Plan and lessons"], ["assignments", "Assignments (as drafts)"], ["docs", "Documents"], ["files", "Materials"], ["about", "About and settings"], ["channels", "Channels"], ["admins", "Staff"]] as const;
-const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+const safe = <T,>(p: Promise<T>) => p.catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
+const day = (d: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+const span = (a: string | null, b: string | null) => (!a && !b ? "Ongoing" : !b ? `Ongoing since ${day(a!)}` : `${a ? day(a) : "…"} to ${day(b)}`);
+const EMPTY = { title: "", aim: "", place: "", start: "", end: "", goal: "", ownerId: "", public: false, measures: [] as Measure[], brief: { change: "", reality: "", whyNow: "", mission: "", serves: "", howWeKnow: "" } };
 
-export function ProgramsSection({ schoolId, classes = [] }: { schoolId: string; classes?: Array<{ id: string; title: string }> }) {
-  const client = useQueryClient();
-  const q = useQuery({ queryKey: ["programs", schoolId], queryFn: () => readProgramsAction(schoolId), staleTime: 30_000 });
-  const [starting, setStarting] = useState<string | null>(null);
-  const [view, setView] = useState<"programs" | "timeline">("programs");
-  if (!q.data?.success) return null;
-  const refresh = () => client.invalidateQueries({ queryKey: ["programs", schoolId] });
-  const list = q.data.programs;
+/**
+ * Programs (B8.3a, report 37.5): each program with its state, dates or Ongoing, owner, goal and measures as text
+ * ("46 of 50", "not yet confirmed"); owners type numbers and admins confirm them; admins start programs from a brief.
+ */
+export function ProgramsCard({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["programs", orgId], queryFn: () => readProgramsAction(orgId), staleTime: 60_000 });
+  const [form, setForm] = useState<typeof EMPTY | null>(null);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const d = q.data?.success ? q.data : null;
+  if (!d || (!d.programs.length && !d.admin)) return null;
+  const refresh = () => void q.refetch();
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) { toast.error(r.error ?? "Couldn’t save that."); return false; } toast.success(ok); refresh(); return true; };
+  const brief = (k: keyof typeof EMPTY.brief, label: string) => form && <label className="flex flex-col sm:col-span-2">{label}<textarea className="nb-textarea mt-0.5 text-[13px]" rows={2} maxLength={k === "serves" ? 300 : 2000} value={form.brief[k]} onChange={(e) => setForm({ ...form, brief: { ...form.brief, [k]: e.target.value } })} /></label>;
   return (
-    <section aria-label="Programs" className="space-y-2" data-testid="programs">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="nb-section-title">Programs <span className="nb-meta font-mono">{list.length}</span></h2>
-        {list.some((p) => p.list.length) ? (
-          <div role="group" aria-label="Programs view" className="inline-flex rounded-md border border-border p-0.5 text-[12px]">
-            {(["programs", "timeline"] as const).map((v) => (
-              <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
-                {v === "programs" ? "Programs" : "Timeline"}
-              </button>
-            ))}
-          </div>
-        ) : null}
+    <OrgCard title="Programs" testId="programs" action={d.admin && !form ? <button type="button" className="nb-link text-[13px]" onClick={() => setForm(EMPTY)}>Start a program</button> : null}>
+      <div className="space-y-3 text-[13px]">
+        {form ? <fieldset className="grid grid-cols-1 gap-2 rounded-md border border-border p-3 sm:grid-cols-2" data-testid="program-form"><legend className="sr-only">Program brief</legend>
+          <label className="flex flex-col">Name<Input value={form.title} maxLength={100} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-0.5" /></label>
+          <label className="flex flex-col">Owner<select className="nb-select mt-0.5" value={form.ownerId} onChange={(e) => setForm({ ...form, ownerId: e.target.value })}><option value="">Pick someone</option>{d.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+          <label className="flex flex-col sm:col-span-2">Aim (one line)<Input value={form.aim} maxLength={300} onChange={(e) => setForm({ ...form, aim: e.target.value })} className="mt-0.5" /></label>
+          <label className="flex flex-col">Place<Input value={form.place} maxLength={120} onChange={(e) => setForm({ ...form, place: e.target.value })} className="mt-0.5" /></label>
+          <label className="flex flex-col">Impact goal it supports<Input value={form.goal} maxLength={80} onChange={(e) => setForm({ ...form, goal: e.target.value })} className="mt-0.5" /></label>
+          <label className="flex flex-col">Starts<Input type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} className="mt-0.5 w-auto font-mono" /></label>
+          <label className="flex flex-col">Ends (empty: Ongoing)<Input type="date" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} className="mt-0.5 w-auto font-mono" /></label>
+          {brief("change", "What we want to change")}{brief("reality", "The desired reality")}{brief("whyNow", "Why now")}{brief("mission", "How it fits our mission")}{brief("serves", "Who it’s for (in words; never a list of people)")}{brief("howWeKnow", "How we’ll know")}
+          <div className="space-y-1 sm:col-span-2"><span className="font-medium">Measures (up to 5)</span>
+            {form.measures.map((m, i) => <span key={i} className="flex flex-wrap items-center gap-2">
+              <Input value={m.name} maxLength={80} aria-label={`Measure ${i + 1} name`} onChange={(e) => setForm({ ...form, measures: form.measures.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} className="w-[200px]" />
+              <select className="nb-select" aria-label={`Measure ${i + 1} source`} value={m.source} onChange={(e) => setForm({ ...form, measures: form.measures.map((x, j) => (j === i ? { ...x, source: e.target.value as Measure["source"] } : x)) })}>
+                {MEASURE_SOURCES.map((k) => <option key={k} value={k}>{SOURCE_WORDS[k]}</option>)}</select>
+              <Input type="number" min={0} value={m.target ?? ""} aria-label={`Measure ${i + 1} target`} placeholder="Target" onChange={(e) => setForm({ ...form, measures: form.measures.map((x, j) => (j === i ? { ...x, target: e.target.value ? Number(e.target.value) : null } : x)) })} className="w-[100px] font-mono" /></span>)}
+            {form.measures.length < 5 ? <button type="button" className="nb-link" onClick={() => setForm({ ...form, measures: [...form.measures, { id: `m${form.measures.length + 1}`, name: "", source: "typed", target: null }] })}>Add a measure</button> : null}</div>
+          <label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={form.public} onChange={(e) => setForm({ ...form, public: e.target.checked })} />Show on About</label>
+          <span className="flex gap-2 sm:col-span-2">
+            <button type="button" className={FORM_PRIMARY_CLASS} disabled={!form.title.trim() || !form.aim.trim() || !form.ownerId} onClick={() => void run(startProgramAction(orgId, { ...form, start: form.start || null, end: form.end || null, measures: form.measures.filter((m) => m.name.trim()) }), "Program started").then((ok) => ok && setForm(null))}>Start the program</button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setForm(null)}>Cancel</button></span>
+        </fieldset> : null}
+        <ul className="space-y-2">{d.programs.map((p) => (
+          <li key={p.id} className="space-y-1 rounded-md border border-border p-3" data-testid="program">
+            <p className="flex flex-wrap items-center gap-2"><HeartHandshake aria-hidden="true" className="size-4 text-muted-foreground" />
+              {p.slug ? <a className="nb-link font-medium" href={`/workspaces/${encodeURIComponent(p.slug)}`}>{p.title}</a> : <span className="font-medium">{p.title}</span>}
+              <StatusBadge state={p.state === "closed" ? "done" : p.state === "paused" ? "at_risk" : p.state === "planned" ? "draft" : "active"}>{PROGRAM_STATE_WORDS[p.state]}</StatusBadge>
+              {p.goal ? <span className="nb-tag">{p.goal}</span> : d.admin ? <span className="text-muted-foreground">Not linked</span> : null}</p>
+            <p className="text-muted-foreground">{span(p.start, p.end)}{p.owner ? ` · Owner ${p.owner}` : ""}{p.aim ? ` · ${p.aim}` : ""}</p>
+            {p.measures.length ? <ul className="space-y-0.5" aria-label={`Measures of ${p.title}`}>{p.measures.map((m) => <li key={m.id} className="flex flex-wrap items-center gap-2" data-testid="program-measure">
+              <span>{m.name}: {measureLine(m.value, m.target)}</span><span className="text-muted-foreground">({SOURCE_WORDS[m.source]}{m.waiting ? " · a number is waiting confirmation" : ""})</span>
+              {m.source === "typed" && p.canType ? <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); const v = Number(typed[`${p.id}:${m.id}`]); if (typed[`${p.id}:${m.id}`] && v >= 0) void run(typeNumberAction(orgId, p.id, m.id, v), "Sent for confirmation").then((ok) => ok && setTyped({ ...typed, [`${p.id}:${m.id}`]: "" })); }}>
+                <Input type="number" min={0} value={typed[`${p.id}:${m.id}`] ?? ""} aria-label={`New number for ${m.name}`} onChange={(e) => setTyped({ ...typed, [`${p.id}:${m.id}`]: e.target.value })} className="h-8 w-[100px] font-mono" />
+                <button type="submit" className={FORM_SECONDARY_CLASS}>Send</button></form> : null}</li>)}</ul> : null}
+            {d.admin ? <select className="nb-select" aria-label={`State of ${p.title}`} value={p.state} onChange={(e) => void run(setProgramStateAction(orgId, p.id, e.target.value as ProgramState), "Saved")}>
+              {PROGRAM_STATES.map((s) => <option key={s} value={s}>{PROGRAM_STATE_WORDS[s]}</option>)}</select> : null}
+          </li>))}</ul>
+        {d.admin && d.waiting.length ? <section aria-label="Numbers waiting confirmation"><h4 className="font-medium">Numbers waiting confirmation</h4>
+          <ul className="mt-1 space-y-1">{d.waiting.map((w) => <li key={w.id} className="flex flex-wrap items-center gap-2" data-testid="program-waiting">
+            <span>{w.program} · {w.measure}: {w.value}{w.by ? ` · typed by ${w.by}` : ""}</span>
+            <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmNumberAction(orgId, w.id, true), "Confirmed")}>Confirm<span className="sr-only"> {w.measure} for {w.program}</span></button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(confirmNumberAction(orgId, w.id, false), "Declined")}>Decline<span className="sr-only"> {w.measure} for {w.program}</span></button></li>)}</ul></section> : null}
       </div>
-      {view === "timeline" ? <CohortTimeline programs={list} /> : list.length === 0 ? <p className="text-[13px] text-muted-foreground">Make your first program from a cohort you’ve run: Save as program on one of the classes below.</p> : (
-        <ul className="divide-y divide-border rounded-md border border-border bg-card text-[13px]">
-          {list.map((p) => (
-            <li key={p.id} className="space-y-2 px-4 py-3" data-testid="program-row">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="min-w-0"><span className="font-medium">{p.name}</span>{p.status === "retired" ? <StatusBadge state="archived" className="ml-2">Retired</StatusBadge> : null}
-                  <span className="nb-meta ml-2 font-mono">{p.weeks ? `${p.weeks} weeks · ` : ""}{p.cohorts} {p.cohorts === 1 ? "cohort" : "cohorts"} · next start {fmt(p.nextStart)}{p.seats ? ` · ${p.seats} seats` : ""}</span></span>
-                <span className="flex gap-3">
-                  {p.status !== "retired" ? <button type="button" className={LINK} onClick={() => setStarting(starting === p.id ? null : p.id)}>Start a cohort<span className="sr-only"> of {p.name}</span></button> : null}
-                  <button type="button" className={LINK} onClick={() => void updateProgramAction(p.id, { status: p.status === "retired" ? "active" : "retired" }).then((r) => { if (!r.success) return void toast.error(r.error); void refresh(); })}>
-                    {p.status === "retired" ? "Restore" : "Retire"}<span className="sr-only"> {p.name}</span></button>
-                </span>
-              </div>
-              <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
-                {p.sourceClass ? <span>From {p.sourceClass}</span> : null}
-                {/* Call 4: Update from a cohort replaces what new cohorts copy; running cohorts never change. */}
-                {classes.length > 1 ? (
-                  <select className="nb-select" data-size="sm" aria-label={`Update ${p.name} from a cohort`} value=""
-                    onChange={(e) => { const c = classes.find((x) => x.id === e.target.value); if (c) void updateProgramAction(p.id, { sourceClassId: c.id }).then((r) => { if (!r.success) return void toast.error(r.error); toast.success(`${p.name} now copies ${c.title}. Running cohorts don’t change.`); void refresh(); }); }}>
-                    <option value="">Update from a cohort…</option>
-                    {classes.filter((c) => c.title !== p.sourceClass).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-                  </select>
-                ) : null}
-              </p>
-              {p.list.length ? (
-                <ul className="flex flex-wrap gap-2" aria-label={`${p.name} cohorts`}>
-                  {p.list.map((c) => (
-                    <li key={c.id}><Link href={`/org/${encodeURIComponent(c.slug ?? c.id)}`} className="inline-flex items-center gap-1.5 rounded-sm border border-border px-2 py-1 hover:bg-muted">
-                      {c.title} <StatusBadge state={c.state === "running" ? "active" : c.state === "upcoming" ? "new" : "done"}>{COHORT_WORDS[c.state]}</StatusBadge>
-                      <span className="font-mono text-[12px] text-muted-foreground">{c.members}{c.seats ? ` / ${c.seats}` : ""}{c.recorded ? ` · ${c.completed} of ${c.recorded} completed` : ""}</span></Link></li>
-                  ))}
-                </ul>
-              ) : null}
-              {starting === p.id ? <StartCohort program={p} onDone={() => { setStarting(null); void refresh(); }} /> : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-/** Timeline (call 8): one row per program, one bar per cohort on a shared range; each bar names itself in words. */
-function CohortTimeline({ programs }: { programs: ProgramRow[] }) {
-  const all = cohortBars(programs.flatMap((p) => p.list.map((c) => ({ ...c, program: p.id }))));
-  if (!all.start) return <p className="text-[13px] text-muted-foreground">Cohorts show here once they have start and end dates.</p>;
-  return (
-    <div className="space-y-2 overflow-x-auto rounded-md border border-border bg-card p-3 text-[12px]" data-testid="cohort-timeline">
-      <p className="flex justify-between font-mono text-muted-foreground"><span>{fmt(all.start)}</span><span>{fmt(all.end)}</span></p>
-      {programs.filter((p) => p.list.length).map((p) => (
-        <div key={p.id} className="grid min-w-[560px] grid-cols-[140px_1fr] items-center gap-2">
-          <span className="truncate font-medium">{p.name}</span>
-          <ul className="relative h-7" aria-label={`${p.name} cohorts on the timeline`}>
-            {all.bars.filter((b) => b.program === p.id).map((b) => (
-              <li key={b.id} className="absolute inset-y-0" style={{ left: `${b.left}%`, width: `${b.width}%` }}>
-                <Link href={`/org/${encodeURIComponent(b.slug ?? b.id)}`} title={`${b.title} · ${COHORT_WORDS[b.state]} · ${fmt(b.start)} – ${fmt(b.end)}`}
-                  className={cn("flex h-full items-center truncate rounded-sm border px-1.5", b.state === "running" ? "border-primary bg-primary text-primary-foreground" : b.state === "upcoming" ? "border-dashed border-border" : "border-border bg-muted text-muted-foreground")}>
-                  {b.title}<span className="sr-only"> · {COHORT_WORDS[b.state]} · {fmt(b.start)} to {fmt(b.end)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function StartCohort({ program, onDone }: { program: ProgramRow; onDone: () => void }) {
-  const next = program.cohorts + 1;
-  const [name, setName] = useState(`${program.name} · Cohort ${next}`);
-  const [start, setStart] = useState("");
-  const [seats, setSeats] = useState(program.seats ? String(program.seats) : "");
-  const [approval, setApproval] = useState(true);
-  const [copy, setCopy] = useState({ sprints: true, assignments: true, docs: true, files: true, about: true, channels: true, admins: false });
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
-    setBusy(true);
-    const r = await startCohortAction(program.id, { name, handle: `${slugify(name)}`.slice(0, 40) || `cohort-${next}`, start, seats: seats ? Number(seats) : null, joinMode: approval ? "approval" : "instant", copy });
-    setBusy(false);
-    if (!r.success) return void toast.error(r.error);
-    toast.success(`Starting ${name}. You’ll be told when it’s ready.`);
-    onDone();
-  };
-  return (
-    <div className="space-y-2 rounded-md border border-border p-3" data-testid="start-cohort">
-      <div className="grid gap-2 sm:grid-cols-3">
-        <label className="flex flex-col gap-1 sm:col-span-3"><span className="font-medium">Name</span><Input value={name} maxLength={100} onChange={(e) => setName(e.target.value)} /></label>
-        <label className="flex flex-col gap-1"><span className="font-medium">Starts</span><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="font-mono" /></label>
-        <label className="flex flex-col gap-1"><span className="font-medium">Seats</span><Input type="number" min={1} max={5000} value={seats} onChange={(e) => setSeats(e.target.value)} placeholder="No limit" /></label>
-        <p className="self-end text-[12px] text-muted-foreground">{start && program.weeks ? `Ends ${fmt(cohortEnd(start, program.weeks))} (${program.weeks} weeks)` : ""}</p>
-      </div>
-      <label className="flex items-center gap-2"><input className="nb-check" type="checkbox" checked={approval} onChange={(e) => setApproval(e.target.checked)} />Joining needs approval</label>
-      <fieldset className="flex flex-wrap gap-x-4 gap-y-1"><legend className="mb-1 font-medium">Copy</legend>
-        {COPY.map(([k, label]) => <label key={k} className="flex items-center gap-2"><input className="nb-check" type="checkbox" checked={copy[k]} onChange={(e) => setCopy({ ...copy, [k]: e.target.checked })} />{label}</label>)}
-      </fieldset>
-      <p className="text-[12px] text-muted-foreground">Never copied: learners, hand-ins, marks or attendance.</p>
-      <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !start || name.trim().length < 3} onClick={() => void submit()}>Start cohort</button>
-        <button type="button" className={FORM_SECONDARY_CLASS} onClick={onDone}>Cancel</button></span>
-    </div>
-  );
-}
-
-/** Save as program, on a class row of the school (admins). */
-export function SaveAsProgram({ classId, title, schoolId }: { classId: string; title: string; schoolId: string }) {
-  const client = useQueryClient();
-  return (
-    <button type="button" className={LINK} onClick={() => void saveAsProgramAction(classId, title).then((r) => {
-      if (!r.success) return void toast.error(r.error);
-      toast.success(`${title} saved as a program`);
-      void client.invalidateQueries({ queryKey: ["programs", schoolId] });
-    })}>Save as program<span className="sr-only"> from {title}</span></button>
+    </OrgCard>
   );
 }

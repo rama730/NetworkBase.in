@@ -34,6 +34,8 @@ export const shiftSchema = z.object({
   end: z.string().datetime({ offset: true }),
   places: z.number().int().min(1).max(500),
   note: z.string().trim().max(500),
+  /** B8.3a (37.5 call 4): the program this shift serves, so its hours count toward the program's measures. */
+  programId: z.string().uuid().nullable().optional(),
 }).strict().refine((s) => Date.parse(s.end) > Date.parse(s.start) && Date.parse(s.end) - Date.parse(s.start) <= 24 * 3_600_000, "A shift ends after it starts, within a day.");
 export type Shift = z.infer<typeof shiftSchema>;
 export type ShiftFields = Omit<Shift, "places"> & { kind: "shift"; series?: string };
