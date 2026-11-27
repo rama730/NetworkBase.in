@@ -54,3 +54,12 @@ test("done with all read leaves unread rows; undo brings a done row back; snooze
   const snoozed = await row(me, { snoozed: true });
   assert.deepEqual((await service.readSnoozedNotifications(me)).map((i) => i.id), [snoozed]);
 });
+
+test("read all (the CLI) also reaches rows seen in the tray but never read", async () => {
+  const me = await user();
+  const id = await row(me);
+  await sql`UPDATE user_notifications SET seen_at = now(), read_at = NULL WHERE id = ${id}`;
+  assert.equal(await service.markAllNotificationsRead(me), 1);
+  const [after] = await sql`SELECT read_at FROM user_notifications WHERE id = ${id}`;
+  assert.notEqual(after!.read_at, null);
+});

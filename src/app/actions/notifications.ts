@@ -421,7 +421,7 @@ export async function markAllNotificationsReadAction() {
     try {
         const userId = await signedInUserId();
         if (!userId) return { success: false as const, error: "Sign in to continue", count: 0 };
-        const count = await withDbRetry("notifications.mark_all_read", () => markAllNotificationsRead(userId, db));
+        const count = await withDbRetry("notifications.mark_all_read", () => markAllNotificationsRead(userId, db, { keepImportant: true }));
         invalidateNotificationUnreadCache(userId);
         return { success: true as const, count };
     } catch (error) {

@@ -68,3 +68,14 @@ test("push: Needs you kinds carry their answer, and hidden message text hides th
     assert.match(push, /Object\.assign\(payload, \{ title: "Something needs you", body: "" \}\)/);
     assert.match(read("public/sw.js"), /if \(await answerFromPush\(data\.id, act\)\) return;\s*\/\/ It didn't go through/);
 });
+
+test("review fixes: both tabs' caches are patched, important notices aren't marked seen by looking, a cancelled touch never marks done", () => {
+    const hook = read("src/hooks/useNotifications.ts");
+    const tray = read("src/components/layout/header/NotificationPreview.tsx");
+    assert.match(hook, /queryClient\.setQueriesData<InfiniteData<NotificationFeedPage>>\(\{ queryKey: queryKeys\.notifications\.page\(limit\) \}/);
+    assert.match(hook, /if \(!item\.seenAt && item\.importance !== "important"\) viewedNotificationIdsRef\.current\.add\(item\.id\);/);
+    assert.match(hook, /updateNotificationPreferencesAction\(\{ \.\.\.prefs, pausedUntil: null \}, \["pausedUntil"\]\)/);
+    assert.doesNotMatch(tray, /onPointerCancel=\{onPointerUp\}/);
+    assert.match(tray, /observer\.observe\(document\.head, \{ childList: true, characterData: true, subtree: true \}\)/);
+    assert.match(read("src/app/actions/notifications.ts"), /markAllNotificationsRead\(userId, db, \{ keepImportant: true \}\)/);
+});

@@ -72,7 +72,9 @@ export default function NotificationPreview({ n, connectionHealth }: { n: Notifi
     const healthy = connectionHealth === "healthy";
     const connectionLabel = connectionHealth === "offline" ? "Offline" : connectionHealth === "unavailable" ? "Live updates off" : "Reconnecting";
     const shape = useMemo(() => splitTray(n.items, needs, filter, now), [n.items, needs, filter, now]);
-    const unreadTotal = needsCount + Math.max(0, n.unreadCount - needs.filter((item) => item.notificationId).length);
+    // Rows that a Needs you item stands for are counted once: only linked rows still unseen are taken off "new".
+    const linkedUnseen = needs.filter((item) => item.notificationId && n.items.some((row) => row.id === item.notificationId && !row.seenAt)).length;
+    const unreadTotal = needsCount + Math.max(0, n.unreadCount - linkedUnseen);
     const badgeChanged = useChanged(needsCount);
 
     // Inside a workspace or organization, its own rows come first (the same scope chip as the search box).
@@ -103,10 +105,9 @@ export default function NotificationPreview({ n, connectionHealth }: { n: Notifi
     useEffect(() => {
         const apply = () => { const next = titleWithNeedsCount(document.title, needsCount); if (next !== document.title) document.title = next; };
         apply();
-        const el = document.querySelector("title");
-        if (!el) return;
+        // Watch the whole head: a navigation may replace the <title> element itself.
         const observer = new MutationObserver(apply);
-        observer.observe(el, { childList: true, characterData: true, subtree: true });
+        observer.observe(document.head, { childList: true, characterData: true, subtree: true });
         return () => { observer.disconnect(); document.title = titleWithNeedsCount(document.title, 0); };
     }, [needsCount]);
 
@@ -253,7 +254,7 @@ export default function NotificationPreview({ n, connectionHealth }: { n: Notifi
                     {n.quiet ? (
                         <div className="nb-nt-note" data-tone="warn">
                             <span className="flex-1">{n.quiet.kind === "paused" ? "Paused" : "Quiet hours"} until {formatLongDate(n.quiet.until)}. Safety notices still come through.</span>
-                            <button type="button" className="nb-nt-btn" onClick={() => void n.resume()}>Resume</button>
+                            {n.quiet.kind === "paused" ? <button type="button" className="nb-nt-btn" onClick={() => void n.resume()}>Resume</button> : <Link href={settingsTabHref("notifications")} className="nb-nt-btn">Change</Link>}
                         </div>
                     ) : null}
                     {away ? <div className="nb-nt-away"><span className="nb-ui-label">{away.split(":")[0]}</span><span className="nb-meta">{away.split(": ").slice(1).join(": ")}</span></div> : null}
@@ -277,7 +278,7 @@ export default function NotificationPreview({ n, connectionHealth }: { n: Notifi
                         onPointerDown={onPointerDown}
                         onPointerMove={onPointerMove}
                         onPointerUp={onPointerUp}
-                        onPointerCancel={onPointerUp}
+                        onPointerCancel={() => { const swipe = swipeRef.current; swipeRef.current = null; if (swipe?.timer) clearTimeout(swipe.timer); if (swipe) swipe.el.style.transform = ""; }}
                     >
                         {newSince > 0 ? <button type="button" className="nb-nt-new" onClick={() => { bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" }); setNewSince(0); }}><ArrowUp className="size-3.5" aria-hidden="true" />{newSince} new</button> : null}
                         {n.isLoading && n.items.length === 0 && needs.length === 0 ? <NotificationSkeleton /> : empty ? (

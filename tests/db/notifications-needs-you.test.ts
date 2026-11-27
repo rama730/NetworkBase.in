@@ -59,3 +59,28 @@ test("Needs you lists each open review, request, agent ask and important notice 
   assert.equal(await needs.countNeedsYou(me), 5);
   assert.equal((await needs.readNeedsYou(me)).some((i) => i.source === "connection"), false);
 });
+
+test("an agent ask with several questions is answered in chat, not with the first question's options", async () => {
+  const { me } = await seed();
+  const ws = (await sql`SELECT id FROM workspaces WHERE owner_id = ${me} LIMIT 1`)[0]!.id;
+  await sql`UPDATE agent_questions SET status = 'cancelled' WHERE to_user_id = ${me}`;
+  await sql`INSERT INTO agent_questions (workspace_id, asker_user_id, agent_name, to_role, to_user_id, questions, expires_at)
+    VALUES (${ws}, ${me}, 'Claude', 'me', ${me}, ${sql.json([
+      { key: "a", header: "A", question: "First?", options: [{ value: "x", label: "X" }, { value: "y", label: "Y" }] },
+      { key: "b", header: "B", question: "Second?", options: [{ value: "x", label: "X" }, { value: "y", label: "Y" }] },
+    ])}, now() + interval '1 day')`;
+  const ask = (await needs.readNeedsYou(me)).find((i) => i.source === "agent_question")!;
+  assert.deepEqual(ask.options ?? [], []);
+  assert.equal(ask.secondary?.label, "Answer in chat");
+  assert.equal(ask.snippet, "First? (and 1 more question)");
+});
+
+test("an important notice stays in Needs you until it is read, through Mark all read", async () => {
+  const { me } = await seed();
+  const service = await loadAppModule(() => import("../../src/lib/notifications/service"));
+  await service.markAllNotificationsRead(me, undefined, { keepImportant: true });
+  assert.equal((await needs.readNeedsYou(me)).some((i) => i.source === "important"), true, "still there after Mark all read");
+  const id = (await needs.readNeedsYou(me)).find((i) => i.source === "important")!.notificationId!;
+  await service.markNotificationRead(me, id);
+  assert.equal((await needs.readNeedsYou(me)).some((i) => i.source === "important"), false, "gone once read");
+});

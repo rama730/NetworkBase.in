@@ -66,7 +66,7 @@ const applicationsSql = (me: string): SQL => sql`
 const questionsSql = (me: string): SQL => sql`
   SELECT q.id, q.workspace_id, q.task_id, q.agent_name, q.questions, q.created_at, w.title AS workspace
   FROM agent_questions q JOIN workspaces w ON w.id = q.workspace_id
-  WHERE q.to_user_id = ${me}::uuid AND q.status = 'open' AND q.expires_at > now()`;
+  WHERE q.to_user_id = ${me}::uuid AND q.status = 'open' AND q.expires_at > now() AND w.deletion_scheduled_at IS NULL`;
 
 const accessSql = (me: string): SQL => sql`
   SELECT r.id, r.session_id, r.scope, r.created_at, s.agent_name
@@ -75,7 +75,7 @@ const accessSql = (me: string): SQL => sql`
 
 const importantSql = (me: string): SQL => sql`
   SELECT n.* FROM user_notifications n
-  WHERE n.user_id = ${me}::uuid AND n.importance = 'important' AND n.seen_at IS NULL AND n.dismissed_at IS NULL
+  WHERE n.user_id = ${me}::uuid AND n.importance = 'important' AND n.read_at IS NULL AND n.dismissed_at IS NULL
     AND (n.snoozed_until IS NULL OR n.snoozed_until <= now())
     AND n.kind <> ALL(${sql.raw(`ARRAY[${NEEDS_YOU_REQUEST_KINDS.map((k) => `'${k}'`).join(",")}]`)}::text[])`;
 
@@ -83,8 +83,9 @@ const rows = async <T>(q: SQL) => Array.from(await db.execute<T & Record<string,
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString());
 
 export async function countNeedsYou(userId: string): Promise<number> {
-  const parts = [reviewsSql, connectionsSql, applicationsSql, questionsSql, accessSql, importantSql]
-    .map((part) => sql`(SELECT count(*) FROM (${part(userId)}) x)`);
+  // The same caps as the list, so the bell and the tab title never disagree with what the tray shows.
+  const parts = ([[reviewsSql, 50], [connectionsSql, 50], [applicationsSql, 50], [questionsSql, 20], [accessSql, 20], [importantSql, 20]] as const)
+    .map(([part, cap]) => sql`(SELECT count(*) FROM (${part(userId)} LIMIT ${cap}) x)`);
   const [row] = await rows<{ n: number }>(sql`SELECT (${sql.join(parts, sql` + `)})::int AS n`);
   return Number(row?.n ?? 0);
 }
@@ -98,7 +99,7 @@ export async function readNeedsYou(userId: string): Promise<NeedsYouItem[]> {
     rows<{ id: string; session_id: string; scope: string; created_at: unknown; agent_name: string | null }>(sql`${accessSql(userId)} ORDER BY r.created_at LIMIT 20`),
     db.select().from(userNotifications).where(and(
       eq(userNotifications.userId, userId), eq(userNotifications.importance, "important"),
-      isNull(userNotifications.seenAt), isNull(userNotifications.dismissedAt),
+      isNull(userNotifications.readAt), isNull(userNotifications.dismissedAt),
       or(isNull(userNotifications.snoozedUntil), lte(userNotifications.snoozedUntil, new Date())),
       notInArray(userNotifications.kind, [...NEEDS_YOU_REQUEST_KINDS]),
     )).orderBy(asc(userNotifications.activityAt)).limit(20),
@@ -138,15 +139,19 @@ export async function readNeedsYou(userId: string): Promise<NeedsYouItem[]> {
     });
   }
   for (const q of questions) {
-    const first = (Array.isArray(q.questions) ? q.questions[0] : null) as { key?: string; question?: string; options?: Array<{ value: string; label: string; recommended?: boolean }> } | null;
+    const all = (Array.isArray(q.questions) ? q.questions : []) as Array<{ key?: string; question?: string; options?: Array<{ value: string; label: string; recommended?: boolean }> }>;
+    const first = all[0] ?? null;
+    // One answer closes the whole ask, so options show in the row only when the ask has one question.
+    const single = all.length === 1;
+    const more = all.length - 1;
     items.push({
       key: `agent_question:${q.id}`, source: "agent_question", notificationId: byKey.get(`agent-question:${q.id}`)?.id ?? null, actor: null,
       sentence: { actor: q.agent_name || "An agent", verb: " asks in ", object: q.workspace },
-      snippet: first?.question ?? null, context: "Agent question", waitingSince: iso(q.created_at), blocksOthers: 0,
+      snippet: first?.question ? (single ? first.question : `${first.question} (and ${more} more ${more === 1 ? "question" : "questions"})`) : null, context: "Agent question", waitingSince: iso(q.created_at), blocksOthers: 0,
       href: q.task_id ? `/workspaces/${q.workspace_id}?tab=tasks&task=${q.task_id}&question=${q.id}` : `/workspaces/${q.workspace_id}?question=${q.id}`,
       primary: null, secondary: { act: "open", label: "Answer in chat" },
-      options: (first?.options ?? []).slice(0, 4).map((o) => ({ value: o.value, label: o.label, recommended: o.recommended === true })),
-      questionKey: first?.key,
+      options: single ? (first?.options ?? []).slice(0, 4).map((o) => ({ value: o.value, label: o.label, recommended: o.recommended === true })) : [],
+      questionKey: single ? first?.key : undefined,
     });
   }
   for (const r of access) items.push({

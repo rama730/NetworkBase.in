@@ -637,14 +637,26 @@ export async function dismissAllNotifications(
         .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.dismissedAt)));
 }
 
-/** Mark all read (notifications mix): every visible unread row, with no 50-row cap. Returns how many changed. */
-export async function markAllNotificationsRead(userId: string, executor?: NotificationWriteExecutor): Promise<number> {
+/**
+ * Mark all read (notifications mix): every visible row not yet seen or read, with no 50-row cap. The tray keeps
+ * important notices (they stay in Needs you until opened or done); the CLI's `inbox read --all` takes everything.
+ */
+export async function markAllNotificationsRead(userId: string, executor?: NotificationWriteExecutor, opts: { keepImportant?: boolean } = {}): Promise<number> {
     const now = new Date();
     const nowIso = now.toISOString();
     const rows = await getExecutor(executor)
         .update(userNotifications)
-        .set({ seenAt: now, readAt: sql`COALESCE(${userNotifications.readAt}, ${nowIso}::timestamptz)`, updatedAt: now })
-        .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.seenAt), isNull(userNotifications.dismissedAt)))
+        .set({
+            seenAt: sql`COALESCE(${userNotifications.seenAt}, ${nowIso}::timestamptz)`,
+            readAt: sql`COALESCE(${userNotifications.readAt}, ${nowIso}::timestamptz)`,
+            updatedAt: now,
+        })
+        .where(and(
+            eq(userNotifications.userId, userId),
+            or(isNull(userNotifications.seenAt), isNull(userNotifications.readAt)),
+            isNull(userNotifications.dismissedAt),
+            opts.keepImportant ? sql`${userNotifications.importance} <> 'important'` : undefined,
+        ))
         .returning({ id: userNotifications.id });
     return rows.length;
 }

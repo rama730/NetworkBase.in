@@ -139,13 +139,14 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         updater: (existing: InfiniteData<NotificationFeedPage> | undefined) =>
             InfiniteData<NotificationFeedPage> | undefined,
     ) => {
-        queryClient.setQueryData<InfiniteData<NotificationFeedPage>>(notificationsQueryKey, (existing) => {
+        // Both tabs' pages (Unread and All are cached apart): a row done, snoozed or seen in one is patched in the other.
+        queryClient.setQueriesData<InfiniteData<NotificationFeedPage>>({ queryKey: queryKeys.notifications.page(limit) }, (existing) => {
             // The loaded feed can be only one page, while the bell counter is a
             // global value. Mutations adjust that counter explicitly; deriving
             // from this partial cache would both under-count and double-apply.
             return updater(existing);
         });
-    }, [notificationsQueryKey, queryClient]);
+    }, [limit, queryClient]);
 
     const unreadCountQuery = useQuery<UnreadCounts>({
         queryKey: unreadCountQueryKey,
@@ -622,13 +623,16 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
     const stageViewedNotifications = useCallback((notificationIds: string[]) => {
         if (!isTrayOpenRef.current) return;
         for (const notificationId of notificationIds) {
-            if (notificationId) viewedNotificationIdsRef.current.add(notificationId);
+            const important = queryClient.getQueriesData<InfiniteData<NotificationFeedPage>>({ queryKey: queryKeys.notifications.page(limit) })
+                .some(([, data]) => data?.pages.some((page) => page.items.some((item) => item.id === notificationId && item.importance === "important")));
+            if (notificationId && !important) viewedNotificationIdsRef.current.add(notificationId);
         }
-    }, []);
+    }, [limit, queryClient]);
     useEffect(() => {
         if (!isTrayOpen) return;
         for (const item of items) {
-            if (!item.seenAt) {
+            // Important notices stay in Needs you until opened or done, so looking at the tray doesn't count.
+            if (!item.seenAt && item.importance !== "important") {
                 viewedNotificationIdsRef.current.add(item.id);
             }
         }
@@ -638,7 +642,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         if (open) {
             viewedNotificationIdsRef.current.clear();
             for (const item of items) {
-                if (!item.seenAt) viewedNotificationIdsRef.current.add(item.id);
+                if (!item.seenAt && item.importance !== "important") viewedNotificationIdsRef.current.add(item.id);
             }
             isTrayOpenRef.current = true;
             setIsTrayOpen(true);
@@ -822,8 +826,8 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
     const resume = useCallback(async () => {
         const prefs = preferencesQuery.data;
         if (!prefs) return;
-        const next = { ...prefs, pausedUntil: null, quietHours: isQuietHoursActive(prefs) ? { ...prefs.quietHours, enabled: false } : prefs.quietHours };
-        const result = await updateNotificationPreferencesAction(next, ["pausedUntil", "quietHours"]);
+        // Resume lifts a pause; quiet hours are a schedule, changed in Settings (never switched off from here).
+        const result = await updateNotificationPreferencesAction({ ...prefs, pausedUntil: null }, ["pausedUntil"]);
         if (!result.success) toast.error(result.error || "Couldn’t resume");
         else void preferencesQuery.refetch();
     }, [preferencesQuery]);
