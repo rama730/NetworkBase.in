@@ -26,7 +26,7 @@ async function club(orgId: string) {
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; slug: string | null; title: string; code: string | null; code_on: boolean }>(sql`
     SELECT org_type AS type, org_settings AS settings, slug, title, join_code AS code, coalesce(join_code_enabled, false) AS code_on
     FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (!clubLike(w?.type, w?.settings, "renewal") || !a.canRead) return null;
+  if (!w || !clubLike(w.type, w.settings, "renewal") || !a.canRead) return null;
   return { userId, w, member: Boolean(userId) && (a.isOwner || a.isMember), officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked };
 }
 

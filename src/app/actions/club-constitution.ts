@@ -24,7 +24,7 @@ async function club(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; title: string }>(sql`
     SELECT org_type AS type, org_settings AS settings, title FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (!clubLike(w?.type, w?.settings, "clubMeetings") || !a.canRead) return null;
+  if (!w || !clubLike(w.type, w.settings, "clubMeetings") || !a.canRead) return null;
   const pub = Boolean((w.settings as { club?: { constitution?: { public?: unknown } } } | null)?.club?.constitution?.public === true);
   return { userId, w, pub, member: Boolean(userId) && (a.isOwner || a.isMember), officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, president: Boolean(userId) && a.isOwner && !a.writeBlocked };
 }
