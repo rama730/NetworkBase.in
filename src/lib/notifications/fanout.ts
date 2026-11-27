@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { inArray } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { invalidateNotificationCounts } from "@/lib/notifications/count-cache";
 import { holdAgentWrites } from "@/lib/agents/notifications";
 import {
     createNotification,
@@ -235,6 +236,8 @@ export async function deliverNotificationFanout(
         });
     }
 
+    // A new row changes the bell: drop the 60 s count cache for everyone this batch reached.
+    invalidateNotificationCounts(writes.map((write) => write.input.recipientUserId));
     return {
         delivered: results.length - failed.length,
         failed: failed.length,

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { wakePushIfNeeded } from "@/inngest/wake";
 import { db } from "@/lib/db";
 import { profiles, userNotifications } from "@/lib/db/schema";
@@ -637,6 +637,50 @@ export async function dismissAllNotifications(
         .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.dismissedAt)));
 }
 
+/** Mark all read (notifications mix): every visible unread row, with no 50-row cap. Returns how many changed. */
+export async function markAllNotificationsRead(userId: string, executor?: NotificationWriteExecutor): Promise<number> {
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const rows = await getExecutor(executor)
+        .update(userNotifications)
+        .set({ seenAt: now, readAt: sql`COALESCE(${userNotifications.readAt}, ${nowIso}::timestamptz)`, updatedAt: now })
+        .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.seenAt), isNull(userNotifications.dismissedAt)))
+        .returning({ id: userNotifications.id });
+    return rows.length;
+}
+
+/** "Done with all read": only rows already seen leave the tray; unread rows and Needs you stay. */
+export async function dismissReadNotifications(userId: string, executor?: NotificationWriteExecutor): Promise<number> {
+    const now = new Date();
+    const rows = await getExecutor(executor)
+        .update(userNotifications)
+        .set({ dismissedAt: now, updatedAt: now })
+        .where(and(eq(userNotifications.userId, userId), isNotNull(userNotifications.seenAt), isNull(userNotifications.dismissedAt)))
+        .returning({ id: userNotifications.id });
+    return rows.length;
+}
+
+/** Undo for Done: the row comes back to the tray. */
+export async function restoreNotification(userId: string, notificationId: string, executor?: NotificationWriteExecutor) {
+    const [row] = await getExecutor(executor)
+        .update(userNotifications)
+        .set({ dismissedAt: null, updatedAt: new Date() })
+        .where(and(eq(userNotifications.userId, userId), eq(userNotifications.id, notificationId), isNotNull(userNotifications.dismissedAt)))
+        .returning();
+    return row ? toNotificationItem(row) : null;
+}
+
+/** What's waiting under "Snoozed": rows snoozed into the future, soonest back first. */
+export async function readSnoozedNotifications(userId: string, executor?: NotificationWriteExecutor): Promise<NotificationItem[]> {
+    const rows = await getExecutor(executor)
+        .select()
+        .from(userNotifications)
+        .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.dismissedAt), gt(userNotifications.snoozedUntil, new Date())))
+        .orderBy(asc(userNotifications.snoozedUntil))
+        .limit(50);
+    return rows.map((row) => toNotificationItem(row));
+}
+
 export async function muteNotificationScope(
     userId: string,
     scope: NotificationMuteInput,
@@ -693,12 +737,17 @@ export async function unmuteWorkspaceInTx(executor: NotificationWriteExecutor, u
     await setWorkspaceMute(userId, projectId, null, null, executor);
 }
 
+export type NotificationPageFilter = { unreadOnly?: boolean; q?: string; kinds?: NotificationKind[]; projectId?: string };
+
 export async function readNotificationsPage(
     userId: string,
     limit: number,
     cursor?: string | null,
     executor?: NotificationWriteExecutor,
+    filter: NotificationPageFilter = {},
 ): Promise<NotificationFeedPage> {
+    const q = filter.q?.trim().slice(0, 80);
+    const pattern = q ? `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
     const tx = getExecutor(executor);
     const safeLimit = Math.max(1, Math.min(limit, 50));
     const parsedCursor = decodeNotificationCursor(cursor);
@@ -734,6 +783,10 @@ export async function readNotificationsPage(
                 isNull(userNotifications.dismissedAt),
                 or(isNull(userNotifications.snoozedUntil), lte(userNotifications.snoozedUntil, now)),
                 notFromBlocked,
+                filter.unreadOnly ? isNull(userNotifications.seenAt) : undefined,
+                pattern ? or(ilike(userNotifications.title, pattern), ilike(userNotifications.body, pattern)) : undefined,
+                filter.kinds?.length ? inArray(userNotifications.kind, filter.kinds) : undefined,
+                filter.projectId ? sql`${userNotifications.entityRefs}->>'projectId' = ${filter.projectId}` : undefined,
                 parsedCursor && cursorDate
                     ? or(
                         lt(userNotifications.activityAt, cursorDate),

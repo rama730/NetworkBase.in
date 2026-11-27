@@ -41,6 +41,7 @@ const BROWSER_ONLY = new Set([
   // Global search reads your messages and saves searches: a browser session only (global search mix).
   "search",
   "search/people",
+  "notifications/[id]/act",
   "search/saved",
   "privacy",
   "privacy/blocks",

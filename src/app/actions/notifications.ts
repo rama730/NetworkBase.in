@@ -1,14 +1,19 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { mergeNotificationPreferences } from "@/lib/notifications/merge";
 import { isTransientDbError, readDbErrorCode, withDbRetry } from "@/lib/db/retry";
-import { profiles } from "@/lib/db/schema";
+import { profiles, userNotifications } from "@/lib/db/schema";
 import {
     countUnreadNotifications,
     dismissAllNotifications,
+    dismissReadNotifications,
+    markAllNotificationsRead,
+    readSnoozedNotifications,
+    restoreNotification,
+    type NotificationPageFilter,
     dismissNotification,
     markNotificationRead,
     markNotificationsSeen,
@@ -19,6 +24,12 @@ import {
     toNotificationItem,
 } from "@/lib/notifications/service";
 import { InvalidNotificationCursorError } from "@/lib/notifications/cursor";
+import { invalidateNotificationCounts } from "@/lib/notifications/count-cache";
+import { countNeedsYou, readNeedsYou, type NotificationAct } from "@/lib/notifications/needs-you";
+import { actTargetFromDedupeKey, parseNeedsYouKey, type ActTarget } from "@/lib/notifications/act-target";
+import { acceptConnectionRequest, rejectConnectionRequest } from "@/app/actions/connections";
+import { answerAgentQuestionAction } from "@/app/actions/agent-questions";
+import { decideAgentAccessRequestAction } from "@/app/actions/agent-access";
 import {
     DEFAULT_NOTIFICATION_PREFERENCES,
     normalizeNotificationPreferences,
@@ -29,19 +40,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getRedisClient } from "@/lib/redis";
 
 function invalidateNotificationUnreadCache(userId: string) {
-    const redis = getRedisClient();
-    if (redis) {
-        void redis.del(`unread:notif:${userId}`).catch((err) => {
-            logger.warn("notifications.cache_invalidate_failed", {
-                module: "notifications",
-                userId,
-                error: err instanceof Error ? err.message : String(err),
-            });
-        });
-    }
+    invalidateNotificationCounts([userId]);
 }
 
-export async function readNotificationsAction(limit = 20, cursor?: string | null) {
+export async function readNotificationsAction(limit = 20, cursor?: string | null, filter?: NotificationPageFilter) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -49,7 +51,12 @@ export async function readNotificationsAction(limit = 20, cursor?: string | null
             return { success: false as const, error: "Sign in to continue", page: null };
         }
 
-        const page = await readNotificationsPage(user.id, limit, cursor ?? null, db);
+        const page = await readNotificationsPage(user.id, limit, cursor ?? null, db, {
+            unreadOnly: filter?.unreadOnly === true,
+            q: typeof filter?.q === "string" ? filter.q : undefined,
+            kinds: Array.isArray(filter?.kinds) ? filter.kinds.slice(0, 60) : undefined,
+            projectId: typeof filter?.projectId === "string" && /^[0-9a-f-]{36}$/i.test(filter.projectId) ? filter.projectId : undefined,
+        });
         return { success: true as const, page };
     } catch (error) {
         logger.error("notifications.read_failed", {
@@ -70,7 +77,7 @@ export async function readNotificationUnreadCountAction() {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Sign in to continue", unreadCount: 0, unreadImportantCount: 0 };
+            return { success: false as const, error: "Sign in to continue", unreadCount: 0, unreadImportantCount: 0, needsYouCount: 0 };
         }
 
         const redis = getRedisClient();
@@ -83,6 +90,8 @@ export async function readNotificationUnreadCountAction() {
                         success: true as const,
                         unreadCount: cached.total,
                         unreadImportantCount: cached.important ?? 0,
+                        // Needs you is read from the things themselves (answered elsewhere = gone), so it is never cached.
+                        needsYouCount: await countNeedsYou(user.id),
                     };
                 }
             } catch {
@@ -105,6 +114,7 @@ export async function readNotificationUnreadCountAction() {
             success: true as const,
             unreadCount: counts.total,
             unreadImportantCount: counts.important,
+            needsYouCount: await countNeedsYou(user.id),
         };
     } catch (error) {
         logger.error("notifications.count_failed", {
@@ -116,6 +126,7 @@ export async function readNotificationUnreadCountAction() {
             error: (error instanceof Error && error.message) || "Couldn’t load notification count",
             unreadCount: 0,
             unreadImportantCount: 0,
+            needsYouCount: 0,
         };
     }
 }
@@ -380,5 +391,119 @@ export async function snoozeNotificationAction(notificationId: string, snoozedUn
             error: error instanceof Error ? error.message : String(error),
         });
         return { success: false as const, error: (error instanceof Error && error.message) || "Couldn’t snooze notification", item: null };
+    }
+}
+
+async function signedInUserId(): Promise<string | null> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+}
+
+function failure(event: string, error: unknown, fallback: string) {
+    logger.error(event, { module: "notifications", error: error instanceof Error ? error.message : String(error) });
+    return { success: false as const, error: (error instanceof Error && error.message) || fallback };
+}
+
+/** Needs you (notifications mix): reviews, requests, agent asks and important notices, from their own tables. */
+export async function readNeedsYouAction() {
+    try {
+        const userId = await signedInUserId();
+        if (!userId) return { success: false as const, error: "Sign in to continue", items: [] };
+        return { success: true as const, items: await readNeedsYou(userId) };
+    } catch (error) {
+        return { ...failure("notifications.needs_you_failed", error, "Couldn’t load what needs you"), items: [] };
+    }
+}
+
+/** Mark all read: every unread row, not just the loaded ones. */
+export async function markAllNotificationsReadAction() {
+    try {
+        const userId = await signedInUserId();
+        if (!userId) return { success: false as const, error: "Sign in to continue", count: 0 };
+        const count = await withDbRetry("notifications.mark_all_read", () => markAllNotificationsRead(userId, db));
+        invalidateNotificationUnreadCache(userId);
+        return { success: true as const, count };
+    } catch (error) {
+        return { ...failure("notifications.mark_all_read_failed", error, "Couldn’t mark them read"), count: 0 };
+    }
+}
+
+/** "Done with all read": unread rows and Needs you stay. */
+export async function dismissReadNotificationsAction() {
+    try {
+        const userId = await signedInUserId();
+        if (!userId) return { success: false as const, error: "Sign in to continue", count: 0 };
+        const count = await withDbRetry("notifications.dismiss_read", () => dismissReadNotifications(userId, db));
+        return { success: true as const, count };
+    } catch (error) {
+        return { ...failure("notifications.dismiss_read_failed", error, "Couldn’t mark them done"), count: 0 };
+    }
+}
+
+/** Undo for Done. */
+export async function restoreNotificationAction(notificationId: string) {
+    try {
+        const userId = await signedInUserId();
+        if (!userId) return { success: false as const, error: "Sign in to continue", item: null };
+        const item = await restoreNotification(userId, notificationId, db);
+        if (!item) return { success: false as const, error: "Notification not found", item: null };
+        invalidateNotificationUnreadCache(userId);
+        return { success: true as const, item };
+    } catch (error) {
+        return { ...failure("notifications.restore_failed", error, "Couldn’t bring it back"), item: null };
+    }
+}
+
+/** The "Snoozed" list at the bottom of Unread. */
+export async function readSnoozedNotificationsAction() {
+    try {
+        const userId = await signedInUserId();
+        if (!userId) return { success: false as const, error: "Sign in to continue", items: [] };
+        return { success: true as const, items: await readSnoozedNotifications(userId, db) };
+    } catch (error) {
+        return { ...failure("notifications.snoozed_failed", error, "Couldn’t load snoozed notifications"), items: [] };
+    }
+}
+
+/**
+ * One path for every answer button (notifications mix): the tray's rows, toasts and the push service worker. It only
+ * works out what the button points at; the existing actions it calls check who may answer.
+ */
+export async function actOnNotificationAction(
+    target: { key?: string; notificationId?: string },
+    act: { act: NotificationAct["act"]; value?: string; questionKey?: string },
+) {
+    try {
+        const userId = await signedInUserId();
+        if (!userId) return { success: false as const, error: "Sign in to continue" };
+        let resolved: ActTarget | null = typeof target.key === "string" ? parseNeedsYouKey(target.key) : null;
+        let notificationId = typeof target.notificationId === "string" && /^[0-9a-f-]{36}$/i.test(target.notificationId) ? target.notificationId : null;
+        if (!resolved && notificationId) {
+            const [row] = await db.select({ dedupeKey: userNotifications.dedupeKey }).from(userNotifications)
+                .where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId))).limit(1);
+            resolved = row ? actTargetFromDedupeKey(row.dedupeKey) : null;
+            if (!row) notificationId = null;
+        }
+        if (!resolved) return { success: false as const, error: "There’s nothing to answer here" };
+
+        let outcome: { success: boolean; error?: string };
+        if (resolved.source === "connection" && (act.act === "accept" || act.act === "ignore")) {
+            outcome = act.act === "accept"
+                ? await acceptConnectionRequest(resolved.id, { idempotencyKey: resolved.id })
+                : await rejectConnectionRequest(resolved.id);
+        } else if (resolved.source === "agent_access" && (act.act === "allow" || act.act === "deny")) {
+            outcome = await decideAgentAccessRequestAction(resolved.id, act.act === "allow" ? "once" : "no");
+        } else if (resolved.source === "agent_question" && act.act === "answer" && act.value && act.questionKey) {
+            outcome = await answerAgentQuestionAction(resolved.id, { [act.questionKey]: act.value });
+        } else {
+            return { success: false as const, error: "That button doesn’t fit this notification" };
+        }
+        if (!outcome.success) return { success: false as const, error: outcome.error ?? "Couldn’t do that just now" };
+        if (notificationId) await markNotificationRead(userId, notificationId, db);
+        invalidateNotificationUnreadCache(userId);
+        return { success: true as const };
+    } catch (error) {
+        return failure("notifications.act_failed", error, "Couldn’t do that just now");
     }
 }
