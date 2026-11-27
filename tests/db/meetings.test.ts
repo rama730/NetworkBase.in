@@ -379,13 +379,15 @@ test("36.4 (B7.3a): club minutes stay with officers until approved; quorum is th
   viewerId = t.owner;
   const first = await t.doc("general-1");
   await sql`DELETE FROM workspace_workflows WHERE workspace_id = ${t.ws}`; // a club holds its meetings without the workflow
-  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "general-1", type: "general", title: "General · Jan 7", startsAt: ist("2027-01-07T18:00:00"), lengthMinutes: 60, attendeeIds: [t.owner, t.member], repeat: "monthly" })).success);
+  // Live check 2026-11-28: made with no attendees picked — a General meeting's people are all the members.
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "general-1", type: "general", title: "General · Jan 7", startsAt: ist("2027-01-07T18:00:00"), lengthMinutes: 60, attendeeIds: [], repeat: "monthly" })).success);
   assert.equal((await settingsOf(first)).visibilityOverride, "leaders_only", "the draft minutes start with officers");
   viewerId = t.member;
   assert.equal((await docs.readMeetingAction(t.ws, "general-1")).success, false, "draft minutes never reach members");
   viewerId = t.owner;
   const read = await docs.readMeetingAction(t.ws, "general-1");
   assert.ok(read.success && "board" in read && read.board && read.board.needed === 2 && read.board.motionsOn, "quorum: all 2 members staying (share 100%)");
+  assert.deepEqual(read.success ? read.attendees.map((a) => a.id).sort() : [], [t.owner, t.member].sort(), "every member can propose, second and be present");
 
   const bare = await docs.addMotionAction(t.ws, { docSlug: "general-1", text: "Weekend lab hours", proposedBy: t.member });
   assert.ok(bare.success);

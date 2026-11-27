@@ -1919,6 +1919,16 @@ export async function createMeetingAction(projectId: string, input: unknown) {
     }
 }
 
+/**
+ * Live check 2026-11-28: a General meeting or an AGM belongs to every member, so its people (proposers, seconders,
+ * who is present) are the active members, not a list picked when it was made; other meetings keep their attendees.
+ */
+async function meetingPeopleIds(projectId: string, s: { kind?: string | null; attendeeIds?: string[] }) {
+    if (s.kind !== "general" && s.kind !== "agm") return s.attendeeIds ?? [];
+    return Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members
+        WHERE workspace_id = ${projectId}::uuid AND role <> 'viewer' AND completed_at IS NULL LIMIT 1000`)).map((r) => r.id);
+}
+
 /** S2: the meeting header: when, type, attendees, series, finished, open action items. */
 export async function readMeetingAction(projectId: string, docSlug: string) {
     try {
@@ -1929,7 +1939,8 @@ export async function readMeetingAction(projectId: string, docSlug: string) {
         const s = context.settings;
         const [series] = s.seriesId ? await db.select({ rule: workspaceMeetingSeries.rule, endedAt: workspaceMeetingSeries.endedAt, title: workspaceMeetingSeries.title }).from(workspaceMeetingSeries)
             .where(and(eq(workspaceMeetingSeries.id, s.seriesId), eq(workspaceMeetingSeries.projectId, projectId))).limit(1) : [];
-        const attendees = insider && s.attendeeIds?.length ? await db.select({ id: profiles.id, name: profiles.fullName, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, s.attendeeIds)) : [];
+        const peopleIds = insider ? await meetingPeopleIds(projectId, s) : [];
+        const attendees = peopleIds.length ? await db.select({ id: profiles.id, name: profiles.fullName, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, peopleIds)) : [];
         const [open] = Array.from(await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM tasks WHERE deleted_at IS NULL AND status <> 'done'
             AND ((source_doc_id = ${context.readme.id}::uuid AND source_block = 'actions')${s.carriedTaskIds?.length ? sql` OR id IN (${sql.join(s.carriedTaskIds.map((i) => sql`${i}::uuid`), sql`, `)})` : sql``})`));
         const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
@@ -1981,7 +1992,7 @@ export async function addMotionAction(projectId: string, input: unknown) {
         if (!parsed.success) return { success: false as const, error: parsed.error.issues[0]?.message ?? "Check the motion." };
         const b = await boardContext(projectId, userId, parsed.data.docSlug);
         if ("error" in b) return { success: false as const, error: b.error! };
-        const attendees = b.context.settings.attendeeIds ?? [];
+        const attendees = await meetingPeopleIds(projectId, b.context.settings);
         for (const who of [parsed.data.proposedBy, parsed.data.secondedBy]) if (who && !attendees.includes(who)) return { success: false as const, error: "Pick people who attend this meeting." };
         if (parsed.data.proposedBy && parsed.data.proposedBy === parsed.data.secondedBy) return { success: false as const, error: "Someone else seconds the motion." };
         const amendment = parsed.data.amendment;
@@ -2013,7 +2024,7 @@ export async function markPresentAction(projectId: string, input: unknown) {
         const parsed = presentSchema.parse(input);
         const b = await boardContext(projectId, userId, parsed.docSlug);
         if ("error" in b) return { success: false as const, error: b.error! };
-        const attendees = new Set(b.context.settings.attendeeIds ?? []);
+        const attendees = new Set(await meetingPeopleIds(projectId, b.context.settings));
         const present = [...new Set(parsed.present)].filter((id) => attendees.has(id));
         await updateMeetingSettings(b.context.readme!.id, () => ({ patch: { present }, result: null }));
         revalidateProjectDoc(b.context.project);
