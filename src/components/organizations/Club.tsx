@@ -254,7 +254,7 @@ export function ElectionCard({ orgId }: { orgId: string }) {
     return (
       <OrgCard title="Elections" testId="club-election">
         {start ? <fieldset className="flex flex-wrap items-end gap-2 text-[13px]" data-testid="club-election-start">
-          <label className="flex flex-col">For the Season<Input value={start.season} maxLength={20} onChange={(x) => setStart({ ...start, season: x.target.value })} className="mt-0.5 w-[120px] font-mono" /></label>
+          <label className="flex flex-col">For the Season<Input value={start.season} maxLength={20} placeholder={nextSeasonHint()} onChange={(x) => setStart({ ...start, season: x.target.value })} className="mt-0.5 w-[120px] font-mono" /></label>
           <label className="flex flex-col">Returning officer<select className="nb-select mt-0.5" value={start.returningOfficerId} onChange={(x) => setStart({ ...start, returningOfficerId: x.target.value })}>
             <option value="">Pick someone not standing</option>{(("people" in d && d.people) || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <label className="flex items-center gap-1.5 pb-2"><input type="checkbox" className="nb-check" checked={start.showCounts} onChange={(x) => setStart({ ...start, showCounts: x.target.checked })} />Show vote counts with the results</label>
@@ -316,7 +316,7 @@ export function HandoverCard({ orgId }: { orgId: string }) {
   const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); refresh(); };
   const h = d.handover;
   const setup = form ? <fieldset className="flex flex-wrap items-end gap-2 text-[13px]" data-testid="club-handover-setup">
-    <label className="flex flex-col">Incoming Season<Input value={form.season} maxLength={20} onChange={(x) => setForm({ ...form, season: x.target.value })} className="mt-0.5 w-[120px] font-mono" /></label>
+    <label className="flex flex-col">Incoming Season<Input value={form.season} maxLength={20} placeholder={nextSeasonHint()} onChange={(x) => setForm({ ...form, season: x.target.value })} className="mt-0.5 w-[120px] font-mono" /></label>
     <label className="flex flex-col">Handover date<Input type="date" value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value })} className="mt-0.5 w-auto font-mono" /></label>
     <button type="button" className={FORM_PRIMARY_CLASS} disabled={!form.season.trim() || !form.date} onClick={() => void run(saveHandoverAction(orgId, form), "Handover set").then(() => setForm(null))}>Save</button>
     <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setForm(null)}>Cancel</button>
@@ -676,5 +676,11 @@ function PickingPanel({ orgId, competitionId, onChanged }: { orgId: string; comp
       </fieldset> : null}
     </div>
   );
+}
+
+/** Live check 2026-11-27: the Season fields show the format, e.g. 2027–28 (next year's Season). */
+function nextSeasonHint() {
+  const y = new Date().getFullYear() + 1;
+  return `${y}–${String(y + 1).slice(2)}`;
 }
 

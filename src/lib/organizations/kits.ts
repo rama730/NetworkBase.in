@@ -16,7 +16,7 @@ export const PARTS: Record<PartId, Part> = {
   events: { id: "events", name: "Events", line: "Events with RSVPs, a waitlist and check-in.", where: "Sprints", ready: true },
   boardMeetings: { id: "boardMeetings", name: "Board meetings", line: "Motions, votes, quorum and approved minutes.", where: "Overview", ready: true },
   meetings: { id: "meetings", name: "Meetings", line: "Meetings with agendas, notes and action items.", where: "Overview", ready: true },
-  renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year.", where: "Overview", ready: true },
+  renewal: { id: "renewal", name: "Members and renewal", line: "Who’s staying each year.", where: "Overview", ready: true },
   positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover.", where: "Overview", ready: true },
   clubMeetings: { id: "clubMeetings", name: "Meetings and minutes", line: "General meetings, minutes, motions and the constitution.", where: "Overview", ready: true },
   handbook: { id: "handbook", name: "Handbook", line: "Handbook pages and processes.", where: "Documents", ready: true },
