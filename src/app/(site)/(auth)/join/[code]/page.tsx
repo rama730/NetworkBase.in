@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -9,6 +10,8 @@ import { AUTH_LINK, AuthShell, SignedInAs } from '@/components/auth/AuthShell'
 import { AUTH_PANELS } from '@/components/auth/auth-panels'
 import { PixelIcon } from '@/components/auth/pixel'
 import { Button } from '@/components/ui/button'
+import { QueryProvider } from '@/components/providers/query-provider'
+import { Toaster } from '@/components/ui/sonner'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { hasOnboardingClaims } from '@/lib/onboarding/state'
@@ -80,12 +83,13 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                     <Button asChild className="h-11 w-full font-medium"><Link href={orgHref}>Open {preview.title}</Link></Button>
                 ) : preview.state === 'waiting' ? (
                     // Report §26.1 #6, §26.2: someone waiting can withdraw from here.
-                    <JoinRequestPending orgId={preview.id} />
+                    <JoinProviders><JoinRequestPending orgId={preview.id} /></JoinProviders>
                 ) : preview.stateMessage ? (
                     // Full, blocked, ended, recently declined or at the 50-organization limit: said plainly, nothing is created.
                     <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-center text-sm">{preview.stateMessage}</p>
                 ) : (
-                    <JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} />
+                    // Live check 2026-11-28: the join terms (B5.1b) read through React Query; the auth pages have no provider of their own.
+                    <JoinProviders><JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} /></JoinProviders>
                 )}
                 {/* Report §29.4, decision 63: what admins can see, before anyone joins. */}
                 {preview.state === 'open' || preview.state === 'waiting' ? <p className="text-center text-xs text-muted-foreground" data-testid="join-admins-line">{preview.adminsLine}</p> : null}
@@ -95,4 +99,9 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
             </div>
         </AuthShell>
     )
+}
+
+/** The join buttons' data and toasts: the (auth) pages render outside the app's providers. */
+function JoinProviders({ children }: { children: ReactNode }) {
+    return <QueryProvider>{children}<Toaster /></QueryProvider>
 }
