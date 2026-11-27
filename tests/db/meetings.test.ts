@@ -25,6 +25,7 @@ let feedRoute: typeof import("../../src/app/api/feeds/meetings/[token]/route");
 let taskActions: typeof import("../../src/app/actions/task");
 let tasksServer: typeof import("../../src/lib/workspaces/server/tasks");
 let clubMeetings: typeof import("../../src/app/actions/club-meetings");
+let constitution: typeof import("../../src/app/actions/club-constitution");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -39,6 +40,7 @@ before(async () => {
   taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
   tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   clubMeetings = await loadAppModule(() => import("../../src/app/actions/club-meetings"));
+  constitution = await loadAppModule(() => import("../../src/app/actions/club-constitution"));
 });
 
 const created: string[] = [];
@@ -420,5 +422,58 @@ test("36.4 (B7.3a): club minutes stay with officers until approved; quorum is th
   await sql`UPDATE workspace_documents SET settings = jsonb_set(settings, '{startsAt}', to_jsonb((now() + interval '2 days')::text)) WHERE id = ${second}`;
   viewerId = t.member;
   assert.match(String((await clubMeetings.proposeAgendaItemAction(t.ws, m.meeting.id, "Late item") as { error?: string }).error), /agenda for this meeting has closed/);
+});
+
+// Plan B7.3b (report 36.4 calls 7–8): the constitution changes only by a motion at the threshold; Decisions by Season.
+test("36.4 (B7.3b): the constitution's first version by the President, then only by an amendment motion passed by two-thirds; Decisions by Season", async () => {
+  const t = await workspace();
+  await sql`DELETE FROM workspace_workflows WHERE workspace_id = ${t.ws}`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active', visibility = 'public', org_settings = ${sql.json({ club: { committee: { season: "2026–27", positions: [{ id: "president", label: "President", filled: "election", gives: "president", docId: null }] } } })} WHERE id = ${t.ws}`;
+  const { STARTER_ARTICLES } = await import("../../src/lib/organizations/club");
+  viewerId = t.member;
+  assert.equal((await constitution.writeConstitutionAction(t.ws, STARTER_ARTICLES)).success, false, "the President writes the first version");
+  viewerId = t.owner;
+  assert.ok((await constitution.writeConstitutionAction(t.ws, STARTER_ARTICLES)).success);
+  assert.match(String((await constitution.writeConstitutionAction(t.ws, STARTER_ARTICLES) as { error?: string }).error), /only by a motion/, "after that, only by a motion");
+  viewerId = t.outsider;
+  assert.equal((await constitution.readConstitutionAction(t.ws)).success, false, "visitors read it only when public");
+  viewerId = t.owner;
+  assert.ok((await constitution.setConstitutionPublicAction(t.ws, true)).success);
+  viewerId = t.outsider;
+  const pub = await constitution.readConstitutionAction(t.ws);
+  assert.ok(pub.success && pub.version === 1 && pub.articles.length === 6 && pub.history[0]!.meeting === null);
+
+  viewerId = t.owner;
+  await t.doc("agm-1");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "agm-1", type: "agm", title: "AGM 2027", startsAt: ist("2027-03-01T18:00:00"), lengthMinutes: 90, attendeeIds: [t.owner, t.member], repeat: "none" })).success);
+  const read = await docs.readMeetingAction(t.ws, "agm-1");
+  assert.ok(read.success && "board" in read && read.board?.amendments?.version === 1 && Math.abs(read.board.amendments.threshold - 2 / 3) < 1e-9);
+  assert.match(String((await docs.addMotionAction(t.ws, { docSlug: "agm-1", text: "Drop article 9", proposedBy: t.member, secondedBy: t.owner, amendment: { article: "9", text: null } }) as { error?: string }).error), /doesn't fit/);
+  const close = await docs.addMotionAction(t.ws, { docSlug: "agm-1", text: "Add a Tech officer", proposedBy: t.member, secondedBy: t.owner, amendment: { article: "4.1", title: "Tech officer", text: "A Tech officer looks after the club's tools." } });
+  const plain = await docs.addMotionAction(t.ws, { docSlug: "agm-1", text: "Add a Tech officer, again", proposedBy: t.member, secondedBy: t.owner, amendment: { article: "4.1", title: "Tech officer", text: "A Tech officer looks after the club's tools." } });
+  assert.ok(close.success && plain.success);
+  await docs.markPresentAction(t.ws, { docSlug: "agm-1", present: [t.owner, t.member] });
+  assert.deepEqual(await docs.recordVoteAction(t.ws, { docSlug: "agm-1", motionId: close.motionId, for: 1, against: 1, abstain: 0 }), { success: true, result: "failed" }, "a majority isn't two-thirds");
+  assert.equal((await constitution.readConstitutionAction(t.ws) as { version?: number }).version, 1, "a failed change keeps the current version");
+  assert.deepEqual(await docs.recordVoteAction(t.ws, { docSlug: "agm-1", motionId: plain.motionId, for: 2, against: 0, abstain: 0 }), { success: true, result: "passed" });
+  const after = await constitution.readConstitutionAction(t.ws);
+  assert.ok(after.success && after.version === 2 && after.articles.map((a) => a.n).includes("4.1"));
+  assert.deepEqual([after.history[0]!.changed, after.history[0]!.meeting], ["Article 4.1 added", "AGM 2027"]);
+  const [v2] = await sql`SELECT doc_id, motion_id, season FROM club_constitution_versions WHERE org_id = ${t.ws} AND version = 2`;
+  assert.equal(v2!.motion_id, plain.motionId);
+  assert.equal(v2!.season, "2026–27");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title LIKE '%constitution changed: Article 4.1 added (version 2)'`)[0]!.n, 1);
+
+  // The passed motion's decision keeps the Season; Decisions by Season shows it, the new version and the failed attempt.
+  await t.doc("tech-officer");
+  assert.ok((await docs.recordDecisionAction(t.ws, { docSlug: "tech-officer", fromDocSlug: "agm-1", motionId: plain.motionId })).success);
+  const dec = await constitution.readDecisionsAction(t.ws);
+  assert.ok(dec.success);
+  const season = dec.seasons.find((x) => x.season === "2026–27")!;
+  assert.deepEqual(season.entries.map((e) => e.kind).sort(), ["constitution", "decision"]);
+  assert.ok(dec.seasons.some((x) => x.entries.some((e) => e.kind === "attempt" && e.title.includes("Article 4.1"))), "officers see the failed attempt");
+  viewerId = t.member;
+  const mine = await constitution.readDecisionsAction(t.ws);
+  assert.ok(mine.success && !mine.seasons.some((x) => x.entries.some((e) => e.kind === "attempt")), "members see attempts once the minutes are approved");
 });
 

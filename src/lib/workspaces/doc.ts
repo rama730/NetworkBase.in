@@ -68,6 +68,8 @@ export type WorkspaceDocSettings = {
     approvedBy?: string;
     /** Report 38.12 (A5.1): a goals document's period ('2027-Q1') and when the period was closed. */
     period?: string;
+    /** B7.3b: the club Season a decision was made in. */
+    season?: string;
     closedAt?: string;
     /** Report 38.14 (A5.4): an off-site's name, dates, place, who's invited and their answers. */
     offsiteTitle?: string;
@@ -91,9 +93,17 @@ export type WorkspaceDocSettings = {
 export type Motion = {
     id: string; text: string; proposedBy?: string; secondedBy?: string;
     votes?: { for: number; against: number; abstain: number }; result?: "passed" | "failed"; decisionDocId?: string;
+    /** B7.3b (report 36.4 call 7): a club motion that adds, changes or removes one constitution article (text null). */
+    amendment?: { article: string; title?: string; text: string | null };
 };
 const UUID = /^[0-9a-f-]{36}$/i;
 const count = (n: unknown) => (Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 1000 ? (n as number) : null);
+function readAmendment(value: unknown): Motion["amendment"] | null {
+    const a = value as Record<string, unknown> | null | undefined;
+    if (!a || typeof a.article !== "string" || !/^\d{1,2}(\.\d{1,2})?$/.test(a.article)) return null;
+    if (!(a.text === null || (typeof a.text === "string" && a.text.trim() && a.text.length <= 2000))) return null;
+    return { article: a.article, ...(typeof a.title === "string" && a.title.trim() && a.title.length <= 80 ? { title: a.title.trim() } : {}), text: a.text === null ? null : (a.text as string).trim() };
+}
 function readMotions(value: unknown): Motion[] | undefined {
     if (!Array.isArray(value)) return undefined;
     const out: Motion[] = [];
@@ -105,7 +115,8 @@ function readMotions(value: unknown): Motion[] | undefined {
             ...(typeof m.proposedBy === "string" && UUID.test(m.proposedBy) ? { proposedBy: m.proposedBy } : {}),
             ...(typeof m.secondedBy === "string" && UUID.test(m.secondedBy) ? { secondedBy: m.secondedBy } : {}),
             ...(votes ? { votes } : {}), ...(m.result === "passed" || m.result === "failed" ? { result: m.result } : {}),
-            ...(typeof m.decisionDocId === "string" && UUID.test(m.decisionDocId) ? { decisionDocId: m.decisionDocId } : {}) });
+            ...(typeof m.decisionDocId === "string" && UUID.test(m.decisionDocId) ? { decisionDocId: m.decisionDocId } : {}),
+            ...(readAmendment(m.amendment) ? { amendment: readAmendment(m.amendment)! } : {}) });
     }
     return out;
 }
@@ -223,6 +234,8 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(readMotions(source.motions) ? { motions: readMotions(source.motions) } : {}),
         ...(typeof source.approvedAt === "string" && Number.isFinite(Date.parse(source.approvedAt)) ? { approvedAt: source.approvedAt } : {}),
         ...(typeof source.approvedBy === "string" && UUID.test(source.approvedBy) ? { approvedBy: source.approvedBy } : {}),
+        // B7.3b (call 8): a club decision's Season, for Decisions by Season.
+        ...(typeof source.season === "string" && source.season.trim() && source.season.length <= 20 ? { season: source.season } : {}),
         ...(typeof source.period === "string" && /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/.test(source.period) ? { period: source.period } : {}),
         ...(typeof source.closedAt === "string" && Number.isFinite(Date.parse(source.closedAt)) ? { closedAt: source.closedAt } : {}),
         ...(typeof source.docsSite === "boolean" ? { docsSite: source.docsSite } : {}),

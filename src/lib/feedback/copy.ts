@@ -994,6 +994,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "The agenda for this meeting has closed.": {"title": "The agenda for this meeting has closed.", "type": "warning"},
   "You have 3 items waiting; an officer answers them first.": {"title": "You have 3 items waiting; an officer answers them first.", "type": "warning"},
   "Pick a deadline of up to 14 days and a quorum between 5% and 100%.": {"title": "Pick a deadline of up to 14 days and a quorum between 5% and 100%.", "type": "warning"},
+  "Each article needs its own number, a title and text.": {"title": "Each article needs its own number, a title and text.", "type": "warning"},
+  "The constitution changes only by a motion at a general meeting or the AGM.": {"title": "The constitution changes only by a motion at a general meeting or the AGM.", "type": "warning"},
   "Give the Season’s start date and an answer window of 7 to 90 days.": {"title": "Give the Season’s start date and an answer window of 7 to 90 days.", "type": "warning"},
   "Wait until the answer window has closed.": {"title": "Wait until the answer window has closed.", "type": "warning"},
   "Recruiting needs a start and an end date after it.": {"title": "Recruiting needs a start and an end date after it.", "type": "warning"},

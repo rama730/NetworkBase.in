@@ -15,9 +15,13 @@ import { queryKeys } from "@/lib/query-keys";
 import { decisionMarkdown } from "@/lib/workspaces/doc-sections";
 
 type Person = { id: string; name: string };
-type Motion = { id: string; text: string; proposedBy: string | null; secondedBy: string | null; votes: { for: number; against: number; abstain: number } | null; result: "passed" | "failed" | null; decision: { slug: string; label: string } | null };
-export type BoardData = { needed: number; motionsOn: boolean; size: number | null; present: string[]; presentCount: number; approvedAt: string | null; motions: Motion[]; toApprove: { slug: string; title: string } | null };
+type Amendment = { article: string; title?: string; text: string | null };
+type Motion = { id: string; text: string; amendment: Amendment | null; proposedBy: string | null; secondedBy: string | null; votes: { for: number; against: number; abstain: number } | null; result: "passed" | "failed" | null; decision: { slug: string; label: string } | null };
+export type BoardData = { needed: number; motionsOn: boolean; amendments: { version: number; articles: Array<{ n: string; title: string }>; threshold: number } | null; size: number | null; present: string[]; presentCount: number; approvedAt: string | null; motions: Motion[]; toApprove: { slug: string; title: string } | null };
 
+/** B7.3b: "two-thirds" for the default threshold, else a percentage. */
+const share = (t: number) => (Math.abs(t - 2 / 3) < 0.01 ? "two-thirds" : `${Math.round(t * 100)}%`);
+const passes = (v: { for: number; against: number }, t: number) => v.for > 0 && v.for >= t * (v.for + v.against) - 1e-9;
 const shortDay = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
 /**
@@ -93,7 +97,8 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
           <li key={m.id} className="rounded-[6px] border border-border px-3 py-2" data-testid="motion">
             <div className="flex flex-wrap items-start gap-2">
               <Gavel aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-              <p className="min-w-0 flex-1 text-[13px] text-foreground">{m.text}</p>
+              <p className="min-w-0 flex-1 text-[13px] text-foreground">{m.text}
+                {m.amendment ? <span className="block text-[12px] text-muted-foreground" data-testid="motion-amendment">{m.amendment.text === null ? "Removes" : "Changes"} Article {m.amendment.article} of the constitution{board.amendments ? ` · needs ${share(board.amendments.threshold)} of those voting` : ""}</span> : null}</p>
               {m.result ? <StatusBadge state={m.result}>{m.result === "passed" ? "Passed" : "Failed"}</StatusBadge> : null}
               {m.decision ? <button type="button" onClick={() => onOpenDoc(m.decision!.slug)} className="font-mono text-[11px] font-medium text-foreground underline-offset-2 hover:underline">{m.decision.label}</button> : null}
             </div>
@@ -114,9 +119,9 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
           <button type="button" className={`${FORM_SECONDARY_CLASS} ml-auto`} disabled={busy} onClick={() => void run(() => approveMinutesAction(projectId, { docSlug }), () => `Minutes approved: ${board.toApprove!.title}`)}>Approve last minutes ({board.toApprove.title})</button>
         ) : null}
       </div>
-      {dialog?.kind === "motion" ? <MotionDialog attendees={attendees} busy={busy} onClose={() => setDialog(null)}
+      {dialog?.kind === "motion" ? <MotionDialog attendees={attendees} amendments={board.amendments} busy={busy} onClose={() => setDialog(null)}
         onSave={(v) => void run(() => addMotionAction(projectId, { docSlug, ...v }), () => "Motion added")} /> : null}
-      {dialog?.kind === "vote" ? <VoteDialog motion={dialog.motion} present={presentCount} quorate={q.met} needed={q.needed} busy={busy} onClose={() => setDialog(null)}
+      {dialog?.kind === "vote" ? <VoteDialog motion={dialog.motion} threshold={dialog.motion.amendment ? board.amendments?.threshold ?? null : null} present={presentCount} quorate={q.met} needed={q.needed} busy={busy} onClose={() => setDialog(null)}
         onSave={(votes) => void run(async () => {
           const r = await recordVoteAction(projectId, { docSlug, motionId: dialog.motion.id, ...votes });
           if (!r.success || r.result !== "passed") return { ...r, label: null as string | null };
@@ -126,15 +131,20 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
   );
 }
 
-function MotionDialog({ attendees, busy, onClose, onSave }: { attendees: Person[]; busy: boolean; onClose: () => void; onSave: (v: { text: string; proposedBy?: string; secondedBy?: string }) => void }) {
+function MotionDialog({ attendees, amendments, busy, onClose, onSave }: { attendees: Person[]; amendments: BoardData["amendments"]; busy: boolean; onClose: () => void; onSave: (v: { text: string; proposedBy?: string; secondedBy?: string; amendment?: Amendment }) => void }) {
   const [text, setText] = useState("");
+  // B7.3b (report 36.4 call 7): a motion at a club's general meeting or AGM may change one article of the constitution.
+  const [amend, setAmend] = useState<{ article: string; title: string; text: string; remove: boolean } | null>(null);
   const [proposedBy, setProposedBy] = useState("");
   const [secondedBy, setSecondedBy] = useState("");
   const [error, setError] = useState<string | null>(null);
   const save = () => {
     if (!text.trim()) return setError("Write the motion");
     if (proposedBy && proposedBy === secondedBy) return setError("Someone else seconds the motion");
-    onSave({ text: text.trim(), ...(proposedBy ? { proposedBy } : {}), ...(secondedBy ? { secondedBy } : {}) });
+    if (amend && (!/^\d{1,2}(\.\d{1,2})?$/.test(amend.article) || (!amend.remove && !amend.text.trim()))) return setError("Number the article and write its new text");
+    const known = amendments?.articles.find((a) => a.n === amend?.article);
+    onSave({ text: text.trim(), ...(proposedBy ? { proposedBy } : {}), ...(secondedBy ? { secondedBy } : {}),
+      ...(amend ? { amendment: { article: amend.article, ...(amend.title.trim() && !known ? { title: amend.title.trim() } : {}), text: amend.remove ? null : amend.text.trim() } } : {}) });
   };
   const pick = (id: string, value: string, set: (v: string) => void, label: string) => (
     <Field label={label} htmlFor={id}><SelectWrap><select id={id} value={value} onChange={(e) => set(e.target.value)} className={selectClassName()}>
@@ -150,6 +160,17 @@ function MotionDialog({ attendees, busy, onClose, onSave }: { attendees: Person[
             <textarea id="motion-text" autoFocus rows={3} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} placeholder="Approve the 2027 budget" className={`${inputClassName(Boolean(error))} h-auto py-2`} />
           </Field>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">{pick("motion-proposed", proposedBy, setProposedBy, "Proposed by")}{pick("motion-seconded", secondedBy, setSecondedBy, "Seconded by")}</div>
+          {amendments ? <fieldset className="space-y-2">
+            <label className="flex items-center gap-1.5 text-[13px]"><input type="checkbox" className="nb-check" checked={Boolean(amend)} onChange={(e) => setAmend(e.target.checked ? { article: amendments.articles[0]?.n ?? "1", title: "", text: "", remove: false } : null)} />Changes the constitution (version {amendments.version}; needs {share(amendments.threshold)} of those voting)</label>
+            {amend ? <div className="grid grid-cols-1 gap-2 sm:grid-cols-[120px_1fr]">
+              <Field label="Article" htmlFor="amend-article"><input id="amend-article" list="amend-articles" value={amend.article} maxLength={5} onChange={(e) => setAmend({ ...amend, article: e.target.value })} className={`${inputClassName(false)} font-mono`} />
+                <datalist id="amend-articles">{amendments.articles.map((a) => <option key={a.n} value={a.n}>{a.title}</option>)}</datalist></Field>
+              {amendments.articles.some((a) => a.n === amend.article) ? <p className="self-end pb-2 text-[12px] text-muted-foreground">{amendments.articles.find((a) => a.n === amend.article)!.title}</p>
+                : <Field label="Title of the new article" htmlFor="amend-title"><input id="amend-title" value={amend.title} maxLength={80} onChange={(e) => setAmend({ ...amend, title: e.target.value })} className={inputClassName(false)} /></Field>}
+              {amendments.articles.some((a) => a.n === amend.article) ? <label className="flex items-center gap-1.5 text-[13px] sm:col-span-2"><input type="checkbox" className="nb-check" checked={amend.remove} onChange={(e) => setAmend({ ...amend, remove: e.target.checked })} />Remove this article</label> : null}
+              {!amend.remove ? <div className="sm:col-span-2"><Field label="New text" htmlFor="amend-text"><textarea id="amend-text" rows={3} maxLength={2000} value={amend.text} onChange={(e) => setAmend({ ...amend, text: e.target.value })} className={`${inputClassName(false)} h-auto py-2`} /></Field></div> : null}
+            </div> : null}
+          </fieldset> : null}
         </form>
         <div className={FORM_FOOTER_CLASS}>
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
@@ -160,7 +181,7 @@ function MotionDialog({ attendees, busy, onClose, onSave }: { attendees: Person[
   );
 }
 
-function VoteDialog({ motion, present, quorate, needed, busy, onClose, onSave }: { motion: Motion; present: number; quorate: boolean; needed: number; busy: boolean; onClose: () => void; onSave: (v: { for: number; against: number; abstain: number }) => void }) {
+function VoteDialog({ motion, threshold, present, quorate, needed, busy, onClose, onSave }: { motion: Motion; threshold: number | null; present: number; quorate: boolean; needed: number; busy: boolean; onClose: () => void; onSave: (v: { for: number; against: number; abstain: number }) => void }) {
   const [votes, setVotes] = useState({ for: 0, against: 0, abstain: 0 });
   const total = votes.for + votes.against + votes.abstain;
   const error = !quorate ? `Not quorate: ${present} present, ${needed} needed. Mark who's present first.` : total > present ? `The votes add up to ${total}, more than the ${present} present.` : null;
@@ -173,7 +194,7 @@ function VoteDialog({ motion, present, quorate, needed, busy, onClose, onSave }:
         <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">Record vote</DialogTitle><DialogDescription className="text-xs text-muted-foreground">{motion.text}</DialogDescription></div>
         <div className="space-y-3 px-6 py-4">
           <div className="grid grid-cols-3 gap-3">{box("for", "For")}{box("against", "Against")}{box("abstain", "Abstain")}</div>
-          <p className="text-[12px] text-muted-foreground" role={error ? "alert" : undefined}>{error ?? <>Result: <span className="font-medium text-foreground">{votes.for > votes.against ? "Passed" : "Failed"}</span> · <span className="font-mono">{present}</span> present</>}</p>
+          <p className="text-[12px] text-muted-foreground" role={error ? "alert" : undefined}>{error ?? <>Result: <span className="font-medium text-foreground">{(threshold ? passes(votes, threshold) : votes.for > votes.against) ? "Passed" : "Failed"}</span>{threshold ? ` (needs ${share(threshold)})` : ""} · <span className="font-mono">{present}</span> present</>}</p>
         </div>
         <div className={FORM_FOOTER_CLASS}>
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>

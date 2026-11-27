@@ -1967,6 +1967,20 @@ export const clubAgendaRequests = pgTable("club_agenda_requests", {
   decidedAt: timestamp("decided_at", { withTimezone: true }),
 }, (t) => [index("club_agenda_requests_doc_idx").on(t.docId, t.createdAt), index("club_agenda_requests_org_idx").on(t.orgId),
   index("club_agenda_requests_proposed_by_idx").on(t.proposedBy).where(sql`proposed_by IS NOT NULL`), index("club_agenda_requests_decided_by_idx").on(t.decidedBy).where(sql`decided_by IS NOT NULL`)]);
+/** B7.3b (0175): a club's constitution, one row per version; later versions come from passed amendment motions. */
+export const clubConstitutionVersions = pgTable("club_constitution_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  articles: jsonb("articles").$type<Array<{ n: string; title: string; text: string }>>().notNull(),
+  changed: text("changed").notNull(),
+  season: text("season"),
+  docId: uuid("doc_id").references(() => workspaceDocuments.id, { onDelete: "set null" }),
+  motionId: text("motion_id"),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("club_constitution_versions_org_version").on(t.orgId, t.version), index("club_constitution_versions_doc_idx").on(t.docId).where(sql`doc_id IS NOT NULL`),
+  index("club_constitution_versions_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

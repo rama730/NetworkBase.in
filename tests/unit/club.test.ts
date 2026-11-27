@@ -61,3 +61,18 @@ test("handover: the checklist opens three weeks before; due on the date, once", 
   assert.equal(readHandover({ club: { handover: { season: "", date: "2027-04-01" } } }), null);
 });
 
+test("constitution: an amendment adds, changes or removes one article; two-thirds of those voting", async () => {
+  const { applyAmendment, amendmentLine, amendmentPasses, STARTER_ARTICLES, readClubMeetings } = await import("../../src/lib/organizations/club");
+  const added = applyAmendment(STARTER_ARTICLES, { article: "4.1", title: "Tech officer", text: "A Tech officer looks after the club's tools." })!;
+  assert.deepEqual(added.map((a) => a.n), ["1", "2", "3", "4", "4.1", "5", "6"]);
+  assert.equal(applyAmendment(STARTER_ARTICLES, { article: "9", text: "No title" }), null, "a new article needs a title");
+  assert.equal(applyAmendment(STARTER_ARTICLES, { article: "9", text: null }), null, "can't remove a missing article");
+  assert.equal(applyAmendment(added, { article: "2", text: "Build robots." })!.find((a) => a.n === "2")!.text, "Build robots.");
+  assert.equal(applyAmendment(added, { article: "4.1", text: null })!.length, 6);
+  assert.equal(amendmentLine(STARTER_ARTICLES, { article: "4.1", title: "x", text: "y" }), "Article 4.1 added");
+  assert.equal(amendmentPasses({ for: 2, against: 1 }, 2 / 3), true);
+  assert.equal(amendmentPasses({ for: 27, against: 14 }, 2 / 3), false);
+  assert.equal(amendmentPasses({ for: 0, against: 0 }, 2 / 3), false);
+  assert.equal(readClubMeetings({ club: { meetings: { agendaDays: 3, propose: true, quorumShare: 0.25 } } }).amendThreshold, 2 / 3, "older settings get the default");
+});
+

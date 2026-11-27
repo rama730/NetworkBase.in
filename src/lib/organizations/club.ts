@@ -109,12 +109,48 @@ export const handoverDue = (h: Handover, today: string) => !h.switchedAt && toda
  * B7.3a (36.4 layer 2, calls 2 and 5): Club → Meetings. The agenda deadline (days before a general meeting), whether
  * members propose items, and the quorum as a share of members staying this Season.
  */
-export const clubMeetingsSchema = z.object({ agendaDays: z.number().int().min(0).max(14), propose: z.boolean(), quorumShare: z.number().min(0.05).max(1) }).strict();
+export const clubMeetingsSchema = z.object({ agendaDays: z.number().int().min(0).max(14), propose: z.boolean(), quorumShare: z.number().min(0.05).max(1),
+  /** B7.3b (call 7): the share of those voting For or Against that a constitution change needs. */
+  amendThreshold: z.number().min(0.5).max(1).default(2 / 3) }).strict();
 export type ClubMeetings = z.infer<typeof clubMeetingsSchema>;
-export const DEFAULT_CLUB_MEETINGS: ClubMeetings = { agendaDays: 3, propose: true, quorumShare: 0.25 };
+export const DEFAULT_CLUB_MEETINGS: ClubMeetings = { agendaDays: 3, propose: true, quorumShare: 0.25, amendThreshold: 2 / 3 };
 export function readClubMeetings(orgSettings: unknown): ClubMeetings {
   const p = clubMeetingsSchema.safeParse((orgSettings as { club?: { meetings?: unknown } } | null)?.club?.meetings);
   return p.success ? p.data : DEFAULT_CLUB_MEETINGS;
 }
 /** Members can add to the agenda until this many days before the meeting starts. */
 export const agendaOpen = (startsAt: string, agendaDays: number, now = Date.now()) => now < Date.parse(startsAt) - agendaDays * DAY;
+
+/**
+ * B7.3b (36.4 call 7): the constitution — numbered articles, kept as versions. After the first version it changes only
+ * by a motion at a general meeting or the AGM that names one article (add, change or remove) and passes at the threshold.
+ */
+const ARTICLE_NUMBER = /^\d{1,2}(\.\d{1,2})?$/;
+export const articleSchema = z.object({ n: z.string().regex(ARTICLE_NUMBER), title: z.string().trim().min(1).max(80), text: z.string().trim().min(1).max(2000) }).strict();
+export type Article = z.infer<typeof articleSchema>;
+export const articlesSchema = z.array(articleSchema).min(1).max(60);
+export const amendmentSchema = z.object({ article: z.string().regex(ARTICLE_NUMBER), title: z.string().trim().min(1).max(80).optional(), text: z.string().trim().min(1).max(2000).nullable() }).strict();
+export type Amendment = z.infer<typeof amendmentSchema>;
+export const STARTER_ARTICLES: Article[] = [
+  { n: "1", title: "Name", text: "The club is called {club}." },
+  { n: "2", title: "Purpose", text: "What the club is for, in a sentence or two." },
+  { n: "3", title: "Membership", text: "Membership runs for one Season and is renewed each Season." },
+  { n: "4", title: "Officers", text: "The committee is the President, Vice-president, Secretary and Treasurer, elected each Season by secret ballot." },
+  { n: "5", title: "Meetings", text: "A general meeting is held each month and an annual general meeting each Season. Quorum is a quarter of members staying this Season." },
+  { n: "6", title: "Amendments", text: "This constitution changes only by a motion at a general meeting or the annual general meeting, passed by two-thirds of those voting." },
+];
+const numberParts = (n: string) => n.split(".").map(Number);
+export const sortArticles = (list: Article[]) => [...list].sort((a, b) => {
+  const [x, y] = [numberParts(a.n), numberParts(b.n)];
+  return (x[0]! - y[0]!) || ((x[1] ?? 0) - (y[1] ?? 0));
+});
+/** The articles after an amendment, or null when it doesn't fit (removing or changing a missing article; a new one without a title). */
+export function applyAmendment(list: Article[], a: Amendment): Article[] | null {
+  const at = list.find((x) => x.n === a.article);
+  if (a.text === null) return at && list.length > 1 ? list.filter((x) => x.n !== a.article) : null;
+  if (at) return list.map((x) => (x.n === a.article ? { n: x.n, title: a.title ?? x.title, text: a.text! } : x));
+  return a.title ? sortArticles([...list, { n: a.article, title: a.title, text: a.text }]) : null;
+}
+export const amendmentLine = (list: Article[], a: Amendment) => `Article ${a.article} ${a.text === null ? "removed" : list.some((x) => x.n === a.article) ? "changed" : "added"}`;
+/** Abstentions don't count; the change needs the threshold share of those voting For or Against. */
+export const amendmentPasses = (v: { for: number; against: number }, threshold: number) => v.for > 0 && v.for >= threshold * (v.for + v.against) - 1e-9;

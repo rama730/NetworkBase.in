@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { checklistOpen, handoverDue, readClubMeetings, readHandover, readPositions, readRenewal, windowClosed, type ClubPosition } from "@/lib/organizations/club";
+import { amendmentLine, applyAmendment, checklistOpen, handoverDue, readClubMeetings, readHandover, readPositions, readRenewal, windowClosed, type Amendment, type Article, type ClubPosition } from "@/lib/organizations/club";
 
 // Report 36.2 (plan B7.1b): Season renewal notices. Server only.
 
@@ -180,4 +180,32 @@ export async function clubQuorum(clubId: string) {
     SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${clubId}::uuid AND role <> 'viewer' AND completed_at IS NULL
       ${r?.on ? sql`AND (joined_at >= ${r.season}::date - 30 OR (view_prefs->'club'->'renewal'->>'season' = ${r.season} AND view_prefs->'club'->'renewal'->>'answer' = 'staying'))` : sql``}`));
   return { staying: n?.n ?? 0, needed: clubQuorumNeeded(n?.n ?? 0, share) };
+}
+
+/** B7.3b (call 7): the club's current constitution (latest version), or null before the first. */
+export async function currentConstitution(clubId: string, exec: Exec = db) {
+  const [v] = Array.from(await exec.execute<{ version: number; articles: Article[] }>(sql`
+    SELECT version, articles FROM club_constitution_versions WHERE org_id = ${clubId}::uuid ORDER BY version DESC LIMIT 1`));
+  return v ?? null;
+}
+
+/**
+ * A passed amendment motion publishes the next version (under the club row's lock, so two never take one number),
+ * linked to its meeting and motion; members are told (Normal). Returns the new version, or null when it no longer fits.
+ */
+export async function publishAmendment(clubId: string, docId: string, motionId: string, a: Amendment, actor: string) {
+  const out = await db.transaction(async (tx) => {
+    const [w] = Array.from(await tx.execute<{ settings: unknown; slug: string | null; title: string }>(sql`SELECT org_settings AS settings, slug, title FROM workspaces WHERE id = ${clubId}::uuid FOR UPDATE`));
+    const cur = await currentConstitution(clubId, tx);
+    if (!w || !cur) return null;
+    const next = applyAmendment(cur.articles, a);
+    if (!next) return null;
+    await tx.execute(sql`INSERT INTO club_constitution_versions (org_id, version, articles, changed, season, doc_id, motion_id, created_by)
+      VALUES (${clubId}::uuid, ${cur.version + 1}, ${JSON.stringify(next)}::jsonb, ${amendmentLine(cur.articles, a)}, ${readPositions(w.settings).season}, ${docId}::uuid, ${motionId}, ${actor}::uuid)`);
+    return { version: cur.version + 1, slug: w.slug ?? clubId, title: w.title, line: amendmentLine(cur.articles, a) };
+  });
+  if (!out) return null;
+  const members = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${clubId}::uuid AND role <> 'viewer' AND completed_at IS NULL LIMIT 2000`));
+  await notifyAll(clubId, out.slug, members.map((m) => ({ to: m.id, title: `${out.title}'s constitution changed: ${out.line} (version ${out.version})` })), actor, `club-constitution:${clubId}:${out.version}`);
+  return out.version;
 }

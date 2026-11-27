@@ -1212,6 +1212,13 @@
       "when": 1795714758968,
       "tag": "0174_club_agenda_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1795714818968,
+      "tag": "0175_club_constitution",
+      "breakpoints": true
     }
   ]
 }

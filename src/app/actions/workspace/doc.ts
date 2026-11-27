@@ -1118,7 +1118,12 @@ export async function recordDecisionAction(projectId: string, input: unknown) {
             if (!STANDING.includes(old.settings.decisionStatus ?? "decided")) return { success: false as const, error: "That decision was already superseded or reversed." };
         }
         const oldId = old?.readme?.id;
-        const number = await assignDecisionNumber(projectId, context.readme.id, { date: new Date().toISOString().slice(0, 10), ...(from?.readme ? { fromDocId: from.readme.id } : {}), ...(oldId ? { supersedes: oldId } : {}) });
+        // B7.3b (call 8): a club's decisions (and its committees') keep the Season they were made in.
+        const { meetingClub } = await import("@/lib/organizations/club-server");
+        const club = await meetingClub(projectId);
+        const [clubRow] = club ? await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, club)).limit(1) : [];
+        const season = clubRow ? (await import("@/lib/organizations/club")).readPositions(clubRow.settings).season : null;
+        const number = await assignDecisionNumber(projectId, context.readme.id, { date: new Date().toISOString().slice(0, 10), ...(season ? { season } : {}), ...(from?.readme ? { fromDocId: from.readme.id } : {}), ...(oldId ? { supersedes: oldId } : {}) });
         if (oldId) {
             // Only a decision that still stands is superseded, so two people superseding it at once can't both win.
             const moved = await db.update(workspaceDocuments)
@@ -1961,7 +1966,9 @@ async function boardContext(projectId: string, userId: string, docSlug: string) 
     return { context } as const;
 }
 
-const motionSchema = z.object({ docSlug: docSlugSchema, text: z.string().trim().min(1, "Write the motion").max(500), proposedBy: z.string().uuid().optional(), secondedBy: z.string().uuid().optional() });
+const motionSchema = z.object({ docSlug: docSlugSchema, text: z.string().trim().min(1, "Write the motion").max(500), proposedBy: z.string().uuid().optional(), secondedBy: z.string().uuid().optional(),
+    /** B7.3b (report 36.4 call 7): at a club's general meeting or AGM, the one article this motion adds, changes or removes. */
+    amendment: z.object({ article: z.string().regex(/^\d{1,2}(\.\d{1,2})?$/, "Number the article, like 6 or 6.4"), title: z.string().trim().min(1).max(80).optional(), text: z.string().trim().min(1).max(2000).nullable() }).strict().optional() });
 
 /** + Motion: its text, and who proposed and seconded it (attendees only). */
 export async function addMotionAction(projectId: string, input: unknown) {
@@ -1974,8 +1981,17 @@ export async function addMotionAction(projectId: string, input: unknown) {
         const attendees = b.context.settings.attendeeIds ?? [];
         for (const who of [parsed.data.proposedBy, parsed.data.secondedBy]) if (who && !attendees.includes(who)) return { success: false as const, error: "Pick people who attend this meeting." };
         if (parsed.data.proposedBy && parsed.data.proposedBy === parsed.data.secondedBy) return { success: false as const, error: "Someone else seconds the motion." };
+        const amendment = parsed.data.amendment;
+        if (amendment) {
+            // Only the club's own General meeting or AGM changes its constitution, and the change must fit the current one.
+            const { applyAmendment } = await import("@/lib/organizations/club");
+            const { currentConstitution, meetingClub } = await import("@/lib/organizations/club-server");
+            const cur = (b.context.settings.kind === "general" || b.context.settings.kind === "agm") && (await meetingClub(projectId)) === projectId ? await currentConstitution(projectId) : null;
+            if (!cur) return { success: false as const, error: "Only a club's general meeting or AGM changes its constitution." };
+            if (!applyAmendment(cur.articles, amendment)) return { success: false as const, error: "That change doesn't fit the constitution: a new article needs a title, and only an existing one can be removed." };
+        }
         const id = crypto.randomUUID();
-        const r = await updateMeetingSettings(b.context.readme!.id, (s) => ({ patch: { motions: [...(s.motions ?? []), { id, text: parsed.data.text, ...(parsed.data.proposedBy ? { proposedBy: parsed.data.proposedBy } : {}), ...(parsed.data.secondedBy ? { secondedBy: parsed.data.secondedBy } : {}) }] }, result: id }));
+        const r = await updateMeetingSettings(b.context.readme!.id, (s) => ({ patch: { motions: [...(s.motions ?? []), { id, text: parsed.data.text, ...(parsed.data.proposedBy ? { proposedBy: parsed.data.proposedBy } : {}), ...(parsed.data.secondedBy ? { secondedBy: parsed.data.secondedBy } : {}), ...(amendment ? { amendment } : {}) }] }, result: id }));
         if ("error" in r) return { success: false as const, error: r.error };
         revalidateProjectDoc(b.context.project);
         return { success: true as const, motionId: id };
@@ -2030,6 +2046,9 @@ export async function recordVoteAction(projectId: string, input: unknown) {
         if ("error" in b) return { success: false as const, error: b.error! };
         const { motionResult, voteFits } = await import("@/lib/workflows/meetings");
         const needed = await quorumNeeded(projectId, b.context.settings);
+        const { amendmentPasses, readClubMeetings } = await import("@/lib/organizations/club");
+        const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const threshold = readClubMeetings(org?.settings).amendThreshold;
         const r = await updateMeetingSettings(b.context.readme!.id, (s) => {
             const motions = s.motions ?? [];
             const motion = motions.find((m) => m.id === parsed.motionId);
@@ -2041,13 +2060,15 @@ export async function recordVoteAction(projectId: string, input: unknown) {
             if (present < needed) return { error: `Not quorate: ${present} present, ${needed} needed.` };
             const votes = { for: parsed.for, against: parsed.against, abstain: parsed.abstain };
             if (!voteFits(votes, present)) return { error: `The votes add up to more than the ${present} present.` };
-            const result = motionResult(votes.for, votes.against);
-            return { patch: { motions: motions.map((m) => (m.id === motion.id ? { ...m, votes, result } : m)) }, result };
+            // B7.3b: a constitution change needs the club's threshold (two-thirds of those voting For or Against).
+            const result = motion.amendment ? (amendmentPasses(votes, threshold) ? "passed" : "failed") : motionResult(votes.for, votes.against);
+            return { patch: { motions: motions.map((m) => (m.id === motion.id ? { ...m, votes, result } : m)) }, result: { result, amendment: motion.amendment ?? null } };
         });
         if ("error" in r) return { success: false as const, error: r.error };
-        await recordNodeEvent(projectId, userId, null, "project_readme.motion_voted", { docSlug: parsed.docSlug, result: r.result });
+        if (r.result.amendment && r.result.result === "passed") await (await import("@/lib/organizations/club-server")).publishAmendment(projectId, b.context.readme!.id, parsed.motionId, r.result.amendment, userId);
+        await recordNodeEvent(projectId, userId, null, "project_readme.motion_voted", { docSlug: parsed.docSlug, result: r.result.result });
         revalidateProjectDoc(b.context.project);
-        return { success: true as const, result: r.result };
+        return { success: true as const, result: r.result.result };
     } catch (error) {
         logger.error("meetings.vote_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t record the vote." };
@@ -2099,13 +2120,18 @@ async function boardView(projectId: string, docId: string, s: ReturnType<typeof 
         .from(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), inArray(workspaceDocuments.id, decisions))) : [];
     const previous = canEdit ? await previousBoardMeeting(projectId, docId, s) : null;
     const { hasMotions } = await import("@/lib/workflows/meetings");
+    // B7.3b: amendments at the club's own General meeting or AGM, once it has a constitution.
+    const club = s.kind === "general" || s.kind === "agm" ? await (await import("@/lib/organizations/club-server")).meetingClub(projectId) : null;
+    const constitution = club === projectId ? await (await import("@/lib/organizations/club-server")).currentConstitution(projectId) : null;
+    const [org] = constitution ? await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1) : [];
     return {
         board: {
             needed: await quorumNeeded(projectId, s), motionsOn: hasMotions(s.kind),
+            amendments: constitution ? { version: constitution.version, articles: constitution.articles.map((a) => ({ n: a.n, title: a.title })), threshold: (await import("@/lib/organizations/club")).readClubMeetings(org?.settings).amendThreshold } : null,
             size: s.boardSize ?? null, present: insider ? s.present ?? [] : [], presentCount: (s.present ?? []).length, approvedAt: s.approvedAt ?? null,
             motions: (s.motions ?? []).map((m) => {
                 const d = numbers.find((x) => x.id === m.decisionDocId);
-                return { id: m.id, text: m.text, proposedBy: insider ? m.proposedBy ?? null : null, secondedBy: insider ? m.secondedBy ?? null : null, votes: m.votes ?? null, result: m.result ?? null,
+                return { id: m.id, text: m.text, amendment: m.amendment ?? null, proposedBy: insider ? m.proposedBy ?? null : null, secondedBy: insider ? m.secondedBy ?? null : null, votes: m.votes ?? null, result: m.result ?? null,
                     decision: d?.n ? { slug: d.slug, label: `D-${String(d.n).padStart(3, "0")}` } : null };
             }),
             toApprove: previous && !previous.settings.approvedAt ? { slug: previous.slug, title: previous.settings.meetingTitle ?? previous.slug } : null,

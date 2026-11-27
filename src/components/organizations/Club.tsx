@@ -8,6 +8,7 @@ import { Megaphone, Printer } from "lucide-react";
 
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
 import { moveWorkAction, readHandoverAction, saveHandoverAction, tickHandoverAction } from "@/app/actions/club-handover";
+import { readConstitutionAction, readDecisionsAction, setConstitutionPublicAction, writeConstitutionAction } from "@/app/actions/club-constitution";
 import { decideAgendaItemAction, proposeAgendaItemAction, readClubMeetingAction, saveClubMeetingsAction } from "@/app/actions/club-meetings";
 import { answerNominationAction, closeVotingAction, nominateAction, openVotingAction, readElectionAction, startElectionAction, voteAction } from "@/app/actions/club-elections";
 import { answerAppointmentAction, appointAction, endTermAction, readCommitteeAction, savePositionsAction } from "@/app/actions/club-positions";
@@ -17,7 +18,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { DEFAULT_ASK, HANDOVER_ITEMS, RENEWAL_WORDS, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
+import { DEFAULT_ASK, HANDOVER_ITEMS, RENEWAL_WORDS, STARTER_ARTICLES, type Article, type ClubMeetings, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
 
 // Report 36.2 (plan B7.1a, L1): Recruiting now on a club's About, the officers' Recruiting card (dates, line, first event,
 // the drive's counts) and the printable join poster (the short link and the code; no QR code).
@@ -373,7 +374,7 @@ const when = (iso: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short
 export function ClubMeetingCard({ orgId }: { orgId: string }) {
   const q = useQuery({ queryKey: ["club-meeting", orgId], queryFn: () => readClubMeetingAction(orgId), staleTime: 60_000 });
   const [item, setItem] = useState("");
-  const [setup, setSetup] = useState<{ agendaDays: number; propose: boolean; quorumShare: number } | null>(null);
+  const [setup, setSetup] = useState<ClubMeetings | null>(null);
   const [planning, setPlanning] = useState(false);
   const d = q.data?.success ? q.data : null;
   if (!d) return null;
@@ -410,6 +411,78 @@ export function ClubMeetingCard({ orgId }: { orgId: string }) {
               <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(decideAgendaItemAction(orgId, r.id, false), "Held for later")}>Hold<span className="sr-only"> {r.title}</span></button></> : null}
           </li>))}</ul> : null}
       </div>
+    </OrgCard>
+  );
+}
+
+/**
+ * The constitution (B7.3b, 36.4 call 7): numbered articles, the version, and what changed with the meeting that changed
+ * it. The President writes the first version from starter articles; after that only a passed amendment motion changes it.
+ * On About for visitors when the club makes it public.
+ */
+export function ConstitutionCard({ orgId, about = false }: { orgId: string; about?: boolean }) {
+  const q = useQuery({ queryKey: ["club-constitution", orgId], queryFn: () => readConstitutionAction(orgId), staleTime: 60_000 });
+  const [draft, setDraft] = useState<Article[] | null>(null);
+  const d = q.data?.success ? q.data : null;
+  if (!d || (about && !d.version)) return null;
+  const refresh = () => void q.refetch();
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); refresh(); };
+  if (!d.version && !d.president) return null;
+  if (draft) return (
+    <OrgCard title="Write the constitution" testId="club-constitution">
+      <div className="space-y-2 text-[13px]">
+        <p className="text-muted-foreground">After this first version, the constitution changes only by a motion at a general meeting or the AGM.</p>
+        <ol className="space-y-2">{draft.map((a, i) => (
+          <li key={i} className="space-y-1 rounded-md border border-border p-2">
+            <span className="flex gap-2"><Input value={a.n} maxLength={5} aria-label={`Article ${i + 1} number`} onChange={(e) => setDraft(draft.map((x, j) => (j === i ? { ...x, n: e.target.value } : x)))} className="w-[64px] font-mono" />
+              <Input value={a.title} maxLength={80} aria-label={`Article ${i + 1} title`} onChange={(e) => setDraft(draft.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} /></span>
+            <textarea className="nb-textarea min-h-[60px] w-full" value={a.text} maxLength={2000} aria-label={`Article ${i + 1} text`} onChange={(e) => setDraft(draft.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
+          </li>))}</ol>
+        <span className="flex flex-wrap gap-2">
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft([...draft, { n: String(draft.length + 1), title: "", text: "" }])}>Add an article</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(writeConstitutionAction(orgId, draft), "Constitution published").then(() => setDraft(null))}>Publish version 1</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft(null)}>Cancel</button></span>
+      </div>
+    </OrgCard>
+  );
+  if (!d.version) return (
+    <OrgCard title="Constitution" testId="club-constitution">
+      <span className="flex flex-wrap items-center gap-2 text-[13px]"><span className="text-muted-foreground">Write the club’s rules as numbered articles; members vote on every change after that.</span>
+        <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft(STARTER_ARTICLES.map((a) => ({ ...a, text: a.text.replace("{club}", d.title) })))}>Write the constitution</button></span>
+    </OrgCard>
+  );
+  return (
+    <OrgCard title={`Constitution · version ${d.version}`} testId="club-constitution"
+      action={d.president && !about ? <label className="flex items-center gap-1.5 text-[13px]"><input type="checkbox" className="nb-check" checked={d.public}
+        onChange={(e) => void run(setConstitutionPublicAction(orgId, e.target.checked), e.target.checked ? "Visitors can read it" : "Members only")} />Public</label> : null}>
+      <div className="space-y-3 text-[13px]">
+        <ol className="space-y-2">{d.articles.map((a) => (
+          <li key={a.n}><h4 className="font-medium">Article {a.n} · {a.title}</h4><p className="whitespace-pre-wrap text-muted-foreground">{a.text}</p></li>))}</ol>
+        {!about && d.history.length > 1 ? <details><summary className="cursor-pointer text-muted-foreground">Versions</summary>
+          <ul className="mt-1 space-y-0.5">{d.history.map((h) => <li key={h.version}>Version {h.version} · {h.changed} · {day(h.at.slice(0, 10))}{h.meeting ? ` · ${h.meeting}` : ""}</li>)}</ul></details> : null}
+      </div>
+    </OrgCard>
+  );
+}
+
+const DECISION_KIND = { decision: "Decision", constitution: "Constitution", attempt: "Not passed" } as const;
+/** Decisions by Season (B7.3b, 36.4 call 8): the club's decisions, constitution versions and failed amendments. */
+export function DecisionsCard({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["club-decisions", orgId], queryFn: () => readDecisionsAction(orgId), staleTime: 60_000 });
+  const d = q.data?.success ? q.data : null;
+  if (!d || !d.seasons.length) return null;
+  return (
+    <OrgCard title="Decisions" testId="club-decisions">
+      <div className="space-y-3 text-[13px]">{d.seasons.map((s) => (
+        <section key={s.season} aria-label={`Season ${s.season}`}>
+          <h4 className="font-medium">{s.season === "Earlier" ? "Earlier" : `Season ${s.season}`}</h4>
+          <ul className="mt-1 space-y-1">{s.entries.map((e, i) => (
+            <li key={i} className="flex flex-wrap items-baseline gap-2" data-testid="club-decision">
+              <StatusBadge state={e.kind === "attempt" ? "at_risk" : e.kind === "constitution" ? "active" : "done"}>{DECISION_KIND[e.kind]}</StatusBadge>
+              {e.docSlug ? <a className="nb-link" href={`?tab=docs&doc=${encodeURIComponent(e.docSlug)}`}>{e.title}</a> : <span>{e.title}</span>}
+              {e.date ? <span className="text-muted-foreground">{day(e.date)}</span> : null}
+            </li>))}</ul>
+        </section>))}</div>
     </OrgCard>
   );
 }

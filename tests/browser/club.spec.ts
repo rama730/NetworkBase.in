@@ -13,6 +13,8 @@ test('Club recruiting: the banner while it lasts, the officers card with drive c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: true, recruiting: true, line: 'Taster night Thursday', to: '2026-09-14', firstEvent: { title: 'Taster night', at: null },
         settings: { from: '2026-09-01', to: '2026-09-14', line: 'Taster night Thursday', firstEventId: 'e1' }, poster: { title: 'WT Robotics Club', slug: 'wt-robotics', code: 'RBT123' } }),
@@ -60,6 +62,8 @@ test('Season renewal: the member ask, officers see counts and end only after a c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: true, officer: true, season: '2026-09-01', ask: 'Staying this Season?', days: 30, closed: true, mine: 'not_answered',
@@ -100,6 +104,8 @@ test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
@@ -143,6 +149,8 @@ test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice)
     (window as any).__calls = calls;
     let voted = false;
     (window as any).__actions = {
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
@@ -181,6 +189,8 @@ test('B7.2c Handover: progress of 5, ticks, Move open work to the incoming offic
     (window as any).__calls = calls;
     let moved = false;
     (window as any).__actions = {
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
@@ -221,6 +231,8 @@ test('B7.3a Next general meeting: quorum from members staying, Add to the agenda
     (window as any).__calls = calls;
     let decided = false;
     (window as any).__actions = {
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
       readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
@@ -247,6 +259,43 @@ test('B7.3a Next general meeting: quorum from members staying, Add to the agenda
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['decide', 'r1', true]);
   await expect(req).toContainText('Accepted');
   await expect(card.getByRole('button', { name: 'Plan a meeting' })).toBeVisible();
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B7.3b Constitution: numbered articles, version and what changed; Decisions by Season with the failed attempt', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    (window as any).__actions = {
+      readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
+      readRenewalAction: async () => ({ success: true, on: false, officer: false }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25, amendThreshold: 2 / 3 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: true, public: false, version: 5,
+        articles: [{ n: '1', title: 'Name', text: 'The club is called WT Club.' }, { n: '6.4', title: 'Tech officer', text: "A Tech officer looks after the club's tools." }],
+        history: [{ version: 5, changed: 'Article 6.4 added', season: '2026–27', at: '2026-10-02T13:00:00.000Z', meeting: 'General · Oct 2', docSlug: 'general-oct-2' }, { version: 1, changed: 'First version', season: '2025–26', at: '2025-09-01T10:00:00.000Z', meeting: null, docSlug: null }] }),
+      setConstitutionPublicAction: async (_o: string, on: boolean) => { calls.push(['public', on]); return { success: true }; },
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [
+        { season: '2026–27', entries: [{ kind: 'constitution', title: 'Constitution version 5: Article 6.4 added', date: '2026-10-02', detail: null, docSlug: null }, { kind: 'decision', title: 'D-004 Two competitions this year', date: '2026-09-04', detail: 'decided', docSlug: 'two-competitions' }] },
+        { season: 'Earlier', entries: [{ kind: 'attempt', title: 'Not changed: Article 3 (Open membership)', date: '2026-05-01', detail: 'General · May 1', docSlug: 'general-may-1' }] }] }),
+    };
+  });
+  await openApp(page, 'tests/browser/club.fixture.tsx');
+  const c = page.getByTestId('club-constitution');
+  await expect(c).toContainText('Constitution · version 5');
+  await expect(c.getByRole('heading', { name: 'Article 6.4 · Tech officer' })).toBeVisible();
+  await c.getByText('Versions').click();
+  await expect(c).toContainText('Version 5 · Article 6.4 added · 2 October 2026 · General · Oct 2');
+  await c.getByLabel('Public').click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['public', true]);
+  const dec = page.getByTestId('club-decisions');
+  await expect(dec.getByRole('region', { name: 'Season 2026–27' })).toContainText('Constitution version 5: Article 6.4 added');
+  await expect(dec.getByRole('link', { name: 'D-004 Two competitions this year' })).toBeVisible();
+  await expect(dec).toContainText('Not passed');
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
