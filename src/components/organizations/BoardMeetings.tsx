@@ -26,7 +26,7 @@ export function BoardMeetingsCard({ orgId, base }: { orgId: string; base: string
           {m.startsAt ? <span className="text-muted-foreground">{when(m.startsAt)}</span> : null}{m.approved ? <StatusBadge state="done">Minutes approved</StatusBadge> : null}</li>)}</ul>
           : <p className="text-muted-foreground">{d.all ? "No meetings yet." : "No board meetings yet. Each has motions, votes, a quorum line and minutes approved at the next one."}</p>}
         {d.canPlan && !d.meetings.length ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setPlanning(true)}>{d.all ? "Plan a meeting" : "Plan a board meeting"}</button> : null}
-        {planning ? <NewMeetingDialog projectId={orgId} open={planning} onOpenChange={(o) => { setPlanning(o); if (!o) void q.refetch(); }} /> : null}
+        {planning ? <NewMeetingDialog projectId={orgId} initialType={d.all ? undefined : "board"} open={planning} onOpenChange={(o) => { setPlanning(o); if (!o) void q.refetch(); }} /> : null}
       </div>
     </OrgCard>
   );

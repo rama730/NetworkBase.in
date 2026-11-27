@@ -14,7 +14,7 @@ const P = "5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f";
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <main className="max-w-3xl p-6">
-      {view === 'new' ? <NewMeetingDialog projectId={P} open onOpenChange={() => undefined} />
+      {view === 'new' ? <NewMeetingDialog projectId={P} initialType={new URLSearchParams(window.location.search).get('type') ?? undefined} open onOpenChange={() => undefined} />
         : view === 'actions' ? <OpenActionItems projectId={P} projectSlug="acme" />
         : view === 'calendar' ? <MeetingsCalendar projectId={P} projectSlug="acme" canAdd onNew={() => { w.__newMeeting = true; }} />
         : <MeetingHeader projectId={P} docSlug="weekly-jan-7" />}

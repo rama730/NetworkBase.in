@@ -213,3 +213,11 @@ test('B7.3c: Send to an online vote from the meeting panel, closing at a chosen 
   await expect(page.getByTestId('motion').filter({ hasText: 'Move the office' }).getByRole('button', { name: 'Send to an online vote' })).toHaveCount(0);
 });
 
+// Live check 2026-11-27: the card it opens from picks the type (General meetings → General meeting).
+test('New meeting opened from a card starts on that card’s type', async ({ page }) => {
+  await open(page, { view: 'new&type=general' });
+  const d = page.getByTestId('new-meeting-dialog');
+  await expect(d.getByRole('radio', { name: /General meeting/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(d.getByLabel('Title')).toHaveAttribute('placeholder', /^General meeting · /);
+});
+

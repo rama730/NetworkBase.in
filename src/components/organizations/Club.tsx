@@ -398,7 +398,7 @@ export function ClubMeetingCard({ orgId }: { orgId: string }) {
         {m ? <p><span className="font-medium">{m.title}</span> · {when(m.startsAt)}</p>
           : <p className="text-muted-foreground">No general meeting is planned.</p>}
         {d.officer ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setPlanning(true)}>Plan a meeting</button> : null}
-        {planning ? <NewMeetingDialog projectId={orgId} open={planning} onOpenChange={(o) => { setPlanning(o); if (!o) refresh(); }} /> : null}
+        {planning ? <NewMeetingDialog projectId={orgId} initialType="general" open={planning} onOpenChange={(o) => { setPlanning(o); if (!o) refresh(); }} /> : null}
         <p className="text-muted-foreground" data-testid="club-meeting-quorum">Quorum: {d.quorum.needed} needed, of {d.quorum.staying} members staying this Season.</p>
         {m?.canPropose ? <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (item.trim()) void run(proposeAgendaItemAction(orgId, m.id, item), "Added; an officer accepts or holds it").then(() => setItem("")); }}>
           <Input value={item} maxLength={200} onChange={(e) => setItem(e.target.value)} placeholder="An item for the agenda" aria-label="Add to the agenda" className="w-[280px]" />

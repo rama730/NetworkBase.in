@@ -51,12 +51,13 @@ const TYPE_ICON: Record<string, LucideIcon> = { weekly: CalendarDays, standup: T
   recording: Mic, shoot: Clapperboard, interview: MessagesSquare, incident: Siren, playtest: Gamepad2, board: Gavel, supervision: BookMarked, blank: FileText };
 
 /** S1 and W1: type, title, date and time (the workspace's zone), length, attendees, repeat. */
-export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+/** `initialType`: the card it opens from picks the type (General meetings → General meeting, live check 2026-11-27). */
+export function NewMeetingDialog({ projectId, open, onOpenChange, initialType }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void; initialType?: string }) {
   const query = useMeetings(projectId, open);
   const data = query.data?.success ? query.data : null;
   const tz = data?.timeZone ?? "UTC";
   const openDoc = useOpenDocAfter(projectId);
-  const [type, setType] = useState(MEETING_TYPES[0]!.id);
+  const [type, setType] = useState(initialType && meetingType(initialType) ? initialType : MEETING_TYPES[0]!.id);
   const [day, setDay] = useState(localDayKey());
   const [time, setTime] = useState("10:00");
   const [title, setTitle] = useState("");
