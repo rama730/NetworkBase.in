@@ -1328,9 +1328,9 @@
       "text": "B6.5 R5 Lab meetings and progress reviews (35.6)",
       "kind": "unit",
       "milestone": "B6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/lab-progress.test.ts; tests/db/lab-meeting.test.ts; tests/db/lab-progress.test.ts; tests/db/lab-reviews.test.ts; tests/browser/lab.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 671297f5d): B6.5a lab meeting (136ac0347, 0168), B6.5b supervision + milestones (0169, security fixes: co-supervisor named only by the PI or supervisor; leavers lose access), B6.5c annual review, development plan, Raise a concern, PI counts (0170, review fixes: locks inside the transaction, committee read/write-block rules). 0168–0170 in prod. Gate on GitHub (push-gate) caught a type bug and a contrast failure, both fixed. DB-tested: notes never leave the pair, PI sees rhythm only, committee access ends at Agreed, no rating field, concerns never reach the person they are about. Live check pending (Chrome disconnected since the laptop restart)."
     },
     {
       "key": "B7.1",
@@ -1338,9 +1338,9 @@
       "text": "B7.1 L1 Club home and recruitment (36.2)",
       "kind": "unit",
       "milestone": "B7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 3f417ca09): B7.1a clubs get the community front door, events and Showcase; recruiting period (banner on About, Discover Recruiting now filter, turns off by itself), join poster (link + code, no QR), drive counts; review fix: visitors see only a public first event. B7.1b Season renewal (one ask + day-25 reminder, officers-only answers, End memberships not renewed after the window, never officers or new joiners, term_ended). No migration. Club browser specs ran for the first time once added to testMatch (both pass). Live check pending."
     },
     {
       "key": "B7.2",
