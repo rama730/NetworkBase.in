@@ -79,3 +79,10 @@ test("review fixes: both tabs' caches are patched, important notices aren't mark
     assert.match(tray, /observer\.observe\(document\.head, \{ childList: true, characterData: true, subtree: true \}\)/);
     assert.match(read("src/app/actions/notifications.ts"), /markAllNotificationsRead\(userId, db, \{ keepImportant: true \}\)/);
 });
+
+test("live check 2026-11-28: ⇧N works whatever case the key reports; one workspace mute in the row menu", () => {
+    const tray = read("src/components/layout/header/NotificationPreview.tsx");
+    const row = read("src/components/notifications/NotificationRow.tsx");
+    assert.match(tray, /event\.code !== "KeyN"/);
+    assert.match(row, /\.filter\(\(scope\) => !\(scope\.kind === "project" && showWorkspaceMute\)\)/);
+});

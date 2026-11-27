@@ -17,7 +17,7 @@ import { NotificationWho } from "@/components/notifications/NotificationGlyph";
 import { isPlainLeftClick } from "@/lib/navigation/links";
 import { buildNotificationMuteScopes, formatAbsoluteTimestamp, formatRelativeTimestamp, getAggregateLabel, getNotificationReasonLabel, type NotificationBundle } from "@/lib/notifications/presentation";
 import { notificationSentence } from "@/lib/notifications/sentence";
-import { whyYouGotIt } from "@/lib/notifications/tray-model";
+import { isTaskCode, whyYouGotIt } from "@/lib/notifications/tray-model";
 import type { NotificationItem, NotificationMuteScope } from "@/lib/notifications/types";
 import { projectUpdateDisplayText } from "@/lib/workspaces/updates";
 
@@ -98,7 +98,10 @@ export function NotificationRow(props: {
     const handInTitle = isHandIn ? item.title.replace(/^New submission for /, "") : null;
     const aggregate = getAggregateLabel(item.kind, item.aggregateCount);
     const meta = [sentence.context, count > 1 ? `${count} updates` : isHandIn ? null : aggregate].filter(Boolean).join(" · ");
-    const muteScopes = buildNotificationMuteScopes(item).slice(0, 3);
+    const showWorkspaceMute = Boolean(item.entityRefs?.projectId && !item.entityRefs?.orgId && onMuteWorkspace);
+    // The workspace has its own timed mute below, so its standing mute isn't offered twice.
+    const muteScopes = buildNotificationMuteScopes(item).filter((scope) => !(scope.kind === "project" && showWorkspaceMute)).slice(0, 3);
+    const placeName = sentence.context && !isTaskCode(sentence.context) ? sentence.context : null;
     const reasonLabel = getNotificationReasonLabel(item.reason);
     const canReply = Boolean(onReply) && REPLY_KINDS.has(item.kind) && Boolean(item.entityRefs?.projectId && (item.entityRefs?.taskId || item.entityRefs?.updateId));
 
@@ -231,15 +234,15 @@ export function NotificationRow(props: {
                                 {item.entityRefs?.orgId && onOrgLevel ? (
                                     <>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuLabel className="nb-micro font-normal">From {sentence.context ?? "this organization"}</DropdownMenuLabel>
+                                        <DropdownMenuLabel className="nb-micro font-normal">From {placeName ?? "this organization"}</DropdownMenuLabel>
                                         <DropdownMenuItem onClick={() => void onOrgLevel(item, "all")}>Everything</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => void onOrgLevel(item, "important")}>Important only</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => void onOrgLevel(item, "off")}>Off, except safety notices</DropdownMenuItem>
                                     </>
-                                ) : item.entityRefs?.projectId && onMuteWorkspace ? (
+                                ) : showWorkspaceMute && onMuteWorkspace ? (
                                     <>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuLabel className="nb-micro font-normal">Mute {sentence.context ?? "this workspace"}</DropdownMenuLabel>
+                                        <DropdownMenuLabel className="nb-micro font-normal">Mute {placeName ?? "this workspace"}</DropdownMenuLabel>
                                         <DropdownMenuItem onClick={() => void onMuteWorkspace(item, snoozePresets(now)[0]!.until.toISOString())}>For 1 hour</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => void onMuteWorkspace(item, snoozePresets(now)[1]!.until.toISOString())}>Until tomorrow 9:00</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => void onMuteWorkspace(item, "forever")}>Until I turn it back on</DropdownMenuItem>

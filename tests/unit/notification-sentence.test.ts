@@ -75,3 +75,8 @@ test("away summary after a day; why line names the reason", () => {
   assert.equal(whyYouGotIt(item()), "You were mentioned.");
   assert.equal(whyYouGotIt(item({ kind: "branch_saves" })), "You follow this branch.");
 });
+
+test("live check 2026-11-28: a task code (WT-7) is never named as the place you're a member of", () => {
+  assert.equal(whyYouGotIt(item({ kind: "project_task_activity", preview: { contextLabel: "WT-7" } })), "You’re a member of this workspace.");
+  assert.equal(whyYouGotIt(item({ kind: "project_task_activity", preview: { contextLabel: "CSE 3B" } })), "You’re a member in CSE 3B.");
+});

@@ -93,7 +93,8 @@ export default function NotificationPreview({ n, connectionHealth }: { n: Notifi
     // ⇧N opens the tray from anywhere (like ⌘K for search), outside text fields.
     useEffect(() => {
         const onKey = (event: globalThis.KeyboardEvent) => {
-            if (!event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || event.key !== "N" || EDITABLE(event.target)) return;
+            // By the physical key: some layouts and Caps Lock report "n" with Shift held.
+            if (!event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || (event.code !== "KeyN" && event.key.toLowerCase() !== "n") || EDITABLE(event.target)) return;
             event.preventDefault();
             n.setTrayOpen(true);
         };

@@ -89,8 +89,12 @@ export function awaySummary(input: { lastOpenedAt: string | null; needsCount: nu
 }
 
 /** The first line of a row's ⋯ menu: why this reached you. */
+/** A task code like "WT-7" is a row's context, never a place someone is a member of. */
+export const isTaskCode = (label: string | null | undefined) => Boolean(label && /^[A-Z][A-Z0-9]*-\d+$/.test(label.trim()));
+
 export function whyYouGotIt(item: NotificationItem): string {
-    const where = item.preview?.contextLabel ? ` in ${item.preview.contextLabel}` : "";
+    const label = item.preview?.contextLabel;
+    const where = label && !isTaskCode(label) ? ` in ${label}` : "";
     switch (item.kind) {
         case "task_comment_mention": case "project_update_mention": return "You were mentioned.";
         case "task_comment_reply": case "project_update_reply": case "project_update_comment": return "You’re in this thread.";
@@ -104,6 +108,6 @@ export function whyYouGotIt(item: NotificationItem): string {
         case "saved_search_matches": return "You saved this search.";
         case "agent_question": case "agent_access_request": case "agent_access_expiring": case "agent_session_summary": return "Your agent sent it.";
         case "project_update_like": case "project_update_team": return "It’s your post.";
-        default: return where ? `You’re a member${where}.` : "You’re part of this.";
+        default: return where ? `You’re a member${where}.` : item.entityRefs?.projectId ? "You’re a member of this workspace." : "You’re part of this.";
     }
 }
