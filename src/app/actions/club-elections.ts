@@ -21,7 +21,7 @@ import { isLooseUuid } from "@/lib/validations/uuid";
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You can’t do that here." };
 type Phase = "nominations" | "voting" | "results";
-type Election = { id: string; season: string; phase: Phase; ro: string | null; show_counts: boolean; rounds: Record<string, { round: number; tied: string[] }>; results: Record<string, { winner: string | null; counts?: Record<string, number>; abstained?: number }> | null };
+type Election = { id: string; created_at: string; season: string; phase: Phase; ro: string | null; show_counts: boolean; rounds: Record<string, { round: number; tied: string[] }>; results: Record<string, { winner: string | null; counts?: Record<string, number>; abstained?: number }> | null };
 
 async function club(orgId: string) {
   if (!isLooseUuid(orgId)) return null;
@@ -36,7 +36,7 @@ async function club(orgId: string) {
 
 async function current(tx: Pick<typeof db, "execute">, orgId: string, lock = false) {
   const [e] = Array.from(await tx.execute<Election>(sql`
-    SELECT id, season, phase, returning_officer_id AS ro, show_counts, rounds, results FROM club_elections WHERE org_id = ${orgId}::uuid
+    SELECT id, created_at, season, phase, returning_officer_id AS ro, show_counts, rounds, results FROM club_elections WHERE org_id = ${orgId}::uuid
     ORDER BY (phase <> 'results') DESC, created_at DESC LIMIT 1 ${lock ? sql`FOR UPDATE` : sql``}`));
   return e ?? null;
 }
@@ -62,7 +62,8 @@ export async function readElectionAction(orgId: string) {
     WHERE c.election_id = ${e.id}::uuid ORDER BY c.created_at`));
   const voted = new Set(Array.from(await db.execute<{ position_id: string; round: number }>(sql`
     SELECT position_id, round FROM club_voted WHERE election_id = ${e.id}::uuid AND user_id = ${ctx.userId}::uuid`)).map((v) => `${v.position_id}:${v.round}`));
-  const [elig] = Array.from(await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer' AND completed_at IS NULL`));
+  const [elig] = Array.from(await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer' AND completed_at IS NULL
+    AND joined_at <= ${e.created_at}::timestamptz`));
   const turnout = Array.from(await db.execute<{ position_id: string; round: number; n: number }>(sql`
     SELECT position_id, round, count(*)::int AS n FROM club_voted WHERE election_id = ${e.id}::uuid GROUP BY position_id, round`));
   const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
@@ -165,6 +166,10 @@ export async function voteAction(orgId: string, positionId: string, choice: stri
         SELECT 1 AS ok FROM club_candidates WHERE election_id = ${e.id}::uuid AND position_id = ${positionId} AND user_id = ${choice}::uuid AND state = 'standing'`));
       if (!c || (tied && !tied.includes(choice))) return "denied";
     }
+    // Security review: the electorate is fixed when the election starts (members who joined later don't vote).
+    const [member] = Array.from(await tx.execute(sql`SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid
+      AND role <> 'viewer' AND completed_at IS NULL AND joined_at <= ${e.created_at}::timestamptz`));
+    if (!member) return "denied";
     const [v] = Array.from(await tx.execute<{ ok: number }>(sql`
       INSERT INTO club_voted (election_id, position_id, round, user_id) VALUES (${e.id}::uuid, ${positionId}, ${round}, ${ctx.userId}::uuid) ON CONFLICT DO NOTHING RETURNING 1 AS ok`));
     if (!v) return "already";

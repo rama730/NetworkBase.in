@@ -238,6 +238,9 @@ test("36.3 (B7.2b): secret ballots — never joinable to a voter; one vote; the 
   viewerId = bob!; assert.ok((await el.voteAction(id, "secretary", bob!)).success);
   viewerId = cat!; assert.ok((await el.voteAction(id, "secretary", null)).success);
   viewerId = dan!; assert.equal((await el.voteAction(id, "secretary", ann!)).success, false, "Viewers don't vote");
+  const late = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${late}, 'member')`;
+  viewerId = late; assert.equal((await el.voteAction(id, "secretary", ann!)).success, false, "security review: someone who joins after the election starts doesn't vote");
   const view = await (async () => { viewerId = cat!; return el.readElectionAction(id); })();
   assert.ok(view.success && "positions" in view && view.positions.find((p) => p.id === "secretary")!.turnout === 3);
   viewerId = ro!;

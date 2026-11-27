@@ -517,6 +517,10 @@ test("36.4 (B7.3c): an online vote — ballots never name a voter, one vote, clo
   assert.match(String((await motionVotes.castMotionVoteAction(t.ws, sent.id, "against") as { error?: string }).error), /voted on this motion/, "one vote");
   viewerId = t.viewer;
   assert.equal((await motionVotes.castMotionVoteAction(t.ws, sent.id, "for")).success, false, "Viewers don't vote");
+  const late = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${t.ws}, ${late}, 'member')`;
+  viewerId = late;
+  assert.equal((await motionVotes.castMotionVoteAction(t.ws, sent.id, "for")).success, false, "security review: someone who joins after the vote opens doesn't vote");
   viewerId = fourth!;
   const open = await motionVotes.readMotionVotesAction(t.ws);
   assert.ok(open.success && open.votes[0]!.open && open.votes[0]!.turnout === 3 && !open.votes[0]!.voted && open.votes[0]!.result === null, "turnout as a count; no result before it closes");

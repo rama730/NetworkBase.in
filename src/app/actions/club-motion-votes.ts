@@ -62,7 +62,7 @@ export async function readMotionVotesAction(orgId: string) {
     SELECT v.id, v.text, v.amendment, v.closes_at, v.state, v.result, v.eligible, v.needed,
       (SELECT count(*)::int FROM club_motion_voted x WHERE x.vote_id = v.id) AS turnout,
       EXISTS (SELECT 1 FROM club_motion_voted x WHERE x.vote_id = v.id AND x.user_id = ${ctx.userId}::uuid) AS voted,
-      EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = v.org_id AND m.user_id = ${ctx.userId}::uuid AND ${staying(ctx.w.settings)}) AS can
+      EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = v.org_id AND m.user_id = ${ctx.userId}::uuid AND m.joined_at <= v.created_at AND ${staying(ctx.w.settings)}) AS can
     FROM club_motion_votes v WHERE v.org_id = ${orgId}::uuid AND (v.state = 'open' OR v.closed_at > now() - interval '60 days') ORDER BY v.state DESC, v.closes_at LIMIT 50`));
   return { success: true as const, votes: rows.map((r) => ({ id: r.id, text: r.text, amendment: r.amendment, closesAt: new Date(r.closes_at).toISOString(), open: r.state === "open",
     turnout: r.turnout, eligible: r.eligible, needed: r.needed, voted: r.voted, canVote: r.can && !ctx.blocked, result: r.result })) };
@@ -75,7 +75,8 @@ export async function castMotionVoteAction(orgId: string, voteId: string, choice
   const out = await db.transaction(async (tx) => {
     const [v] = Array.from(await tx.execute<{ ok: boolean }>(sql`
       SELECT true AS ok FROM club_motion_votes v WHERE v.id = ${voteId}::uuid AND v.org_id = ${orgId}::uuid AND v.state = 'open' AND v.closes_at > now()
-        AND EXISTS (SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND ${staying(ctx.w.settings)}) FOR SHARE`));
+        -- Security review: the electorate is fixed when the vote opens (members who joined later don't vote).
+        AND EXISTS (SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND joined_at <= v.created_at AND ${staying(ctx.w.settings)}) FOR SHARE`));
     if (!v) return "closed" as const;
     const voted = Array.from(await tx.execute(sql`INSERT INTO club_motion_voted (vote_id, user_id) VALUES (${voteId}::uuid, ${ctx.userId}::uuid) ON CONFLICT DO NOTHING RETURNING user_id`));
     if (!voted.length) return "twice" as const;
