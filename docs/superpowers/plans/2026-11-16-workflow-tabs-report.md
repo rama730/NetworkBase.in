@@ -14928,6 +14928,14 @@ SETTINGS · Workflows (any org)       On: Members & renewal · Committee & hando
 5. **The wizard's kit step** (Pick a starting kit, with the suggestion and a preview) comes with the first kit whose parts all work (B8.5), so it never shows Blank alone.
 6. **Note:** X4's files are named "impact" (`impact.ts`, `Impact.tsx`) so they don't collide with the education Programs and cohorts of B2.1.
 
+**Build calls (B8.4b + B8.5 Nonprofit, 2026-11-27):**
+1. **Pick a starting kit** in the wizard: after "What do you call it?", Other shows the kits whose parts all work, as radio cards with role names and what's on. The typed word marks one Suggested ("Food bank NGO" → Nonprofit). Picking a kit fills the role names and join mode the person hasn't touched; edited ones stay. A ready kit is saved on the new organization and switches its parts on; Blank saves nothing. The step shows only when there's more than Blank to pick.
+2. **Nonprofit is the first kit offered:** Volunteers, Programs, Board meetings and Events now all work in an Other organization with their part on.
+   - **Events** (M3) open to Other organizations with the Events part: RSVPs, the waitlist and check-in, on Sprints (Events and Sprints views, no Rituals), with the next event on Overview and About. This also fixes clubs, whose event creation was refused by a community-only check (B7.1a).
+   - **Board meetings** (17.5): an Other organization with the part holds them itself. The meeting types include Board meeting, and the Board meetings card on Overview lists them (minutes approved as words) and offers Plan a board meeting.
+3. **First steps:** an organization made from a kit shows the kit's first steps on Overview ("Write your mission", "Add volunteer roles", "Start a program").
+4. **Not built:** the kit's starter documents made at creation (the Mission and values template is in Documents → New from a template), and the time word (Year, Phase, Quarter, Season) replacing "Sprint".
+
 ### 37.3 X2 · Volunteers and shifts (agreed 2026-11-17)
 **References** (37.1, plus 11 searches for shifts, rotas, rosters, availability and volunteer hours: 79 templates, 17 rated; 4 more screens studied):
 

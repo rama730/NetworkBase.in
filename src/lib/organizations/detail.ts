@@ -4,6 +4,7 @@ import { and, count, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 import { db } from "@/lib/db";
+import { partsOn } from "@/lib/organizations/kits";
 import { extensionDeviceSessions, orgHandleHolds, orgVerificationCodes, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
 import { schoolLockedFields } from "@/lib/organizations/school-push";
 import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
@@ -36,6 +37,10 @@ export type OrgDetail = {
   type: OrgType | null;
   /** The type as people read it; Other shows its own label (report §34.2). */
   typeLabel: string | null;
+  /** B8.5 (report 37.2): the parts an Other organization has switched on (Settings → Workflows). */
+  parts: string[];
+  /** The kit it started from (help text only). */
+  kit: string | null;
   /** "RV College of Engineering" and "Bengaluru" (report §34.3). */
   partOf: string | null;
   location: string | null;
@@ -185,6 +190,8 @@ export async function readOrgDetail(
   return {
     type,
     typeLabel: orgTypeLabel(type, settings),
+    parts: type === "other" ? partsOn(settings) : [],
+    kit: type === "other" && typeof (settings as { kit?: unknown }).kit === "string" ? (settings as { kit: string }).kit : null,
     partOf: text((settings as { partOf?: unknown }).partOf),
     location: text((settings as { location?: unknown }).location),
     roleNames: orgRoleNames(type, settings),

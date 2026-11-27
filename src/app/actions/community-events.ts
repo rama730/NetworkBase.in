@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { afterLink, canRsvp, communityEventSchema, eventProblem, eventState, placeFor, placesLeft, type CommunityEventFields } from "@/lib/organizations/community-events";
 import { pauseActive } from "@/lib/organizations/community";
+import { partOn } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -25,13 +26,14 @@ async function community(orgId: string) {
   if (!isLooseUuid(orgId)) return null;
   const { userId } = await getViewerAuthContext();
   const a = await getWorkspaceAccessById(orgId, userId);
-  const [w] = Array.from(await db.execute<{ type: string | null; slug: string | null; title: string; labels: unknown; pause: { until: string } | null }>(sql`
-    SELECT w.org_type AS type, w.slug, w.title,
+  const [w] = Array.from(await db.execute<{ type: string | null; slug: string | null; title: string; labels: unknown; pause: { until: string } | null; settings: unknown }>(sql`
+    SELECT w.org_type AS type, w.slug, w.title, w.org_settings AS settings,
       (SELECT m.view_prefs->'community'->'labels' FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role IN ('member', 'admin', 'owner')) AS labels,
       w.org_settings->'community'->'pauses'->${userId ?? ""}::text AS pause
     FROM workspaces w WHERE w.id = ${orgId}::uuid AND w.kind = 'organization' AND w.deleted_at IS NULL`));
   // B7.1a (36.2): a club's events (M3) — the taster event and meetings.
-  if ((w?.type !== "community" && w?.type !== "club") || !a.canRead) return null;
+  // B8.5 (report 37.2): an Other organization with the Events part on (the Nonprofit, Event team and Faith kits).
+  if (!w || !(w.type === "community" || w.type === "club" || (w.type === "other" && partOn(w.settings, "events"))) || !a.canRead) return null;
   const member = Boolean(userId) && (a.isOwner || (a.isMember && a.memberRole !== "viewer"));
   const organiser = a.isOwner || a.memberRole === "admin";
   return { userId, slug: w.slug ?? orgId, title: w.title, member, organiser,

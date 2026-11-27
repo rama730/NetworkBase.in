@@ -181,6 +181,8 @@ export const createWorkspaceSchema = z.object({
         org_type: z.enum(ORG_TYPES, { error: 'Choose what kind of organization this is.' }),
         // Report §34: Other's own label, identity, roles and the people invited at creation.
         type_label: z.string().trim().max(30).optional(),
+        // B8.4b (report 37.2): Other's starting kit; it sets defaults and switches its parts on.
+        kit: z.enum(['nonprofit', 'event_team', 'association', 'public_sector', 'faith', 'blank']).optional(),
         part_of: z.string().trim().max(100).optional(),
         // G8 (2026-11-05 findings): "Part of" picked from organizations on NetworkBase.
         part_of_org_id: z.string().uuid().nullable().optional(),

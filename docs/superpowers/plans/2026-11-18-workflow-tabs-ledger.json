@@ -1398,9 +1398,9 @@
       "text": "B8.3 X4 Programs and impact (37.5) — Depends: D3 (A5.1), K3 (B4.3).",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/club.test.ts; tests/db/impact.test.ts; tests/browser/impact.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 839e3cee9): B8.3a programs as private workspaces marked Program with briefs and up to 5 measures (tagged volunteer hours, finished meetings, typed numbers counted only once an admin confirms; history kept; no person records) (0179); B8.3b stories published only with every named person consent (members give their own yes, owners record outside people), Program brief and Mission and values templates, the impact report draft from confirmed numbers, About Our programs (0180). Files named impact.ts/Impact.tsx (the first draft had overwritten the B2.1 education programs files; caught by the gate, restored byte-for-byte before any push). Live check pending."
     },
     {
       "key": "B8.5",

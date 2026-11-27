@@ -16,6 +16,7 @@ test('Settings → Workflows: On, Off with "has data", Turn on and Turn off', as
         { id: 'volunteers', name: 'Volunteers and shifts', line: 'Roles, shifts, check-in and hours (X2).', where: 'Overview', ready: true, on: true, hasData: false },
         { id: 'programs', name: 'Programs and impact', line: 'Programs with measures (X4).', where: 'Overview', ready: true, on: false, hasData: true }] }),
       setPartAction: async (_o: string, p: string, on: boolean) => { calls.push(['part', p, on]); return { success: true }; },
+      readBoardMeetingsAction: async () => ({ success: true, canPlan: true, meetings: [{ slug: 'board-jan', title: 'Board · Jan', startsAt: '2099-01-07T10:00:00.000Z', approved: true }] }),
     };
   });
   await openApp(page, 'tests/browser/org-parts.fixture.tsx');
@@ -29,3 +30,21 @@ test('Settings → Workflows: On, Off with "has data", Turn on and Turn off', as
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
+
+// Plan B8.5 (the Nonprofit kit): board meetings on Overview.
+test('Board meetings: the list links to each meeting, says when minutes are approved, and offers Plan a board meeting', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.addInitScript(() => {
+    (window as any).__actions = {
+      readPartsAction: async () => ({ success: true, kit: 'nonprofit', kits: [], parts: [] }),
+      readBoardMeetingsAction: async () => ({ success: true, canPlan: true, meetings: [{ slug: 'board-jan', title: 'Board · Jan', startsAt: '2099-01-07T10:00:00.000Z', approved: true }] }),
+    };
+  });
+  await openApp(page, 'tests/browser/org-parts.fixture.tsx');
+  const card = page.getByTestId('board-meetings');
+  await expect(card.getByRole('link', { name: 'Board · Jan' })).toHaveAttribute('href', '/org/wt?tab=docs&doc=board-jan');
+  await expect(card.getByTestId('board-meeting')).toContainText('Minutes approved');
+  await expect(card.getByRole('button', { name: 'Plan a board meeting' })).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
+});
+

@@ -7,7 +7,9 @@ import { CompanyGoalsCard } from '@/components/organizations/CompanyGoals'
 import { StartHere } from '@/components/organizations/CompanyOnboarding'
 import { AskTeamCard } from '@/components/organizations/CompanyRequests'
 import { CommunityFrontDoor } from '@/components/organizations/CommunityFrontDoor'
+import { BoardMeetingsCard } from '@/components/organizations/BoardMeetings'
 import { FixedTimeCard } from '@/components/organizations/FixedTime'
+import { kitById } from '@/lib/organizations/kits'
 import { ProgramsCard } from '@/components/organizations/Impact'
 import { VolunteersCard } from '@/components/organizations/Volunteers'
 import { ClubMeetingCard, CommitteeCard, CompetitionsCard, ConstitutionCard, DecisionsCard, ElectionCard, MotionVotesCard, HandoverCard, RecruitingCard, RenewalCard } from '@/components/organizations/Club'
@@ -247,7 +249,7 @@ function DashboardSkeleton() {
 }
 
 /** The org Dashboard for people in the org (report §27). */
-export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false, isClass = false, started = null }: { orgId: string; orgSlug: string | null; orgType?: string | null; isSchool?: boolean; isClass?: boolean; started?: ReturnType<typeof readOrgDashboardAction> | null }) {
+export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false, isClass = false, started = null, parts = [], kit = null }: { orgId: string; orgSlug: string | null; orgType?: string | null; isSchool?: boolean; isClass?: boolean; started?: ReturnType<typeof readOrgDashboardAction> | null; parts?: string[]; kit?: string | null }) {
     const [filter, setFilter] = useState('all')
     const [moreToday, setMoreToday] = useState(false)
     const [moreActivity, setMoreActivity] = useState(false)
@@ -304,6 +306,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'community' || orgType === 'club' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
                 {orgType === 'club' ? <RecruitingCard orgId={orgId} /> : null}
                 <FixedTimeCard orgId={orgId} other={orgType === 'other'} />
+                {orgType === 'other' && kit && kitById(kit)?.gettingStarted.length ? <OrgCard title={`First steps · ${kitById(kit)!.name} kit`} testId="kit-first-steps"><ul className="list-disc space-y-0.5 pl-5 text-[13px]">{kitById(kit)!.gettingStarted.map((g) => <li key={g}>{g}</li>)}</ul></OrgCard> : null}
                 {orgType === 'other' ? <VolunteersCard orgId={orgId} /> : null}
                 {orgType === 'other' ? <ProgramsCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <CompetitionsCard orgId={orgId} /> : null}
@@ -315,7 +318,8 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'club' ? <ConstitutionCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <DecisionsCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <RenewalCard orgId={orgId} /> : null}
-                {orgType === 'community' || orgType === 'club' ? <NextEventCard orgId={orgId} base={base} /> : null}
+                {orgType === 'community' || orgType === 'club' || (orgType === 'other' && parts.includes('events')) ? <NextEventCard orgId={orgId} base={base} /> : null}
+                {orgType === 'other' && parts.includes('boardMeetings') ? <BoardMeetingsCard orgId={orgId} base={base} /> : null}
                 {orgType === 'community' ? <CurrentChallengeCard orgId={orgId} base={base} /> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
                 {isClass ? <ClassNextLine orgId={orgId} /> : null}

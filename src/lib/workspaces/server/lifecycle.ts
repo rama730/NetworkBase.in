@@ -1,5 +1,6 @@
 import "server-only";
 import { customRoleNames, savedTypeSettings, typeProfile } from "@/lib/organizations/type-profile";
+import { kitSettings } from "@/lib/organizations/kits";
 
 import { type WorkspaceVisibility, isWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { db } from "@/lib/db";
@@ -924,6 +925,8 @@ export async function createWorkspaceAction(
                   roleNames: customRoleNames(organization.org_type, organization.role_names),
                   // Report §34: Other's label, identity, and the Work defaults chosen in Setup (unset keys keep the type's).
                   ...(organization.org_type === "other" ? { typeLabel: organization.type_label?.trim() } : {}),
+                  // B8.4b (report 37.2 call 2): a ready kit is remembered and switches its parts on; it sets defaults only.
+                  ...(organization.org_type === "other" ? kitSettings(organization.kit) : {}),
                   ...(organization.part_of ? { partOf: organization.part_of } : {}),
                   ...(organization.part_of && partOfOrgId ? { partOfOrgId } : {}),
                   ...(organization.location ? { location: organization.location } : {}),

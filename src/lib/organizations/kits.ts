@@ -13,8 +13,8 @@ export const PARTS: Record<PartId, Part> = {
   volunteers: { id: "volunteers", name: "Volunteers and shifts", line: "Roles, shifts, check-in and hours (X2).", where: "Overview", ready: true },
   fixedTime: { id: "fixedTime", name: "Key date and wrap-up", line: "A countdown, a plan worked back from the key date, bookings and wrap-up (X3).", where: "Overview", ready: true },
   programs: { id: "programs", name: "Programs and impact", line: "Programs with measures, confirmed numbers, stories and the impact report (X4).", where: "Overview", ready: true },
-  events: { id: "events", name: "Events", line: "Events with RSVPs, a waitlist and check-in (M3).", where: "Sprints", ready: false },
-  boardMeetings: { id: "boardMeetings", name: "Board meetings", line: "Motions, votes, quorum and approved minutes (17.5).", where: "Documents", ready: false },
+  events: { id: "events", name: "Events", line: "Events with RSVPs, a waitlist and check-in (M3).", where: "Sprints", ready: true },
+  boardMeetings: { id: "boardMeetings", name: "Board meetings", line: "Motions, votes, quorum and approved minutes (17.5).", where: "Overview", ready: true },
   meetings: { id: "meetings", name: "Meetings", line: "Meetings with agendas, notes and action items (11.6).", where: "Documents", ready: false },
   renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year (L1).", where: "Overview", ready: false },
   positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover (L2).", where: "Overview", ready: false },
@@ -75,3 +75,9 @@ export function partsOn(orgSettings: unknown): PartId[] {
   return Array.isArray(on) ? on.filter((p): p is PartId => typeof p === "string" && p in PARTS) : [];
 }
 export const partOn = (orgSettings: unknown, p: PartId) => partsOn(orgSettings).includes(p);
+
+/** What a kit saves on a new Other organization: its id (for help text) and its parts, switched on. Only ready kits. */
+export function kitSettings(id: string | null | undefined) {
+  const k = kitById(id);
+  return k && kitReady(k) && k.id !== "blank" ? { kit: k.id, parts: { on: k.parts } } : {};
+}

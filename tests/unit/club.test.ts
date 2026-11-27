@@ -156,3 +156,11 @@ test("kits: six kits from parts that exist; offered only when every part works; 
     ["association", "event_team", "nonprofit", "faith", "public_sector", null]);
   assert.deepEqual(partsOn({ parts: { on: ["volunteers", "nope", 3] } }), ["volunteers"]);
 });
+
+test("kits: a ready kit saves its id and switches its parts on; Blank and unready kits save nothing", async () => {
+  const { kitSettings, readyKits } = await import("../../src/lib/organizations/kits");
+  assert.deepEqual(kitSettings("nonprofit"), { kit: "nonprofit", parts: { on: ["volunteers", "programs", "boardMeetings", "events"] } });
+  assert.deepEqual(kitSettings("blank"), {});
+  assert.deepEqual(kitSettings("association"), {}, "not ready yet: its parts don't work in Other organizations");
+  assert.deepEqual(readyKits().map((k) => k.id), ["nonprofit", "blank"]);
+});

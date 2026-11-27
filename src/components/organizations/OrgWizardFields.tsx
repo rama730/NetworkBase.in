@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useFormContext, useWatch, type UseFormReturn } from 'react-hook-form'
 import { typeProfile } from '@/lib/organizations/type-profile'
+import { kitById, readyKits, suggestKit } from '@/lib/organizations/kits'
 import { Check, X } from 'lucide-react'
 
 import { checkOrgHandleAction } from '@/app/actions/organizations'
@@ -90,12 +91,47 @@ export function OrgTypePicker() {
                         <p className="nb-compact mt-1 text-muted-foreground">Shown wherever the type appears.</p>
                     </div>
                 ) : null}
+                {organization?.org_type === 'other' && readyKits().length > 1 ? <KitPicker /> : null}
             </fieldset>
             <p className="nb-compact mt-5 text-muted-foreground">
                 Have a code? <Link href="/join" className="nb-link">Join an organization</Link>
             </p>
         </section>
         )
+}
+
+/**
+ * Pick a starting kit (B8.4b, report 37.2): the kits whose parts all work, as radio cards with role names and what's on;
+ * the typed label suggests one (a word list, in the browser). Picking one fills the untouched role names and join mode.
+ */
+function KitPicker() {
+    const { setValue, getFieldState } = useFormContext<CreateWorkspaceInput>()
+    const label = useWatch<CreateWorkspaceInput, 'organization.type_label'>({ name: 'organization.type_label' }) ?? ''
+    const kit = useWatch<CreateWorkspaceInput, 'organization.kit'>({ name: 'organization.kit' })
+    const suggested = suggestKit(label)
+    const pick = (id: string) => {
+        const k = kitById(id)
+        if (!k) return
+        setValue('organization.kit', k.id, { shouldDirty: true })
+        if (!getFieldState('organization.role_names').isDirty) setValue('organization.role_names', k.roles)
+        if (!getFieldState('organization.join_mode').isDirty) setValue('organization.join_mode', k.join)
+    }
+    return (
+        <fieldset className="mt-5" data-testid="create-org-kit">
+            <legend className={labelClass}>Pick a starting kit</legend>
+            <p className="nb-compact mt-1 text-muted-foreground">Switches on the parts it needs. Everything can be changed later.</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Starting kit">
+                {readyKits().map((k) => (
+                    <label key={k.id} className={cn('flex cursor-pointer flex-col gap-1 rounded-md border p-3 text-[13px]', kit === k.id ? 'border-primary' : 'border-border')}>
+                        <span className="flex items-center gap-2"><input type="radio" className="nb-radio" name="org-kit" checked={kit === k.id} onChange={() => pick(k.id)} />
+                            <span className="font-medium">{k.name}</span>{suggested === k.id ? <span className="nb-tag">Suggested</span> : null}</span>
+                        <span className="text-muted-foreground">{[k.roles.owner, k.roles.admin, k.roles.member].join(' · ')}</span>
+                        <span>{k.lines.join(' · ')}</span>
+                    </label>
+                ))}
+            </div>
+        </fieldset>
+    )
 }
 
 /** Phase 2 Identity: Subject / Department / Area by type, stored as the category (decision 180). */

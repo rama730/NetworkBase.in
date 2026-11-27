@@ -125,3 +125,20 @@ test('Done: the code, what was sent, and an invite message in your name', async 
     await expect(link.getByRole('button', { name: 'Copied' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+// Plan B8.4b (report 37.2 calls 1–3): Other picks a starting kit; the typed word suggests one; untouched fields follow it.
+test('Other: Pick a starting kit — Suggested from the typed word, role names and join follow the kit, edited ones stay', async ({ page }) => {
+    await open(page, 'step=type');
+    await page.getByText('Anything else: a nonprofit, an event, a government team').click();
+    await page.getByLabel(/What do you call it/).fill('Food bank NGO');
+    const kits = page.getByTestId('create-org-kit');
+    await expect(kits).toContainText('Pick a starting kit');
+    await expect(kits.getByRole('radio', { name: /Nonprofit/ })).toBeVisible();
+    await expect(kits.locator('label', { hasText: 'Nonprofit' })).toContainText('Suggested');
+    await expect(kits.locator('label', { hasText: 'Nonprofit' })).toContainText('Director · Coordinator · Volunteer');
+    await kits.getByRole('radio', { name: /Nonprofit/ }).check();
+    const v = await values(page);
+    expect([v.organization.kit, (v.organization.role_names as { member: string }).member, v.organization.join_mode]).toEqual(['nonprofit', 'Volunteer', 'approval']);
+    await kits.getByRole('radio', { name: /Blank/ }).check();
+    expect((await values(page)).organization.kit).toBe('blank');
+});

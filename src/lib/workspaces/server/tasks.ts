@@ -1170,8 +1170,11 @@ async function isCommunityHost(projectId: string, userId: string) {
 
 /** B5.3 (report 34.4): every community has Events, so its events need no workflow. */
 async function isCommunityOrg(projectId: string) {
-  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
-  return row?.kind === "organization" && row.orgType === "community";
+  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  // B7.1a: a club's events too; B8.5 (report 37.2): an Other organization with the Events part on.
+  if (row?.kind !== "organization") return false;
+  if (row.orgType === "community" || row.orgType === "club") return true;
+  return row.orgType === "other" && (await import("@/lib/organizations/kits")).partOn(row.settings, "events");
 }
 
 async function isCompanyOrg(projectId: string) {

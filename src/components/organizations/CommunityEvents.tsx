@@ -29,12 +29,12 @@ const when = (start: string, end: string) => {
 };
 
 /** A community's Sprints: Events first, the sprints themselves a click away. */
-export function CommunitySprints({ orgId, me, children }: { orgId: string; me?: string | null; children: ReactNode }) {
+export function CommunitySprints({ orgId, me, children, rituals = true }: { orgId: string; me?: string | null; children: ReactNode; rituals?: boolean }) {
   const [view, setView] = useState<"events" | "rituals" | "sprints">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "rituals" ? "rituals" : "events"));
   return (
     <div className="space-y-4">
       <div className="flex gap-1 text-[13px]" role="group" aria-label="Sprints views">
-        {(["events", "rituals", "sprints"] as const).map((v) => (
+        {(rituals ? (["events", "rituals", "sprints"] as const) : (["events", "sprints"] as const)).map((v) => (
           <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "events" ? "Events" : v === "rituals" ? "Rituals" : "Sprints"}</button>
         ))}
       </div>

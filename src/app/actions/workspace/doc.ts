@@ -1889,7 +1889,10 @@ export async function createMeetingAction(projectId: string, input: unknown) {
         if (context.settings.section === "meetings" || context.settings.approvedAt) return { success: false as const, error: "That document is already a meeting." };
         const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
         // B7.3a (report 36.4 call 1): a club holds its general meetings and AGM itself, as a company holds its goals.
-        const clubMeetings = context.project.kind === "organization" && (await db.select({ orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1))[0]?.orgType === "club";
+        const [orgRow] = context.project.kind === "organization" ? await db.select({ orgType: workspaces.orgType, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1) : [];
+        // B8.5 (report 37.2): an Other organization with Board meetings (or Meetings) switched on holds them itself too.
+        const { partOn } = await import("@/lib/organizations/kits");
+        const clubMeetings = orgRow?.orgType === "club" || (orgRow?.orgType === "other" && (partOn(orgRow.settings, "boardMeetings") || partOn(orgRow.settings, "meetings")));
         if (!clubMeetings && !availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("meetings")) return { success: false as const, error: "Add Meetings and decisions first." };
         const attendeeIds = await memberIds(projectId, data.attendeeIds);
         const startsAt = new Date(data.startsAt).toISOString();

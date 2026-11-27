@@ -120,7 +120,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {org?.type === 'club' ? <ConstitutionCard orgId={project.id} about /> : null}
                 {org?.type === 'other' ? <OurPrograms orgId={project.id} /> : null}
                 {org?.type === 'other' ? <VolunteerWithUs orgId={project.id} /> : null}
-                {org?.type === 'community' || org?.type === 'club' ? <NextEventCard orgId={project.id} base={base} /> : null}
+                {org?.type === 'community' || org?.type === 'club' || (org?.type === 'other' && org.parts?.includes('events')) ? <NextEventCard orgId={project.id} base={base} /> : null}
                 {org?.type === 'community' || org?.type === 'club' ? <RulesSummary orgId={project.id} base={base} /> : null}
                 {org?.type === 'community' || org?.type === 'club' ? <CommunityShowcase orgId={project.id} /> : null}
             </div>
