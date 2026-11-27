@@ -37,7 +37,7 @@ export async function readConstitutionAction(orgId: string) {
     SELECT v.version, v.articles, v.changed, v.season, v.created_at AS at, d.slug AS doc_slug, d.settings->>'meetingTitle' AS meeting
     FROM club_constitution_versions v LEFT JOIN workspace_documents d ON d.id = v.doc_id WHERE v.org_id = ${orgId}::uuid ORDER BY v.version DESC LIMIT 200`));
   const cur = versions[0];
-  return { success: true as const, title: ctx.w.title, president: ctx.president, public: ctx.pub, version: cur?.version ?? null, articles: cur?.articles ?? [],
+  return { success: true as const, title: ctx.w.title, club: ctx.w.type === "club", president: ctx.president, public: ctx.pub, version: cur?.version ?? null, articles: cur?.articles ?? [],
     history: versions.map((v) => ({ version: v.version, changed: v.changed, season: v.season, at: new Date(v.at).toISOString(), meeting: ctx.member ? v.meeting : null, docSlug: ctx.member ? v.doc_slug : null })) };
 }
 
