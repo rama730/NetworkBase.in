@@ -147,7 +147,7 @@ export default function DiscoverClient({
     const viewerId = currentUser?.id ?? null;
 
     const { urlFilters, updateUrlFilters, clearFilters, activeFilters, isDefault } = useDiscoverUrlFilters();
-    const { view, q, status, type, sort, tech, hideOpened, show, org, orgType, verified } = urlFilters;
+    const { view, q, status, type, sort, tech, hideOpened, show, org, orgType, verified, recruiting } = urlFilters;
     const { hiddenIds, markSeen } = useDiscoverSessionSeen();
     const [filtersOpen, setFiltersOpen] = useState(false);
     const filtersButton = useRef<HTMLButtonElement>(null);
@@ -167,7 +167,8 @@ export default function DiscoverClient({
         ...(org ? { org } : {}),
         ...(show === 'organizations' && orgType ? { orgType } : {}),
         ...(show === 'organizations' && verified ? { verified } : {}),
-    }), [org, orgType, q, show, sort, status, tech, type, verified, view]);
+        ...(show === 'organizations' && recruiting ? { recruiting } : {}),
+    }), [org, orgType, q, recruiting, show, sort, status, tech, type, verified, view]);
     // Show filter (report §24.3): cards by kind on the server; update cards only for Everything and Updates.
     const keeps = showKeeps(show);
 

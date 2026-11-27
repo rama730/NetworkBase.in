@@ -1573,7 +1573,7 @@ function ProjectSettingsContent({
                 )}
                 {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} handle={project?.slug ?? null} />}
                 {/* B5.1 live check: the community's joining terms sit with Joining, not under Organization profile. */}
-                {organization && sections.some((s) => s.id === "org-access") && organization.type === "community" ? <JoiningSettings orgId={projectId} /> : null}
+                {organization && sections.some((s) => s.id === "org-access") && (organization.type === "community" || organization.type === "club") ? <JoiningSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
                 {organization && sections.some((s) => s.id === "org-people") && organization.type === "community" ? <CommunityMembersSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}

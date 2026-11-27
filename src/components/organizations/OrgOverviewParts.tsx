@@ -7,6 +7,7 @@ import { CompanyGoalsCard } from '@/components/organizations/CompanyGoals'
 import { StartHere } from '@/components/organizations/CompanyOnboarding'
 import { AskTeamCard } from '@/components/organizations/CompanyRequests'
 import { CommunityFrontDoor } from '@/components/organizations/CommunityFrontDoor'
+import { RecruitingCard } from '@/components/organizations/Club'
 import { LabHomeCard } from '@/components/organizations/Lab'
 import { LabProtocolsCard } from '@/components/organizations/LabProtocols'
 import { LabEquipmentCard } from '@/components/organizations/LabEquipment'
@@ -297,8 +298,9 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'research' ? <LabMeetingCard orgId={orgId} /> : null}
                 {orgType === 'research' ? <LabLibraryCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
                 {orgType === 'research' ? <LabEquipmentCard orgId={orgId} /> : null}
-                {orgType === 'community' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
-                {orgType === 'community' ? <NextEventCard orgId={orgId} base={base} /> : null}
+                {orgType === 'community' || orgType === 'club' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
+                {orgType === 'club' ? <RecruitingCard orgId={orgId} /> : null}
+                {orgType === 'community' || orgType === 'club' ? <NextEventCard orgId={orgId} base={base} /> : null}
                 {orgType === 'community' ? <CurrentChallengeCard orgId={orgId} base={base} /> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
                 {isClass ? <ClassNextLine orgId={orgId} /> : null}

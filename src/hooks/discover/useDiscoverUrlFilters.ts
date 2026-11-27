@@ -51,6 +51,7 @@ export function useDiscoverUrlFilters() {
             org: '',
             orgType: '',
             verified: false,
+            recruiting: false,
         });
     }, [updateUrlFilters]);
 

@@ -156,9 +156,9 @@ export async function readJoinTermsAction(input: { code?: string; orgId?: string
             WHERE d.workspace_id = w.id AND lower(d.filename) LIKE '%code of conduct%' AND coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft' ORDER BY d.created_at LIMIT 1) AS content,
           (SELECT d.slug FROM workspace_documents d WHERE d.workspace_id = w.id AND lower(d.filename) LIKE '%code of conduct%' AND d.published_version_id IS NOT NULL ORDER BY d.created_at LIMIT 1) AS slug
         FROM workspaces w WHERE w.id = ${org.id}::uuid`));
-    if (w?.type !== 'community') return { success: true as const, terms: null };
+    if (w?.type !== 'community' && w?.type !== 'club') return { success: true as const, terms: null };
     const { parseRules, readCommunitySettings } = await import('@/lib/organizations/community');
-    const c = readCommunitySettings(w.settings);
+    const c = readCommunitySettings(w.settings, w.type);
     return { success: true as const, terms: { agreeRequired: c.agreeRequired, rules: parseRules(w.content ?? ''), questions: c.questions, cocHref: w.slug ? `/org/${encodeURIComponent(w.org_slug ?? org.id)}?tab=docs&doc=${encodeURIComponent(w.slug)}` : null } };
 }
 

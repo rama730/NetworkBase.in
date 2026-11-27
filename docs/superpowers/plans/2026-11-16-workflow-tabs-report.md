@@ -14018,6 +14018,13 @@ SEASON 2026 renewal     Staying 122 · Not answered 58 · Leaving 6    [ End mem
 6. Season renewal asks once; nobody is removed automatically; officers can end non-renewed memberships in one action, recorded as Season ended, with alumni offered to graduates.
 7. Officers see drive counts, never a ranking.
 
+**Build calls (B7.1a, 2026-11-27):**
+1. **A club has the community front door** (M1): joining asks I agree to the published Code of conduct and the join questions; Getting started, Settings → Joining, the rules summary on About, and posting held until you agree all work as in a community. A club's default Getting started is: say hi in the club's channel, join a committee, come to the next meeting, pick a project. Its events (M3: the next event on Overview and About, events in Sprints) and its Showcase (M4) on About are open too. Members' directory, moderation, challenges, groups and chapters stay community-only.
+2. **Recruiting period** (call 3): officers (the President and Coordinators) set the from and to dates, a banner line and the first event on a Recruiting card on Overview. "Recruiting now · until …" shows on About from the start date through the end date, then turns itself off; there is no job. Discover gains "Recruiting now" with Show: Organizations, with the same rule.
+3. **Join poster** (call 4): Print the join poster prints the club's name, the banner line, the short link (networkbase.in/org/<handle>) and the join code, large and in black on white. No QR code. It's a print stylesheet on the normal page, not a new route.
+4. **Drive counts** (call 7, officers only): who joined between the dates, and how many of them checked in at an event. Numbers only, never names or a ranking. Nothing about visitors is collected (call 5).
+5. **Next:** B7.1b covers Season renewal (Staying this Season?, officers' review, End memberships not renewed recorded as Season ended, officers never included).
+
 ### 36.3 L2 · Officers, committees and the yearly handover (agreed 2026-11-17)
 **References** (36.1, plus 16 searches for handovers, elections, voting, roles, org charts and job descriptions: 142 templates, 33 rated; 4 more screens studied; no rated template covers a club handover, so it follows the pattern):
 

@@ -171,7 +171,8 @@ export async function readShowcaseAction(orgId: string) {
   const { userId } = await getViewerAuthContext();
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; visibility: string }>(sql`SELECT org_type AS type, visibility FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "community" || !a.canRead) return DENIED;
+  // B7.1a: a club's About shows its projects (M4's Showcase) too.
+  if ((w?.type !== "community" && w?.type !== "club") || !a.canRead) return DENIED;
   const inside = Boolean(userId) && (a.isOwner || (a.isMember && a.memberRole !== "viewer"));
   if (!inside && w.visibility !== "public") return { success: true as const, entries: [] };
   const rows = await entries(orgId, inside ? sql`true` : sql`c.assignee_id = ANY(coalesce(s.public_yes, '{}'::uuid[]))`, userId);

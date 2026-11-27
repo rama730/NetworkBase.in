@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
-import { needsAgreement, parseRules, readCommunitySettings, showGettingStarted } from "@/lib/organizations/community";
+import { hasFrontDoor, needsAgreement, parseRules, readCommunitySettings, showGettingStarted } from "@/lib/organizations/community";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -23,8 +23,9 @@ async function community(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown }>(sql`
     SELECT org_type AS type, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "community" || !a.canRead) return null;
-  return { userId, inside: a.isOwner || a.isMember, organiser: a.isOwner || a.memberRole === "admin", settings: readCommunitySettings(w.settings) };
+  // B7.1a (36.2): clubs share the front door.
+  if (!hasFrontDoor(w?.type) || !a.canRead) return null;
+  return { userId, inside: a.isOwner || a.isMember, organiser: a.isOwner || a.memberRole === "admin", settings: readCommunitySettings(w!.settings, w!.type) };
 }
 
 /** The Code of conduct: the org's document whose title starts with it; its rules from the version members read. */

@@ -30,7 +30,8 @@ async function community(orgId: string) {
       (SELECT m.view_prefs->'community'->'labels' FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role IN ('member', 'admin', 'owner')) AS labels,
       w.org_settings->'community'->'pauses'->${userId ?? ""}::text AS pause
     FROM workspaces w WHERE w.id = ${orgId}::uuid AND w.kind = 'organization' AND w.deleted_at IS NULL`));
-  if (w?.type !== "community" || !a.canRead) return null;
+  // B7.1a (36.2): a club's events (M3) — the taster event and meetings.
+  if ((w?.type !== "community" && w?.type !== "club") || !a.canRead) return null;
   const member = Boolean(userId) && (a.isOwner || (a.isMember && a.memberRole !== "viewer"));
   const organiser = a.isOwner || a.memberRole === "admin";
   return { userId, slug: w.slug ?? orgId, title: w.title, member, organiser,

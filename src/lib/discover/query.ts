@@ -32,6 +32,8 @@ export type DiscoverQuery = {
     /** With Show: Organizations (report §31.6): one of the 6 types, and Verified only. */
     orgType: string;
     verified: boolean;
+    /** Report 36.2 (B7.1a): clubs recruiting now. */
+    recruiting: boolean;
 };
 
 const SHOWS = ['all', 'projects', 'organizations', 'updates'] as const;
@@ -60,6 +62,7 @@ export function parseDiscoverQuery(get: (key: string) => string | null | undefin
         org: /^[a-z0-9-]{1,40}$/.test(read('org') ?? '') ? read('org')! : '',
         orgType: pick(read('orgType'), ORG_TYPES, ''),
         verified: read('verified') === 'true',
+        recruiting: read('recruiting') === 'true',
     };
 }
 
@@ -74,7 +77,8 @@ export function isDefaultDiscoverQuery(query: DiscoverQuery): boolean {
         && query.show === 'all'
         && !query.org
         && !query.orgType
-        && !query.verified;
+        && !query.verified
+        && !query.recruiting;
 }
 
 /** The filters shown as tags (status, type, skills, hide opened): the Filters button's count. */
@@ -85,5 +89,6 @@ export function activeFilterCount(query: DiscoverQuery): number {
         + (query.hideOpened ? 1 : 0)
         + (query.org ? 1 : 0)
         + (query.orgType ? 1 : 0)
-        + (query.verified ? 1 : 0);
+        + (query.verified ? 1 : 0)
+        + (query.recruiting ? 1 : 0);
 }

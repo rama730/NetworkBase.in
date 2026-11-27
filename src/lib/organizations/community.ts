@@ -15,12 +15,22 @@ export const DEFAULT_COMMUNITY: CommunitySettings = {
   ],
 };
 
-export function readCommunitySettings(orgSettings: unknown): CommunitySettings {
+/** Report 36.2 (B7.1a): a club has the community's front door (M1) — agreement, join questions, Getting started. */
+export const hasFrontDoor = (orgType: string | null | undefined) => orgType === "community" || orgType === "club";
+/** Call 2 (36.2): a club's Getting started — say hi, join a committee, come to the next meeting, pick a project. */
+export const CLUB_GETTING_STARTED: StartItem[] = [
+  { id: "hello", label: "Say hi in the club's channel", href: "/messages" },
+  { id: "committee", label: "Join a committee", href: "?tab=workspaces" },
+  { id: "meeting", label: "Come to the next meeting", href: "?tab=sprints" },
+  { id: "project", label: "Pick a project", href: "?tab=workspaces" },
+];
+
+export function readCommunitySettings(orgSettings: unknown, orgType?: string | null): CommunitySettings {
   const c = ((orgSettings as { community?: Partial<CommunitySettings> } | null)?.community ?? {}) as Partial<CommunitySettings>;
   return {
     agreeRequired: c.agreeRequired !== false,
     questions: Array.isArray(c.questions) ? c.questions.slice(0, 3) : [],
-    gettingStarted: Array.isArray(c.gettingStarted) ? c.gettingStarted.slice(0, 5) : DEFAULT_COMMUNITY.gettingStarted,
+    gettingStarted: Array.isArray(c.gettingStarted) ? c.gettingStarted.slice(0, 5) : orgType === "club" ? CLUB_GETTING_STARTED : DEFAULT_COMMUNITY.gettingStarted,
     welcomePost: c.welcomePost === true,
     firstDayLimit: c.firstDayLimit !== false,
   };

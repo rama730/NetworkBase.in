@@ -153,6 +153,8 @@ export interface DiscoverFilters {
   /** Show: Organizations only (report §31.6): one organization type, and Verified only. */
   orgType?: string;
   verified?: boolean;
+  /** Report 36.2 (B7.1a): clubs recruiting now. */
+  recruiting?: boolean;
 }
 
 /** Everything the browser gets about an author. A masked author (private, deleted) carries no identity at all. */

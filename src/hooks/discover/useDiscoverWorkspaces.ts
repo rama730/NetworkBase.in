@@ -77,6 +77,7 @@ async function fetchDiscoverPage(filters: DiscoverFilters, view: FilterView, cur
     if (filters.org) params.set('org', filters.org);
     if (filters.orgType) params.set('orgType', filters.orgType);
     if (filters.verified) params.set('verified', 'true');
+    if (filters.recruiting) params.set('recruiting', 'true');
     if (cursor) params.set('cursor', cursor);
 
     const response = await fetch(`/api/v1/discover/workspaces?${params.toString()}`, {

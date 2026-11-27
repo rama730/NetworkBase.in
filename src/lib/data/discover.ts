@@ -340,6 +340,10 @@ export const buildBaseConditions = (
     // Report §31.6: Organization type and Verified only, with Show: Organizations.
     if (filters.show === 'organizations' && filters.orgType) conditions.push(sql<boolean>`${workspaces.orgType} = ${filters.orgType}`);
     if (filters.show === 'organizations' && filters.verified) conditions.push(sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`);
+    // Report 36.2 call 3 (B7.1a): clubs whose recruiting period covers today; it ends on its own.
+    if (filters.show === 'organizations' && filters.recruiting) conditions.push(sql<boolean>`${workspaces.orgType} = 'club'
+        AND (${workspaces.orgSettings}->'club'->'recruiting'->>'from') <= to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+        AND (${workspaces.orgSettings}->'club'->'recruiting'->>'to') >= to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);
     if (filters.org) {
         // "Show everything from CSE-3A": the org itself and its public child projects.
         conditions.push(sql<boolean>`(${workspaces.slug} = ${filters.org} AND ${workspaces.kind} = 'organization'
