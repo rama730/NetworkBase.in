@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Hourglass } from "lucide-react";
 
-import { addBookingAction, applyStarterAction, moveKeyDateAction, previewMoveAction, raiseIssueAction, readFixedTimeAction, saveWorkstreamsAction, setFixedTimeAction, solveIssueAction, updateBookingAction } from "@/app/actions/fixed-time";
+import { archiveOrgAction } from "@/app/actions/org-lifecycle";
+import { addBookingAction, addTeamToProfileAction, applyStarterAction, runItAgainAction, saveFixedDebriefAction, saveWrapAction, moveKeyDateAction, previewMoveAction, raiseIssueAction, readFixedTimeAction, saveWorkstreamsAction, setFixedTimeAction, solveIssueAction, updateBookingAction } from "@/app/actions/fixed-time";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { BOOKING_STATES, BOOKING_WORDS, type BookingState } from "@/lib/organizations/fixed-time";
+import { BOOKING_STATES, BOOKING_WORDS, WRAP_ITEMS, type BookingState } from "@/lib/organizations/fixed-time";
 
 const safe = <T,>(p: Promise<T>) => p.catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
 const full = (d: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
@@ -26,6 +27,8 @@ export function FixedTimeCard({ orgId, other }: { orgId: string; other: boolean 
   const [booking, setBooking] = useState<{ title: string; supplier: string; workstream: string } | null>(null);
   const [refs, setRefs] = useState<Record<string, string>>({});
   const [issue, setIssue] = useState("");
+  const [deb, setDeb] = useState<{ summary: string; well: string; wrong: string; next: string } | null>(null);
+  const [again, setAgain] = useState<{ title: string; handle: string; keyDate: string } | null>(null);
   const [move, setMove] = useState<{ to: string; reason: string; preview: { passed: boolean; moves: Array<{ id: string; title: string; from: string | null; to: string }>; stays: Array<{ id: string; title: string; due: string | null }> } | null } | null>(null);
   const d = q.data?.success ? q.data : null;
   if (!d || (!d.fixed && !(d.organiser && other))) return null;
@@ -98,6 +101,29 @@ export function FixedTimeCard({ orgId, other }: { orgId: string; other: boolean 
             <button type="button" className={FORM_PRIMARY_CLASS} disabled={!booking.title.trim()} onClick={() => void run(addBookingAction(orgId, { title: booking.title, supplier: booking.supplier, workstream: booking.workstream || null }), "Booking added").then((ok) => ok && setBooking(null))}>Add</button>
             <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setBooking(null)}>Cancel</button></span>
             : d.organiser || d.workstreams.some((w) => w.owner) ? <button type="button" className="nb-link mt-1" onClick={() => setBooking({ title: "", supplier: "", workstream: "" })}>Add a booking</button> : null}</section> : null}
+        {f.pinned ? <details className="rounded-md border border-border p-3" data-testid="fixed-time-pinned"><summary className="cursor-pointer font-medium">Last run’s debrief · {f.pinned.from}</summary>
+          <p className="mt-1">{f.pinned.summary}</p>{f.pinned.well ? <p><span className="font-medium">What went well: </span>{f.pinned.well}</p> : null}
+          {f.pinned.wrong ? <p className="whitespace-pre-wrap"><span className="font-medium">What went wrong: </span>{f.pinned.wrong}</p> : null}{f.pinned.next ? <p className="whitespace-pre-wrap"><span className="font-medium">Next time: </span>{f.pinned.next}</p> : null}</details> : null}
+        {"wrap" in f && (f.state === "wrap_up" || f.state === "ended") ? <section aria-label="Wrap-up" className="space-y-2 rounded-md border border-border p-3" data-testid="fixed-time-wrap">
+          <h4 className="font-medium">Wrap-up{f.closed ? " · Closed" : ""}</h4>
+          <ul className="space-y-1">{WRAP_ITEMS.map((i) => <li key={i.id}><label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={f.wrap[i.id]} disabled={!d.organiser || i.id === "debrief" || f.closed}
+            onChange={(e) => void run(saveWrapAction(orgId, i.id as "thank" | "photos" | "report", e.target.checked), "Saved")} />{i.label}</label></li>)}</ul>
+          {d.organiser && !f.closed && !deb ? <button type="button" className="nb-link" onClick={() => setDeb(f.debrief ?? { summary: "", well: "", wrong: "", next: "" })}>{f.debrief ? "Edit the debrief" : "Write the debrief"}</button> : null}
+          {deb ? <span className="flex flex-col gap-1.5">{(["summary", "well", "wrong", "next"] as const).map((k) => <label key={k} className="flex flex-col">{{ summary: "Summary", well: "What went well", wrong: "What went wrong", next: "Next time (one per line; they become tasks next run)" }[k]}
+            <textarea className="nb-textarea mt-0.5 text-[13px]" rows={2} maxLength={2000} value={deb[k]} onChange={(e) => setDeb({ ...deb, [k]: e.target.value })} /></label>)}
+            <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!deb.summary.trim()} onClick={() => void run(saveFixedDebriefAction(orgId, deb), "Debrief saved").then((ok) => ok && setDeb(null))}>Save</button>
+              <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDeb(null)}>Cancel</button></span></span> : null}
+          <span className="flex flex-wrap gap-2">
+            {d.owner && !f.closed ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(archiveOrgAction(orgId), "Closed: read-only, nothing deleted")}>Close the team{WRAP_ITEMS.some((i) => !f.wrap[i.id] && i.id !== "report") ? " (wrap-up not finished)" : ""}</button> : null}
+            {d.owner && !again ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setAgain({ title: d.title, handle: "", keyDate: "" })}>Run it again</button> : null}
+            {d.member ? <button type="button" className="nb-link" onClick={() => void run(addTeamToProfileAction(orgId), "Added to your profile")}>Add to my profile</button> : null}</span>
+          {again ? <fieldset className="flex flex-wrap items-end gap-2"><legend className="sr-only">Run it again</legend>
+            <label className="flex flex-col">Name<Input value={again.title} maxLength={100} onChange={(e) => setAgain({ ...again, title: e.target.value })} className="mt-0.5 w-[200px]" /></label>
+            <label className="flex flex-col">Web address<Input value={again.handle} maxLength={40} placeholder="book-fest-2028" onChange={(e) => setAgain({ ...again, handle: e.target.value })} className="mt-0.5 w-[180px] font-mono" /></label>
+            <label className="flex flex-col">New key date<Input type="date" value={again.keyDate} onChange={(e) => setAgain({ ...again, keyDate: e.target.value })} className="mt-0.5 w-auto font-mono" /></label>
+            <button type="button" className={FORM_PRIMARY_CLASS} disabled={!again.title.trim() || !again.handle.trim() || !again.keyDate} onClick={() => void run(runItAgainAction(orgId, again), "Being made; you’re told when it’s ready (no people or work are copied)").then((ok) => ok && setAgain(null))}>Run it again</button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setAgain(null)}>Cancel</button></fieldset> : null}
+        </section> : null}
         {"week" in d && d.week.length ? <section aria-label="This week"><h4 className="font-medium">This week, worked back from {full(f.keyDate)}</h4>
           <ul className="mt-1 space-y-0.5">{d.week.map((t) => <li key={t.id} data-testid="fixed-time-task">{t.title} <span className="text-muted-foreground">· {full(t.due)} · {t.handSet ? "set by hand" : t.offset}{t.overdue ? " · not done yet" : ""}</span></li>)}</ul></section> : null}
       </div>

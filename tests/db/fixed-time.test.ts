@@ -109,3 +109,43 @@ test("37.4 (B8.2b): workstreams with owners, bookings with typed references (con
   assert.ok(day.success && "issues" in day && day.issues.length === 1 && day.issues[0]!.title === "Lost keys");
   assert.ok((await ft.solveIssueAction(id, day.issues[0]!.id, true)).success);
 });
+
+test("37.4 (B8.2c): wrap-up, the debrief keeps a late move's reason, Close is asked weekly and never automatic, Run it again pins the debrief and copies no people", async () => {
+  const [owner, mei] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, {}));
+  created.push(id);
+  const { addDays } = await import("../../src/lib/organizations/fixed-time");
+  const today = new Date().toISOString().slice(0, 10);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Book Fest 2027', slug = ${`wt-bf-${id.slice(0, 8)}`} WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${mei!}, 'member')`;
+  viewerId = owner!;
+  assert.ok((await ft.setFixedTimeAction(id, { keyDate: addDays(today, -20), endDate: addDays(today, -1) })).success);
+  assert.ok((await ft.saveWorkstreamsAction(id, [{ id: "venue", name: "Venue", owner: mei! }])).success);
+  await sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{fixedTime,moves}', ${sql.json([{ from: addDays(today, -25), to: addDays(today, -20), reason: "Rain", at: new Date().toISOString() }])}) WHERE id = ${id}`;
+  assert.ok((await ft.saveWrapAction(id, "thank", true)).success);
+  assert.ok((await ft.saveFixedDebriefAction(id, { summary: "A good year", well: "Volunteers", wrong: "Permit late", next: "- Apply for the permit in December\n- Book two sound techs" })).success);
+  const [d] = await sql`SELECT org_settings->'fixedTime'->'debrief' AS d FROM workspaces WHERE id = ${id}`;
+  assert.match(d!.d.wrong, /Key date moved from .* Rain/, "a move after the date passed keeps its reason in the debrief");
+  const read = await ft.readFixedTimeAction(id);
+  assert.ok(read.success && read.fixed && read.fixed.state === "ended" && "wrap" in read.fixed && read.fixed.wrap.thank && read.fixed.wrap.debrief && !read.fixed.wrap.photos);
+  // From the end date the owner is asked once a week; it never closes on its own.
+  const notices = await loadAppModule(() => import("../../src/lib/organizations/fixed-time-server"));
+  await notices.fixedTimeNotices(); await notices.fixedTimeNotices();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${owner!} AND title = 'WT Book Fest 2027 has ended. Close the team?'`)[0]!.n, 1);
+  assert.equal((await sql`SELECT status FROM workspaces WHERE id = ${id}`)[0]!.status, "active", "never closes on its own");
+  viewerId = mei!;
+  assert.ok((await ft.addTeamToProfileAction(id)).success);
+  assert.equal((await sql`SELECT project_title FROM profile_contributions WHERE profile_id = ${mei!} AND external_key = ${`fixed-team:${id}`}`)[0]!.project_title, "Organising team, WT Book Fest 2027");
+  // Run it again (the built duplicate, run here directly): dates move to the new key date, the debrief is pinned, Next time lines become tasks, no people.
+  const { duplicateOrg } = await loadAppModule(() => import("../../src/lib/organizations/lifecycle"));
+  const newKey = addDays(today, 345);
+  const copy = await duplicateOrg(id, owner!, { title: "WT Book Fest 2028", handle: `wt-bf28-${id.slice(0, 8)}`, termStart: newKey,
+    copy: { about: true, docs: true, files: false, sprints: false, assignments: false, channels: false, admins: false } } as never);
+  const newId = typeof copy === "string" ? copy : (copy as { id?: string } | null)?.id ?? (await sql`SELECT id FROM workspaces WHERE slug = ${`wt-bf28-${id.slice(0, 8)}`}`)[0]!.id as string;
+  created.push(newId);
+  const [n] = await sql`SELECT org_settings->'fixedTime' AS f FROM workspaces WHERE id = ${newId}`;
+  assert.deepEqual([n!.f.keyDate, n!.f.endDate, n!.f.workstreams[0].owner, n!.f.pinned.from, n!.f.pinned.summary], [newKey, addDays(newKey, 19), null, "WT Book Fest 2027", "A good year"]);
+  assert.equal(n!.f.starter ?? null, null, "no plan, moves or wrap-up are copied");
+  assert.deepEqual((await sql`SELECT title FROM tasks WHERE workspace_id = ${newId} ORDER BY title`).map((t) => t.title), ["Apply for the permit in December", "Book two sound techs"]);
+  assert.deepEqual((await sql`SELECT user_id FROM workspace_members WHERE workspace_id = ${newId}`).map((m) => m.user_id), [owner!], "no members copied");
+});

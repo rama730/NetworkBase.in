@@ -15301,6 +15301,14 @@ NEXT YEAR         [ Run it again ] → Book Fest 2028, dates moved to Feb 12 202
 2. **Bookings:** organisers and a workstream's owner add one (what, supplier, workstream), needed by 14 days before the key date by default and assigned to the workstream's owner. States are words (To book · Applied · Confirmed · Cancelled), and Confirmed needs the typed reference (server test). NetworkBase never books or pays. A booking still not confirmed 14 days before the key date tells its owner once (Normal).
 3. **Day of:** on the key date the card shows Issues today. Anyone on the team adds one in a line and ticks it solved; issues can only be raised on the day.
 
+**Build calls (B8.2c, 2026-11-27):**
+1. **Wrap-up** (shown from the day after the key date): a checklist (thank volunteers and partners, collect photos and files, the debrief, an optional report) ticked by organisers. The debrief item ticks itself when the debrief exists.
+2. **Debrief:** Summary · What went well · What went wrong · Next time. A key date moved after it passed adds its reason under What went wrong (edge 1).
+3. **Close the team:** the owner closes it with the built archive (read-only, nothing deleted), even with items left (the button says so). From the end date the owner is asked "Close the team?" once a week; it never closes on its own (server test).
+4. **Run it again:** the owner gives a name, web address and new key date. It runs the built duplicate with About and documents; no members, messages or work are copied (server test). The built `duplicateOrg` now anchors a fixed-time team on its key date, so the copy's key and end dates keep their distance. Workstream names come without owners. This run's debrief is pinned on the new team's Dates card, and its Next time lines become tasks.
+5. **Profile entry:** after the key date, a member adds "Organising team, Book Fest 2027" to their profile with their yes.
+6. **Not built:** the parent's Projects saying "Closed" (it shows the built Archived state), and the members' weekly Summary of their workstream's tasks.
+
 ### 37.5 X4 · Programs and impact (agreed 2026-11-17)
 **References** (37.1, plus 12 searches for impact reports, logic models, theories of change, program evaluation, annual plans, KPIs and mission statements: 107 templates, 20 rated; 4 more screens studied):
 

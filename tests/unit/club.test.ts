@@ -126,3 +126,12 @@ test("fixed time: the countdown, offsets as words, starters inside their window"
   assert.ok(STARTERS.event!.tasks.every((t) => t.offset >= -56 && t.offset <= 14), "Event: 8 weeks before to 2 weeks after");
   assert.equal(readFixedTime({ fixedTime: { keyDate: "2027-02-13", endDate: "2027-02-01" } }), null, "the end comes on or after the key date");
 });
+
+test("fixed time: Run it again keeps the dates' distance, drops owners, pins the debrief; Next time lines become tasks", async () => {
+  const { carryOver, nextTimeTasks } = await import("../../src/lib/organizations/fixed-time");
+  const f = { keyDate: "2027-02-13", endDate: "2027-03-15", workstreams: [{ id: "venue", name: "Venue", owner: "u1" }], debrief: { summary: "Good year", well: "Volunteers", wrong: "Permit late", next: "- Apply for the permit in December\n• Book two sound techs\n" } };
+  assert.deepEqual(carryOver(f, "2028-02-12", "Book Fest 2027"), { keyDate: "2028-02-12", endDate: "2028-03-13", workstreams: [{ id: "venue", name: "Venue", owner: null }],
+    pinned: { ...f.debrief, from: "Book Fest 2027" } });
+  assert.deepEqual(nextTimeTasks(f.debrief), ["Apply for the permit in December", "Book two sound techs"]);
+});
+

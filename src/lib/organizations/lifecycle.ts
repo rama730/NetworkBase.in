@@ -224,11 +224,16 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
   const access = await getWorkspaceAccessById(sourceId, actorId);
   if (!access.canRead || !(access.isOwner || access.memberRole === "admin")) throw new Error("Only the organization's owner or admins can duplicate it");
   // Dates move from the old term start, or else from the first sprint (decision 52, report §27.4).
-  const [firstSprint] = source.termStart ? [] : await db.select({ start: sql<Date | null>`min(${workspaceSprints.startDate})` }).from(workspaceSprints).where(eq(workspaceSprints.projectId, sourceId));
-  const anchor = source.termStart ? Date.parse(`${source.termStart}T00:00:00Z`) : firstSprint?.start ? new Date(firstSprint.start).getTime() : null;
+  // B8.2c (report 37.4 call 7): a team for a fixed time runs again from its key date.
+  const { carryOver, nextTimeTasks, readFixedTime } = await import("@/lib/organizations/fixed-time");
+  const fixed = readFixedTime(source.orgSettings);
+  const [firstSprint] = source.termStart || fixed ? [] : await db.select({ start: sql<Date | null>`min(${workspaceSprints.startDate})` }).from(workspaceSprints).where(eq(workspaceSprints.projectId, sourceId));
+  const anchor = source.termStart ? Date.parse(`${source.termStart}T00:00:00Z`) : fixed ? Date.parse(`${fixed.keyDate}T00:00:00Z`) : firstSprint?.start ? new Date(firstSprint.start).getTime() : null;
   const deltaMs = options.termStart && anchor !== null ? Date.parse(`${options.termStart}T00:00:00Z`) - anchor : 0;
   const shiftDate = (d: string | null) => (d ? new Date(Date.parse(`${d}T00:00:00Z`) + deltaMs).toISOString().slice(0, 10) : null);
   const keepSettings = Object.fromEntries(Object.entries(source.orgSettings ?? {}).filter(([k]) => !["changes", "detachRequest", "moveInRequest", "archivedWithOrg", "handleChangedAt", "institutionRequest"].includes(k)));
+  // The copy keeps the dates' distance from its new key date and pins this run's debrief; no plan, moves or wrap-up.
+  if (fixed) keepSettings.fixedTime = carryOver(fixed, options.termStart || fixed.keyDate, source.title);
 
   const newId = await db.transaction(async (tx) => {
     // Audit N24: the 5-owned limit is checked again here, so duplicates queued at once can't all pass.
@@ -238,7 +243,7 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
       kind: "organization", orgType: source.orgType, visibility: source.visibility, status: "active",
       // A school is copied as a school; a class's school link is asked for again below (B0.2 security review).
       orgLevel: source.orgLevel,
-      orgSettings: options.copy.about ? keepSettings : { version: 1, roleNames: (source.orgSettings as { roleNames?: unknown })?.roleNames },
+      orgSettings: options.copy.about ? keepSettings : { version: 1, roleNames: (source.orgSettings as { roleNames?: unknown })?.roleNames, ...(fixed ? { fixedTime: keepSettings.fixedTime } : {}) },
       description: options.copy.about ? source.description : null, shortDescription: options.copy.about ? source.shortDescription : null,
       coverImage: options.copy.about ? source.coverImage : null, welcomeNote: options.copy.about ? source.welcomeNote : null,
       timeZone: source.timeZone, termStart: options.termStart || shiftDate(source.termStart), termEnd: shiftDate(source.termEnd),
@@ -257,6 +262,13 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
 
   try {
     const filled = await fillDuplicate(sourceId, newId, actorId, options, deltaMs);
+    // Last debrief's "Next time" lines become tasks in the new run.
+    const next = fixed ? nextTimeTasks(fixed.debrief) : [];
+    if (next.length) {
+      const { insertTask } = await import("@/lib/organizations/assignments");
+      await db.transaction(async (tx) => { for (const title of next) await insertTask(tx as never, { projectId: newId, title, description: "From last run’s debrief (Next time).", dueDate: null, sprintId: null,
+        assigneeId: null, creatorId: actorId, kind: "task", assignmentId: null, assignmentSettings: null, teamName: null }); });
+    }
     // B0.2 Start next term: the copy joins the same school the way a new class does — at once for its admins, else as a request.
     if (source.institutionId) await joinSchoolAs(newId, source.institutionId, actorId);
     if (options.cohort) {

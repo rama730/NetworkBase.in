@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { addDays, bookingSchema, countdown, defaultEnd, fixedTimeSchema, offsetWords, readFixedTime, STARTERS, workstreamsSchema, type Booking } from "@/lib/organizations/fixed-time";
+import { addDays, bookingSchema, countdown, debriefSchema, defaultEnd, fixedTimeSchema, offsetWords, readFixedTime, STARTERS, workstreamsSchema, type Booking } from "@/lib/organizations/fixed-time";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -27,7 +27,7 @@ async function org(orgId: string) {
   const [w] = Array.from(await db.execute<{ settings: unknown; slug: string | null; title: string; status: string }>(sql`
     SELECT org_settings AS settings, slug, title, status FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   if (!w || !a.canRead || !(a.isOwner || a.isMember)) return null;
-  return { userId, w, fixed: readFixedTime(w.settings), organiser: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked,
+  return { userId, w, fixed: readFixedTime(w.settings), organiser: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, owner: a.isOwner && !a.writeBlocked,
     member: !a.writeBlocked && (a.isOwner || a.memberRole !== "viewer") };
 }
 const today = () => new Date().toISOString().slice(0, 10);
@@ -56,7 +56,9 @@ export async function readFixedTimeAction(orgId: string) {
   const people = ctx.organiser ? Array.from(await db.execute<{ id: string; name: string }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 300`)) : [];
   return { success: true as const, organiser: ctx.organiser, member: ctx.member, starters: Object.entries(STARTERS).map(([id, s]) => ({ id, name: s.name, tasks: s.tasks.length })), people,
-    fixed: { keyDate: f.keyDate, endDate: f.endDate, starter: f.starter ?? null, ...countdown(f, today()), moves: f.moves ?? [] },
+    fixed: { keyDate: f.keyDate, endDate: f.endDate, starter: f.starter ?? null, ...countdown(f, today()), moves: f.moves ?? [], closed: ctx.w.status === "archived",
+      wrap: { thank: Boolean(f.wrap?.thank), photos: Boolean(f.wrap?.photos), debrief: Boolean(f.debrief), report: Boolean(f.wrap?.report) }, debrief: f.debrief ?? null, pinned: f.pinned ?? null },
+    owner: ctx.owner, title: ctx.w.title,
     workstreams: (f.workstreams ?? []).map((x) => ({ ...x, ownerName: owners.find((o) => o.id === x.owner)?.name ?? null })),
     bookings: bookings.map((b) => ({ id: b.id, title: b.title, ...b.booking, due: b.due, owner: b.owner })), issues,
     week: week.map((t) => ({ id: t.id, title: t.title, due: t.due, phase: t.plan.phase, offset: offsetWords(t.plan.offset), handSet: t.hand, overdue: t.due < today() })) };
@@ -217,5 +219,55 @@ export async function solveIssueAction(orgId: string, taskId: string, done: bool
   if (!ctx?.member || !isLooseUuid(taskId) || typeof done !== "boolean") return DENIED;
   const ok = Array.from(await db.execute(sql`UPDATE tasks SET status = ${done ? "done" : "todo"}, updated_at = now() WHERE id = ${taskId}::uuid AND workspace_id = ${orgId}::uuid AND (type_fields->>'issue')::boolean IS TRUE RETURNING id`));
   return ok.length ? { success: true } : DENIED;
+}
+
+// ── B8.2c (report 37.4 calls 5–7): wrap-up, debrief, Run it again, the profile entry ───────────────────────────────────
+
+/** Tick the wrap-up checklist (organisers): thank volunteers, collect photos and files, an optional report. */
+export async function saveWrapAction(orgId: string, item: "thank" | "photos" | "report", on: boolean): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.organiser || !ctx.fixed || !["thank", "photos", "report"].includes(item) || typeof on !== "boolean") return DENIED;
+  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{fixedTime,wrap}', coalesce(org_settings->'fixedTime'->'wrap', '{}'::jsonb) || jsonb_build_object(${item}::text, ${on})) WHERE id = ${orgId}::uuid`);
+  return { success: true };
+}
+
+/** The debrief (organisers; 11.6's Retrospective with the post-mortem's headings): Summary · What went well · What went wrong · Next time. */
+export async function saveFixedDebriefAction(orgId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.organiser || !ctx.fixed) return DENIED;
+  const parsed = debriefSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Write at least the summary." };
+  const moves = (ctx.fixed.moves ?? []).filter((m) => m.reason);
+  // A key date moved after it passed keeps its reason in the debrief (edge 1).
+  const wrong = moves.length && !parsed.data.wrong.includes("Key date moved") ? `${parsed.data.wrong}${parsed.data.wrong ? "\n" : ""}${moves.map((m) => `Key date moved from ${m.from} to ${m.to}: ${m.reason}`).join("\n")}` : parsed.data.wrong;
+  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{fixedTime,debrief}', ${JSON.stringify({ ...parsed.data, wrong })}::jsonb) WHERE id = ${orgId}::uuid`);
+  return { success: true };
+}
+
+/**
+ * Run it again (the owner): the built duplicate with About and documents, dates moved to the new key date, no members,
+ * messages or work; the copy pins this run's debrief and its Next time lines become tasks (lifecycle.ts duplicateOrg).
+ */
+export async function runItAgainAction(orgId: string, input: { title: string; handle: string; keyDate: string }): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.owner || !ctx.fixed || !/^\d{4}-\d{2}-\d{2}$/.test(String(input?.keyDate)) || input.keyDate <= ctx.fixed.keyDate) return { success: false, error: "Pick a new key date after this one." };
+  const { duplicateOrgAction } = await import("@/app/actions/org-lifecycle");
+  return duplicateOrgAction(orgId, { title: String(input.title ?? ""), handle: String(input.handle ?? ""), termStart: input.keyDate,
+    copy: { about: true, docs: true, files: false, sprints: false, assignments: false, channels: false, admins: false } });
+}
+
+/** Add "Organising team, Book Fest 2027" to my profile (members, after the key date, with their yes). */
+export async function addTeamToProfileAction(orgId: string): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx || !ctx.fixed || ctx.fixed.keyDate > today()) return { success: false, error: "This can go on your profile once the day has happened." };
+  const year = ctx.fixed.keyDate.slice(0, 4);
+  const title = `Organising team, ${ctx.w.title}`.slice(0, 300);
+  const made = Array.from(await db.execute(sql`INSERT INTO profile_contributions (profile_id, external_key, project_title, project_url, source, role_kind, role_title, summary, visibility)
+    VALUES (${ctx.userId}::uuid, ${`fixed-team:${orgId}`}, ${title}, ${null}, 'manual', 'contributor', 'Organiser', ${`${year} · confirmed by ${ctx.w.title}`}, 'public')
+    ON CONFLICT (profile_id, external_key) WHERE deleted_at IS NULL AND workspace_id IS NULL DO NOTHING RETURNING id`));
+  if (!made.length) return { success: false, error: "It’s already on your profile." };
+  const { markProfileCollaborationSummaryStale } = await import("@/lib/profile/collaboration");
+  await markProfileCollaborationSummaryStale([ctx.userId]).catch(() => undefined);
+  return { success: true };
 }
 

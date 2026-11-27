@@ -12,12 +12,16 @@ export const fixedTimeSchema = z.object({
   endDate: z.string().date(),
 }).strict().refine((d) => d.endDate >= d.keyDate, "The end date is on or after the key date.");
 export type Workstream = { id: string; name: string; owner: string | null };
-export type FixedTime = z.infer<typeof fixedTimeSchema> & { starter?: string | null; moves?: Array<{ from: string; to: string; reason: string | null; at: string }>; workstreams?: Workstream[] };
+export type Debrief = { summary: string; well: string; wrong: string; next: string };
+export type FixedTime = z.infer<typeof fixedTimeSchema> & { starter?: string | null; moves?: Array<{ from: string; to: string; reason: string | null; at: string }>; workstreams?: Workstream[];
+  /** B8.2c: the wrap-up checklist, this run's debrief, and last run's debrief pinned by Run it again. */
+  wrap?: { thank?: boolean; photos?: boolean; report?: boolean }; debrief?: Debrief | null; pinned?: (Debrief & { from: string }) | null };
 export function readFixedTime(orgSettings: unknown): FixedTime | null {
   const raw = (orgSettings as { fixedTime?: Record<string, unknown> } | null)?.fixedTime;
   const p = fixedTimeSchema.safeParse(raw ? { keyDate: raw.keyDate, endDate: raw.endDate } : null);
   return p.success ? { ...p.data, starter: typeof raw!.starter === "string" ? raw!.starter : null, moves: Array.isArray(raw!.moves) ? (raw!.moves as FixedTime["moves"]) : [],
-    workstreams: Array.isArray(raw!.workstreams) ? (raw!.workstreams as Workstream[]) : [] } : null;
+    workstreams: Array.isArray(raw!.workstreams) ? (raw!.workstreams as Workstream[]) : [],
+    wrap: (raw!.wrap as FixedTime["wrap"]) ?? {}, debrief: (raw!.debrief as Debrief | undefined) ?? null, pinned: (raw!.pinned as FixedTime["pinned"]) ?? null } : null;
 }
 export const defaultEnd = (keyDate: string) => new Date(Date.parse(`${keyDate}T00:00:00Z`) + 30 * DAY).toISOString().slice(0, 10);
 export const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
@@ -67,3 +71,15 @@ export const BOOKING_WORDS: Record<BookingState, string> = { to_book: "To book",
 export type Booking = { supplier: string; ref: string; state: BookingState; workstream: string | null };
 export const bookingSchema = z.object({ supplier: z.string().trim().max(120), ref: z.string().trim().max(60), state: z.enum(BOOKING_STATES), workstream: z.string().max(30).nullable() }).strict()
   .refine((b) => b.state !== "confirmed" || b.ref.length > 0, "A confirmed booking has its reference.");
+
+/** B8.2c (call 5): the wrap-up checklist — thank volunteers, collect photos and files, the debrief, an optional report. */
+export const WRAP_ITEMS = [{ id: "thank", label: "Thank volunteers and partners" }, { id: "photos", label: "Collect photos and files" }, { id: "debrief", label: "Debrief" }, { id: "report", label: "Report (optional)" }] as const;
+export const debriefSchema = z.object({ summary: z.string().trim().min(1).max(2000), well: z.string().trim().max(2000), wrong: z.string().trim().max(2000), next: z.string().trim().max(2000) }).strict();
+/** Run it again: the copy keeps the dates' distance from a new key date, the workstream names (no owners: no people are copied), and last run's debrief pinned. */
+export function carryOver(f: FixedTime, newKey: string, fromTitle: string) {
+  const delta = Math.round((Date.parse(`${newKey}T00:00:00Z`) - Date.parse(`${f.keyDate}T00:00:00Z`)) / DAY);
+  return { keyDate: newKey, endDate: addDays(f.endDate, delta), workstreams: (f.workstreams ?? []).map((w) => ({ ...w, owner: null })),
+    pinned: f.debrief ? { ...f.debrief, from: fromTitle } : f.pinned ?? null };
+}
+/** "Next time" lines become tasks in the next run. */
+export const nextTimeTasks = (d: Debrief | null | undefined) => (d?.next ?? "").split(/\n+/).map((l) => l.replace(/^[-*•\s]+/, "").trim()).filter(Boolean).slice(0, 20);
