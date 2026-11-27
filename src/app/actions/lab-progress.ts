@@ -3,12 +3,11 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { readLabSettings, readPosition } from "@/lib/organizations/lab";
+import { readPosition } from "@/lib/organizations/lab";
+import { lab, personOf, supervises } from "@/lib/organizations/lab-progress-access";
 import { milestonePlan, supervisionRhythm, type MilestoneState } from "@/lib/organizations/lab-progress";
-import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 /**
@@ -20,32 +19,6 @@ import { isLooseUuid } from "@/lib/validations/uuid";
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You can’t do that here." };
 const today = () => new Date().toISOString().slice(0, 10);
-
-async function lab(orgId: string) {
-  if (!isLooseUuid(orgId)) return null;
-  const { userId } = await getViewerAuthContext();
-  if (!userId) return null;
-  const a = await getWorkspaceAccessById(orgId, userId);
-  const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; owner: string; slug: string | null; reports: Record<string, string> | null }>(sql`
-    SELECT org_type AS type, org_settings AS settings, owner_id AS owner, slug, org_settings->'staffGrowth'->'reportsTo' AS reports
-    FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "research" || !a.canRead || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
-  return { userId, owner: w.owner, slug: w.slug ?? orgId, pi: a.isOwner, admin: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, blocked: Boolean(a.writeBlocked),
-    settings: readLabSettings(w.settings), reports: w.reports ?? {} };
-}
-type Ctx = NonNullable<Awaited<ReturnType<typeof lab>>>;
-
-/** A person's record and who supervises them (layer 12: with no supervisor named, the PI is). */
-async function personOf(ctx: Ctx, orgId: string, userId: string) {
-  const [p] = Array.from(await db.execute<{ start: string; part_time: boolean; co: string | null; weeks: number; name: string | null; prefs: unknown }>(sql`
-    SELECT lp.start_date::text AS start, lp.part_time, lp.co_supervisor_id AS co, lp.supervision_weeks AS weeks, coalesce(pr.full_name, pr.username) AS name, m.view_prefs AS prefs
-    FROM lab_progress lp JOIN profiles pr ON pr.id = lp.user_id LEFT JOIN workspace_members m ON m.workspace_id = lp.org_id AND m.user_id = lp.user_id
-    WHERE lp.org_id = ${orgId}::uuid AND lp.user_id = ${userId}::uuid`));
-  if (!p) return null;
-  const supervisor = ctx.reports[userId] ?? ctx.owner;
-  return { ...p, supervisor, position: readPosition(p.prefs).position };
-}
-const supervises = (ctx: Ctx, person: { supervisor: string; co: string | null }) => ctx.userId === person.supervisor || ctx.userId === person.co;
 
 /** My progress (the person), or a student's (their supervisors and the PI): record, rhythm, milestones; notes only for the pair. */
 export async function readProgressAction(orgId: string, who?: string | null) {
@@ -109,6 +82,10 @@ export async function setProgressAction(orgId: string, userId: string, input: un
   const [m] = Array.from(await db.execute<{ prefs: unknown }>(sql`
     SELECT view_prefs AS prefs FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid AND role <> 'viewer' AND completed_at IS NULL`));
   if (!m) return { success: false, error: "Progress is for people in the lab." };
+  // Security review: a co-supervisor reads the private log, so only the PI or the person's supervisor names or changes one.
+  const [before] = Array.from(await db.execute<{ co: string | null }>(sql`SELECT co_supervisor_id AS co FROM lab_progress WHERE org_id = ${orgId}::uuid AND user_id = ${userId}::uuid`));
+  const coChanges = (before?.co ?? null) !== s.coSupervisorId;
+  if (coChanges && !(ctx.pi || (ctx.reports[userId] ?? ctx.owner) === ctx.userId)) return { success: false, error: "Only the PI or the person’s supervisor names a co-supervisor." };
   if (s.coSupervisorId) {
     const [co] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${s.coSupervisorId}::uuid
       AND role IN ('owner', 'admin') AND completed_at IS NULL) AS ok`));
@@ -127,6 +104,11 @@ export async function setProgressAction(orgId: string, userId: string, input: un
         WHERE lab_milestones.state = 'upcoming' AND lab_milestones.moved_reason IS NULL`);
     }
   });
+  if (coChanges && s.coSupervisorId) {
+    await createNotification({ recipientUserId: userId, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "more",
+      title: "You have a new co-supervisor, who can read your supervision log", href: `/org/${encodeURIComponent(ctx.slug)}`, entityRefs: { projectId: orgId, projectSlug: ctx.slug },
+      dedupeKey: `lab-co:${orgId}:${userId}:${s.coSupervisorId}` }).catch(() => undefined);
+  }
   return { success: true, milestones: plan.length };
 }
 

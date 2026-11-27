@@ -54,6 +54,12 @@ test("35.6 supervision and milestones: notes stay with the pair; PI sees rhythm 
   assert.match(String((await pg.setProgressAction(org, mei!, { startDate: "2024-09-01", partTime: false, coSupervisorId: ravi!, weeks: 2 }) as { error?: string }).error), /co-supervisor/);
   const set = await pg.setProgressAction(org, mei!, { startDate: "2024-09-01", partTime: false, coSupervisorId: null, weeks: 2 });
   assert.ok(set.success && set.milestones === 8);
+  // Security review: a Researcher who isn't Mei's supervisor can't make themselves her co-supervisor.
+  const [other] = await Promise.all([1].map(() => sql.begin((tx) => createUser(tx))));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${other!}, 'admin')`;
+  viewerId = other!;
+  assert.match(String((await pg.setProgressAction(org, mei!, { startDate: "2024-09-01", partTime: false, coSupervisorId: other!, weeks: 2 }) as { error?: string }).error), /names a co-supervisor/);
+  assert.equal((await pg.readProgressAction(org, mei!)).success, false, "and so never reads her log");
   viewerId = pi!;
   assert.ok((await pg.setProgressAction(org, ravi!, { startDate: "2025-09-01", partTime: true, coSupervisorId: rao!, weeks: 4 })).success);
 
@@ -93,6 +99,15 @@ test("35.6 supervision and milestones: notes stay with the pair; PI sees rhythm 
   assert.equal(byKey["qualifying"]?.dueOn, "2026-09-01", "a moved milestone keeps its date");
   assert.equal(byKey["submission"]?.dueOn, "2028-04-01");
   assert.equal(byKey["proposal"]?.state, "done");
+  // Security review: a supervisor who leaves the lab stops reading the log; the PI becomes the supervisor.
+  await sql`UPDATE workspace_members SET completed_at = now() WHERE workspace_id = ${org} AND user_id = ${rao!}`;
+  viewerId = rao!;
+  assert.equal((await pg.readProgressAction(org, mei!)).success, false);
+  viewerId = pi!;
+  const asPi2 = await pg.readProgressAction(org, mei!);
+  assert.ok(asPi2.success && asPi2.set && asPi2.pair && asPi2.notes.length === 1, "the PI is her supervisor now");
+  await sql`UPDATE workspace_members SET completed_at = NULL WHERE workspace_id = ${org} AND user_id = ${rao!}`;
+  viewerId = rao!;
   // The leads' list: dates only.
   const all = await pg.readLabProgressAction(org);
   assert.ok(all.success && all.rows.length === 2 && all.rows.every((r) => !("notes" in r)));
