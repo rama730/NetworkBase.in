@@ -249,7 +249,7 @@ export function ElectionCard({ orgId }: { orgId: string }) {
         {start ? <fieldset className="flex flex-wrap items-end gap-2 text-[13px]" data-testid="club-election-start">
           <label className="flex flex-col">For the Season<Input value={start.season} maxLength={20} onChange={(x) => setStart({ ...start, season: x.target.value })} className="mt-0.5 w-[120px] font-mono" /></label>
           <label className="flex flex-col">Returning officer<select className="nb-select mt-0.5" value={start.returningOfficerId} onChange={(x) => setStart({ ...start, returningOfficerId: x.target.value })}>
-            <option value="">Pick someone not standing</option>{("people" in d ? d.people : []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+            <option value="">Pick someone not standing</option>{(("people" in d && d.people) || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <label className="flex items-center gap-1.5 pb-2"><input type="checkbox" className="nb-check" checked={start.showCounts} onChange={(x) => setStart({ ...start, showCounts: x.target.checked })} />Show vote counts with the results</label>
           <button type="button" className={FORM_PRIMARY_CLASS} disabled={!start.season.trim() || !start.returningOfficerId} onClick={() => void run(startElectionAction(orgId, start), "Nominations are open").then(() => setStart(null))}>Open nominations</button>
           <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setStart(null)}>Cancel</button>
