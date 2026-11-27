@@ -55,7 +55,7 @@ export const STARTERS: Record<string, { name: string; tasks: StarterTask[] }> = 
     { phase: "Make", title: "Make the materials", offset: -21 }, { phase: "Make", title: "Line up partners", offset: -14 },
     { phase: "Launch", title: "Launch", offset: 0 }, { phase: "Run", title: "Mid-campaign check", offset: 14 }, { phase: "Wrap-up", title: "Debrief", offset: 30 }] },
   task_force: { name: "Task force", tasks: [
-    { phase: "Start", title: "Agree the question and the deadline", offset: -42 }, { phase: "Work", title: "Gather what's known", offset: -35 },
+    { phase: "Start", title: "Agree the question and the deadline", offset: -42 }, { phase: "Work", title: "Gather what’s known", offset: -35 },
     { phase: "Work", title: "Draft the recommendation", offset: -14 }, { phase: "Work", title: "Review with stakeholders", offset: -7 },
     { phase: "Deliver", title: "Hand in the recommendation", offset: 0 }, { phase: "Wrap-up", title: "Debrief", offset: 7 }] },
 };

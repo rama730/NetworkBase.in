@@ -72,10 +72,20 @@ test("37.5 (B8.3a): programs with measures — hours from tagged checked-in shif
   assert.ok(waiting.success && waiting.waiting.length === 1 && waiting.waiting[0]!.value === 64);
   assert.ok((await pg.confirmNumberAction(id, waiting.waiting[0]!.id, true)).success);
   viewerId = owner!;
+  // Live check 2026-11-27: an admin who typed a number can't confirm it; the owner can.
+  await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${id} AND user_id = ${owner!}`;
+  assert.ok((await pg.typeNumberAction(id, prog, "reading", 66)).success);
+  const mine = await pg.readProgramsAction(id);
+  assert.ok(mine.success && mine.waiting.length === 1 && mine.waiting[0]!.canConfirm === false);
+  assert.equal((await pg.confirmNumberAction(id, mine.waiting[0]!.id, true)).success, false);
+  viewerId = admin!;
+  assert.ok((await pg.confirmNumberAction(id, mine.waiting[0]!.id, false)).success, "the owner can");
+  await sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${id} AND user_id = ${owner!}`;
+  viewerId = owner!;
   assert.ok((await pg.typeNumberAction(id, prog, "reading", 70)).success, "a change after confirmation waits again");
   const after = await pg.readProgramsAction(id);
   assert.deepEqual([m(after, "reading")?.value, m(after, "reading")?.waiting], [64, true], "reports keep the confirmed number until the new one is confirmed");
-  assert.equal((await sql`SELECT count(*)::int AS n FROM program_numbers WHERE program_id = ${prog}`)[0]!.n, 2, "every value is kept as history");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM program_numbers WHERE program_id = ${prog}`)[0]!.n, 3, "every value is kept as history (declined too)");
   const cols = (await sql`SELECT column_name FROM information_schema.columns WHERE table_name = 'program_numbers'`).map((c) => String(c.column_name));
   assert.ok(!cols.some((c) => /name|age|address|person|beneficiar/.test(c)), "no field for an individual served person");
   viewerId = admin!;

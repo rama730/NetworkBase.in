@@ -46,7 +46,7 @@ export function ProgramsCard({ orgId }: { orgId: string }) {
           {brief("change", "What we want to change")}{brief("reality", "The desired reality")}{brief("whyNow", "Why now")}{brief("mission", "How it fits our mission")}{brief("serves", "Who it’s for (in words; never a list of people)")}{brief("howWeKnow", "How we’ll know")}
           <div className="space-y-1 sm:col-span-2"><span className="font-medium">Measures (up to 5)</span>
             {form.measures.map((m, i) => <span key={i} className="flex flex-wrap items-center gap-2">
-              <Input value={m.name} maxLength={80} aria-label={`Measure ${i + 1} name`} onChange={(e) => setForm({ ...form, measures: form.measures.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} className="w-[200px]" />
+              <Input value={m.name} maxLength={80} aria-label={`Measure ${i + 1} name`} placeholder="Measure, e.g. Families helped" onChange={(e) => setForm({ ...form, measures: form.measures.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} className="w-[200px]" />
               <select className="nb-select" aria-label={`Measure ${i + 1} source`} value={m.source} onChange={(e) => setForm({ ...form, measures: form.measures.map((x, j) => (j === i ? { ...x, source: e.target.value as Measure["source"] } : x)) })}>
                 {MEASURE_SOURCES.map((k) => <option key={k} value={k}>{SOURCE_WORDS[k]}</option>)}</select>
               <Input type="number" min={0} value={m.target ?? ""} aria-label={`Measure ${i + 1} target`} placeholder="Target" onChange={(e) => setForm({ ...form, measures: form.measures.map((x, j) => (j === i ? { ...x, target: e.target.value ? Number(e.target.value) : null } : x)) })} className="w-[100px] font-mono" /></span>)}
@@ -76,8 +76,9 @@ export function ProgramsCard({ orgId }: { orgId: string }) {
         {d.admin && d.waiting.length ? <section aria-label="Numbers waiting confirmation"><h4 className="font-medium">Numbers waiting confirmation</h4>
           <ul className="mt-1 space-y-1">{d.waiting.map((w) => <li key={w.id} className="flex flex-wrap items-center gap-2" data-testid="program-waiting">
             <span>{w.program} · {w.measure}: {w.value}{w.by ? ` · typed by ${w.by}` : ""}</span>
-            <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmNumberAction(orgId, w.id, true), "Confirmed")}>Confirm<span className="sr-only"> {w.measure} for {w.program}</span></button>
-            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(confirmNumberAction(orgId, w.id, false), "Declined")}>Decline<span className="sr-only"> {w.measure} for {w.program}</span></button></li>)}</ul></section> : null}
+            {w.canConfirm !== false ? <><button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmNumberAction(orgId, w.id, true), "Confirmed")}>Confirm<span className="sr-only"> {w.measure} for {w.program}</span></button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(confirmNumberAction(orgId, w.id, false), "Declined")}>Decline<span className="sr-only"> {w.measure} for {w.program}</span></button></>
+              : <span className="text-muted-foreground">Another admin confirms numbers you typed</span>}</li>)}</ul></section> : null}
       </div>
     </OrgCard>
   );

@@ -28,7 +28,7 @@ async function org(orgId: string) {
     SELECT org_type AS type, slug, title, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   // B8.4a: Programs shows only while its part is on (off keeps the data).
   if (w?.type !== "other" || !partOn(w.settings, "programs") || !a.canRead || !(a.isOwner || a.isMember)) return null;
-  return { userId, w, admin: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, member: !a.writeBlocked && (a.isOwner || a.memberRole !== "viewer") };
+  return { userId, w, owner: Boolean(userId) && a.isOwner, admin: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, member: !a.writeBlocked && (a.isOwner || a.memberRole !== "viewer") };
 }
 
 type Row = { id: string; title: string; slug: string | null; owner: string; owner_name: string | null; mark: ProgramMark; inside: boolean };
@@ -70,13 +70,13 @@ export async function readProgramsAction(orgId: string) {
   const out = [];
   for (const r of rows) out.push({ id: r.id, title: r.title, slug: r.inside || ctx.admin ? r.slug ?? r.id : null, owner: r.owner_name, canType: ctx.admin || (r.owner === ctx.userId && ctx.member),
     state: r.mark.state, start: r.mark.start, end: r.mark.end, goal: r.mark.goal, aim: r.mark.aim, public: r.mark.public, measures: await values(orgId, r.id, r.mark.measures ?? []) });
-  const waiting = ctx.admin ? Array.from(await db.execute<{ id: string; program: string; measure_id: string; value: string; note: string; by: string | null; at: string }>(sql`
-    SELECT n.id, w.title AS program, n.measure_id, n.value::text AS value, n.note, coalesce(p.full_name, p.username) AS by, n.typed_at AS at FROM program_numbers n
+  const waiting = ctx.admin ? Array.from(await db.execute<{ id: string; program: string; measure_id: string; value: string; note: string; by: string | null; at: string; mine: boolean }>(sql`
+    SELECT n.id, (n.typed_by = ${ctx.userId}::uuid) AS mine, w.title AS program, n.measure_id, n.value::text AS value, n.note, coalesce(p.full_name, p.username) AS by, n.typed_at AS at FROM program_numbers n
     JOIN workspaces w ON w.id = n.program_id LEFT JOIN profiles p ON p.id = n.typed_by WHERE n.org_id = ${orgId}::uuid AND n.state = 'waiting' ORDER BY n.typed_at LIMIT 100`)) : [];
   const people = ctx.admin ? Array.from(await db.execute<{ id: string; name: string }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 300`)) : [];
   return { success: true as const, admin: ctx.admin, people, programs: out,
-    waiting: waiting.map((w) => ({ id: w.id, program: w.program, measure: rows.find((r) => r.title === w.program)?.mark.measures.find((m) => m.id === w.measure_id)?.name ?? w.measure_id, value: Number(w.value), note: w.note, by: w.by, at: new Date(w.at).toISOString() })) };
+    waiting: waiting.map((w) => ({ id: w.id, program: w.program, measure: rows.find((r) => r.title === w.program)?.mark.measures.find((m) => m.id === w.measure_id)?.name ?? w.measure_id, value: Number(w.value), note: w.note, by: w.by, canConfirm: !w.mine || ctx.owner, at: new Date(w.at).toISOString() })) };
 }
 
 /** Start a program (admins): from its brief, a private workspace under the organization, marked Program, led by its owner. */
@@ -130,8 +130,9 @@ export async function typeNumberAction(orgId: string, programId: string, measure
 export async function confirmNumberAction(orgId: string, numberId: string, confirm: boolean): Promise<{ success: true } | Failure> {
   const ctx = await org(orgId);
   if (!ctx?.admin || !isLooseUuid(numberId) || typeof confirm !== "boolean") return DENIED;
+  // Live check 2026-11-27: an admin can't confirm a number they typed (it counts in the impact report); the owner can.
   const done = Array.from(await db.execute(sql`UPDATE program_numbers SET state = ${confirm ? "confirmed" : "declined"}, confirmed_by = ${ctx.userId}::uuid, confirmed_at = now()
-    WHERE id = ${numberId}::uuid AND org_id = ${orgId}::uuid AND state = 'waiting' RETURNING id`));
+    WHERE id = ${numberId}::uuid AND org_id = ${orgId}::uuid AND state = 'waiting' AND (${ctx.owner} OR typed_by IS DISTINCT FROM ${ctx.userId}::uuid) RETURNING id`));
   return done.length ? { success: true } : DENIED;
 }
 
