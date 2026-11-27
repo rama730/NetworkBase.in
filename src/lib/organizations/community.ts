@@ -22,7 +22,7 @@ export const hasFrontDoor = (orgType: string | null | undefined, orgSettings?: u
   || (orgType === "other" && partOn(orgSettings, "frontDoor"));
 /** Call 2 (36.2): a club's Getting started — say hi, join a committee, come to the next meeting, pick a project. */
 export const CLUB_GETTING_STARTED: StartItem[] = [
-  { id: "hello", label: "Say hi in the club's channel", href: "/messages" },
+  { id: "hello", label: "Say hi in the club’s channel", href: "/messages" },
   { id: "committee", label: "Join a committee", href: "?tab=workspaces" },
   { id: "meeting", label: "Come to the next meeting", href: "?tab=sprints" },
   { id: "project", label: "Pick a project", href: "?tab=workspaces" },
