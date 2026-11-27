@@ -1388,9 +1388,9 @@
       "text": "B8.2 X3 Teams for a fixed time (37.4)",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/club.test.ts; tests/db/fixed-time.test.ts; tests/browser/fixed-time.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 7fed1441a): B8.2a key and end dates, countdown line, plan starters worked back from the key date, moving the key date moves plan dates and never hand-set ones (server test; a date is hand-set when it differs from the one the plan worked out), a passed key date needs a reason; B8.2b workstreams with owners, bookings with typed references (confirmed needs one), the unconfirmed-booking notice, Issues today; B8.2c wrap-up checklist and debrief, Close the team via the built archive (asked weekly, never automatic), Run it again via the built duplicate anchored on the key date with the debrief pinned and Next time tasks (no people copied), organising-team profile entry. No migration. Live check pending."
     },
     {
       "key": "B8.3",
