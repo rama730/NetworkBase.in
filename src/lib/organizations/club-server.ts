@@ -53,7 +53,8 @@ export async function moveWork(tx: Exec, orgId: string, from: string, to: string
   const tasks = Array.from(await tx.execute(sql`
     UPDATE tasks t SET assignee_id = ${to}::uuid, updated_at = now() FROM workspaces w
     WHERE w.id = t.workspace_id AND t.assignee_id = ${from}::uuid AND t.deleted_at IS NULL AND t.status <> 'done'
-      AND (w.id = ${orgId}::uuid OR (w.parent_id = ${orgId}::uuid AND EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${to}::uuid AND m.completed_at IS NULL)))
+      AND (w.id = ${orgId}::uuid OR ((w.parent_id = ${orgId}::uuid OR w.org_settings->>'groupOf' = ${orgId}::text)
+        AND EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${to}::uuid AND m.completed_at IS NULL)))
     RETURNING t.id`)).length;
   const docs = Array.from(await tx.execute(sql`
     UPDATE workspace_documents SET settings = jsonb_set(settings, '{org,owner}', to_jsonb(${to}::text))
@@ -162,7 +163,8 @@ export async function handoverSteps(now = new Date()) {
  */
 export async function meetingClub(projectId: string) {
   const [w] = Array.from(await db.execute<{ id: string }>(sql`
-    SELECT c.id FROM workspaces w JOIN workspaces c ON c.id = coalesce(CASE WHEN w.kind = 'organization' THEN w.id END, w.parent_id)
+    -- A committee is a group of the club (org_settings.groupOf), not a parent_id child.
+    SELECT c.id FROM workspaces w JOIN workspaces c ON c.id::text = coalesce(CASE WHEN w.kind = 'organization' THEN w.id::text END, w.parent_id::text, w.org_settings->>'groupOf')
     WHERE w.id = ${projectId}::uuid AND c.kind = 'organization' AND c.org_type = 'club' AND c.deleted_at IS NULL`));
   return w?.id ?? null;
 }

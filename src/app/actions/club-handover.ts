@@ -46,7 +46,7 @@ export async function readHandoverAction(orgId: string) {
   const outs = [...new Set(terms.filter((t) => t.season === season && t.state === "holding" && t.user_id).map((t) => t.user_id!))];
   const open = outs.length ? Array.from(await db.execute<{ id: string; tasks: number; docs: number }>(sql`
     SELECT u.id, (SELECT count(*)::int FROM tasks t JOIN workspaces w ON w.id = t.workspace_id WHERE t.assignee_id = u.id AND t.deleted_at IS NULL AND t.status <> 'done'
-        AND (w.id = ${orgId}::uuid OR w.parent_id = ${orgId}::uuid)) AS tasks,
+        AND (w.id = ${orgId}::uuid OR w.parent_id = ${orgId}::uuid OR w.org_settings->>'groupOf' = ${orgId}::text)) AS tasks,
       (SELECT count(*)::int FROM workspace_documents d WHERE d.workspace_id = ${orgId}::uuid AND d.settings->'org'->>'owner' = u.id::text) AS docs
     FROM unnest(${`{${outs.join(",")}}`}::uuid[]) AS u(id)`)) : [];
   const today = new Date().toISOString().slice(0, 10);

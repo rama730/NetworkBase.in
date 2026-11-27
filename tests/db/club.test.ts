@@ -284,6 +284,12 @@ test("36.3 (B7.2c): the handover — checklist, open work moves, roles switch on
   assert.ok(t1);
   await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'wt-minutes-book', 'Minutes book.md', ${sql.json({ org: { lifecycle: "published", owner: sam! } })})`;
   await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'wt-sam-draft', 'Sam draft.md', ${sql.json({ org: { lifecycle: "draft", owner: sam! } })})`;
+  // A committee (a group of the club): Sam's open task there moves too, since Ann belongs to it.
+  const committee = await sql.begin((tx) => createProject(tx, pres!, {}));
+  created.push(committee);
+  await sql`UPDATE workspaces SET org_settings = ${sql.json({ groupOf: id, group: { kind: "committee" } })} WHERE id = ${committee}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${committee}, ${ann!}, 'member')`;
+  await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id, creator_id, task_number) VALUES (${committee}, 'WT Committee minutes', 'todo', ${sam!}, ${pres!}, 9311)`;
 
   viewerId = sam!;
   assert.equal((await ho.saveHandoverAction(id, { season: "2027–28", date: "2099-04-01" })).success, false, "the President sets the handover");
@@ -307,7 +313,7 @@ test("36.3 (B7.2c): the handover — checklist, open work moves, roles switch on
   assert.equal((await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${ann!}`)[0]!.role, "member", "the incoming role comes on the date, not now");
   viewerId = sam!;
   const moved = await ho.moveWorkAction(id, samTerm);
-  assert.ok(moved.success && moved.tasks === 2 && moved.docs === 1, "open tasks and owned documents move; done ones stay");
+  assert.ok(moved.success && moved.tasks === 3 && moved.docs === 1, "open tasks (in the club and its committee) and owned documents move; done ones stay");
   const [draft] = await sql`SELECT settings->'org'->>'owner' AS owner FROM workspace_documents WHERE workspace_id = ${id} AND slug = 'wt-sam-draft'`;
   assert.equal(draft!.owner, sam!, "security review: a private draft never moves (ownership would open it)");
   const view = await ho.readHandoverAction(id);
