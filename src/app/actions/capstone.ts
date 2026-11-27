@@ -131,7 +131,9 @@ export async function readShowcaseAction(classId: string) {
     const { userId } = await viewer();
     const a = await getWorkspaceAccessById(classId, userId);
     if (!a.canRead) return DENIED;
-    const insider = a.isOwner || a.isMember;
+    // B7.4c review: in a club the teams are rivals, so only officers see Ready cards; members see what every team member agreed to.
+    const club = Array.from(await db.execute<{ t: string | null }>(sql`SELECT org_type AS t FROM workspaces WHERE id = ${classId}::uuid`))[0]?.t === "club";
+    const insider = club ? a.isOwner || a.memberRole === "admin" : a.isOwner || a.isMember;
     const cards = (await classTeams(classId)).filter((t) => t.capstone.showcase.readyAt && (insider || showcasePublic(t.capstone.showcase.consents, t.members.map((m) => m.id))))
       .map((t) => ({ id: t.id, slug: t.slug, title: t.capstone.showcase.title || t.title, line: t.capstone.showcase.line, track: t.capstone.showcase.track || null, links: t.capstone.showcase.links, cover: t.cover,
         team: insider ? t.members.map((m) => m.name) : null }));

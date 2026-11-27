@@ -25,6 +25,7 @@ let groups: typeof import("../../src/app/actions/community-groups");
 let ho: typeof import("../../src/app/actions/club-handover");
 let srv: typeof import("../../src/lib/organizations/club-server");
 let comp: typeof import("../../src/app/actions/club-competitions");
+let capstone: typeof import("../../src/app/actions/capstone");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -40,6 +41,7 @@ before(async () => {
   ho = await loadAppModule(() => import("../../src/app/actions/club-handover"));
   srv = await loadAppModule(() => import("../../src/lib/organizations/club-server"));
   comp = await loadAppModule(() => import("../../src/app/actions/club-competitions"));
+  capstone = await loadAppModule(() => import("../../src/app/actions/capstone"));
 });
 
 const created: string[] = [];
@@ -406,6 +408,14 @@ test("36.5 (B7.4a): competitions — tryouts with private outcomes, accepted pla
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${a.success ? a.workspaceId : ""} AND user_id = ${cat!}`)[0]!.n, 1);
   const [flow] = await sql`SELECT w.workflows_enabled, f.workflow FROM workspaces w JOIN workspace_workflows f ON f.workspace_id = w.id WHERE w.id = ${a.success ? a.workspaceId : ""}`;
   assert.deepEqual([flow!.workflows_enabled, flow!.workflow], [true, "capstone"], "B7.4c: each team gets the Capstone card (brief, milestones, Showcase with every member's yes)");
+  // Review: a Ready card that not every member agreed to reaches the club's officers, never other members (rival teams).
+  await sql`UPDATE workspaces SET workflow_settings = ${sql.json({ capstone: { showcase: { title: "WT Line bot", line: "Fast", readyAt: new Date().toISOString(), consents: { [ann!]: new Date().toISOString() } } } })} WHERE id = ${a.success ? a.workspaceId : ""}`;
+  viewerId = dan!;
+  const rival = await capstone.readShowcaseAction(id);
+  assert.ok(rival.success && rival.cards.length === 0, "another team's member doesn't see a card not everyone agreed to");
+  viewerId = coord!;
+  const officerView = await capstone.readShowcaseAction(id);
+  assert.ok(officerView.success && officerView.cards.length === 1);
   // Two teams in one competition never see each other's work.
   const { getWorkspaceAccessById } = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
   assert.equal((await getWorkspaceAccessById(a.success ? a.workspaceId : "", dan!)).canRead, false);
