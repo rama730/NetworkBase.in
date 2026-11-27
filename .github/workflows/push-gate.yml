@@ -47,11 +47,36 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Only the specs this branch touches: ones it edits, and ones whose fixture or spec imports a component it changes
+      # (the whole suite, one worker, takes too long for a gate; main's nightly runs cover the rest).
+      - name: Pick specs
+        id: specs
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD)
+          picked=""
+          for f in tests/browser/*.spec.ts; do
+            fx="${f%.spec.ts}.fixture.tsx"
+            if printf '%s\n' "$changed" | grep -qxF "$f" || printf '%s\n' "$changed" | grep -qxF "$fx"; then picked="$picked $f"; continue; fi
+            for c in $(printf '%s\n' "$changed" | grep -E '^src/components/.*\.tsx$'); do
+              n=$(basename "$c" .tsx)
+              if grep -qsE "/$n['\"]" "$f" "$fx"; then picked="$picked $f"; break; fi
+            done
+          done
+          echo "list=$picked" >> "$GITHUB_OUTPUT"
+          echo "Specs:$picked"
       - uses: actions/setup-node@v4
+        if: steps.specs.outputs.list != ''
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - if: steps.specs.outputs.list != ''
+        run: npm ci
+      - if: steps.specs.outputs.list != ''
+        run: npx playwright install --with-deps chromium
       - name: Component browser specs
-        run: npx playwright test -c tests/browser/playwright.config.ts --project=chromium
+        if: steps.specs.outputs.list != ''
+        env:
+          SPECS: ${{ steps.specs.outputs.list }}
+        run: npx playwright test -c tests/browser/playwright.config.ts --project=chromium --workers=2 $SPECS
