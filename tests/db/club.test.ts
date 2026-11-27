@@ -404,6 +404,8 @@ test("36.5 (B7.4a): competitions — tryouts with private outcomes, accepted pla
   const [ws] = await sql`SELECT parent_id, visibility, owner_id FROM workspaces WHERE id = ${a.success ? a.workspaceId : ""}`;
   assert.deepEqual([ws!.parent_id, ws!.visibility, ws!.owner_id], [id, "private", ann!], "a private workspace under the club, the captain its lead");
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${a.success ? a.workspaceId : ""} AND user_id = ${cat!}`)[0]!.n, 1);
+  const [flow] = await sql`SELECT w.workflows_enabled, f.workflow FROM workspaces w JOIN workspace_workflows f ON f.workspace_id = w.id WHERE w.id = ${a.success ? a.workspaceId : ""}`;
+  assert.deepEqual([flow!.workflows_enabled, flow!.workflow], [true, "capstone"], "B7.4c: each team gets the Capstone card (brief, milestones, Showcase with every member's yes)");
   // Two teams in one competition never see each other's work.
   const { getWorkspaceAccessById } = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
   assert.equal((await getWorkspaceAccessById(a.success ? a.workspaceId : "", dan!)).canRead, false);

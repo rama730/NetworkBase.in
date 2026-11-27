@@ -92,7 +92,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={aboutLabels} editLabel="Edit details" />
                 {isClass ? <YourSectionCard orgId={project.id} /> : null}
                 {isClass ? <SyllabusAndTerm orgId={project.id} base={base} /> : null}
-                {isClass ? <ShowcaseSection classId={project.id} /> : null}
+                {isClass || org?.type === 'club' ? <ShowcaseSection classId={project.id} /> : null}
                 {org?.isSchool ? <PublicCalendar schoolId={project.id} /> : null}
                 {org?.isSchool ? <CurriculumOverview schoolId={project.id} /> : null}
                 {/* Empty-state prompts for admins (report §22.3). */}

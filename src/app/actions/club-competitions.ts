@@ -222,6 +222,10 @@ export async function makeTeamAction(orgId: string, id: string, input: unknown):
   if (!made.success || !("project" in made) || !made.project) return { success: false, error: "error" in made && made.error ? made.error : "Couldn’t make the team workspace." };
   const ws = made.project.id;
   await db.transaction(async (tx) => {
+    // B7.4c (36.5 calls 2, 4, 7): the team gets C4's Capstone card — brief, roles, milestones (the club's checks sent to
+    // each team) and a Showcase card that goes public only when every member agrees.
+    await tx.execute(sql`UPDATE workspaces SET workflows_enabled = true WHERE id = ${ws}::uuid`);
+    await tx.execute(sql`INSERT INTO workspace_workflows (workspace_id, workflow, added_by) VALUES (${ws}::uuid, 'capstone', ${ctx.userId}::uuid) ON CONFLICT DO NOTHING`);
     for (const p of d.people) await tx.execute(sql`UPDATE club_competition_people SET team_workspace_id = ${ws}::uuid, role = ${p.role || null}, substitute = ${p.substitute}
       WHERE competition_id = ${id}::uuid AND user_id = ${p.userId}::uuid AND state = 'accepted'`);
     await tx.execute(sql`UPDATE tasks SET type_fields = jsonb_set(type_fields, '{teams}', coalesce(type_fields->'teams', '[]'::jsonb) || ${JSON.stringify([{ workspaceId: ws, name: d.name }])}::jsonb) WHERE id = ${id}::uuid`);

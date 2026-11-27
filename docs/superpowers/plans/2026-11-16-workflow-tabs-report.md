@@ -14630,6 +14630,11 @@ AFTER  Result: 4th of 32 (confirmed by Tech officer) · Awards: Best design   De
 2. **Results:** once the competition is Competing, the captain or an officer types the placing, of how many and any awards ("4th of 32 · Awards: Best design"). Officers are told it's waiting. Another officer, never the one who typed it, confirms it. Until then only the team and officers see it; afterwards every member does. A confirmed result can't be changed (server test).
 3. **Debrief:** at Results, the captain or an officer writes what went well and what to change next time. It's kept with the competition in Past entries for next year's team, readable by every member.
 
+**Build calls (B7.4c, 2026-11-27):**
+1. **Each team workspace gets C4's Capstone card** when it's made: its brief (one-liner, problem, approach), roles, milestones and Showcase card. The club's checks reach every team through the built assignment targets (each workspace, or chosen ones) and show as the team's milestones, reviewed in the Review queue.
+2. **Showcase:** a team's card shows on the club's About only after the team marks it Ready and every member agrees (C4's rule); members of the club see Ready cards.
+3. **Not built:** "Add to my profile" for competition results, competitions on the Sprints calendar, and a shortcut from the card to send a check.
+
 ### 36.6 Club: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |
