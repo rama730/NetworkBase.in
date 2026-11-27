@@ -38,7 +38,7 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
         load()
     })
     const moveTo = (userId: string, current: string | null) => (
-        <select aria-label="Move to…" className="nb-select" data-size="sm" value="" disabled={pending}
+        <select aria-label="Move to…" className="nb-select shrink-0" data-size="sm" value="" disabled={pending}
             onChange={(e) => {
                 const to = e.target.value === 'none' ? null : e.target.value
                 if (!e.target.value) return
@@ -80,8 +80,8 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
                         {unit.members.length ? (
                             <ul className="flex flex-wrap gap-2">
                                 {unit.members.map((m) => (
-                                    <li key={m.userId} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card py-0.5 pl-2.5 pr-0.5 text-[13px]">
-                                        {m.userId === unit.leadUserId ? <Star className="size-3.5 fill-current text-primary" aria-label="Team lead" /> : null}{m.name}{moveTo(m.userId, unit.id)}
+                                    <li key={m.userId} className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border bg-card py-0.5 pl-2.5 pr-0.5 text-[13px]">
+                                        {m.userId === unit.leadUserId ? <Star className="size-3.5 fill-current text-primary" aria-label="Team lead" /> : null}<span className="min-w-0 truncate">{m.name}</span>{moveTo(m.userId, unit.id)}
                                     </li>
                                 ))}
                             </ul>
@@ -93,7 +93,7 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
                 <div className="space-y-2 border-t border-border pt-3">
                     <p className={fieldLabel}>Not in a team</p>
                     <ul className="flex flex-wrap gap-2">
-                        {data.unplaced.map((m) => <li key={m.userId} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card py-0.5 pl-2.5 pr-0.5 text-[13px]">{m.name}{moveTo(m.userId, null)}</li>)}
+                        {data.unplaced.map((m) => <li key={m.userId} className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border bg-card py-0.5 pl-2.5 pr-0.5 text-[13px]"><span className="min-w-0 truncate">{m.name}</span>{moveTo(m.userId, null)}</li>)}
                     </ul>
                 </div>
             ) : null}
