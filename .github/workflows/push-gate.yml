@@ -64,6 +64,10 @@ jobs:
               if grep -qsE "/$n['\"]" "$f" "$fx"; then picked="$picked $f"; break; fi
             done
           done
+          # A spec missing from the config's testMatch would be skipped silently: fail instead.
+          for f in $picked; do
+            grep -q "\"$(basename "$f")\"" tests/browser/playwright.config.ts || { echo "::error::$(basename "$f") is not in tests/browser/playwright.config.ts testMatch"; exit 1; }
+          done
           echo "list=$picked" >> "$GITHUB_OUTPUT"
           echo "Specs:$picked"
       - uses: actions/setup-node@v4
