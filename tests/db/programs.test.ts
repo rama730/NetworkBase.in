@@ -104,6 +104,11 @@ test("37.5 (B8.3b): a story publishes only with everyone's consent, withdrawing 
   const story = await pg.saveStoryAction(id, prog, { headline: "A warm kitchen", body: "Ravi and Mrs Rao cooked for 40 families.", people: [{ name: "Ravi", memberId: ravi! }, { name: "Mrs Rao", memberId: null }] });
   assert.ok(story.success);
   const sid = story.success ? story.id : "";
+  assert.match(String((await pg.saveStoryAction(id, prog, { headline: "x", body: "", people: [{ name: "Fake", memberId: visitor! }] }) as { error?: string }).error), /members of the organization/, "security review: members named are real members");
+  viewerId = visitor!;
+  const peek = await pg.readStoriesAction(id, prog);
+  assert.ok(!peek.success || peek.stories.length === 0, "security review: drafts never reach people outside the program");
+  viewerId = owner!;
   assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${ravi!} AND title LIKE 'You’re named in a story%'`)[0]!.n, 1, "a member named is asked");
   assert.match(String((await pg.publishStoryAction(id, sid) as { error?: string }).error), /yes first/, "a story without consent can't be published");
   assert.equal((await pg.setStoryConsentAction(id, sid, 0, { give: true })).success, false, "the owner can't give a member's yes for them");

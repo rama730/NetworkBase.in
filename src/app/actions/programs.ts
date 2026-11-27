@@ -146,9 +146,18 @@ export async function saveStoryAction(orgId: string, programId: string, input: {
   if (!r || !(ctx.admin || r.owner === ctx.userId)) return DENIED;
   const headline = String(input?.headline ?? "").trim().slice(0, 140);
   if (!headline) return { success: false, error: "Give the story a headline." };
-  const people: Person[] = (Array.isArray(input?.people) ? input.people : []).slice(0, 20).flatMap((p) => {
-    const name = String(p?.name ?? "").trim().slice(0, 80);
-    return name ? [{ name, memberId: p.memberId && isLooseUuid(p.memberId) ? p.memberId : null, consent: null }] : [];
+  const raw = (Array.isArray(input?.people) ? input.people : []).slice(0, 20);
+  // Security review: a member named is checked against the organization's active members and named as their profile says,
+  // so only they can give their yes (nobody can name themselves in someone else's place).
+  const ids = [...new Set(raw.flatMap((p) => (p?.memberId && isLooseUuid(p.memberId) ? [p.memberId] : [])))];
+  const members = ids.length ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+    SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
+    WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL AND m.user_id = ANY(${`{${ids.join(",")}}`}::uuid[])`)) : [];
+  if (members.length !== ids.length) return { success: false, error: "People marked as members are members of the organization." };
+  const people: Person[] = raw.flatMap((p) => {
+    const member = p?.memberId ? members.find((m) => m.id === p.memberId) : null;
+    const name = member ? member.name.slice(0, 80) : String(p?.name ?? "").trim().slice(0, 80);
+    return name ? [{ name, memberId: member?.id ?? null, consent: null }] : [];
   });
   const [made] = Array.from(await db.execute<{ id: string }>(sql`INSERT INTO program_stories (org_id, program_id, headline, body, people, created_by)
     VALUES (${orgId}::uuid, ${programId}::uuid, ${headline}, ${String(input?.body ?? "").slice(0, 4000)}, ${JSON.stringify(people)}::jsonb, ${ctx.userId}::uuid) RETURNING id`));
@@ -199,7 +208,9 @@ export async function readStoriesAction(orgId: string, programId: string) {
   const [r] = await programs(orgId, ctx.userId, ctx.admin, programId);
   const rows = Array.from(await db.execute<{ id: string; headline: string; body: string; people: Person[]; state: string; at: string | null }>(sql`
     SELECT id, headline, body, people, state, published_at AS at FROM program_stories WHERE program_id = ${programId}::uuid AND org_id = ${orgId}::uuid
-      AND (${Boolean(r)} OR people @> ${JSON.stringify([{ memberId: ctx.userId }])}::jsonb) ORDER BY created_at DESC LIMIT 50`));
+      AND ((${Boolean(r)} AND state = 'published') OR ${Boolean(r) && (ctx.admin || r!.owner === ctx.userId || r!.inside)} OR people @> ${JSON.stringify([{ memberId: ctx.userId }])}::jsonb)
+    ORDER BY created_at DESC LIMIT 50`));
+  // Security review: drafts reach admins, the owner, the program's own people and those named; others see published ones.
   const canEdit = Boolean(r) && (ctx.admin || r!.owner === ctx.userId);
   return { success: true as const, canEdit, me: ctx.userId, stories: rows.map((s) => ({ id: s.id, headline: s.headline, body: s.body, state: s.state as "draft" | "published",
     people: s.people.map((p) => ({ name: p.name, member: Boolean(p.memberId), mine: p.memberId === ctx.userId, consent: p.consent ? { by: p.consent.by, at: p.consent.at } : null })) })) };
