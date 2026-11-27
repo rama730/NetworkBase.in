@@ -14920,6 +14920,14 @@ SETTINGS · Workflows (any org)       On: Members & renewal · Committee & hando
 6. An org can be saved as its own template with C1's snapshot, separate from the kits.
 7. No youth-facing kits; all kits are 18+.
 
+**Build calls (B8.4a, 2026-11-27):**
+1. **Kits and parts as data** (`src/lib/organizations/kits.ts`): the six kits (role names, join mode, time word, starters, Getting started, parts) and every part they use. Each part says whether it works in an Other organization yet. A kit is offered only when all its parts do (contract test); today that's Blank. B8.5–B8.10 open the rest, one kit at a time.
+2. **The word list** suggests a kit from the typed label, in the browser, with nothing sent ("Hostel committee" → Association, "Book Fest" → Event team, "Food bank NGO" → Nonprofit).
+3. **Settings → Workflows** for Other organizations (owner and admins): each part that works here, On or Off ("Off · has data" when turning it on brings something back), Turn on / Turn off, and Add from a kit. Turning off hides the part and keeps its data; on again brings everything back; on twice is refused (server test).
+4. **Volunteers, Dates and Programs** in an Other organization now show only while their part is on. Their hourly notices follow the same switch.
+5. **The wizard's kit step** (Pick a starting kit, with the suggestion and a preview) comes with the first kit whose parts all work (B8.5), so it never shows Blank alone.
+6. **Note:** X4's files are named "impact" (`impact.ts`, `Impact.tsx`) so they don't collide with the education Programs and cohorts of B2.1.
+
 ### 37.3 X2 · Volunteers and shifts (agreed 2026-11-17)
 **References** (37.1, plus 11 searches for shifts, rotas, rosters, availability and volunteer hours: 79 templates, 17 rated; 4 more screens studied):
 

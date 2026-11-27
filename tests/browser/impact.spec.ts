@@ -22,7 +22,7 @@ test('Programs: Ongoing or dates, the goal, measures as text with their source, 
       confirmNumberAction: async (_o: string, id: string, ok: boolean) => { calls.push(['confirm', id, ok]); return { success: true }; },
     };
   });
-  await openApp(page, 'tests/browser/programs.fixture.tsx');
+  await openApp(page, 'tests/browser/impact.fixture.tsx');
   const card = page.getByTestId('programs');
   const reading = card.getByTestId('program').filter({ hasText: 'Reading circles' });
   await expect(reading).toContainText('Ongoing since 1 June 2024 · Owner Asha · Children read weekly');
@@ -55,7 +55,7 @@ test('Stories: consent as words, Give my yes, Record consent for someone outside
       setStoryConsentAction: async (_o: string, id: string, i: number, input: unknown) => { calls.push(['consent', id, i, input]); return { success: true }; },
     };
   });
-  await openApp(page, 'tests/browser/programs.fixture.tsx');
+  await openApp(page, 'tests/browser/impact.fixture.tsx');
   await page.getByRole('button', { name: 'Stories of Winter food drive' }).click();
   const story = page.getByTestId('program-story');
   const people = story.getByTestId('program-story-person');

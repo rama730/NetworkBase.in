@@ -37,7 +37,7 @@ test("37.3 (B8.1a): agree, sign up, the waitlist moves up, training gates a role
   const [coord, ann, bob, cat, outsider] = await Promise.all([1, 2, 3, 4, 5].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, coord!, { visibility: "public" }));
   created.push(id);
-  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active' WHERE id = ${id}`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', org_settings = '{"parts":{"on":["volunteers","fixedTime","programs"]}}'::jsonb WHERE id = ${id}`;
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${coord!}, 'owner'), (${id}, ${ann!}, 'member'), (${id}, ${bob!}, 'member'), (${id}, ${cat!}, 'member')`;
   viewerId = ann!;
   assert.equal((await v.saveVolunteerSettingsAction(id, { on: true, roles: [], agreement: { text: "", version: 0 } })).success, false, "coordinators set it up");
@@ -93,7 +93,7 @@ test("37.3 (B8.1b): Regulars on a weekly series, swaps a named volunteer accepts
   const [coord, ann, bob] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, coord!, { visibility: "public" }));
   created.push(id);
-  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Food bank' WHERE id = ${id}`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', org_settings = '{"parts":{"on":["volunteers","fixedTime","programs"]}}'::jsonb, title = 'WT Food bank' WHERE id = ${id}`;
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (${id}, ${coord!}, 'owner', now() - interval '1 year'), (${id}, ${ann!}, 'member', now() - interval '1 year'), (${id}, ${bob!}, 'member', now() - interval '1 year')`;
   viewerId = coord!;
   assert.ok((await v.saveVolunteerSettingsAction(id, { on: true, agreement: { text: "", version: 0 }, roles: [{ id: "sorting", name: "Sorting", line: "", training: false }] })).success);

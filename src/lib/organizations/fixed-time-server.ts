@@ -15,7 +15,8 @@ import { addDays, readFixedTime } from "@/lib/organizations/fixed-time";
 export async function fixedTimeNotices(now = new Date()) {
   const today = now.toISOString().slice(0, 10);
   const orgs = Array.from(await db.execute<{ id: string; slug: string | null; title: string; owner: string; settings: unknown }>(sql`
-    SELECT id, slug, title, owner_id AS owner, org_settings AS settings FROM workspaces WHERE kind = 'organization' AND deleted_at IS NULL AND status <> 'archived' AND org_settings ? 'fixedTime' LIMIT 500`));
+    SELECT id, slug, title, owner_id AS owner, org_settings AS settings FROM workspaces WHERE kind = 'organization' AND deleted_at IS NULL AND status <> 'archived' AND org_settings ? 'fixedTime'
+      AND (org_type <> 'other' OR coalesce(org_settings->'parts'->'on', '[]'::jsonb) ? 'fixedTime') LIMIT 500`));
   let sent = 0;
   for (const o of orgs) {
     const f = readFixedTime(o.settings);

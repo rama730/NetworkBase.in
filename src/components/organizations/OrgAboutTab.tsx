@@ -24,7 +24,7 @@ import { LabAboutSections } from '@/components/organizations/Lab'
 import { RulesSummary } from '@/components/organizations/CommunityFrontDoor'
 import { CommitteeCard, ConstitutionCard, RecruitingBanner } from '@/components/organizations/Club'
 import { VolunteerWithUs } from '@/components/organizations/Volunteers'
-import { OurPrograms } from '@/components/organizations/Programs'
+import { OurPrograms } from '@/components/organizations/Impact'
 import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
 import { MessageUserLink } from "@/components/messages/MessageUserLink";

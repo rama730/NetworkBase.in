@@ -37,7 +37,7 @@ test("37.4 (B8.2a): a plan worked back from the key date; moving it moves plan d
   const [owner, member] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, owner!, {}));
   created.push(id);
-  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Book Fest' WHERE id = ${id}`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', org_settings = '{"parts":{"on":["volunteers","fixedTime","programs"]}}'::jsonb, title = 'WT Book Fest' WHERE id = ${id}`;
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${member!}, 'member')`;
   const key = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
   viewerId = member!;
@@ -80,7 +80,7 @@ test("37.4 (B8.2b): workstreams with owners, bookings with typed references (con
   const [owner, asha, dev] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, owner!, {}));
   created.push(id);
-  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Fest' WHERE id = ${id}`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', org_settings = '{"parts":{"on":["volunteers","fixedTime","programs"]}}'::jsonb, title = 'WT Fest' WHERE id = ${id}`;
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${asha!}, 'member'), (${id}, ${dev!}, 'member')`;
   const { addDays } = await import("../../src/lib/organizations/fixed-time");
   const today = new Date().toISOString().slice(0, 10);
@@ -116,7 +116,7 @@ test("37.4 (B8.2c): wrap-up, the debrief keeps a late move's reason, Close is as
   created.push(id);
   const { addDays } = await import("../../src/lib/organizations/fixed-time");
   const today = new Date().toISOString().slice(0, 10);
-  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Book Fest 2027', slug = ${`wt-bf-${id.slice(0, 8)}`} WHERE id = ${id}`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', org_settings = '{"parts":{"on":["volunteers","fixedTime","programs"]}}'::jsonb, title = 'WT Book Fest 2027', slug = ${`wt-bf-${id.slice(0, 8)}`} WHERE id = ${id}`;
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${mei!}, 'member')`;
   viewerId = owner!;
   assert.ok((await ft.setFixedTimeAction(id, { keyDate: addDays(today, -20), endDate: addDays(today, -1) })).success);

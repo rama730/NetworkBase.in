@@ -137,11 +137,22 @@ test("fixed time: Run it again keeps the dates' distance, drops owners, pins the
 
 
 test("programs: up to 5 measures, dates in order, values as text", async () => {
-  const { measureLine, programSchema } = await import("../../src/lib/organizations/programs");
+  const { measureLine, programSchema } = await import("../../src/lib/organizations/impact");
   const base = { title: "Reading circles", aim: "Children read weekly", place: "Whitefield", start: "2026-06-01", end: null, goal: "Children's literacy", ownerId: "11111111-1111-4111-8111-111111111111", public: true,
     measures: [{ id: "sessions", name: "Sessions held", source: "sessions" as const, target: 50 }], brief: { change: "", reality: "", whyNow: "", mission: "", serves: "Children 6-10", howWeKnow: "" } };
   assert.ok(programSchema.safeParse(base).success);
   assert.equal(programSchema.safeParse({ ...base, measures: Array.from({ length: 6 }, (_, i) => ({ id: `m${i}`, name: "x", source: "typed", target: null })) }).success, false);
   assert.equal(programSchema.safeParse({ ...base, end: "2026-01-01" }).success, false);
   assert.deepEqual([measureLine(46, 50), measureLine(null, 50), measureLine(12, null)], ["46 of 50", "not yet confirmed", "12"]);
+});
+
+test("kits: six kits from parts that exist; offered only when every part works; the word list suggests one", async () => {
+  const { KITS, PARTS, kitReady, partsOn, readyKits, suggestKit } = await import("../../src/lib/organizations/kits");
+  assert.deepEqual(KITS.map((k) => k.id), ["nonprofit", "event_team", "association", "public_sector", "faith", "blank"]);
+  for (const k of KITS) for (const p of k.parts) assert.ok(PARTS[p], `${k.id}: ${p} is a known part`);
+  assert.ok(readyKits().every(kitReady) && readyKits().some((k) => k.id === "blank"));
+  assert.equal(KITS.find((k) => k.id === "event_team")!.needsEndDate, true, "the Event team kit needs an end date (X3)");
+  assert.deepEqual(["Hostel committee", "Bengaluru Book Fest", "Food bank NGO", "St Mary's Church", "Ward council", "Chess club friends"].map(suggestKit),
+    ["association", "event_team", "nonprofit", "faith", "public_sector", null]);
+  assert.deepEqual(partsOn({ parts: { on: ["volunteers", "nope", 3] } }), ["volunteers"]);
 });

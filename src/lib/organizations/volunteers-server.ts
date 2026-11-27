@@ -16,7 +16,7 @@ const tell = (orgId: string, slug: string, to: string, title: string, key: strin
  */
 export async function volunteerNotices(now = new Date()) {
   const day = Array.from(await db.execute<{ id: string; org: string; slug: string | null; title: string; start: string }>(sql`
-    SELECT t.id, t.workspace_id AS org, w.slug, t.title, t.type_fields->>'start' AS start FROM tasks t JOIN workspaces w ON w.id = t.workspace_id AND w.deleted_at IS NULL AND w.org_type = 'other'
+    SELECT t.id, t.workspace_id AS org, w.slug, t.title, t.type_fields->>'start' AS start FROM tasks t JOIN workspaces w ON w.id = t.workspace_id AND w.deleted_at IS NULL AND w.org_type = 'other' AND coalesce(w.org_settings->'parts'->'on', '[]'::jsonb) ? 'volunteers'
     WHERE t.item_type = 'event' AND t.type_fields->>'kind' = 'shift' AND t.deleted_at IS NULL AND t.stage <> 'cancelled'
       AND (t.type_fields->>'start')::timestamptz BETWEEN ${now.toISOString()}::timestamptz + interval '23 hours' AND ${now.toISOString()}::timestamptz + interval '25 hours' LIMIT 500`));
   let sent = 0;
@@ -26,7 +26,7 @@ export async function volunteerNotices(now = new Date()) {
   }
   const short = Array.from(await db.execute<{ id: string; org: string; slug: string | null; title: string; left: number }>(sql`
     SELECT t.id, t.workspace_id AS org, w.slug, t.title, e.place_limit - (SELECT count(*)::int FROM community_rsvps r WHERE r.task_id = t.id AND r.state = 'going') AS left
-    FROM tasks t JOIN community_events e ON e.task_id = t.id JOIN workspaces w ON w.id = t.workspace_id AND w.deleted_at IS NULL AND w.org_type = 'other'
+    FROM tasks t JOIN community_events e ON e.task_id = t.id JOIN workspaces w ON w.id = t.workspace_id AND w.deleted_at IS NULL AND w.org_type = 'other' AND coalesce(w.org_settings->'parts'->'on', '[]'::jsonb) ? 'volunteers'
     WHERE t.item_type = 'event' AND t.type_fields->>'kind' = 'shift' AND t.deleted_at IS NULL AND t.stage <> 'cancelled'
       AND (t.type_fields->>'start')::timestamptz BETWEEN ${now.toISOString()}::timestamptz + interval '47 hours' AND ${now.toISOString()}::timestamptz + interval '49 hours' LIMIT 500`));
   for (const s of short.filter((x) => x.left > 0)) {

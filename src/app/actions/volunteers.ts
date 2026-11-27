@@ -6,6 +6,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { checkInOpen, coordinatorCheckIn, isShort, readVolunteers, shiftHours, shiftSchema, volunteersFor, volunteersSchema, type ShiftFields } from "@/lib/organizations/volunteers";
+import { partOn } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -29,7 +30,8 @@ async function org(orgId: string) {
     SELECT w.org_type AS type, w.org_settings AS settings, w.slug, w.title,
       (SELECT m.view_prefs->'volunteer' FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.completed_at IS NULL) AS prefs
     FROM workspaces w WHERE w.id = ${orgId}::uuid AND w.kind = 'organization' AND w.deleted_at IS NULL`));
-  if (!w || !volunteersFor(w.type) || !a.canRead) return null;
+  // B8.4a (37.2 call 5): Volunteers shows only while its part is on in Settings → Workflows (off keeps the data).
+  if (!w || !volunteersFor(w.type) || !partOn(w.settings, "volunteers") || !a.canRead) return null;
   const settings = readVolunteers(w.settings);
   return { userId, w, settings, slug: w.slug ?? orgId, prefs: w.prefs ?? {},
     coordinator: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked,

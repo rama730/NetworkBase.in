@@ -15,6 +15,7 @@ import { DirectorySettingsCard } from "@/components/organizations/CompanyPeople"
 import { OnboardingPlanSettings } from "@/components/organizations/CompanyOnboarding";
 import { LabSettingsCard } from "@/components/organizations/Lab";
 import { JoiningSettings } from "@/components/organizations/CommunityFrontDoor";
+import { OrgPartsSettings } from "@/components/organizations/OrgParts";
 import { CommunityMembersSettings } from "@/components/organizations/CommunityMembers";
 import { ClassDetailsSettings } from "@/components/organizations/ClassHomeParts";
 import { TermPlanSettings } from "@/components/organizations/TermPlan";
@@ -1577,6 +1578,8 @@ function ProjectSettingsContent({
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
                 {organization && sections.some((s) => s.id === "org-people") && organization.type === "community" ? <CommunityMembersSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
+                {/* B8.4a (report 37.2 call 5): an Other organization's parts, switched on and off here. */}
+                {organization && sections.some((s) => s.id === "org-projects") && organization.type === "other" ? <OrgPartsSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") && typeProfile(organization.type).schools ? <OrgSchoolCard orgId={projectId} isSchool={organization.isSchool} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") ? <OrgWorkflowsCard orgId={projectId} orgName={project?.title ?? "the organization"} /> : null}
                 {organization && sections.some((s) => s.id === "org-work") && <OrgWorkSection orgId={projectId} organization={organization} role={orgRole} />}

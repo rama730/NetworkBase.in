@@ -6,6 +6,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { addDays, bookingSchema, countdown, debriefSchema, defaultEnd, fixedTimeSchema, offsetWords, readFixedTime, STARTERS, workstreamsSchema, type Booking } from "@/lib/organizations/fixed-time";
+import { partOn } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -24,9 +25,10 @@ async function org(orgId: string) {
   const { userId } = await getViewerAuthContext();
   if (!userId) return null;
   const a = await getWorkspaceAccessById(orgId, userId);
-  const [w] = Array.from(await db.execute<{ settings: unknown; slug: string | null; title: string; status: string }>(sql`
-    SELECT org_settings AS settings, slug, title, status FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (!w || !a.canRead || !(a.isOwner || a.isMember)) return null;
+  const [w] = Array.from(await db.execute<{ settings: unknown; slug: string | null; title: string; status: string; type: string | null }>(sql`
+    SELECT org_settings AS settings, slug, title, status, org_type AS type FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
+  // B8.4a: in an Other organization the dates show only while their part is on (off keeps them).
+  if (!w || !a.canRead || !(a.isOwner || a.isMember) || (w.type === "other" && !partOn(w.settings, "fixedTime"))) return null;
   return { userId, w, fixed: readFixedTime(w.settings), organiser: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, owner: a.isOwner && !a.writeBlocked,
     member: !a.writeBlocked && (a.isOwner || a.memberRole !== "viewer") };
 }
