@@ -259,11 +259,12 @@ export async function runItAgainAction(orgId: string, input: { title: string; ha
 /** Add "Organising team, Book Fest 2027" to my profile (members, after the key date, with their yes). */
 export async function addTeamToProfileAction(orgId: string): Promise<{ success: true } | Failure> {
   const ctx = await org(orgId);
-  if (!ctx || !ctx.fixed || ctx.fixed.keyDate > today()) return { success: false, error: "This can go on your profile once the day has happened." };
+  if (!ctx?.member) return DENIED;
+  if (!ctx.fixed || ctx.fixed.keyDate > today()) return { success: false, error: "This can go on your profile once the day has happened." };
   const year = ctx.fixed.keyDate.slice(0, 4);
   const title = `Organising team, ${ctx.w.title}`.slice(0, 300);
   const made = Array.from(await db.execute(sql`INSERT INTO profile_contributions (profile_id, external_key, project_title, project_url, source, role_kind, role_title, summary, visibility)
-    VALUES (${ctx.userId}::uuid, ${`fixed-team:${orgId}`}, ${title}, ${null}, 'manual', 'contributor', 'Organiser', ${`${year} · confirmed by ${ctx.w.title}`}, 'public')
+    VALUES (${ctx.userId}::uuid, ${`fixed-team:${orgId}`}, ${title}, ${null}, 'manual', 'contributor', ${ctx.organiser ? "Organiser" : "Team member"}, ${`${year} · confirmed by ${ctx.w.title}`}, 'public')
     ON CONFLICT (profile_id, external_key) WHERE deleted_at IS NULL AND workspace_id IS NULL DO NOTHING RETURNING id`));
   if (!made.length) return { success: false, error: "It’s already on your profile." };
   const { markProfileCollaborationSummaryStale } = await import("@/lib/profile/collaboration");
