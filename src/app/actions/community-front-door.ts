@@ -24,8 +24,8 @@ async function community(orgId: string) {
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown }>(sql`
     SELECT org_type AS type, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   // B7.1a (36.2): clubs share the front door.
-  if (!hasFrontDoor(w?.type) || !a.canRead) return null;
-  return { userId, inside: a.isOwner || a.isMember, organiser: a.isOwner || a.memberRole === "admin", settings: readCommunitySettings(w!.settings, w!.type) };
+  if (!w || !hasFrontDoor(w.type, w.settings) || !a.canRead) return null;
+  return { userId, inside: a.isOwner || a.isMember, organiser: a.isOwner || a.memberRole === "admin", settings: readCommunitySettings(w.settings, w.type) };
 }
 
 /** The Code of conduct: the org's document whose title starts with it; its rules from the version members read. */

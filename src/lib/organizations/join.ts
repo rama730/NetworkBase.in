@@ -177,7 +177,8 @@ async function joinOrg(
     const summary = { id: org.id, title: org.title, slug: org.slug };
     // Report 34.2 calls 1–2 (B5.1b): a community asks for agreement (and, when approving joins, the join answers) first.
     let communityAnswers: Record<string, string> = {};
-    if ((org.orgType === "community" || org.orgType === "club") && (outcome === "joined" || outcome === "requested")) {
+    const { hasFrontDoor } = await import("@/lib/organizations/community");
+    if (hasFrontDoor(org.orgType, org.orgSettings) && (outcome === "joined" || outcome === "requested")) {
       const { readCommunitySettings } = await import("@/lib/organizations/community");
       const c = readCommunitySettings(org.orgSettings, org.orgType);
       if (c.agreeRequired && community?.agreed !== true) throw new CommunityJoinError("Agree to the Code of conduct to join.");
@@ -197,7 +198,7 @@ async function joinOrg(
     if (outcome === "joined") {
       // Joining by code is always Member (decision 58); a pending request is closed by the join.
       await addWorkspaceMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
-      if ((org.orgType === "community" || org.orgType === "club") && community?.agreed) {
+      if (hasFrontDoor(org.orgType, org.orgSettings) && community?.agreed) {
         // The Code of conduct version agreed to, the date, and the answers, on the new membership (report 34.2 layer 3).
         const [coc] = Array.from(await tx.execute<{ version: number }>(sql`SELECT coalesce((settings->'org'->>'readVersion')::int, 0) AS version FROM workspace_documents
           WHERE workspace_id = ${org.id}::uuid AND lower(filename) LIKE '%code of conduct%' AND published_version_id IS NOT NULL ORDER BY created_at LIMIT 1`));

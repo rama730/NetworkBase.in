@@ -8,6 +8,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { parseRules, readMembersSettings } from "@/lib/organizations/community";
+import { communityLike } from "@/lib/organizations/kits";
 import { logCommunityAction, passCaseToCommunity } from "@/lib/organizations/community-server";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { readOrgCases } from "@/lib/trust/console";
@@ -36,7 +37,8 @@ async function moderator(orgId: string) {
       (SELECT p.slug FROM workspaces p WHERE p.id::text = w.org_settings->>'chapterOf' AND p.deleted_at IS NULL) AS parent_slug,
       (SELECT m.view_prefs->'community'->'labels' FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role IN ('member', 'admin', 'owner')) AS labels
     FROM workspaces w WHERE w.id = ${orgId}::uuid AND w.kind = 'organization' AND w.deleted_at IS NULL`));
-  if (w?.type !== "community") return null;
+  // B8.9: an Other organization with Members on (the Faith kit) moderates as a community does.
+  if (!w || !communityLike(w.type, w.settings, "members")) return null;
   const organiser = a.isOwner || a.memberRole === "admin";
   const mod = Array.isArray(w.labels) && (w.labels as unknown[]).includes("moderator");
   if (!organiser && !(mod && a.isMember)) return null;

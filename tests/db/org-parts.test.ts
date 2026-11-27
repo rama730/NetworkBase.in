@@ -45,10 +45,10 @@ test("37.2 (B8.4a): parts switch on and off from Settings → Workflows; off hid
   viewerId = owner!;
   assert.equal((await v.readVolunteersAction(id)).success, false, "a part that's off shows nothing");
   const parts = await op.readPartsAction(id);
-  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings,meetings,renewal,positions,clubMeetings,handbook,directory,goals,requests");
+  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings,meetings,renewal,positions,clubMeetings,handbook,directory,goals,requests,frontDoor,members,groups");
   assert.ok((await op.setPartAction(id, "volunteers", true)).success);
   assert.match(String((await op.setPartAction(id, "volunteers", true) as { error?: string }).error), /already on/);
-  assert.equal((await op.setPartAction(id, "groups", true)).success, false, "parts that don’t work here yet aren’t offered");
+  assert.equal((await op.setPartAction(id, "nope", true)).success, false, "only known parts");
   assert.ok((await v.saveVolunteerSettingsAction(id, { on: true, agreement: { text: "", version: 0 }, roles: [{ id: "sorting", name: "Sorting", line: "", training: false }] })).success);
   const shift = await v.saveShiftAction(id, { roleId: "sorting", place: "", start: new Date(Date.now() + 86_400_000).toISOString(), end: new Date(Date.now() + 90_000_000).toISOString(), places: 3, note: "" });
   assert.ok(shift.success);
@@ -60,7 +60,7 @@ test("37.2 (B8.4a): parts switch on and off from Settings → Workflows; off hid
   assert.ok((await op.setPartAction(id, "volunteers", true)).success);
   const back = await v.readVolunteersAction(id);
   assert.ok(back.success && "shifts" in back && back.shifts.length === 1, "on again brings everything back");
-  assert.equal((await op.addKitPartsAction(id, "faith")).success, false, "a kit is added only once all its parts work here");
+  assert.equal((await op.addKitPartsAction(id, "nope")).success, false, "only known kits");
   const kit = await op.addKitPartsAction(id, "nonprofit");
   assert.ok(kit.success && kit.added === 3, "Add from a kit switches on the parts not on yet");
 });
@@ -142,5 +142,27 @@ test("37.2 (B8.8): the Public-sector kit — the handbook, directory, goals and 
   viewerId = member!;
   assert.ok((await people.readDirectoryAction(id)).success, "the directory works here");
   assert.ok((await goals.readCompanyGoalsAction(id)).success, "goals work here");
+});
+
+test("37.2 (B8.9): the Faith kit — the front door, the member directory and small groups work in an Other organization with their parts on", async () => {
+  const [owner, member] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, {}));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Fellowship' WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${member!}, 'member')`;
+  const door = await loadAppModule(() => import("../../src/app/actions/community-front-door"));
+  const people = await loadAppModule(() => import("../../src/app/actions/community-members"));
+  const groups = await loadAppModule(() => import("../../src/app/actions/community-groups"));
+  viewerId = member!;
+  assert.equal((await door.readCommunityRulesAction(id)).success, false, "off: no front door");
+  assert.equal((await people.readCommunityDirectoryAction(id)).success, false, "off: no member directory");
+  assert.equal((await groups.readGroupsAction(id)).success, false, "off: no groups");
+  viewerId = owner!;
+  assert.ok((await op.addKitPartsAction(id, "faith")).success);
+  viewerId = member!;
+  assert.ok((await door.readCommunityRulesAction(id)).success, "the front door works here");
+  assert.ok((await people.readCommunityDirectoryAction(id)).success, "the member directory works here");
+  const g = await groups.readGroupsAction(id);
+  assert.ok(g.success && !g.club && g.canStart, "small groups, not committees: members start them");
 });
 

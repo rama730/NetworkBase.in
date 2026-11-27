@@ -364,7 +364,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         canManageSettings: isOwner || (isMember && normalizeWorkspaceMemberRole(memberRole, 'member') === 'admin') || isInheritedAdmin,
         publicTabVisibility,
         isOrganization,
-        orgType: organization?.type ?? null,
+        orgType: organization?.type ?? null, orgParts: organization?.parts ?? null,
     });
 
     const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);
@@ -718,7 +718,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     canManageSettings: canOpenSettingsTab,
                     publicTabVisibility,
                     isOrganization,
-                    orgType: organization?.type ?? null,
+                    orgType: organization?.type ?? null, orgParts: organization?.parts ?? null,
                 })
             ) {
                 toast.error('That workspace tab is not visible for your current access');
@@ -779,7 +779,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             canManageSettings: canOpenSettingsTab,
             publicTabVisibility,
             isOrganization,
-            orgType: organization?.type ?? null,
+            orgType: organization?.type ?? null, orgParts: organization?.parts ?? null,
         });
         if (allowedTab === null) {
             return;
@@ -836,7 +836,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             canManageSettings: canOpenSettingsTab,
             publicTabVisibility,
             isOrganization,
-            orgType: organization?.type ?? null,
+            orgType: organization?.type ?? null, orgParts: organization?.parts ?? null,
         });
         setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
     }, [
@@ -1325,6 +1325,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                             : organization?.type === 'community' ? <CommunityProjects orgId={project.id} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
                             // Report 36.3 (B7.2a): a club's Workspaces add Committees.
                             : organization?.type === 'club' ? <CommunityProjects club orgId={project.id} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
+                            // B8.9 / B8.7: an Other organization's Small groups (the Faith kit) or Committees (the Association kit).
+                            : organization?.type === 'other' && (organization.parts?.includes('groups') || organization.parts?.includes('positions')) ? <CommunityProjects club label={organization.parts?.includes('positions') ? 'Committees' : 'Groups'} orgId={project.id} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
                             : <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />}
                     </TabErrorBoundary>
                 </div>
@@ -1339,7 +1341,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 </div>
             )}
             {/* Report 34.3 (B5.2): a community's Members is the Directory for every member; organisers keep People, Roles and the roster. */}
-            {isOrganization && organization?.type === 'community' && activeTab === 'members' && (
+            {isOrganization && (organization?.type === 'community' || (organization?.type === 'other' && organization.parts?.includes('members') && !organization.parts?.includes('directory'))) && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
                         <CommunityMembers orgId={project.id} roster={canManageProjectSettings ? <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} /> : null} />
@@ -1354,7 +1356,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     </TabErrorBoundary>
                 </div>
             )}
-            {isOrganization && organization?.type !== 'company' && organization?.type !== 'community' && organization?.type !== 'research' && !(organization?.type === 'other' && organization.parts?.includes('directory')) && canManageProjectSettings && activeTab === 'members' && (
+            {isOrganization && organization?.type !== 'company' && organization?.type !== 'community' && organization?.type !== 'research' && !(organization?.type === 'other' && (organization.parts?.includes('directory') || organization.parts?.includes('members'))) && canManageProjectSettings && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
                         {organization && !organization.isSchool && typeProfile(organization.type).schools

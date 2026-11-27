@@ -161,7 +161,20 @@ test("kits: a ready kit saves its id and switches its parts on; Blank and unread
   const { kitSettings, readyKits } = await import("../../src/lib/organizations/kits");
   assert.deepEqual(kitSettings("nonprofit"), { kit: "nonprofit", parts: { on: ["volunteers", "programs", "boardMeetings", "events"] } });
   assert.deepEqual(kitSettings("blank"), {});
-  assert.deepEqual(kitSettings("faith"), {}, "not ready yet: its parts don't work in Other organizations");
-  assert.deepEqual(readyKits().map((k) => k.id), ["nonprofit", "event_team", "association", "public_sector", "blank"]);
+  assert.deepEqual(kitSettings("nope"), {}, "an unknown kit saves nothing");
+  assert.deepEqual(readyKits().map((k) => k.id), ["nonprofit", "event_team", "association", "public_sector", "faith", "blank"], "B8.9: every kit is ready");
   assert.deepEqual(kitSettings("event_team", "2027-02-13"), { kit: "event_team", parts: { on: ["fixedTime", "volunteers", "events", "meetings"] }, fixedTime: { keyDate: "2027-02-13", endDate: "2027-03-15" } }, "the Event team kit keeps its event date");
 });
+
+test("B8.9: an Other organization with Directory or Members on opens Members to everyone inside; Welcome opens the front door", async () => {
+  const { isWorkspaceTabVisibleToViewer } = await import("../../src/lib/workspaces/settings-policies");
+  const { hasFrontDoor } = await import("../../src/lib/organizations/community");
+  const tab = (orgParts: string[]) => isWorkspaceTabVisibleToViewer({ tabId: "members", isOwnerOrMember: true, canManageSettings: false, isOrganization: true, orgType: "other", orgParts });
+  assert.equal(tab([]), false);
+  assert.equal(tab(["members"]), true);
+  assert.equal(tab(["directory"]), true);
+  assert.equal(hasFrontDoor("other", { parts: { on: ["frontDoor"] } }), true);
+  assert.equal(hasFrontDoor("other", { parts: { on: [] } }), false);
+  assert.equal(hasFrontDoor("club"), true);
+});
+

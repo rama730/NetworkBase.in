@@ -23,7 +23,7 @@ const when = (iso: string) => new Intl.DateTimeFormat(undefined, { weekday: "sho
 
 /** A community's Workspaces: the list, and Chapters a click away. */
 /** B7.2a: a club's Workspaces add Committees (its groups); chapters stay community-only. */
-export function CommunityProjects({ orgId, list, club = false }: { orgId: string; list: ReactNode; club?: boolean }) {
+export function CommunityProjects({ orgId, list, club = false, label }: { orgId: string; list: ReactNode; club?: boolean; label?: string }) {
   const [view, setView] = useState<"workspaces" | "chapters" | "groups">(() => {
     const v = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("view") : null;
     return v === "chapters" || v === "groups" ? v : "workspaces";
@@ -32,7 +32,7 @@ export function CommunityProjects({ orgId, list, club = false }: { orgId: string
     <div className="space-y-4">
       <div className="flex gap-1 text-[13px]" role="group" aria-label="Workspaces views">
         {(club ? (["workspaces", "groups"] as const) : (["workspaces", "chapters", "groups"] as const)).map((v) => (
-          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "workspaces" ? "Workspaces" : v === "chapters" ? "Chapters" : club ? "Committees" : "Groups"}</button>
+          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "workspaces" ? "Workspaces" : v === "chapters" ? "Chapters" : label ?? (club ? "Committees" : "Groups")}</button>
         ))}
       </div>
       {view === "chapters" && !club ? <CommunityChapters orgId={orgId} /> : view === "groups" ? <CommunityGroups orgId={orgId} /> : list}

@@ -48,3 +48,23 @@ test('Board meetings: the list links to each meeting, says when minutes are appr
   expect(await axeViolations(page)).toEqual([]);
 });
 
+// Plan B8.9 (the Faith kit): an Other organization's Workspaces add Small groups, without Chapters.
+test('Small groups: Workspaces shows Groups beside the list, no Chapters, and members can start one', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.addInitScript(() => {
+    (window as any).__groups = true;
+    (window as any).__actions = {
+      readPartsAction: async () => ({ success: true, kit: 'faith', kits: [], parts: [] }),
+      readBoardMeetingsAction: async () => ({ success: false, error: 'off' }),
+      readGroupsAction: async () => ({ success: true, canStart: true, club: false, groups: [] }),
+    };
+  });
+  await openApp(page, 'tests/browser/org-parts.fixture.tsx');
+  const views = page.getByRole('group', { name: 'Workspaces views' });
+  await expect(views.getByRole('button')).toHaveText(['Workspaces', 'Groups']);
+  await views.getByRole('button', { name: 'Groups' }).click();
+  await expect(page.getByTestId('community-groups').getByRole('button', { name: 'Start a group' })).toBeVisible();
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+

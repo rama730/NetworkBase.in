@@ -1574,9 +1574,9 @@ function ProjectSettingsContent({
                 )}
                 {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} handle={project?.slug ?? null} />}
                 {/* B5.1 live check: the community's joining terms sit with Joining, not under Organization profile. */}
-                {organization && sections.some((s) => s.id === "org-access") && (organization.type === "community" || organization.type === "club") ? <JoiningSettings orgId={projectId} /> : null}
+                {organization && sections.some((s) => s.id === "org-access") && (organization.type === "community" || organization.type === "club" || (organization.type === "other" && organization.parts?.includes("frontDoor"))) ? <JoiningSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
-                {organization && sections.some((s) => s.id === "org-people") && organization.type === "community" ? <CommunityMembersSettings orgId={projectId} /> : null}
+                {organization && sections.some((s) => s.id === "org-people") && (organization.type === "community" || (organization.type === "other" && organization.parts?.includes("members"))) ? <CommunityMembersSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
                 {/* B8.4a (report 37.2 call 5): an Other organization's parts, switched on and off here. */}
                 {organization && sections.some((s) => s.id === "org-projects") && organization.type === "other" ? <OrgPartsSettings orgId={projectId} /> : null}

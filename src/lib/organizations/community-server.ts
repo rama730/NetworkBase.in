@@ -3,7 +3,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { needsAgreement, pauseActive, readCommunitySettings, type CommunityLabel } from "@/lib/organizations/community";
+import { hasFrontDoor, needsAgreement, pauseActive, readCommunitySettings, type CommunityLabel } from "@/lib/organizations/community";
 
 /**
  * Report 34.2 call 4 (B5.1c): in a community that asks for agreement, a member whose agreed version is behind the
@@ -23,7 +23,7 @@ export async function communityPostBlock(orgId: string, userId: string): Promise
   // Organisers set the rules: they post without agreeing to them (B5.1 live check).
   // Security review: a pause in the community holds in its chapters, even for someone who organises the chapter.
   if (r?.type === "community" && pauseActive(r.parent_paused ? { until: r.parent_paused } : null, new Date())) return `Your posting here is paused until ${new Date(r.parent_paused!).toUTCString().replace(" GMT", " UTC")}.`;
-  if ((r?.type !== "community" && r?.type !== "club") || r.organiser) return null;
+  if (!r || !hasFrontDoor(r.type, r.settings) || r.organiser) return null;
   // B5.2 (34.3): Pause posting, until its end time; reading goes on.
   if (pauseActive(r.paused ? { until: r.paused } : null, new Date())) return `Your posting here is paused until ${new Date(r.paused!).toUTCString().replace(" GMT", " UTC")}.`;
   if (r.current === null) return null;

@@ -121,7 +121,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {org?.type === 'other' ? <OurPrograms orgId={project.id} /> : null}
                 {org?.type === 'other' ? <VolunteerWithUs orgId={project.id} /> : null}
                 {org?.type === 'community' || org?.type === 'club' || (org?.type === 'other' && org.parts?.includes('events')) ? <NextEventCard orgId={project.id} base={base} /> : null}
-                {org?.type === 'community' || org?.type === 'club' ? <RulesSummary orgId={project.id} base={base} /> : null}
+                {org?.type === 'community' || org?.type === 'club' || (org?.type === 'other' && org.parts?.includes('frontDoor')) ? <RulesSummary orgId={project.id} base={base} /> : null}
                 {org?.type === 'community' || org?.type === 'club' ? <CommunityShowcase orgId={project.id} /> : null}
             </div>
             <aside {...stickyRail} aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">

@@ -1,5 +1,6 @@
 // Report 34.2 (plan B5.1, M1): a community's front door — numbered rules from the Code of conduct, agreeing to its
 // current version, join questions and Getting started. Client-safe and pure.
+import { partOn } from "@/lib/organizations/kits";
 
 export type CommunityRule = { n: number; text: string };
 export type JoinQuestion = { id: string; label: string };
@@ -16,7 +17,9 @@ export const DEFAULT_COMMUNITY: CommunitySettings = {
 };
 
 /** Report 36.2 (B7.1a): a club has the community's front door (M1) — agreement, join questions, Getting started. */
-export const hasFrontDoor = (orgType: string | null | undefined) => orgType === "community" || orgType === "club";
+/** B8.9: an Other organization with Welcome on (the Faith kit) has the front door too. */
+export const hasFrontDoor = (orgType: string | null | undefined, orgSettings?: unknown) => orgType === "community" || orgType === "club"
+  || (orgType === "other" && partOn(orgSettings, "frontDoor"));
 /** Call 2 (36.2): a club's Getting started — say hi, join a committee, come to the next meeting, pick a project. */
 export const CLUB_GETTING_STARTED: StartItem[] = [
   { id: "hello", label: "Say hi in the club's channel", href: "/messages" },

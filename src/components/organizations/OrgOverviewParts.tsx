@@ -303,7 +303,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'research' ? <LabMeetingCard orgId={orgId} /> : null}
                 {orgType === 'research' ? <LabLibraryCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
                 {orgType === 'research' ? <LabEquipmentCard orgId={orgId} /> : null}
-                {orgType === 'community' || orgType === 'club' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
+                {orgType === 'community' || orgType === 'club' || (orgType === 'other' && parts.includes('frontDoor')) ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
                 {orgType === 'club' ? <RecruitingCard orgId={orgId} /> : null}
                 <FixedTimeCard orgId={orgId} other={orgType === 'other'} />
                 {orgType === 'other' && kit && kitById(kit)?.gettingStarted.length ? <OrgCard title={`First steps · ${kitById(kit)!.name} kit`} testId="kit-first-steps"><ul className="list-disc space-y-0.5 pl-5 text-[13px]">{kitById(kit)!.gettingStarted.map((g) => <li key={g}>{g}</li>)}</ul></OrgCard> : null}

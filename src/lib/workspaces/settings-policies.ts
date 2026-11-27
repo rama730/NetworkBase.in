@@ -369,11 +369,14 @@ export function isWorkspaceTabVisibleToViewer(input: {
   isOrganization?: boolean;
   /** Report 33.3 call 1 (B4.2): in a company, Members is the Directory for every member. */
   orgType?: string | null;
+  /** B8.8–B8.9: an Other organization's parts; with Directory or Members on, Members is open to everyone inside. */
+  orgParts?: string[] | null;
 }) {
   if (input.isOrganization) {
     if (input.tabId === "about") return true;
     // Members is owners' and admins' alone in v1 (report §20.8); a company's Directory is for everyone inside (33.3).
-    if (input.tabId === "members") return Boolean(input.canManageSettings) || ((input.orgType === "company" || input.orgType === "community" || input.orgType === "research") && input.isOwnerOrMember);
+    if (input.tabId === "members") return Boolean(input.canManageSettings) || ((input.orgType === "company" || input.orgType === "community" || input.orgType === "research"
+      || (input.orgType === "other" && Boolean(input.orgParts?.some((p) => p === "directory" || p === "members")))) && input.isOwnerOrMember);
     // Projects is for people in the org; visitors see public projects on About (report §28.5).
     if (input.tabId === "projects") return input.isOwnerOrMember;
     if (input.tabId === "dashboard" || input.tabId === "tasks" || input.tabId === "settings") return input.isOwnerOrMember;
@@ -394,6 +397,7 @@ export function resolveAllowedWorkspaceTab(input: {
   publicTabVisibility?: unknown;
   isOrganization?: boolean;
   orgType?: string | null;
+  orgParts?: string[] | null;
 }): string | null {
   // Org visitors land on About; everyone else on Dashboard.
   const landingTab = input.isOrganization && !input.isOwnerOrMember ? "about" : "dashboard";

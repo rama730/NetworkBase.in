@@ -23,9 +23,9 @@ export const PARTS: Record<PartId, Part> = {
   directory: { id: "directory", name: "Directory", line: "Who does what, and who to ask (K2).", where: "Members", ready: true },
   goals: { id: "goals", name: "Goals and projects", line: "Goals for the period and the projects behind them (K3).", where: "Overview", ready: true },
   requests: { id: "requests", name: "Requests", line: "Requests to teams with an owner and a due date (K5).", where: "Tasks", ready: true },
-  frontDoor: { id: "frontDoor", name: "Welcome", line: "The front door: agreement, welcome and first steps (M1).", where: "About", ready: false },
-  members: { id: "members", name: "Members", line: "A member directory with statuses (M2).", where: "Members", ready: false },
-  groups: { id: "groups", name: "Small groups", line: "Groups people join or ask to join (M5).", where: "Projects", ready: false },
+  frontDoor: { id: "frontDoor", name: "Welcome", line: "The front door: agreement, welcome and first steps (M1).", where: "About", ready: true },
+  members: { id: "members", name: "Members", line: "A member directory with statuses (M2).", where: "Members", ready: true },
+  groups: { id: "groups", name: "Small groups", line: "Groups people join or ask to join (M5).", where: "Projects", ready: true },
 };
 
 export type KitId = "nonprofit" | "event_team" | "association" | "public_sector" | "faith" | "blank";
@@ -93,3 +93,7 @@ export const clubLike = (type: string | null | undefined, orgSettings: unknown, 
 /** B8.8: a company's part (K1–K5) in a company, or in an Other organization that switched it on (the Public-sector kit). */
 export const companyLike = (type: string | null | undefined, orgSettings: unknown, part: "handbook" | "directory" | "goals" | "requests") =>
   type === "company" || (type === "other" && partOn(orgSettings, part));
+
+/** B8.9: a community's part (M1, M2, M5) in a community, or in an Other organization that switched it on (the Faith kit). */
+export const communityLike = (type: string | null | undefined, orgSettings: unknown, part: "frontDoor" | "members" | "groups") =>
+  type === "community" || (type === "other" && partOn(orgSettings, part));

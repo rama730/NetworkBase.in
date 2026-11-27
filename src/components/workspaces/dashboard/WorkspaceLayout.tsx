@@ -233,6 +233,7 @@ export default function WorkspaceLayout({
                 publicTabVisibility: normalizedPublicTabs,
                 isOrganization,
                 orgType: (project as { organization?: { type?: string | null } | null }).organization?.type ?? null,
+                orgParts: (project as { organization?: { parts?: string[] } | null }).organization?.parts ?? null,
             });
         }),
         [canManageSettings, canOpenSettings, canSeeMemberTabs, isOrganization, isOwner, normalizedPublicTabs, project],

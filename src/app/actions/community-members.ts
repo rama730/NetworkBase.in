@@ -7,6 +7,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { logCommunityAction, type CommunityLogEntry } from "@/lib/organizations/community-server";
+import { communityLike } from "@/lib/organizations/kits";
 import { COMMUNITY_LABELS, isNewMember, memberStatus, readMembersSettings, type CommunityLabel } from "@/lib/organizations/community";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -27,7 +28,7 @@ async function community(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; slug: string | null; title: string; settings: unknown }>(sql`
     SELECT org_type AS type, slug, title, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "community" || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
+  if (!w || !communityLike(w.type, w.settings, "members") || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
   return { userId, slug: w.slug ?? orgId, title: w.title, organiser: a.isOwner || a.memberRole === "admin", members: readMembersSettings(w.settings) };
 }
 
