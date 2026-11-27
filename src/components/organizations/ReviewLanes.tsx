@@ -5,7 +5,7 @@
 // the same buttons for keyboards and phones. A copy nobody has handed in never shows here.
 
 import { useState } from 'react'
-import { DndContext, PointerSensor, KeyboardSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { DndContext, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 
 import type { ReviewLaneRow, ReviewQueueRow } from '@/app/actions/assignments'
 import { DateTimeField, afterPresets } from '@/components/organizations/DateTimeField'
@@ -42,7 +42,7 @@ export function ReviewLanes({ waiting, returned, approved, recentReasons, onDeci
     onOpen: (row: ReviewQueueRow) => void
 }) {
     const [returning, setReturning] = useState<Pending | null>(null)
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }), useSensor(KeyboardSensor))
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }))
     const byId = new Map<string, { lane: Lane; row: ReviewQueueRow | ReviewLaneRow }>([
         ...waiting.map((r) => [r.copyId, { lane: 'review' as const, row: r }] as const),
         ...approved.map((r) => [r.copyId, { lane: 'approved' as const, row: r }] as const),
@@ -63,7 +63,7 @@ export function ReviewLanes({ waiting, returned, approved, recentReasons, onDeci
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <div className="flex min-h-0 flex-1 items-start gap-4 overflow-x-auto px-4 py-4 sm:px-5" data-testid="review-lanes">
                 <LaneColumn id="review" title="To review" tone="text-[var(--status-info)]" count={waiting.length}
-                    action={copies.length > 1 ? <button type="button" className="text-[12px] font-medium text-primary hover:underline" onClick={() => onApproveAll(copies)}>Approve all {copies.length}</button> : null}
+                    action={copies.length > 1 ? <button type="button" className="text-[12px] font-medium text-foreground underline underline-offset-2 hover:no-underline" onClick={() => onApproveAll(copies)}>Approve all {copies.length}</button> : null}
                     empty="Nothing waiting. Hand-ins show here as they come in.">
                     {waiting.map((r) => (
                         <LaneCard key={r.copyId} id={r.copyId} title={r.kind === 'task' ? r.title : r.title} who={r.who} people={r.people ?? []} onOpen={() => onOpen(r)}
@@ -121,9 +121,10 @@ function LaneCard({ id, title, who, people, line, late, files = [], reason, done
     id: string; title: string; who: string; people: Array<{ id: string; name: string; avatarUrl: string | null }>; line: string; late?: boolean; files?: string[]
     reason?: string | null; done?: boolean; actions?: React.ReactNode; onOpen?: () => void; draggable?: boolean
 }) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id, disabled: !draggable })
+    const { listeners, setNodeRef, transform, isDragging } = useDraggable({ id, disabled: !draggable })
     return (
-        <article ref={setNodeRef} {...(draggable ? attributes : {})} {...(draggable ? listeners : {})}
+        // a11y: the card is not a button itself (it holds buttons); pointer drag stays, keyboard uses the card's own buttons.
+        <article ref={setNodeRef} {...(draggable ? listeners : {})}
             style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
             className={cn('grid gap-2 rounded-lg border border-border bg-card p-3 text-left', draggable && 'cursor-grab touch-manipulation', isDragging && 'relative z-10 shadow-lg')}>
             {onOpen ? <button type="button" onClick={onOpen} className={cn('text-left text-[13px] font-medium leading-[18px] hover:underline', done && 'text-muted-foreground')}>{title}</button>

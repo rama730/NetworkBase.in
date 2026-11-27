@@ -104,7 +104,11 @@ async function open(page: Page, tab: string, width = 375) {
 
 /** Nothing pushes the page sideways at phone width. */
 async function noSideScroll(page: Page) {
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    // On failure, name what sticks out past the right edge.
+    const [over, wide] = await page.evaluate(() => [document.documentElement.scrollWidth - window.innerWidth,
+        [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 0.5)
+            .slice(-5).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 60)} → ${Math.round(e.getBoundingClientRect().right)}`)] as const);
+    expect(over, wide.join('\n')).toBeLessThanOrEqual(0);
 }
 
 test('Members: requests come first on phones, rows stack, nothing scrolls sideways', async ({ page }) => {
@@ -170,7 +174,8 @@ test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native 
 });
 
 test('Assignments (§16): the review queue steps with Next; the roster has Remind, Add step and per-person team moves, on a phone', async ({ page }) => {
-    await open(page, 'tasks');
+    // Assignment flow decision 5: To review opens as lanes; One at a time is ?rqview=one.
+    await open(page, 'tasks&rqview=one');
     const queue = page.getByRole('region', { name: 'To review' });
     // Review queue §4: on a phone the waiting list is a picker over the work.
     const picker = queue.getByRole('combobox', { name: 'Waiting' });
@@ -220,8 +225,10 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
 
 test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and the compact bar with the sprint chip and New items on a phone', async ({ page }) => {
     await open(page, 'header', 1280);
-    await expect(page.getByTestId('tab-badge-tasks')).toHaveText('5 waiting');
-    await expect(page.getByTestId('tab-badge-members')).toHaveText('2 waiting');
+    // Controls round 2: the count shows padded (05), the spoken text says it plainly.
+    await expect(page.getByTestId('tab-badge-tasks').locator('.sr-only')).toHaveText('5 waiting');
+    await expect(page.getByTestId('tab-badge-tasks').locator('[aria-hidden]')).toHaveText('05');
+    await expect(page.getByTestId('tab-badge-members').locator('.sr-only')).toHaveText('2 waiting');
     await expect(page.getByTestId('tab-badge-updates')).toHaveText('(new)');
     await page.getByTestId('org-new-menu').focus();
     await page.keyboard.press('Enter');
@@ -432,11 +439,10 @@ test('sprint cleanup §4: a stage on a sprint\'s work list opens the roster on t
     await expect(panel.getByRole('heading', { level: 4, name: /^(Not started|In progress|Missing|Done|Approved)/ })).toHaveCount(0);
 });
 
-test('Members opened from Workspaces → "Place them": filtered to people not in a workspace, with the way back', async ({ page }) => {
-    await open(page, 'members&project=none&from=workspaces', 1280);
+// Unified back (548baad07): the page's own back link went; the browser's Back is the way back.
+test('Members opened from Workspaces → "Place them": filtered to people not in a workspace', async ({ page }) => {
+    await open(page, 'members&project=none', 1280);
     await expect(page.getByLabel('Workspace')).toHaveValue('none');
-    await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toHaveAttribute('href', '?tab=projects');
-    await open(page, 'members&status=behind', 1280);
     await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0);
 });
 
