@@ -10,22 +10,22 @@ export type PartId = "volunteers" | "fixedTime" | "programs" | "events" | "board
 export type Part = { id: PartId; name: string; line: string; where: string; ready: boolean };
 /** Every part a kit can switch on, and whether it works in an Other organization yet (B8.5–B8.10 open the rest). */
 export const PARTS: Record<PartId, Part> = {
-  volunteers: { id: "volunteers", name: "Volunteers and shifts", line: "Roles, shifts, check-in and hours (X2).", where: "Overview", ready: true },
-  fixedTime: { id: "fixedTime", name: "Key date and wrap-up", line: "A countdown, a plan worked back from the key date, bookings and wrap-up (X3).", where: "Overview", ready: true },
-  programs: { id: "programs", name: "Programs and impact", line: "Programs with measures, confirmed numbers, stories and the impact report (X4).", where: "Overview", ready: true },
-  events: { id: "events", name: "Events", line: "Events with RSVPs, a waitlist and check-in (M3).", where: "Sprints", ready: true },
-  boardMeetings: { id: "boardMeetings", name: "Board meetings", line: "Motions, votes, quorum and approved minutes (17.5).", where: "Overview", ready: true },
-  meetings: { id: "meetings", name: "Meetings", line: "Meetings with agendas, notes and action items (11.6).", where: "Overview", ready: true },
-  renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year (L1).", where: "Overview", ready: true },
-  positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover (L2).", where: "Overview", ready: true },
-  clubMeetings: { id: "clubMeetings", name: "Meetings and minutes", line: "General meetings, minutes, motions and the constitution (L3).", where: "Overview", ready: true },
-  handbook: { id: "handbook", name: "Handbook", line: "Handbook pages and processes (K1).", where: "Documents", ready: true },
-  directory: { id: "directory", name: "Directory", line: "Who does what, and who to ask (K2).", where: "Members", ready: true },
-  goals: { id: "goals", name: "Goals and projects", line: "Goals for the period and the projects behind them (K3).", where: "Overview", ready: true },
-  requests: { id: "requests", name: "Requests", line: "Requests to teams with an owner and a due date (K5).", where: "Tasks", ready: true },
-  frontDoor: { id: "frontDoor", name: "Welcome", line: "The front door: agreement, welcome and first steps (M1).", where: "About", ready: true },
-  members: { id: "members", name: "Members", line: "A member directory with statuses (M2).", where: "Members", ready: true },
-  groups: { id: "groups", name: "Small groups", line: "Groups people join or ask to join (M5).", where: "Projects", ready: true },
+  volunteers: { id: "volunteers", name: "Volunteers and shifts", line: "Roles, shifts, check-in and hours.", where: "Overview", ready: true },
+  fixedTime: { id: "fixedTime", name: "Key date and wrap-up", line: "A countdown, a plan worked back from the key date, bookings and wrap-up.", where: "Overview", ready: true },
+  programs: { id: "programs", name: "Programs and impact", line: "Programs with measures, confirmed numbers, stories and the impact report.", where: "Overview", ready: true },
+  events: { id: "events", name: "Events", line: "Events with RSVPs, a waitlist and check-in.", where: "Sprints", ready: true },
+  boardMeetings: { id: "boardMeetings", name: "Board meetings", line: "Motions, votes, quorum and approved minutes.", where: "Overview", ready: true },
+  meetings: { id: "meetings", name: "Meetings", line: "Meetings with agendas, notes and action items.", where: "Overview", ready: true },
+  renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year.", where: "Overview", ready: true },
+  positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover.", where: "Overview", ready: true },
+  clubMeetings: { id: "clubMeetings", name: "Meetings and minutes", line: "General meetings, minutes, motions and the constitution.", where: "Overview", ready: true },
+  handbook: { id: "handbook", name: "Handbook", line: "Handbook pages and processes.", where: "Documents", ready: true },
+  directory: { id: "directory", name: "Directory", line: "Who does what, and who to ask.", where: "Members", ready: true },
+  goals: { id: "goals", name: "Goals and projects", line: "Goals for the period and the projects behind them.", where: "Overview", ready: true },
+  requests: { id: "requests", name: "Requests", line: "Requests to teams with an owner and a due date.", where: "Tasks", ready: true },
+  frontDoor: { id: "frontDoor", name: "Welcome", line: "The front door: agreement, welcome and first steps.", where: "About", ready: true },
+  members: { id: "members", name: "Members", line: "A member directory with statuses.", where: "Members", ready: true },
+  groups: { id: "groups", name: "Small groups", line: "Groups people join or ask to join.", where: "Workspaces", ready: true },
 };
 
 export type KitId = "nonprofit" | "event_team" | "association" | "public_sector" | "faith" | "blank";
@@ -83,7 +83,8 @@ export function kitSettings(id: string | null | undefined, keyDate?: string | nu
   // The Event team kit's key date (X3): the event day, with the end 30 days after.
   const fixed = k.needsEndDate && keyDate && /^\d{4}-\d{2}-\d{2}$/.test(keyDate)
     ? { fixedTime: { keyDate, endDate: new Date(Date.parse(`${keyDate}T00:00:00Z`) + 30 * 86_400_000).toISOString().slice(0, 10) } } : {};
-  return { kit: k.id, parts: { on: k.parts }, ...fixed };
+  // Live check 2026-11-27: the kit's time word names the main sprint (Year, Season, Quarter), as call 2 says.
+  return { kit: k.id, parts: { on: k.parts }, mainSprintWord: k.timeWord, ...fixed };
 }
 
 /** B8.7: a club's part (L1–L3) in a club, or in an Other organization that switched it on (the Association kit). */

@@ -159,11 +159,11 @@ test("kits: six kits from parts that exist; offered only when every part works; 
 
 test("kits: a ready kit saves its id and switches its parts on; Blank and unready kits save nothing", async () => {
   const { kitSettings, readyKits } = await import("../../src/lib/organizations/kits");
-  assert.deepEqual(kitSettings("nonprofit"), { kit: "nonprofit", parts: { on: ["volunteers", "programs", "boardMeetings", "events"] } });
+  assert.deepEqual(kitSettings("nonprofit"), { kit: "nonprofit", parts: { on: ["volunteers", "programs", "boardMeetings", "events"] }, mainSprintWord: "Year" });
   assert.deepEqual(kitSettings("blank"), {});
   assert.deepEqual(kitSettings("nope"), {}, "an unknown kit saves nothing");
   assert.deepEqual(readyKits().map((k) => k.id), ["nonprofit", "event_team", "association", "public_sector", "faith", "blank"], "B8.9: every kit is ready");
-  assert.deepEqual(kitSettings("event_team", "2027-02-13"), { kit: "event_team", parts: { on: ["fixedTime", "volunteers", "events", "meetings"] }, fixedTime: { keyDate: "2027-02-13", endDate: "2027-03-15" } }, "the Event team kit keeps its event date");
+  assert.deepEqual(kitSettings("event_team", "2027-02-13"), { kit: "event_team", parts: { on: ["fixedTime", "volunteers", "events", "meetings"] }, mainSprintWord: "Phase", fixedTime: { keyDate: "2027-02-13", endDate: "2027-03-15" } }, "the Event team kit keeps its event date");
 });
 
 test("B8.9: an Other organization with Directory or Members on opens Members to everyone inside; Welcome opens the front door", async () => {

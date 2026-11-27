@@ -115,6 +115,8 @@ function KitPicker() {
         setValue('organization.kit', k.id, { shouldDirty: true })
         if (!getFieldState('organization.role_names').isDirty) setValue('organization.role_names', k.roles)
         if (!getFieldState('organization.join_mode').isDirty) setValue('organization.join_mode', k.join)
+        // Live check 2026-11-27: your title follows the kit's owner name too (Chair, Director), unless you typed one.
+        if (!getFieldState('organization.creator_title').isDirty) setValue('organization.creator_title', k.roles.owner)
     }
     return (
         <fieldset className="mt-5" data-testid="create-org-kit">
@@ -162,7 +164,9 @@ export function OrgIdentityFields() {
     const partOf = useWatch<CreateWorkspaceInput, 'organization.part_of'>({ name: 'organization.part_of' }) || ''
     const [partOfLinked, setPartOfLinked] = useState<{ id: string; title: string; verified: boolean } | null>(null)
     const edited = useRef(Boolean(getValues('organization.handle')))
-    const zones = useMemo(() => timeZoneOptions(), [])
+    // The browser's zone comes first: the form takes the select's first option when it registers, before the effect below runs
+    // (live check 2026-11-27: every new org since 11-24 got Africa/Abidjan).
+    const zones = useMemo(() => { const own = Intl.DateTimeFormat().resolvedOptions().timeZone; return [own, ...timeZoneOptions().filter((z) => z !== own)] }, [])
 
     // Suggested from the name ("CSE-3A 2026" -> cse-3a-2026) until the person types their own.
     useEffect(() => {
@@ -281,13 +285,17 @@ function PlanFirstSprints() {
     const type = useWatch<CreateWorkspaceInput, 'organization.org_type'>({ name: 'organization.org_type' })
     const termStart = useWatch<CreateWorkspaceInput, 'organization.term_start'>({ name: 'organization.term_start' })
     const plan = useWatch<CreateWorkspaceInput, 'organization.plan_sprints'>({ name: 'organization.plan_sprints' })
+    // Live check 2026-11-27: an Other organization's kit names its main sprint (Year, Season, Quarter).
+    const kit = kitById(useWatch<CreateWorkspaceInput, 'organization.kit'>({ name: 'organization.kit' }))
+    const word = type === 'other' && kit && kit.id !== 'blank' ? kit.timeWord : typeProfile(type ?? 'other').mainSprintWord
+    const prefix = type === 'other' && kit && kit.id !== 'blank' ? `${kit.timeWord} ` : orgTypeDefaults(type ?? 'other').sprintPrefix
     const today = new Date().toISOString().slice(0, 10)
     const set = (next: NonNullable<typeof plan> | undefined) => setValue('organization.plan_sprints', next, { shouldDirty: true })
     return (
         <fieldset>
-            <legend className={labelClass}>Plan your first {typeProfile(type ?? 'other').mainSprintWord.toLowerCase()}s (optional)</legend>
+            <legend className={labelClass}>Plan your first {word.toLowerCase()}s (optional)</legend>
             <label className="mt-2 flex items-center gap-2.5 text-[13px] text-foreground">
-                <input type="checkbox" className="nb-check" checked={Boolean(plan)} onChange={(e) => set(e.target.checked ? { prefix: orgTypeDefaults(type ?? 'other').sprintPrefix, count: 5, length_days: 7, start_date: termStart || today } : undefined)} />
+                <input type="checkbox" className="nb-check" checked={Boolean(plan)} onChange={(e) => set(e.target.checked ? { prefix, count: 5, length_days: 7, start_date: termStart || today } : undefined)} />
                 Plan a few now
             </label>
             {plan ? (
@@ -298,7 +306,7 @@ function PlanFirstSprints() {
                     <label><span className={labelClass}>First starts</span><Input type="date" value={plan.start_date} onChange={(e) => set({ ...plan, start_date: e.target.value || today })} className="mt-1.5" /></label>
                 </div>
             ) : null}
-            <p className={helpClass}>Named {plan ? `${plan.prefix.trim()}1–${plan.prefix.trim()}${plan.count}` : 'CO1, CO2…'}; you can rename, move or add more on the Sprints tab. The Journey on About is built from them.</p>
+            <p className={helpClass}>Named {plan ? `${plan.prefix.trim()}1–${plan.prefix.trim()}${plan.count}` : `${prefix.trim()} 1, ${prefix.trim()} 2…`}; you can rename, move or add more on the Sprints tab. The Journey on About is built from them.</p>
         </fieldset>
     )
 }

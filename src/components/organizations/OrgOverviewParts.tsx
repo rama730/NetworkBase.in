@@ -361,7 +361,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {/* Report 33.2 (B4.1d): a company's home — What's new under the pinned post; Needs review for admins. */}
                 {orgType === 'company' || (orgType === 'other' && parts.includes('handbook')) ? <WhatsNewCard orgId={orgId} base={base} /> : null}
                 {orgType === 'company' || (orgType === 'other' && parts.includes('handbook')) ? <NeedsReviewCard orgId={orgId} base={base} /> : null}
-                {orgType === 'company' || (orgType === 'other' && parts.includes('goals')) ? <CompanyGoalsCard orgId={orgId} base={base} /> : null}
+                {orgType === 'company' || (orgType === 'other' && parts.includes('goals')) ? <CompanyGoalsCard orgId={orgId} base={base} other={orgType === 'other'} /> : null}
                 {orgType === 'company' || (orgType === 'other' && parts.includes('requests')) ? <AskTeamCard orgId={orgId} base={base} /> : null}
                 {data.getStarted.length ? (
                     // Report §7.2, decision 7: three cards while the organization is empty, each opening the real form.

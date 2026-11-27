@@ -32,7 +32,8 @@ async function org(orgId: string) {
     FROM workspaces w WHERE w.id = ${orgId}::uuid AND w.kind = 'organization' AND w.deleted_at IS NULL`));
   // B8.4a (37.2 call 5): Volunteers shows only while its part is on in Settings → Workflows (off keeps the data).
   if (!w || !volunteersFor(w.type) || !partOn(w.settings, "volunteers") || !a.canRead) return null;
-  const settings = readVolunteers(w.settings);
+  // Live check 2026-11-27: the part is the one switch; its old inner on/off no longer hides anything.
+  const settings = { ...readVolunteers(w.settings), on: true };
   return { userId, w, settings, slug: w.slug ?? orgId, prefs: w.prefs ?? {},
     coordinator: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked,
     member: Boolean(userId) && (a.isOwner || (a.isMember && a.memberRole !== "viewer")) && !a.writeBlocked };

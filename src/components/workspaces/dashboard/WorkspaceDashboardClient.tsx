@@ -1320,6 +1320,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     <TabErrorBoundary tabName="Workspaces">
                         {organization?.isSchool ? <SchoolClassesTab orgId={project.id} />
                             // Report 33.4 (B4.3): a company's Workspaces add Goals and Timeline beside the list.
+                            // Live check 2026-11-27: an Other organization with Goals and Groups or Committees shows both, the goals views inside the groups switcher.
+                            : organization?.type === 'other' && organization.parts?.includes('goals') && (organization.parts?.includes('groups') || organization.parts?.includes('positions'))
+                                ? <CommunityProjects club label={organization.parts?.includes('positions') ? 'Committees' : 'Groups'} orgId={project.id} list={<CompanyProjects orgId={project.id} base={canonicalProjectHref} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />} />
                             : organization?.type === 'company' || (organization?.type === 'other' && organization.parts?.includes('goals')) ? <CompanyProjects orgId={project.id} base={canonicalProjectHref} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
                             // Report 34.6 (B5.5a): a community's Workspaces add Chapters.
                             : organization?.type === 'community' ? <CommunityProjects orgId={project.id} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />

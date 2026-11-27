@@ -449,7 +449,7 @@ export function ConstitutionCard({ orgId, about = false }: { orgId: string; abou
   );
   if (!d.version) return (
     <OrgCard title="Constitution" testId="club-constitution">
-      <span className="flex flex-wrap items-center gap-2 text-[13px]"><span className="text-muted-foreground">Write the club’s rules as numbered articles; members vote on every change after that.</span>
+      <span className="flex flex-wrap items-center gap-2 text-[13px]"><span className="text-muted-foreground">Write your rules as numbered articles; members vote on every change after that.</span>
         <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft(STARTER_ARTICLES.map((a) => ({ ...a, text: a.text.replace("{club}", d.title) })))}>Write the constitution</button></span>
     </OrgCard>
   );

@@ -131,16 +131,16 @@ function TimelineView({ orgId }: { orgId: string }) {
 }
 
 /** Company goals card (Overview, K1): up to 5 company goals with status. */
-export function CompanyGoalsCard({ orgId, base }: { orgId: string; base: string }) {
+export function CompanyGoalsCard({ orgId, base, other = false }: { orgId: string; base: string; other?: boolean }) {
   const q = useCompanyGoals(orgId);
   const d = q.data?.success ? q.data : null;
   if (!d) return null;
   const company = d.goals.filter((g) => !g.team).sort((a, b) => ORDER[a.status]! - ORDER[b.status]!).slice(0, 5);
   if (!company.length && !d.admin) return null;
   return (
-    <OrgCard title={`Company goals · ${d.label}`} testId="company-goals-card" action={<Link href={`${base}?tab=projects`} className="nb-link text-[13px]">Goals</Link>}>
+    <OrgCard title={`${other ? "Goals" : "Company goals"} · ${d.label}`} testId="company-goals-card" action={<Link href={`${base}?tab=projects`} className="nb-link text-[13px]">Goals</Link>}>
       {company.length ? <ul className="space-y-1 text-[13px]">{company.map((g) => <li key={g.id}><GoalLine g={g} /></li>)}</ul>
-        : <p className="text-[13px] text-muted-foreground">Set this quarter’s company goals in Workspaces, under Goals.</p>}
+        : <p className="text-[13px] text-muted-foreground">Set this quarter’s {other ? "goals" : "company goals"} in Workspaces, under Goals.</p>}
     </OrgCard>
   );
 }

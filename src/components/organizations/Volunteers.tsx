@@ -44,7 +44,6 @@ export function VolunteersCard({ orgId }: { orgId: string }) {
   if (settings) return (
     <OrgCard title="Settings · Volunteers" testId="volunteer-settings">
       <div className="space-y-2 text-[13px]">
-        <label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={settings.on} onChange={(e) => setSettings({ ...settings, on: e.target.checked })} />Volunteers is on</label>
         <ul className="space-y-1.5">{settings.roles.map((r, i) => (
           <li key={i} className="flex flex-wrap items-center gap-2">
             <Input value={r.name} maxLength={60} aria-label={`Role ${i + 1} name`} onChange={(e) => setSettings({ ...settings, roles: settings.roles.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} className="w-[180px]" />
@@ -67,7 +66,7 @@ export function VolunteersCard({ orgId }: { orgId: string }) {
       <button type="button" className="nb-link" onClick={() => setShift({ roleId: d.roles[0]?.id ?? "", place: "", day: "", from: "09:00", to: "12:00", places: 6, note: "", weeks: 0, programId: "" })}>Add a shift</button>
       <button type="button" className="nb-link" onClick={() => setSettings({ on: d.on, roles: d.roles, agreement: d.agreement.text })}>Settings</button></span> : null}>
       <div className="space-y-3 text-[13px]">
-        {!d.on ? <p className="text-muted-foreground">Volunteers is off. Turn it on in Settings, add roles, then shifts.</p> : null}
+        {!d.roles.length ? <p className="text-muted-foreground">Add roles in Settings, then shifts.</p> : null}
         {shift ? <fieldset className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3" data-testid="volunteer-shift-form"><legend className="sr-only">New shift</legend>
           <label className="flex flex-col">Role<select className="nb-select mt-0.5" value={shift.roleId} onChange={(e) => setShift({ ...shift, roleId: e.target.value })}>{d.roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
           <label className="flex flex-col">Day<Input type="date" value={shift.day} onChange={(e) => setShift({ ...shift, day: e.target.value })} className="mt-0.5 w-auto font-mono" /></label>

@@ -87,6 +87,17 @@ test('Details: organization words, Part of and Where, no problem/solution or ski
     expect((await values(page)).organization).toMatchObject({ part_of: 'Northgate Institute', part_of_org_id: 'p1' });
 });
 
+// Live check 2026-11-27: every new org got Africa/Abidjan (the list's first zone) when the browser's zone was in the list.
+test.describe('in India', () => {
+    test.use({ timezoneId: 'Asia/Kolkata' });
+    test('Details: the time zone starts as the browser’s own', async ({ page }) => {
+        await open(page, 'step=details&type=education');
+        const own = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+        await expect(page.locator('#create-org-time-zone')).toHaveValue(own);
+        expect((await values(page)).organization.time_zone).toBe(own);
+    });
+});
+
 test('People: role names, a co-admin by search and by email, and the roster count', async ({ page }) => {
     await open(page, 'step=people&type=research');
     await page.getByLabel('Name for the member role').fill('Scholar');
