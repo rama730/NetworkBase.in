@@ -110,3 +110,19 @@ test("volunteers: shift times, the check-in window, Short within 14 days, hours 
   assert.deepEqual(readVolunteers({}).roles, []);
   assert.deepEqual(["other", "community", "club"].map(volunteersFor), [true, false, false]);
 });
+
+test("fixed time: the countdown, offsets as words, starters inside their window", async () => {
+  const { addDays, countdown, defaultEnd, offsetWords, readFixedTime, STARTERS } = await import("../../src/lib/organizations/fixed-time");
+  const f = { keyDate: "2027-02-13", endDate: "2027-03-15" };
+  assert.equal(countdown(f, "2027-01-21").line, "23 days to go");
+  assert.equal(countdown(f, "2027-01-21").state, "planning");
+  assert.deepEqual(countdown(f, "2027-02-10"), { state: "this_week", line: "3 days to go" });
+  assert.deepEqual(countdown(f, "2027-02-13"), { state: "today", line: "Today" });
+  assert.deepEqual(countdown(f, "2027-03-03"), { state: "wrap_up", line: "Wrap-up: 12 days left" });
+  assert.equal(countdown(f, "2027-03-16").state, "ended");
+  assert.deepEqual([offsetWords(-14), offsetWords(0), offsetWords(1)], ["14 days before", "On the day", "1 day after"]);
+  assert.equal(defaultEnd("2027-02-13"), "2027-03-15");
+  assert.equal(addDays("2027-02-13", -21), "2027-01-23");
+  assert.ok(STARTERS.event!.tasks.every((t) => t.offset >= -56 && t.offset <= 14), "Event: 8 weeks before to 2 weeks after");
+  assert.equal(readFixedTime({ fixedTime: { keyDate: "2027-02-13", endDate: "2027-02-01" } }), null, "the end comes on or after the key date");
+});

@@ -15289,6 +15289,13 @@ NEXT YEAR         [ Run it again ] → Book Fest 2028, dates moved to Feb 12 202
 9. Run it again duplicates the team with dates moved and the last debrief pinned.
 10. A fixed-time team can sit under a parent org and shows there as Closed when done.
 
+**Build calls (B8.2a, 2026-11-27):**
+1. **Dates:** organisers (owner and admins) set the key date and an end date (30 days after by default) from the Dates card on Overview; it's offered in Other organizations, and any organization with a key date shows it. The countdown line reads "23 days to go · Sat, 13 February 2027 · ends Mon, 15 March 2027". States: Planning, This week (final 7 days), Today, Wrap-up with days left, Ended. It never closes on its own.
+2. **Plan starters** (once): Event (8 weeks before to 2 weeks after), Campaign or Task force. Each lands its tasks with dates worked out backwards from the key date; each task keeps its offset, phase and the date the plan set.
+3. **Moving the key date:** a preview lists every date that moves and every date set by hand that stays. A task moves only while its date is still the one the plan set (server test), so no edit path needs a "set by hand" switch. The end date keeps its distance. If the key date has passed, a reason is required and kept with the move for the debrief. The team is told (Important).
+4. **This week** on the card: plan tasks due in the next 7 days with their date in full and the offset as words ("21 days before"), or "set by hand".
+5. **Not built yet (B8.2b–c):** workstreams with owners, Bookings with typed references, the Day of view with Issues today, the wrap-up checklist and the Close prompt, Run it again with the pinned debrief, the profile entry, and the booking and close notices.
+
 ### 37.5 X4 · Programs and impact (agreed 2026-11-17)
 **References** (37.1, plus 12 searches for impact reports, logic models, theories of change, program evaluation, annual plans, KPIs and mission statements: 107 templates, 20 rated; 4 more screens studied):
 
