@@ -20,6 +20,16 @@ test('Club recruiting: the banner while it lasts, the officers card with drive c
       answerRenewalAction: async (_o: string, a: string) => { calls.push(['answer', a]); return { success: true }; },
       endNotRenewedAction: async () => { calls.push(['end']); return { success: true, ended: 2 }; },
       saveRenewalAction: async () => ({ success: true }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: true, officer: true, me: 'u1', people: [{ id: 'u2', name: 'Mia' }, { id: 'u3', name: 'Raj' }], docs: [{ id: 'd1', name: 'Secretary role page' }],
+        positions: [
+          { id: 'president', label: 'President', filled: 'election', gives: 'president', docId: null, docSlug: null, holder: { termId: 't0', userId: 'u1', name: 'Asha', avatar: null, username: 'asha', state: 'holding', how: 'election' } },
+          { id: 'secretary', label: 'Secretary', filled: 'election', gives: 'coordinator', docId: 'd1', docSlug: 'secretary-role', holder: { termId: 't1', userId: 'u2', name: 'Mia', avatar: null, username: 'mia', state: 'offered', how: 'appointment' } },
+          { id: 'treasurer', label: 'Treasurer', filled: 'election', gives: 'coordinator', docId: null, docSlug: null, holder: null }],
+        history: [{ season: '2025–26', position: 'Secretary', name: 'Old Sam' }] }),
+      appointAction: async (_o: string, p: string, u: string) => { (window as any).__calls.push(['appoint', p, u]); return { success: true }; },
+      answerAppointmentAction: async () => ({ success: true }),
+      endTermAction: async () => ({ success: true }),
+      savePositionsAction: async () => ({ success: true }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -50,6 +60,16 @@ test('Season renewal: the member ask, officers see counts and end only after a c
       answerRenewalAction: async (_o: string, a: string) => { calls.push(['answer', a]); return { success: true }; },
       endNotRenewedAction: async () => { calls.push(['end']); return { success: true, ended: 2 }; },
       saveRenewalAction: async () => ({ success: true }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: true, officer: true, me: 'u1', people: [{ id: 'u2', name: 'Mia' }, { id: 'u3', name: 'Raj' }], docs: [{ id: 'd1', name: 'Secretary role page' }],
+        positions: [
+          { id: 'president', label: 'President', filled: 'election', gives: 'president', docId: null, docSlug: null, holder: { termId: 't0', userId: 'u1', name: 'Asha', avatar: null, username: 'asha', state: 'holding', how: 'election' } },
+          { id: 'secretary', label: 'Secretary', filled: 'election', gives: 'coordinator', docId: 'd1', docSlug: 'secretary-role', holder: { termId: 't1', userId: 'u2', name: 'Mia', avatar: null, username: 'mia', state: 'offered', how: 'appointment' } },
+          { id: 'treasurer', label: 'Treasurer', filled: 'election', gives: 'coordinator', docId: null, docSlug: null, holder: null }],
+        history: [{ season: '2025–26', position: 'Secretary', name: 'Old Sam' }] }),
+      appointAction: async (_o: string, p: string, u: string) => { (window as any).__calls.push(['appoint', p, u]); return { success: true }; },
+      answerAppointmentAction: async () => ({ success: true }),
+      endTermAction: async () => ({ success: true }),
+      savePositionsAction: async () => ({ success: true }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -62,5 +82,44 @@ test('Season renewal: the member ask, officers see counts and end only after a c
   await expect(card).toContainText('End 2 memberships as Season ended? Officers are never included.');
   await card.getByRole('button', { name: 'End 2' }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['end']);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the President, the presidency via transfer, past Seasons; About shows only holders', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    (window as any).__actions = {
+      readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
+      readRenewalAction: async () => ({ success: true, on: false, officer: false }),
+
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: true, officer: true, me: 'u1', people: [{ id: 'u2', name: 'Mia' }, { id: 'u3', name: 'Raj' }], docs: [{ id: 'd1', name: 'Secretary role page' }],
+        positions: [
+          { id: 'president', label: 'President', filled: 'election', gives: 'president', docId: null, docSlug: null, holder: { termId: 't0', userId: 'u1', name: 'Asha', avatar: null, username: 'asha', state: 'holding', how: 'election' } },
+          { id: 'secretary', label: 'Secretary', filled: 'election', gives: 'coordinator', docId: 'd1', docSlug: 'secretary-role', holder: { termId: 't1', userId: 'u2', name: 'Mia', avatar: null, username: 'mia', state: 'offered', how: 'appointment' } },
+          { id: 'treasurer', label: 'Treasurer', filled: 'election', gives: 'coordinator', docId: null, docSlug: null, holder: null }],
+        history: [{ season: '2025–26', position: 'Secretary', name: 'Old Sam' }] }),
+      appointAction: async (_o: string, p: string, u: string) => { (window as any).__calls.push(['appoint', p, u]); return { success: true }; },
+      answerAppointmentAction: async () => ({ success: true }),
+      endTermAction: async () => ({ success: true }),
+      savePositionsAction: async () => ({ success: true }),
+    };
+  });
+  await openApp(page, 'tests/browser/club.fixture.tsx');
+  const card = page.getByTestId('club-committee');
+  await expect(card).toContainText('This Season’s committee · 2026–27');
+  const sec = card.getByTestId('club-position').filter({ hasText: 'Secretary' });
+  await expect(sec).toContainText('Asked');
+  await expect(sec.getByRole('link', { name: 'Role page for Secretary' })).toHaveAttribute('href', '?tab=docs&doc=secretary-role');
+  await expect(card.getByTestId('club-position').filter({ hasText: 'President' })).not.toContainText('Appoint');
+  await card.getByLabel('Appoint Treasurer').selectOption({ label: 'Raj' });
+  await card.getByTestId('club-position').filter({ hasText: 'Treasurer' }).getByRole('button', { name: 'Ask' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['appoint', 'treasurer', 'u3']);
+  await card.getByText('Past Seasons').click();
+  await expect(card).toContainText('2025–26 · Secretary: Old Sam');
+  const strip = page.getByTestId('club-committee-strip');
+  await expect(strip).toContainText('Asha');
+  await expect(strip).not.toContainText('Mia');
   expect(await axeViolations(page)).toEqual([]);
 });

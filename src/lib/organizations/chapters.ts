@@ -34,8 +34,8 @@ export function chapterFlags(organisers: number, lastActivity: string | null, cr
 }
 
 /** Small groups (B5.5b, call 9): kinds as words. */
-export const GROUP_KINDS = ["study", "book", "accountability", "mastermind", "other"] as const;
-export const GROUP_KIND_WORDS: Record<(typeof GROUP_KINDS)[number], string> = { study: "Study group", book: "Book club", accountability: "Accountability circle", mastermind: "Mastermind", other: "Other" };
+export const GROUP_KINDS = ["study", "book", "accountability", "mastermind", "other", "committee"] as const;
+export const GROUP_KIND_WORDS: Record<(typeof GROUP_KINDS)[number], string> = { study: "Study group", book: "Book club", accountability: "Accountability circle", mastermind: "Mastermind", other: "Other", committee: "Committee" };
 
 /**
  * B5.5d (report 34.6 call 4): the Chapter kit — a frozen snapshot the community's organisers save (chosen documents,

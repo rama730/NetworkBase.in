@@ -19,6 +19,8 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 
 let fd: typeof import("../../src/app/actions/community-front-door");
 let club: typeof import("../../src/app/actions/club");
+let pos: typeof import("../../src/app/actions/club-positions");
+let groups: typeof import("../../src/app/actions/community-groups");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -28,6 +30,8 @@ before(async () => {
   });
   fd = await loadAppModule(() => import("../../src/app/actions/community-front-door"));
   club = await loadAppModule(() => import("../../src/app/actions/club"));
+  pos = await loadAppModule(() => import("../../src/app/actions/club-positions"));
+  groups = await loadAppModule(() => import("../../src/app/actions/community-groups"));
 });
 
 const created: string[] = [];
@@ -132,4 +136,56 @@ test("36.2 call 6: Season renewal asks once, answers for officers only, ends onl
   assert.ok(ids.includes(pres!) && ids.includes(coord!) && ids.includes(stay!) && ids.includes(fresh!) && !ids.includes(leave!) && !ids.includes(quiet!));
   const [why] = await sql`SELECT end_reason FROM profile_contributions WHERE profile_id = ${quiet!} AND workspace_id = ${id}`;
   assert.equal(why?.end_reason, "term_ended", "recorded as Season ended");
+});
+
+test("36.3 (B7.2a): positions give their role on accept and take back only what they gave; the presidency never; committees by officers; history", async () => {
+  const [pres, coord, mia, raj, visitor] = await Promise.all([1, 2, 3, 4, 5].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, pres!, { visibility: "public" }));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active' WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${pres!}, 'owner'), (${id}, ${coord!}, 'admin'), (${id}, ${mia!}, 'member'), (${id}, ${raj!}, 'member')`;
+  viewerId = coord!;
+  assert.equal((await pos.appointAction(id, "secretary", mia!)).success, false, "only the President appoints");
+  viewerId = pres!;
+  assert.match(String((await pos.appointAction(id, "president", mia!) as { error?: string }).error), /Transfer ownership/);
+  assert.match(String((await pos.appointAction(id, "secretary", visitor!) as { error?: string }).error), /people in the club/);
+  assert.ok((await pos.appointAction(id, "secretary", mia!)).success);
+  assert.match(String((await pos.appointAction(id, "secretary", raj!) as { error?: string }).error), /already has someone/);
+  assert.ok((await pos.appointAction(id, "treasurer", coord!)).success, "a Coordinator already can hold one");
+  viewerId = visitor!;
+  const before = await pos.readCommitteeAction(id);
+  assert.ok(before.success && !before.positions.some((p) => p.holder), "visitors don't see offers that weren't accepted");
+  viewerId = mia!;
+  const offer = await pos.readCommitteeAction(id);
+  const sec = offer.success ? offer.positions.find((p) => p.id === "secretary")!.holder! : null;
+  assert.ok((await pos.answerAppointmentAction(id, sec!.termId, true)).success);
+  const [miaRole] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${mia!}`;
+  assert.equal(miaRole!.role, "admin", "holding Secretary makes her a Coordinator");
+  viewerId = coord!;
+  const coordView = await pos.readCommitteeAction(id);
+  const tre = coordView.success ? coordView.positions.find((p) => p.id === "treasurer")!.holder! : null;
+  assert.ok((await pos.answerAppointmentAction(id, tre!.termId, true)).success);
+  assert.ok((await pos.endTermAction(id, tre!.termId)).success, "stepping down");
+  const [coordRole] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${coord!}`;
+  assert.equal(coordRole!.role, "admin", "a role the term didn't give stays");
+  viewerId = pres!;
+  assert.ok((await pos.endTermAction(id, sec!.termId)).success);
+  const [miaAfter] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${mia!}`;
+  assert.equal(miaAfter!.role, "member", "the role the term gave goes with it");
+  // History: a new Season keeps the past.
+  const settings = await pos.readCommitteeAction(id);
+  assert.ok(settings.success);
+  assert.ok((await pos.savePositionsAction(id, { season: "2099–00", positions: settings.success ? settings.positions.map(({ id: pid, label, filled, gives, docId }) => ({ id: pid, label, filled, gives, docId })) : [] })).success);
+  viewerId = raj!;
+  const hist = await pos.readCommitteeAction(id);
+  assert.ok(hist.success && hist.history.some((h) => h.position === "Secretary" && h.season !== "2099–00"), "past Seasons are kept");
+  // Committees: officers start them in a club; members can't.
+  assert.match(String((await groups.startGroupAction(id, { title: "WT Events committee", kind: "committee", purpose: "", meets: "", cap: 20, join: "open", chapterId: null }) as { error?: string }).error), /Officers start committees/);
+  viewerId = coord!;
+  assert.match(String((await groups.startGroupAction(id, { title: "WT Study club", kind: "study", purpose: "", meets: "", cap: 20, join: "open", chapterId: null }) as { error?: string }).error), /Officers start committees/, "a club's groups are committees");
+  const made = await groups.startGroupAction(id, { title: "WT Events committee", kind: "committee", purpose: "Plan the term's events", meets: "", cap: 20, join: "ask", chapterId: null });
+  assert.ok(made.success);
+  viewerId = raj!;
+  const joined = await groups.joinGroupAction(id, made.success ? made.id : "");
+  assert.ok(joined.success && joined.outcome === "asked", "Ask sends a request to the chair");
 });

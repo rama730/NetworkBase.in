@@ -172,7 +172,8 @@
     "drizzle/0167_lab_reading_group.sql",
     "drizzle/0168_lab_meeting.sql",
     "drizzle/0169_lab_progress.sql",
-    "drizzle/0170_lab_reviews.sql"
+    "drizzle/0170_lab_reviews.sql",
+    "drizzle/0171_club_positions.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

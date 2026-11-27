@@ -6,12 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Megaphone, Printer } from "lucide-react";
 
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
+import { answerAppointmentAction, appointAction, endTermAction, readCommitteeAction, savePositionsAction } from "@/app/actions/club-positions";
 import { readCommunityEventsAction } from "@/app/actions/community-events";
-import { OrgCard } from "@/components/organizations/org-ui";
+import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { DEFAULT_ASK, RENEWAL_WORDS, type RenewalState } from "@/lib/organizations/club";
+import { DEFAULT_ASK, RENEWAL_WORDS, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
 
 // Report 36.2 (plan B7.1a, L1): Recruiting now on a club's About, the officers' Recruiting card (dates, line, first event,
 // the drive's counts) and the printable join poster (the short link and the code; no QR code).
@@ -138,6 +140,85 @@ function RenewalSetup({ value, onChange, onSave, onCancel }: { value: { season: 
       <label className="flex flex-col">Days to answer<Input type="number" min={7} max={90} value={value.days} onChange={(e) => onChange({ ...value, days: Number(e.target.value) })} className="mt-0.5 w-[90px] font-mono" /></label>
       <button type="button" className={FORM_PRIMARY_CLASS} disabled={!value.season || !value.ask.trim()} onClick={onSave}>Ask members</button>
       <button type="button" className={FORM_SECONDARY_CLASS} onClick={onCancel}>Cancel</button>
+    </fieldset>
+  );
+}
+
+const GIVES_WORDS = { president: "President (owner)", coordinator: "Coordinator", none: "No role" } as const;
+
+/**
+ * This Season's committee (B7.2a, 36.3): positions with their holders — on About for everyone, on Overview with the
+ * President's appoint, the holder's accept, role pages and past Seasons. Positions are labels; the role comes with holding.
+ */
+export function CommitteeCard({ orgId, about = false }: { orgId: string; about?: boolean }) {
+  const q = useQuery({ queryKey: ["club-committee", orgId], queryFn: () => readCommitteeAction(orgId), staleTime: 60_000 });
+  const [editing, setEditing] = useState(false);
+  const [appoint, setAppoint] = useState<Record<string, string>>({});
+  const d = q.data?.success ? q.data : null;
+  if (!d) return null;
+  const refresh = () => void q.refetch();
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); refresh(); };
+  const held = d.positions.filter((p) => p.holder?.state === "holding");
+  if (about) return held.length ? (
+    <section aria-label="This Season's committee" className="space-y-2 rounded-md border border-border bg-card p-3 text-[13px]" data-testid="club-committee-strip">
+      <h3 className="font-medium">This Season’s committee <span className="font-normal text-muted-foreground">{d.season}</span></h3>
+      <ul className="flex flex-wrap gap-3">{held.map((p) => (
+        <li key={p.id} className="flex items-center gap-2"><UserAvatar identity={{ fullName: p.holder!.name, avatarUrl: p.holder!.avatar }} size={24} roundedClassName="rounded-md" />
+          <span><span className="block font-medium">{p.holder!.name}</span><span className="text-muted-foreground">{p.label}</span></span></li>))}</ul>
+    </section>) : null;
+  if (editing) return <OrgCard title="Positions" testId="club-positions"><PositionsEditor season={d.season} positions={d.positions} docs={d.docs}
+    onSave={(v) => void run(savePositionsAction(orgId, v), "Positions saved").then(() => setEditing(false))} onCancel={() => setEditing(false)} /></OrgCard>;
+  return (
+    <OrgCard title={`This Season’s committee · ${d.season}`} testId="club-committee" action={d.president ? <button type="button" className="nb-link text-[13px]" onClick={() => setEditing(true)}>Positions</button> : null}>
+      <div className="space-y-2 text-[13px]">
+        <ul className="divide-y divide-border rounded-md border border-border">{d.positions.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="club-position">
+            <span className="min-w-[140px] font-medium">{p.label}</span>
+            {p.holder ? <span className="flex items-center gap-1.5"><UserAvatar identity={{ fullName: p.holder.name, avatarUrl: p.holder.avatar }} size={20} roundedClassName="rounded-md" />{p.holder.name}</span>
+              : <span className="text-muted-foreground">Not filled</span>}
+            {p.holder?.state === "offered" ? <StatusBadge state="draft">Asked</StatusBadge> : null}
+            <span className="text-muted-foreground">{p.filled === "election" ? "Elected" : "Appointed"}</span>
+            {p.docSlug ? <a className="nb-link" href={`?tab=docs&doc=${encodeURIComponent(p.docSlug)}`}>Role page<span className="sr-only"> for {p.label}</span></a> : null}
+            {p.holder?.state === "offered" && p.holder.userId === d.me ? <>
+              <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(answerAppointmentAction(orgId, p.holder!.termId, true), `You're ${p.label} this Season`)}>Accept</button>
+              <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(answerAppointmentAction(orgId, p.holder!.termId, false), "Declined")}>Decline</button></> : null}
+            {p.holder && (d.president || p.holder.userId === d.me) && p.holder.state === "holding" ? <button type="button" className="nb-link" onClick={() => void run(endTermAction(orgId, p.holder!.termId), "Term ended")}>{p.holder.userId === d.me ? "Step down" : "End term"}<span className="sr-only"> {p.label}</span></button> : null}
+            {!p.holder && d.president && p.gives !== "president" ? <span className="flex items-center gap-1.5">
+              <select className="nb-select" aria-label={`Appoint ${p.label}`} value={appoint[p.id] ?? ""} onChange={(e) => setAppoint({ ...appoint, [p.id]: e.target.value })}>
+                <option value="">Appoint…</option>{d.people.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+              <button type="button" className={FORM_SECONDARY_CLASS} disabled={!appoint[p.id]} onClick={() => void run(appointAction(orgId, p.id, appoint[p.id]!), "Asked; they accept to take it")}>Ask</button></span> : null}
+            {!p.holder && d.president && p.gives === "president" ? <span className="text-muted-foreground">Moves through Transfer ownership</span> : null}
+          </li>))}</ul>
+        {d.history.length ? <details><summary className="cursor-pointer text-muted-foreground">Past Seasons</summary>
+          <ul className="mt-1 space-y-0.5">{d.history.map((h, i) => <li key={i}><span className="font-mono">{h.season}</span> · {h.position}: {h.name}</li>)}</ul></details> : null}
+      </div>
+    </OrgCard>
+  );
+}
+
+function PositionsEditor({ season, positions, docs, onSave, onCancel }: { season: string; positions: ClubPosition[]; docs: Array<{ id: string; name: string }>;
+  onSave: (v: { season: string; positions: ClubPosition[] }) => void; onCancel: () => void }) {
+  const [s, setS] = useState(season);
+  const [list, setList] = useState<ClubPosition[]>(positions.map(({ id, label, filled, gives, docId }) => ({ id, label, filled, gives, docId })));
+  const set = (i: number, patch: Partial<ClubPosition>) => setList(list.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+  return (
+    <fieldset className="space-y-2 text-[13px]" data-testid="club-positions-editor">
+      <label className="flex flex-col">Season<Input value={s} maxLength={20} onChange={(e) => setS(e.target.value)} className="mt-0.5 w-[140px] font-mono" /></label>
+      {list.map((p, i) => (
+        <span key={p.id} className="flex flex-wrap items-center gap-2">
+          <Input value={p.label} maxLength={60} onChange={(e) => set(i, { label: e.target.value })} aria-label={`Position ${i + 1}`} className="w-[180px]" />
+          <select className="nb-select" aria-label={`How ${p.label} is filled`} value={p.filled} onChange={(e) => set(i, { filled: e.target.value as ClubPosition["filled"] })}>
+            <option value="election">Election</option><option value="appointment">Appointment</option></select>
+          <select className="nb-select" aria-label={`Role ${p.label} gives`} value={p.gives} disabled={p.gives === "president"} onChange={(e) => set(i, { gives: e.target.value as ClubPosition["gives"] })}>
+            {(p.gives === "president" ? (["president"] as const) : (["coordinator", "none"] as const)).map((g) => <option key={g} value={g}>{GIVES_WORDS[g]}</option>)}</select>
+          <select className="nb-select" aria-label={`Role page for ${p.label}`} value={p.docId ?? ""} onChange={(e) => set(i, { docId: e.target.value || null })}>
+            <option value="">No role page</option>{docs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+          {p.gives !== "president" ? <button type="button" className="nb-link" onClick={() => setList(list.filter((_, j) => j !== i))}>Remove<span className="sr-only"> {p.label}</span></button> : null}
+        </span>))}
+      {list.length < 15 ? <button type="button" className="nb-link" onClick={() => setList([...list, { id: `pos-${Date.now().toString(36).slice(-6)}`, label: "", filled: "appointment", gives: "coordinator", docId: null }])}>Add a position</button> : null}
+      <p className="text-muted-foreground">Positions are labels with a Season term; holding one gives its role. Role pages list accounts by name only, never passwords.</p>
+      <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!s.trim() || list.some((p) => !p.label.trim())} onClick={() => onSave({ season: s, positions: list })}>Save</button>
+        <button type="button" className={FORM_SECONDARY_CLASS} onClick={onCancel}>Cancel</button></span>
     </fieldset>
   );
 }

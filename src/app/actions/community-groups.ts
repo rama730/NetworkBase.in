@@ -34,7 +34,8 @@ async function community(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; chapter_of: string | null; settings: unknown }>(sql`
     SELECT org_type AS type, org_settings->>'chapterOf' AS chapter_of, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "community" || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
+  // B7.2a (36.3 call 3): a club's committees are its groups of kind Committee, started by officers.
+  if ((w?.type !== "community" && w?.type !== "club") || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
   const pauseIn = (settings: unknown) => (settings as { community?: { pauses?: Record<string, { until: string }> } } | null)?.community?.pauses?.[userId] ?? null;
   let paused = pauseActive(pauseIn(w.settings), new Date());
   if (w.chapter_of) {
@@ -45,7 +46,7 @@ async function community(orgId: string) {
     const [cw] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${w.chapter_of}::uuid`));
     paused = paused || pauseActive(pauseIn(cw?.settings), new Date());
   }
-  return { userId, communityId: w.chapter_of ?? orgId, chapterId: w.chapter_of ? orgId : null, paused };
+  return { userId, communityId: w.chapter_of ?? orgId, chapterId: w.chapter_of ? orgId : null, paused, club: w.type === "club", officer: a.isOwner || a.memberRole === "admin" };
 }
 
 /** Groups (call 8): the community's and its chapters' groups — name, kind, size and cap, when, chapter, join mode; never their content. */
@@ -64,7 +65,7 @@ export async function readGroupsAction(orgId: string) {
   const askIds = [...new Set(rows.flatMap((r) => (r.mine === "owner" || r.mine === "admin" ? (((r.settings ?? {}) as GroupSettings).requests ?? []).map((q) => q.userId) : [])))].filter(isLooseUuid);
   const names = askIds.length ? new Map(Array.from(await db.execute<{ id: string; name: string | null; username: string | null }>(sql`
     SELECT id, full_name AS name, username FROM profiles WHERE id = ANY(${`{${askIds.join(",")}}`}::uuid[])`)).map((p) => [p.id, p.name ?? p.username ?? "Someone"])) : new Map<string, string>();
-  return { success: true as const, canStart: !ctx.paused, groups: rows.map((r) => {
+  return { success: true as const, canStart: !ctx.paused && (!ctx.club || ctx.officer), club: ctx.club, groups: rows.map((r) => {
     const s = (r.settings ?? {}) as GroupSettings;
     const host = r.mine === "owner" || r.mine === "admin";
     return { id: r.id, title: r.title, slug: r.slug, kind: s.kind ?? "other", meets: s.meets ?? "", purpose: s.purpose ?? "", cap: s.cap ?? 12, join: s.join ?? "open", chapter: r.chapter,
@@ -87,6 +88,9 @@ export async function startGroupAction(orgId: string, input: unknown): Promise<{
   if (ctx.paused) return { success: false, error: "You can start a group when your pause ends." };
   if (!parsed.success) return { success: false, error: "Give the group a name, a kind and a size between 2 and 50." };
   const d = parsed.data;
+  // A club's committees: officers start them, and they're of kind Committee (a community keeps its own kinds).
+  if (ctx.club && (!ctx.officer || d.kind !== "committee")) return { success: false, error: "Officers start committees." };
+  if (!ctx.club && d.kind === "committee") return DENIED;
   const home = d.chapterId ?? ctx.chapterId ?? ctx.communityId;
   if (d.chapterId) {
     // A chapter's group: the chapter belongs to this community and the starter is in it.

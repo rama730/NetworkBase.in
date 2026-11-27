@@ -31,3 +31,12 @@ test("Season renewal: states, new joiners not asked, the window", async () => {
   assert.equal(windowClosed(r, "2026-09-30"), false);
   assert.equal(windowClosed(r, "2026-10-01"), true);
 });
+
+test("positions: the starter list and a Season name until the President saves their own", async () => {
+  const { readPositions, STARTER_POSITIONS } = await import("../../src/lib/organizations/club");
+  const p = readPositions({}, new Date("2026-11-27T00:00:00Z"));
+  assert.equal(p.season, "2026–27");
+  assert.deepEqual(p.positions, STARTER_POSITIONS);
+  assert.equal(p.positions.filter((x) => x.gives === "president").length, 1);
+  assert.equal(readPositions({}, new Date("2026-03-01T00:00:00Z")).season, "2025–26");
+});

@@ -14217,6 +14217,16 @@ HANDOVER · Treasurer · Ravi → Leena (Apr 1)        ☑ Role page updated  �
 9. The presidency moves through the built ownership transfer; Ask to take over covers an absent President.
 10. Committee history is kept by Season; graduates are offered alumni.
 
+
+**Build calls (B7.2a, 2026-11-27):**
+1. **Positions** (call 1) are the club's list in Overview's committee card (Positions, President only): a starter list (President, Vice-president, Secretary, Treasurer, Events, Tech and Outreach officers), renameable, up to 15, each filled by Election or Appointment, each giving Coordinator or no role, each with a role page (an org document picked from Documents). The Season has a name (default "2026–27").
+2. **Terms** (0171): one person, one position, one Season, kept after they leave as the committee history (call 8, Past Seasons for members). The President appoints; the person accepts or declines (an offer shows "Asked"). Accepting a Coordinator position makes a member a Coordinator; ending the term (the President, or the holder stepping down) takes back only a role that term gave and no other held position still gives.
+3. **The presidency** (call 9) is never appointed or ended here: it is the club's owner and moves only through the built Transfer ownership, which the new President accepts (or Ask to take over).
+4. **This Season's committee** on About (call 1 of 36.2): holders only (photo, name, position), never offers.
+5. **Committees** (call 3) are the community's small groups (B5.5b) of kind Committee: each has its own workspace, channel and tasks, its starter chairs it, and joining is Open or Ask. In a club only officers start them and they're always Committees; a club's Workspaces tab gains a Committees view (chapters stay community-only). Their content stays with the committee.
+6. **Role pages** hold accounts by name only, never passwords (the editor says so); the holder doesn't yet become the page's owner automatically (B7.2c, handover).
+7. **Next:** B7.2b covers elections (nominations, statements, secret ballots stored without voters, run-off, returning officer). B7.2c covers handover (checklist, Handover meeting, roles switching on the date).
+
 ### 36.4 L3 · Meetings, minutes and votes (agreed 2026-11-17)
 **References** (12 searches for minutes, agendas, general meetings, constitutions, motions and board meetings: 101 templates, 41 rated; 4 more screens studied):
 

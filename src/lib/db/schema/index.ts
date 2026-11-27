@@ -1897,6 +1897,24 @@ export const labConcerns = pgTable("lab_concerns", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("lab_concerns_to_idx").on(t.toId, t.createdAt.desc()), index("lab_concerns_from_idx").on(t.fromId).where(sql`from_id IS NOT NULL`),
   index("lab_concerns_about_idx").on(t.aboutId).where(sql`about_id IS NOT NULL`), index("lab_concerns_org_idx").on(t.orgId)]);
+/** B7.2a (0171): a club's position terms — one person, one position, one Season; kept as the committee history. */
+export const clubPositionTerms = pgTable("club_position_terms", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  positionId: text("position_id").notNull(),
+  positionLabel: text("position_label").notNull(),
+  season: text("season").notNull(),
+  userId: uuid("user_id").references(() => profiles.id, { onDelete: "set null" }),
+  holderName: text("holder_name").notNull(),
+  how: text("how").notNull(),
+  state: text("state").default("offered").notNull(),
+  offeredBy: uuid("offered_by").references(() => profiles.id, { onDelete: "set null" }),
+  gaveRole: boolean("gave_role").default(false).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("club_position_terms_one_holder").on(t.orgId, t.positionId, t.season).where(sql`state IN ('offered', 'holding')`), index("club_position_terms_org_idx").on(t.orgId, t.season),
+  index("club_position_terms_user_idx").on(t.userId).where(sql`user_id IS NOT NULL`), index("club_position_terms_offered_by_idx").on(t.offeredBy).where(sql`offered_by IS NOT NULL`)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

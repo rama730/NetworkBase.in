@@ -42,3 +42,34 @@ export function renewalState(r: Renewal, answer: { season?: string; answer?: str
 }
 /** The answer window closes this many days after the Season's start. */
 export const windowClosed = (r: Renewal, today: string) => Date.parse(`${today}T00:00:00Z`) >= Date.parse(`${r.season}T00:00:00Z`) + r.days * DAY;
+
+/**
+ * Report 36.3 (B7.2a, calls 1–3): positions are labels with a Season term, separate from permission roles. Holding one
+ * gives the role it names: Coordinator (admin) or none. The President is the club's owner, which moves only through the
+ * built ownership transfer (call 9).
+ */
+export const positionSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]{1,30}$/),
+  label: z.string().trim().min(1).max(60),
+  filled: z.enum(["election", "appointment"]),
+  gives: z.enum(["president", "coordinator", "none"]),
+  docId: z.string().uuid().nullable(),
+}).strict();
+export type ClubPosition = z.infer<typeof positionSchema>;
+export const positionsSettingsSchema = z.object({ season: z.string().trim().min(1).max(20), positions: z.array(positionSchema).min(1).max(15) }).strict();
+export type PositionsSettings = z.infer<typeof positionsSettingsSchema>;
+export const STARTER_POSITIONS: ClubPosition[] = [
+  { id: "president", label: "President", filled: "election", gives: "president", docId: null },
+  { id: "vice-president", label: "Vice-president", filled: "election", gives: "coordinator", docId: null },
+  { id: "secretary", label: "Secretary", filled: "election", gives: "coordinator", docId: null },
+  { id: "treasurer", label: "Treasurer", filled: "election", gives: "coordinator", docId: null },
+  { id: "events", label: "Events officer", filled: "appointment", gives: "coordinator", docId: null },
+  { id: "tech", label: "Tech officer", filled: "appointment", gives: "coordinator", docId: null },
+  { id: "outreach", label: "Outreach officer", filled: "appointment", gives: "coordinator", docId: null },
+];
+export function readPositions(orgSettings: unknown, now = new Date()): PositionsSettings {
+  const p = positionsSettingsSchema.safeParse((orgSettings as { club?: { committee?: unknown } } | null)?.club?.committee);
+  if (p.success) return p.data;
+  const y = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+  return { season: `${y}–${String(y + 1).slice(2)}`, positions: STARTER_POSITIONS };
+}

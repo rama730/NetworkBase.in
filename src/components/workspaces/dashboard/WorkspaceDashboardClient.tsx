@@ -1323,6 +1323,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                             : organization?.type === 'company' ? <CompanyProjects orgId={project.id} base={canonicalProjectHref} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
                             // Report 34.6 (B5.5a): a community's Workspaces add Chapters.
                             : organization?.type === 'community' ? <CommunityProjects orgId={project.id} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
+                            // Report 36.3 (B7.2a): a club's Workspaces add Committees.
+                            : organization?.type === 'club' ? <CommunityProjects club orgId={project.id} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
                             : <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />}
                     </TabErrorBoundary>
                 </div>
