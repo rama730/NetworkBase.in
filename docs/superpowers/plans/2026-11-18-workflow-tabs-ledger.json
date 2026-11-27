@@ -1348,9 +1348,9 @@
       "text": "B7.2 L2 Officers, committees, handover (36.3)",
       "kind": "unit",
       "milestone": "B7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 9ab1e433a): B7.2a positions with Season terms, role pages, committees (0171); B7.2b secret-ballot elections with nominations, statements, run-off and a returning officer, ballots stored without voters (0172, storage test); B7.2c handover: checklist of 5 on the outgoing term, open tasks and published documents move to the accepted incoming officer, roles switch on the date and outgoing lose Coordinator, Handover meeting type (0173). Review fixes: roles given by term id, drafts never move, work only to active members. 0171-0173 in prod. Live check pending (Chrome extension disconnected)."
     },
     {
       "key": "B7.3",
