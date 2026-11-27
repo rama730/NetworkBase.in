@@ -18,9 +18,9 @@
       "text": "A0.2 Add workflow dialog, tab row, Settings → Workflows (38.2 F1 S1–S3, S8)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
-      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean ; Add + Undo through the dialog need a built workflow: re-run live at A1.3 (Project planner) — revisit 2026-11-20"
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean ; Add + Undo through the dialog need a built workflow: re-run live at A1.3 (Project planner) — CHECKED LIVE 2026-11-27: Add workflow → Project planner added with a 10 s Undo → Undo returns it to Add (wt-test-a2-3)."
     },
     {
       "key": "A0.3",
@@ -28,9 +28,9 @@
       "text": "A0.3 Org push + wizard suggestions (38.2 F1 W8, W9, S9, S10)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/workflow-rules.test.ts (suggestions); tests/db/workflow-catalog.test.ts (W8 push/unpush, W9 add-on-create); tests/browser/workflow-org.spec.ts (chromium+webkit)",
-      "evidence": "cf6862642 live 2026-11-19; checked in Chrome: existing workspace, org Settings and the wizard unchanged with the switch off; test org (switch on) shows Workflows for workspaces with 'No workflow is ready yet'; a pushed Bugs row (seeded) shows in the child as a locked tab 'Added by wt-test-a0-3-org' and a Locked Settings row without Remove; the real wizard inside that org shows Bugs ticked, locked, 'Set by wt-test-a0-3-org' (not created; draft deleted); test org and child deleted; logs clean ; pushing and the wizard's own suggestions need a built workflow: re-run live at A1.3 — revisit 2026-11-20"
+      "evidence": "cf6862642 live 2026-11-19; checked in Chrome: existing workspace, org Settings and the wizard unchanged with the switch off; test org (switch on) shows Workflows for workspaces with 'No workflow is ready yet'; a pushed Bugs row (seeded) shows in the child as a locked tab 'Added by wt-test-a0-3-org' and a Locked Settings row without Remove; the real wizard inside that org shows Bugs ticked, locked, 'Set by wt-test-a0-3-org' (not created; draft deleted); test org and child deleted; logs clean ; pushing and the wizard's own suggestions need a built workflow: re-run live at A1.3 — CHECKED LIVE 2026-11-27: org Settings → Workflows for workspaces → Add Bugs to every workspace (confirm dialog names the count) → the child workspace shows a locked Bugs tab 'Added by wt-test-b8-kits'; Remove from workspaces offered."
     },
     {
       "key": "A0.4",
@@ -218,9 +218,9 @@
       "text": "A2.5 Requests: working hours + clock + Breaching soon — Build: workspaces.workinghours; workingMinutesBetween, addWorkingMinutes, clockState, reminderTimes; clo",
       "kind": "unit",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
-      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247. The hourly job sending the 80 % notice is time-based: revisit 2026-11-27 after 14:15 IST."
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247. The hourly job sending the 80 % notice is time-based: after 14:15 IST. CHECKED LIVE 2026-11-27: the 80 % reminder for WT-7 was sent by the hourly job at 08:21 UTC (13:51 IST); the breach reminder is queued for 2026-11-30."
     },
     {
       "key": "A2.6",
@@ -1378,9 +1378,9 @@
       "text": "B8.1 X2 Volunteers and shifts (37.3) — Depends: S1 event item, M3 RSVP slice, R4 training.",
       "kind": "unit",
       "milestone": "B8",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/club.test.ts; tests/db/volunteers.test.ts; tests/browser/volunteers.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 77cda7e92): B8.1a roles with training sign-off, versioned agreement, shifts on the RSVP slice with a waitlist that moves up, check-in window, hours seen only by the volunteer and coordinators (server test), coverage, Volunteer with us on About (no migration: shifts are event tasks kind shift + community_events/rsvps); B8.1b weekly series and Regulars, swaps a named volunteer accepts (re-checked at accept), hand-added hours counted once confirmed, availability and involvement for coordinators, day-before reminders and short-2-days notices with Ask, Add to my profile (0178). Gated on Other orgs (kits switch it on in B8.4). Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
+      "evidence": "PUSHED 2026-11-27 (main 77cda7e92): B8.1a roles with training sign-off, versioned agreement, shifts on the RSVP slice with a waitlist that moves up, check-in window, hours seen only by the volunteer and coordinators (server test), coverage, Volunteer with us on About (no migration: shifts are event tasks kind shift + community_events/rsvps); B8.1b weekly series and Regulars, swaps a named volunteer accepts (re-checked at accept), hand-added hours counted once confirmed, availability and involvement for coordinators, day-before reminders and short-2-days notices with Ask, Add to my profile (0178). Gated on Other orgs (kits switch it on in B8.4). Live check pending. CHECKED LIVE 2026-11-27 on wt-test-b8-kits: role added, shift added (Short, coverage line, Ask), signed up (Going, short 5, Can't go/Swap/Ask), hours logged → waiting → confirmed by the owner (2 h). Fix: coordinators can't confirm their own hours (b394fa9fe)."
     },
     {
       "key": "B8.2",
@@ -1388,9 +1388,9 @@
       "text": "B8.2 X3 Teams for a fixed time (37.4)",
       "kind": "unit",
       "milestone": "B8",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/club.test.ts; tests/db/fixed-time.test.ts; tests/browser/fixed-time.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 7fed1441a): B8.2a key and end dates, countdown line, plan starters worked back from the key date, moving the key date moves plan dates and never hand-set ones (server test; a date is hand-set when it differs from the one the plan worked out), a passed key date needs a reason; B8.2b workstreams with owners, bookings with typed references (confirmed needs one), the unconfirmed-booking notice, Issues today; B8.2c wrap-up checklist and debrief, Close the team via the built archive (asked weekly, never automatic), Run it again via the built duplicate anchored on the key date with the debrief pinned and Next time tasks (no people copied), organising-team profile entry. No migration. Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
+      "evidence": "PUSHED 2026-11-27 (main 7fed1441a): B8.2a key and end dates, countdown line, plan starters worked back from the key date, moving the key date moves plan dates and never hand-set ones (server test; a date is hand-set when it differs from the one the plan worked out), a passed key date needs a reason; B8.2b workstreams with owners, bookings with typed references (confirmed needs one), the unconfirmed-booking notice, Issues today; B8.2c wrap-up checklist and debrief, Close the team via the built archive (asked weekly, never automatic), Run it again via the built duplicate anchored on the key date with the debrief pinned and Next time tasks (no people copied), organising-team profile entry. No migration. Live check pending. CHECKED LIVE 2026-11-27: key date 13 Feb 2027 (78 days to go, end 15 Mar), Task force plan (6 tasks at −42…+7), Move the key date → preview '6 dates move; 0 set by hand stay' → all moved a week, end moved too."
     },
     {
       "key": "B8.3",
@@ -1398,9 +1398,9 @@
       "text": "B8.3 X4 Programs and impact (37.5) — Depends: D3 (A5.1), K3 (B4.3).",
       "kind": "unit",
       "milestone": "B8",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/club.test.ts; tests/db/impact.test.ts; tests/browser/impact.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 839e3cee9): B8.3a programs as private workspaces marked Program with briefs and up to 5 measures (tagged volunteer hours, finished meetings, typed numbers counted only once an admin confirms; history kept; no person records) (0179); B8.3b stories published only with every named person consent (members give their own yes, owners record outside people), Program brief and Mission and values templates, the impact report draft from confirmed numbers, About Our programs (0180). Files named impact.ts/Impact.tsx (the first draft had overwritten the B2.1 education programs files; caught by the gate, restored byte-for-byte before any push). Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
+      "evidence": "PUSHED 2026-11-27 (main 839e3cee9): B8.3a programs as private workspaces marked Program with briefs and up to 5 measures (tagged volunteer hours, finished meetings, typed numbers counted only once an admin confirms; history kept; no person records) (0179); B8.3b stories published only with every named person consent (members give their own yes, owners record outside people), Program brief and Mission and values templates, the impact report draft from confirmed numbers, About Our programs (0180). Files named impact.ts/Impact.tsx (the first draft had overwritten the B2.1 education programs files; caught by the gate, restored byte-for-byte before any push). Live check pending. CHECKED LIVE 2026-11-27: program WT Food drive started with a measure (target 50), typed 12 → waiting → confirmed → '12 of 50', impact report draft made in Documents. Fixes: admins can't confirm numbers they typed (6a5ff2092); program About sentence join (16faf6d94)."
     },
     {
       "key": "B8.5",
