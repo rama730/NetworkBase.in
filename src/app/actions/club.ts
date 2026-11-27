@@ -25,7 +25,7 @@ async function club(orgId: string) {
     SELECT org_type AS type, org_settings AS settings, slug, title, join_code AS code, coalesce(join_code_enabled, false) AS code_on
     FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   if (w?.type !== "club" || !a.canRead) return null;
-  return { userId, w, officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked };
+  return { userId, w, member: Boolean(userId) && (a.isOwner || a.isMember), officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked };
 }
 
 /** About's banner (everyone who can read the club): Recruiting now, its line, end date and first event. */
@@ -35,7 +35,9 @@ export async function readRecruitingAction(orgId: string) {
   const r = readRecruiting(ctx.w.settings);
   const on = isRecruiting(r, today());
   const [ev] = on && r?.firstEventId ? Array.from(await db.execute<{ title: string; due: string | null }>(sql`
-    SELECT title, type_fields->>'start' AS due FROM tasks WHERE id = ${r.firstEventId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'event' AND deleted_at IS NULL AND stage <> 'cancelled'`)) : [];
+    SELECT title, type_fields->>'start' AS due FROM tasks WHERE id = ${r.firstEventId}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'event' AND deleted_at IS NULL AND stage <> 'cancelled'
+      -- Security review: visitors see the first event only when it's a public one.
+      ${ctx.member ? sql`` : sql`AND type_fields->>'who' = 'public'`}`)) : [];
   return { success: true as const, officer: ctx.officer, recruiting: on, settings: ctx.officer ? r : null, line: on ? r!.line : null, to: on ? r!.to : null,
     firstEvent: ev ? { title: ev.title, at: ev.due } : null,
     // The poster (officers): the club's name, its line, the short join link and code — no QR code (call 4).

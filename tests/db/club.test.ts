@@ -74,6 +74,15 @@ test("36.2: club front door, recruiting period, drive counts, Discover filter", 
   assert.ok(poster.success && poster.poster?.code === code);
 
   // Discover: Recruiting now lists the club only while recruiting.
+  // Security review: a members-only first event never reaches visitors; a public one does.
+  const [ev] = await sql`INSERT INTO tasks (workspace_id, title, item_type, stage, status, type_fields, creator_id, task_number)
+    VALUES (${id}, 'WT Members social', 'event', 'scheduled', 'todo', ${sql.json({ who: "members", start: "2099-01-01T10:00:00Z" })}, ${pres!}, 9101) RETURNING id`;
+  viewerId = coord!;
+  assert.ok((await club.saveRecruitingAction(id, { from: today, to: later, line: "Taster night", firstEventId: ev!.id })).success);
+  viewerId = visitor!;
+  assert.ok(((await club.readRecruitingAction(id)) as { firstEvent: unknown }).firstEvent === null);
+  await sql`UPDATE tasks SET type_fields = type_fields || ${sql.json({ who: "public" })} WHERE id = ${ev!.id}`;
+  assert.equal(((await club.readRecruitingAction(id)) as { firstEvent: { title: string } | null }).firstEvent?.title, "WT Members social");
   // The same condition src/lib/data/discover.ts adds for Recruiting now.
   const [on] = await sql`SELECT count(*)::int AS n FROM workspaces WHERE id = ${id} AND org_type = 'club'
     AND (org_settings->'club'->'recruiting'->>'from') <= to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD') AND (org_settings->'club'->'recruiting'->>'to') >= to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD')`;
