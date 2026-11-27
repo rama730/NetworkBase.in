@@ -412,5 +412,35 @@ test("36.5 (B7.4a): competitions — tryouts with private outcomes, accepted pla
   const list = await comp.readCompetitionsAction(id);
   assert.ok(list.success);
   assert.deepEqual(list.competitions[0]!.teams.map((t) => [t.name, t.size, t.subs, t.mine]), [["Team A", 1, 1, true], ["Team B", 1, 0, false]]);
+
+  // B7.4b: registration is a typed reference; a result is typed by the captain and seen by members once another officer confirms it.
+  const A = a.success ? a.workspaceId : "", B = b.success ? b.workspaceId : "";
+  viewerId = dan!;
+  assert.equal((await comp.registerTeamAction(id, cid, A, "4471")).success, false, "only Team A's captain or officers");
+  viewerId = ann!;
+  assert.ok((await comp.registerTeamAction(id, cid, A, "4471")).success);
+  viewerId = coord!; assert.ok((await comp.setCompetitionStageAction(id, cid, "competing")).success);
+  viewerId = ann!;
+  assert.ok((await comp.setResultAction(id, cid, A, { placement: 4, of: 32, awards: "Best design" })).success);
+  assert.equal((await comp.confirmResultAction(id, cid, A)).success, false, "captains don't confirm");
+  const teamA = async () => { const r = await comp.readCompetitionsAction(id); return r.success ? r.competitions[0]!.teams.find((t) => t.name === "Team A")! : null; };
+  assert.deepEqual((await teamA())?.result, { placement: 4, of: 32, awards: "Best design", confirmed: false, mineToConfirm: false }, "the team sees it waiting");
+  assert.equal((await teamA())?.registration?.ref, "4471");
+  viewerId = dan!;
+  assert.equal((await teamA())?.result, null, "others see a result only once it's confirmed");
+  assert.equal((await teamA())?.registration, null, "another team never sees this team's registration");
+  viewerId = coord!;
+  assert.ok((await comp.setResultAction(id, cid, B, { placement: 9, of: 32, awards: "" })).success);
+  assert.match(String((await comp.confirmResultAction(id, cid, B) as { error?: string }).error), /Another officer/);
+  assert.ok((await comp.confirmResultAction(id, cid, A)).success);
+  viewerId = pres!; assert.ok((await comp.confirmResultAction(id, cid, B)).success);
+  viewerId = ann!;
+  assert.match(String((await comp.setResultAction(id, cid, A, { placement: 1, of: 32, awards: "" }) as { error?: string }).error), /confirmed/, "a confirmed result stays");
+  viewerId = coord!; assert.ok((await comp.setCompetitionStageAction(id, cid, "results")).success);
+  viewerId = ann!; assert.ok((await comp.saveDebriefAction(id, cid, A, { well: "Practice twice a week", change: "Start the design review earlier" })).success);
+  viewerId = bob!;
+  const past = await comp.readCompetitionsAction(id, "past");
+  const pa = past.success ? past.competitions[0]!.teams.find((t) => t.name === "Team A") : null;
+  assert.deepEqual([pa?.result?.placement, pa?.result?.confirmed, pa?.debrief?.change], [4, true, "Start the design review earlier"], "Past entries keep the confirmed result and the debrief");
 });
 

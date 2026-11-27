@@ -53,15 +53,24 @@ export async function readCompetitionsAction(orgId: string, view: "upcoming" | "
   const people = ids.length ? Array.from(await db.execute<{ competition_id: string; user_id: string | null; state: string; team: string | null; role: string | null; substitute: boolean }>(sql`
     SELECT competition_id, user_id, state, team_workspace_id AS team, role, substitute FROM club_competition_people WHERE competition_id = ANY(${`{${ids.join(",")}}`}::uuid[])`)) : [];
   const teamIds = rows.flatMap((r) => (r.fields.teams ?? []).map((t) => t.workspaceId));
-  const captains = teamIds.length ? Array.from(await db.execute<{ id: string; slug: string | null; captain: string | null }>(sql`
-    SELECT w.id, w.slug, coalesce(p.full_name, p.username) AS captain FROM workspaces w LEFT JOIN profiles p ON p.id = w.owner_id WHERE w.id = ANY(${`{${teamIds.join(",")}}`}::uuid[]) AND w.deleted_at IS NULL`)) : [];
+  const captains = teamIds.length ? Array.from(await db.execute<{ id: string; slug: string | null; captain: string | null; owner: string }>(sql`
+    SELECT w.id, w.slug, coalesce(p.full_name, p.username) AS captain, w.owner_id AS owner FROM workspaces w LEFT JOIN profiles p ON p.id = w.owner_id WHERE w.id = ANY(${`{${teamIds.join(",")}}`}::uuid[]) AND w.deleted_at IS NULL`)) : [];
   return { success: true as const, officer: ctx.officer, member: ctx.member, competitions: rows.map((r) => {
     const mine = people.find((p) => p.competition_id === r.id && p.user_id === ctx.userId);
     const of = people.filter((p) => p.competition_id === r.id);
     const { teams = [], ...details } = r.fields;
-    return { id: r.id, title: r.title, stage: r.stage, ...details,
+    return { ...details, id: r.id, title: r.title, stage: r.stage,
       teams: teams.filter((t) => captains.some((c) => c.id === t.workspaceId)).map((t) => ({ ...t, captain: captains.find((c) => c.id === t.workspaceId)?.captain ?? null,
         slug: ctx.officer || mine?.team === t.workspaceId ? captains.find((c) => c.id === t.workspaceId)?.slug ?? t.workspaceId : null,
+        // B7.4b: the team and officers see its registration and unconfirmed result; everyone sees a confirmed one.
+        ...(() => {
+          const inside = ctx.officer || mine?.team === t.workspaceId;
+          const r = t.result ?? null;
+          return { canEdit: ctx.officer || captains.find((c) => c.id === t.workspaceId)?.owner === ctx.userId,
+            registration: inside ? t.registration ?? null : null,
+            result: r && (r.confirmedAt || inside) ? { placement: r.placement, of: r.of, awards: r.awards, confirmed: Boolean(r.confirmedAt), mineToConfirm: ctx.officer && !r.confirmedAt && r.by !== ctx.userId } : null,
+            debrief: t.debrief ? { well: t.debrief.well, change: t.debrief.change } : null };
+        })(),
         size: of.filter((p) => p.team === t.workspaceId && !p.substitute).length, subs: of.filter((p) => p.team === t.workspaceId && p.substitute).length,
         mine: mine?.team === t.workspaceId })),
       mine: mine ? { state: mine.state, role: mine.role } : null,
@@ -222,5 +231,76 @@ export async function makeTeamAction(orgId: string, id: string, input: unknown):
   const { applyCreationIntentAction } = await import("@/app/actions/workspace/doc");
   await applyCreationIntentAction(ws, { mode: "starter", publishOnCreate: true, includeRoles: false,
     starterContent: `# ${d.name} · ${c.title}\n\n## One-liner\n\n_What we’re building or arguing, in a sentence._\n\n## Problem\n\n## Our approach\n\n## Roles\n\n${roles}\n\n## Resources\n\n${c.fields.link ? `- Competition page: ${c.fields.link}\n` : ""}` }).catch(() => undefined);
-  return { success: true, workspaceId: ws, slug: made.project.slug };
+  return { success: true, workspaceId: ws, slug: made.project.slug ?? ws };
 }
+
+/** The team in a competition, under the competition's lock; the captain is the team workspace's lead. */
+async function teamFor(tx: Pick<typeof db, "execute">, orgId: string, id: string, workspaceId: string) {
+  if (!isLooseUuid(id) || !isLooseUuid(workspaceId)) return null;
+  const [c] = Array.from(await tx.execute<{ title: string; stage: string; fields: Fields }>(sql`
+    SELECT title, stage, type_fields AS fields FROM tasks WHERE id = ${id}::uuid AND workspace_id = ${orgId}::uuid AND item_type = 'competition' AND deleted_at IS NULL FOR UPDATE`));
+  const teams = c?.fields.teams ?? [];
+  const i = teams.findIndex((t) => t.workspaceId === workspaceId);
+  if (!c || i < 0) return null;
+  const [w] = Array.from(await tx.execute<{ owner: string }>(sql`SELECT owner_id AS owner FROM workspaces WHERE id = ${workspaceId}::uuid AND parent_id = ${orgId}::uuid AND deleted_at IS NULL`));
+  return w ? { c, teams, i, captain: w.owner } : null;
+}
+async function changeTeam(orgId: string, id: string, workspaceId: string, may: (t: { captain: string; stage: string; team: CompetitionTeam }) => string | null, patch: (team: CompetitionTeam) => CompetitionTeam) {
+  return db.transaction(async (tx) => {
+    const t = await teamFor(tx, orgId, id, workspaceId);
+    if (!t) return "You can’t do that here.";
+    const refusal = may({ captain: t.captain, stage: t.c.stage, team: t.teams[t.i]! });
+    if (refusal) return refusal;
+    const teams = t.teams.map((x, j) => (j === t.i ? patch(x) : x));
+    await tx.execute(sql`UPDATE tasks SET type_fields = jsonb_set(type_fields, '{teams}', ${JSON.stringify(teams)}::jsonb), updated_at = now() WHERE id = ${id}::uuid`);
+    return null;
+  });
+}
+
+/** Registration (the captain or officers): a typed reference from the organiser. NetworkBase never registers or pays. */
+export async function registerTeamAction(orgId: string, id: string, workspaceId: string, ref: string): Promise<{ success: true } | Failure> {
+  const ctx = await club(orgId);
+  if (!ctx || typeof ref !== "string" || !ref.trim() || ref.trim().length > 60) return DENIED;
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (ctx.officer || t.captain === ctx.userId ? null : "You can’t do that here."),
+    (team) => ({ ...team, registration: { ref: ref.trim(), by: ctx.userId, at: new Date().toISOString() } }));
+  return out ? { success: false, error: out } : { success: true };
+}
+
+const resultSchema = z.object({ placement: z.number().int().min(1).max(10_000), of: z.number().int().min(1).max(10_000).nullable(), awards: z.string().trim().max(200) }).strict()
+  .refine((r) => r.of === null || r.placement <= r.of);
+/** The result (the captain or officers): placement, of how many, awards. It waits for another officer's confirmation. */
+export async function setResultAction(orgId: string, id: string, workspaceId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await club(orgId);
+  const parsed = resultSchema.safeParse(input);
+  if (!ctx) return DENIED;
+  if (!parsed.success) return { success: false, error: "Type the placing (and of how many) and any awards." };
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (!(ctx.officer || t.captain === ctx.userId) ? "You can’t do that here." : t.team.result?.confirmedAt ? "This result is confirmed." : null),
+    (team) => ({ ...team, result: { ...parsed.data, by: ctx.userId, at: new Date().toISOString(), confirmedBy: null, confirmedAt: null } }));
+  if (!out) {
+    const officers = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role IN ('owner', 'admin') AND completed_at IS NULL LIMIT 50`));
+    await notifyAll(orgId, ctx.w.slug ?? orgId, officers.map((o) => ({ to: o.id, title: "A competition result is waiting for an officer to confirm it" })), ctx.userId, `club-competition-result:${id}:${workspaceId}:${Date.now()}`);
+  }
+  return out ? { success: false, error: out } : { success: true };
+}
+
+/** Confirm a result (an officer other than the person who typed it); only then do members see it. */
+export async function confirmResultAction(orgId: string, id: string, workspaceId: string): Promise<{ success: true } | Failure> {
+  const ctx = await club(orgId);
+  if (!ctx?.officer) return DENIED;
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (!t.team.result ? "There’s no result to confirm." : t.team.result.confirmedAt ? "This result is confirmed." : t.team.result.by === ctx.userId ? "Another officer confirms a result you typed." : null),
+    (team) => ({ ...team, result: { ...team.result!, confirmedBy: ctx.userId, confirmedAt: new Date().toISOString() } }));
+  return out ? { success: false, error: out } : { success: true };
+}
+
+const debriefSchema = z.object({ well: z.string().trim().min(1).max(4000), change: z.string().trim().min(1).max(4000) }).strict();
+/** The debrief (the captain or officers): what went well and what to change, kept with the competition for next year's team. */
+export async function saveDebriefAction(orgId: string, id: string, workspaceId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await club(orgId);
+  const parsed = debriefSchema.safeParse(input);
+  if (!ctx) return DENIED;
+  if (!parsed.success) return { success: false, error: "Write what went well and what to change next time." };
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (ctx.officer || t.captain === ctx.userId ? null : "You can’t do that here."),
+    (team) => ({ ...team, debrief: { ...parsed.data, by: ctx.userId, at: new Date().toISOString() } }));
+  return out ? { success: false, error: out } : { success: true };
+}
+

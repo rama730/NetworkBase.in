@@ -8,7 +8,7 @@ import { Megaphone, Printer, Trophy } from "lucide-react";
 
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
 import { moveWorkAction, readHandoverAction, saveHandoverAction, tickHandoverAction } from "@/app/actions/club-handover";
-import { answerPlaceAction, decidePlaceAction, makeTeamAction, offerPlaceAction, readCompetitionsAction, readPickingAction, saveCompetitionAction, setCompetitionStageAction, signUpAction } from "@/app/actions/club-competitions";
+import { answerPlaceAction, confirmResultAction, decidePlaceAction, makeTeamAction, offerPlaceAction, readCompetitionsAction, readPickingAction, registerTeamAction, saveCompetitionAction, saveDebriefAction, setCompetitionStageAction, setResultAction, signUpAction } from "@/app/actions/club-competitions";
 import { readConstitutionAction, readDecisionsAction, setConstitutionPublicAction, writeConstitutionAction } from "@/app/actions/club-constitution";
 import { castMotionVoteAction, readMotionVotesAction } from "@/app/actions/club-motion-votes";
 import { decideAgendaItemAction, proposeAgendaItemAction, readClubMeetingAction, saveClubMeetingsAction } from "@/app/actions/club-meetings";
@@ -20,7 +20,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { daysLeft, DEFAULT_ASK, HANDOVER_ITEMS, PICKING, PICKING_WORDS, RENEWAL_WORDS, STARTER_ARTICLES, type Competition, type Article, type ClubMeetings, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
+import { daysLeft, DEFAULT_ASK, HANDOVER_ITEMS, PICKING, PICKING_WORDS, placing, RENEWAL_WORDS, STARTER_ARTICLES, type Competition, type Article, type ClubMeetings, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
 
 // Report 36.2 (plan B7.1a, L1): Recruiting now on a club's About, the officers' Recruiting card (dates, line, first event,
 // the drive's counts) and the printable join poster (the short link and the code; no QR code).
@@ -573,9 +573,7 @@ export function CompetitionsCard({ orgId }: { orgId: string }) {
             <p className="text-muted-foreground">{span(c.starts, c.ends)}{c.place ? ` · ${c.place}` : ""}{c.organiser ? ` · ${c.organiser}` : ""}</p>
             {c.registerBy && view === "upcoming" ? <p className="text-muted-foreground">Register by {day(c.registerBy)} · {daysLeft(c.registerBy, today())}</p> : null}
             <p className="text-muted-foreground">{PICKING_WORDS[c.picking]} · teams of {c.teamSize}{c.subs ? ` + ${c.subs} ${c.subs === 1 ? "substitute" : "substitutes"}` : ""}{c.counts ? ` · ${c.counts.interested} waiting, ${c.counts.accepted} accepted` : ""}</p>
-            {c.teams.length ? <ul className="flex flex-wrap gap-3" aria-label={`Teams for ${c.title}`}>{c.teams.map((t) => <li key={t.workspaceId}>
-              {t.slug ? <a className="nb-link" href={`/workspaces/${encodeURIComponent(t.slug)}`}>{t.name}</a> : <span className="font-medium">{t.name}</span>}
-              <span className="text-muted-foreground"> · {t.size}{t.subs ? ` + ${t.subs} sub` : ""}{t.captain ? ` · captain ${t.captain}` : ""}</span></li>)}</ul> : null}
+            {c.teams.length ? <ul className="space-y-1.5" aria-label={`Teams for ${c.title}`}>{c.teams.map((t) => <TeamRow key={t.workspaceId} orgId={orgId} competitionId={c.id} team={t} stage={c.stage} onChanged={refresh} />)}</ul> : null}
             {c.mine ? <p className="font-medium" data-testid="club-competition-mine">{PLACE_WORDS[c.mine.state] ?? c.mine.state}{c.mine.role ? ` · ${c.mine.role}` : ""}</p> : null}
             {c.mine?.state === "selected" ? <span className="flex gap-2">
               <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(answerPlaceAction(orgId, c.id, true), "Place accepted")}>Accept my place</button>
@@ -594,6 +592,48 @@ export function CompetitionsCard({ orgId }: { orgId: string }) {
           </li>))}</ul>
       </div>
     </OrgCard>
+  );
+}
+
+type TeamView = { workspaceId: string; name: string; captain: string | null; slug: string | null; size: number; subs: number; mine: boolean; canEdit: boolean;
+  registration: { ref: string } | null; result: { placement: number; of: number | null; awards: string; confirmed: boolean; mineToConfirm: boolean } | null; debrief: { well: string; change: string } | null };
+/**
+ * A team on a competition (B7.4b, 36.5 calls 6–8): its registration reference, its result (typed by the captain, seen by
+ * members only once another officer confirms it) and its debrief for next year's team.
+ */
+function TeamRow({ orgId, competitionId, team: t, stage, onChanged }: { orgId: string; competitionId: string; team: TeamView; stage: string; onChanged: () => void }) {
+  const [ref, setRef] = useState("");
+  const [res, setRes] = useState<{ placement: string; of: string; awards: string } | null>(null);
+  const [deb, setDeb] = useState<{ well: string; change: string } | null>(null);
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); onChanged(); };
+  const late = stage === "competing" || stage === "results";
+  return (
+    <li className="space-y-1 rounded-md border border-border px-3 py-2" data-testid="club-competition-team">
+      <p>{t.slug ? <a className="nb-link" href={`/workspaces/${encodeURIComponent(t.slug)}`}>{t.name}</a> : <span className="font-medium">{t.name}</span>}
+        <span className="text-muted-foreground"> · {t.size}{t.subs ? ` + ${t.subs} sub` : ""}{t.captain ? ` · captain ${t.captain}` : ""}</span></p>
+      {t.registration ? <p className="text-muted-foreground">Registered · reference <span className="font-mono">{t.registration.ref}</span></p>
+        : t.canEdit && !late ? <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (ref.trim()) void run(registerTeamAction(orgId, competitionId, t.workspaceId, ref), "Registered"); }}>
+          <Input value={ref} maxLength={60} onChange={(e) => setRef(e.target.value)} placeholder="The organiser’s reference" aria-label={`Registration reference for ${t.name}`} className="w-[220px]" />
+          <button type="submit" className={FORM_SECONDARY_CLASS} disabled={!ref.trim()}>Mark registered</button></form> : null}
+      {t.result ? <p data-testid="club-competition-result"><span className="font-medium">{placing(t.result.placement, t.result.of)}</span>{t.result.awards ? ` · Awards: ${t.result.awards}` : ""}
+        <span className="text-muted-foreground">{t.result.confirmed ? " · confirmed by an officer" : " · waiting for an officer to confirm"}</span></p> : null}
+      {t.result?.mineToConfirm ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmResultAction(orgId, competitionId, t.workspaceId), "Result confirmed")}>Confirm the result<span className="sr-only"> for {t.name}</span></button> : null}
+      {t.canEdit && late && !t.result?.confirmed && !res ? <button type="button" className="nb-link" onClick={() => setRes({ placement: String(t.result?.placement ?? ""), of: String(t.result?.of ?? ""), awards: t.result?.awards ?? "" })}>{t.result ? "Change the result" : "Type the result"}</button> : null}
+      {res ? <span className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col">Placing<Input type="number" min={1} value={res.placement} onChange={(e) => setRes({ ...res, placement: e.target.value })} className="mt-0.5 w-[80px] font-mono" /></label>
+        <label className="flex flex-col">Of<Input type="number" min={1} value={res.of} onChange={(e) => setRes({ ...res, of: e.target.value })} className="mt-0.5 w-[80px] font-mono" /></label>
+        <label className="flex flex-col">Awards<Input value={res.awards} maxLength={200} onChange={(e) => setRes({ ...res, awards: e.target.value })} className="mt-0.5 w-[200px]" /></label>
+        <button type="button" className={FORM_PRIMARY_CLASS} disabled={!Number(res.placement)} onClick={() => void run(setResultAction(orgId, competitionId, t.workspaceId, { placement: Number(res.placement), of: Number(res.of) || null, awards: res.awards }), "Result saved; an officer confirms it").then(() => setRes(null))}>Save</button>
+        <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setRes(null)}>Cancel</button></span> : null}
+      {t.debrief ? <details><summary className="cursor-pointer text-muted-foreground">Debrief</summary>
+        <p className="mt-1"><span className="font-medium">What went well: </span>{t.debrief.well}</p><p><span className="font-medium">What to change next time: </span>{t.debrief.change}</p></details> : null}
+      {t.canEdit && stage === "results" && !deb ? <button type="button" className="nb-link" onClick={() => setDeb({ well: t.debrief?.well ?? "", change: t.debrief?.change ?? "" })}>{t.debrief ? "Edit the debrief" : "Write the debrief"}</button> : null}
+      {deb ? <span className="flex flex-col gap-1.5">
+        <label className="flex flex-col">What went well<textarea className="nb-textarea mt-0.5 text-[13px]" rows={2} maxLength={4000} value={deb.well} onChange={(e) => setDeb({ ...deb, well: e.target.value })} /></label>
+        <label className="flex flex-col">What to change next time<textarea className="nb-textarea mt-0.5 text-[13px]" rows={2} maxLength={4000} value={deb.change} onChange={(e) => setDeb({ ...deb, change: e.target.value })} /></label>
+        <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!deb.well.trim() || !deb.change.trim()} onClick={() => void run(saveDebriefAction(orgId, competitionId, t.workspaceId, deb), "Debrief saved for next year").then(() => setDeb(null))}>Save</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDeb(null)}>Cancel</button></span></span> : null}
+    </li>
   );
 }
 

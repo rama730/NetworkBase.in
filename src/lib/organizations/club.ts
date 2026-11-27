@@ -175,7 +175,21 @@ export const competitionSchema = z.object({
   picking: z.enum(PICKING),
 }).strict().refine((c) => c.ends >= c.starts, "It ends on or after it starts.");
 export type Competition = z.infer<typeof competitionSchema>;
-export type CompetitionTeam = { workspaceId: string; name: string };
+export type CompetitionTeam = {
+  workspaceId: string; name: string;
+  /** B7.4b (36.5 calls 6–8): registration is a typed reference; NetworkBase never registers or pays. */
+  registration?: { ref: string; by: string; at: string } | null;
+  /** The result typed by the captain (or an officer) and confirmed by another officer before anyone else sees it. */
+  result?: { placement: number; of: number | null; awards: string; by: string; at: string; confirmedBy: string | null; confirmedAt: string | null } | null;
+  /** The debrief kept with the competition in Past entries for next year's team. */
+  debrief?: { well: string; change: string; by: string; at: string } | null;
+};
+/** "4th of 32" (results as words and numbers). */
+export function placing(placement: number, of: number | null) {
+  const v = placement % 100;
+  const suffix = v >= 11 && v <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[placement % 10] ?? "th";
+  return `${placement}${suffix}${of ? ` of ${of}` : ""}`;
+}
 /** "register by" in days, as text (accessibility: deadlines in full with days left). */
 export function daysLeft(date: string, today: string) {
   const n = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY);

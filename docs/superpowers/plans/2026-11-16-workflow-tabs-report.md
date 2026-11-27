@@ -14623,7 +14623,12 @@ AFTER  Result: 4th of 32 (confirmed by Tech officer) · Awards: Best design   De
 2. **Picking** starts when an officer moves it to Picking teams (members told once, Normal). Open sign-up: members say Interested with the role they'd like. Tryouts: the same, with a hand-in (a link or a few lines) only the person and officers read. Picked by officers: officers offer places. Officers mark Selected or Not this time; only the person is told, with a kind line for Not this time and no reason. Members see only their own outcome (server test). The person accepts or declines a Selected place.
 3. **Teams:** officers make a team from accepted places. Each team is a private workspace under the club, with the captain as its lead, the others as members (each with a role or as a substitute), and a starter page (One-liner · Problem · Our approach · Roles · Resources). Two teams in one competition can't read each other's workspaces (server test).
 4. **Practice** is a club meeting type (Plan · What we did · Next).
-5. **Not built yet (B7.4b):** checks to every team as each-child assignments reviewed by the owning committee's chair, the registration step with a typed reference, results typed by the captain and confirmed by an officer, the debrief, the Showcase and profile entries with every member's yes, and competitions on the calendar. Tryout hand-ins are read in the Picking panel, not the Review queue.
+5. **Not built yet:** checks sent to every team as each-child assignments (the existing assignment dialog does this today, without a shortcut from the card), the Showcase and profile entries with every member's yes, and competitions on the calendar. Tryout hand-ins are read in the Picking panel, not the Review queue.
+
+**Build calls (B7.4b, 2026-11-27):**
+1. **Registration:** the captain (the team workspace's lead) or an officer types the organiser's reference; NetworkBase never registers or pays. Only the team and officers see it.
+2. **Results:** once the competition is Competing, the captain or an officer types the placing, of how many and any awards ("4th of 32 · Awards: Best design"). Officers are told it's waiting. Another officer, never the one who typed it, confirms it. Until then only the team and officers see it; afterwards every member does. A confirmed result can't be changed (server test).
+3. **Debrief:** at Results, the captain or an officer writes what went well and what to change next time. It's kept with the competition in Past entries for next year's team, readable by every member.
 
 ### 36.6 Club: the whole picture (complete 2026-11-17)
 

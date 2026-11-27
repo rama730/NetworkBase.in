@@ -87,3 +87,9 @@ test("competitions: details checked, typed links only, days left as words", asyn
   assert.equal(daysLeft("2027-01-20", "2027-01-21"), "closed");
 });
 
+test("placing: results as words", async () => {
+  const { placing } = await import("../../src/lib/organizations/club");
+  assert.deepEqual([placing(1, 32), placing(2, null), placing(3, 10), placing(4, 32), placing(11, 40), placing(12, 40), placing(13, 40), placing(21, 40), placing(22, 40), placing(112, 200)],
+    ["1st of 32", "2nd", "3rd of 10", "4th of 32", "11th of 40", "12th of 40", "13th of 40", "21st of 40", "22nd of 40", "112th of 200"]);
+});
+
