@@ -1981,6 +1981,35 @@ export const clubConstitutionVersions = pgTable("club_constitution_versions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [uniqueIndex("club_constitution_versions_org_version").on(t.orgId, t.version), index("club_constitution_versions_doc_idx").on(t.docId).where(sql`doc_id IS NOT NULL`),
   index("club_constitution_versions_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`)]);
+/** B7.3c (0176): a club motion's online vote; ballots carry a choice and never a voter (as club_ballots). */
+export const clubMotionVotes = pgTable("club_motion_votes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  docId: uuid("doc_id").notNull().references(() => workspaceDocuments.id, { onDelete: "cascade" }),
+  motionId: text("motion_id").notNull(),
+  text: text("text").notNull(),
+  amendment: jsonb("amendment").$type<{ article: string; title?: string; text: string | null } | null>(),
+  threshold: numeric("threshold").notNull(),
+  needed: integer("needed").notNull(),
+  eligible: integer("eligible").notNull(),
+  closesAt: timestamp("closes_at", { withTimezone: true }).notNull(),
+  state: text("state").default("open").notNull(),
+  result: jsonb("result").$type<{ for: number; against: number; abstain: number; result: "passed" | "failed" | "not_quorate" } | null>(),
+  remindedAt: timestamp("reminded_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+}, (t) => [uniqueIndex("club_motion_votes_motion").on(t.docId, t.motionId), index("club_motion_votes_org_idx").on(t.orgId, t.createdAt),
+  index("club_motion_votes_open_idx").on(t.closesAt).where(sql`state = 'open'`), index("club_motion_votes_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`)]);
+export const clubMotionBallots = pgTable("club_motion_ballots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  voteId: uuid("vote_id").notNull().references(() => clubMotionVotes.id, { onDelete: "cascade" }),
+  choice: text("choice").notNull(),
+}, (t) => [index("club_motion_ballots_vote_idx").on(t.voteId)]);
+export const clubMotionVoted = pgTable("club_motion_voted", {
+  voteId: uuid("vote_id").notNull().references(() => clubMotionVotes.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+}, (t) => [primaryKey({ columns: [t.voteId, t.userId] }), index("club_motion_voted_user_idx").on(t.userId)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

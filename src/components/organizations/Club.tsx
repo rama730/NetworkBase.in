@@ -9,6 +9,7 @@ import { Megaphone, Printer } from "lucide-react";
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
 import { moveWorkAction, readHandoverAction, saveHandoverAction, tickHandoverAction } from "@/app/actions/club-handover";
 import { readConstitutionAction, readDecisionsAction, setConstitutionPublicAction, writeConstitutionAction } from "@/app/actions/club-constitution";
+import { castMotionVoteAction, readMotionVotesAction } from "@/app/actions/club-motion-votes";
 import { decideAgendaItemAction, proposeAgendaItemAction, readClubMeetingAction, saveClubMeetingsAction } from "@/app/actions/club-meetings";
 import { answerNominationAction, closeVotingAction, nominateAction, openVotingAction, readElectionAction, startElectionAction, voteAction } from "@/app/actions/club-elections";
 import { answerAppointmentAction, appointAction, endTermAction, readCommitteeAction, savePositionsAction } from "@/app/actions/club-positions";
@@ -483,6 +484,35 @@ export function DecisionsCard({ orgId }: { orgId: string }) {
               {e.date ? <span className="text-muted-foreground">{day(e.date)}</span> : null}
             </li>))}</ul>
         </section>))}</div>
+    </OrgCard>
+  );
+}
+
+const VOTE_RESULT = { passed: "Passed", failed: "Failed", not_quorate: "Not quorate" } as const;
+/**
+ * Online motion votes (B7.3c, 36.4 call 4): a secret ballot For, Against or Abstain; "You voted" afterwards, never the
+ * choice; turnout as a count; the result once it closes.
+ */
+export function MotionVotesCard({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["club-motion-votes", orgId], queryFn: () => readMotionVotesAction(orgId), staleTime: 30_000 });
+  const [pick, setPick] = useState<Record<string, string>>({});
+  const d = q.data?.success ? q.data : null;
+  if (!d || !d.votes.length) return null;
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); void q.refetch(); };
+  return (
+    <OrgCard title="Online votes" testId="club-motion-votes">
+      <ul className="space-y-2 text-[13px]">{d.votes.map((v) => (
+        <li key={v.id} className="space-y-1.5 rounded-md border border-border p-3" data-testid="club-motion-vote">
+          <p className="flex flex-wrap items-center gap-2"><span className="font-medium">{v.text}</span>
+            {v.result ? <StatusBadge state={v.result.result === "passed" ? "done" : "at_risk"}>{VOTE_RESULT[v.result.result as keyof typeof VOTE_RESULT] ?? "Closed"}</StatusBadge> : null}</p>
+          {v.amendment ? <p className="text-muted-foreground">{v.amendment.text === null ? "Removes" : "Changes"} Article {v.amendment.article} of the constitution</p> : null}
+          <p className="text-muted-foreground">{v.turnout} of {v.eligible} voted · {v.needed} needed{v.open ? ` · closes ${when(v.closesAt)}` : ""}</p>
+          {v.result ? <p className="font-mono text-[12px]">For {v.result.for} · Against {v.result.against} · Abstain {v.result.abstain}</p> : null}
+          {v.open && v.voted ? <p className="font-medium" data-testid="club-motion-voted">You voted</p> : null}
+          {v.open && !v.voted && v.canVote ? <fieldset className="flex flex-wrap items-center gap-3" data-testid="club-motion-ballot"><legend className="sr-only">Your vote on {v.text}</legend>
+            {(["for", "against", "abstain"] as const).map((c) => <label key={c} className="flex items-center gap-1.5"><input type="radio" className="nb-radio" name={`motion-${v.id}`} checked={pick[v.id] === c} onChange={() => setPick({ ...pick, [v.id]: c })} />{c === "for" ? "For" : c === "against" ? "Against" : "Abstain"}</label>)}
+            <button type="button" className={FORM_PRIMARY_CLASS} disabled={!pick[v.id]} onClick={() => void run(castMotionVoteAction(orgId, v.id, pick[v.id]!), "You voted")}>Submit</button></fieldset> : null}
+        </li>))}</ul>
     </OrgCard>
   );
 }

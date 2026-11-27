@@ -14435,6 +14435,11 @@ CLUB · Decisions (Season 2026)    Oct 2  Constitution v5: Tech officer added   
 2. **Amendment motions:** at the club's own General meeting or AGM, a motion can name one article to add (with a title), change or remove. The server refuses a change that doesn't fit the current version. It passes only with the threshold share of those voting For or Against: two-thirds by default, abstentions not counted, set in Meeting settings. A passed amendment publishes the next version in the same step, linked to the meeting and motion ("Article 6.4 added"), and members are told (Normal). A failed one keeps the current version (server test).
 3. **Decisions by Season:** a club's decisions keep the Season they were made in. The Decisions card lists them with constitution versions and failed amendment attempts by Season. Attempts reach members once those minutes are approved; officers see them at once. Drafts and leaders-only decisions reach officers only.
 
+**Build calls (B7.3c, 2026-11-27):**
+1. **Online votes** (0176): an officer sends a seconded motion from the club's General meeting or AGM to an online vote, closing between an hour and 30 days ahead. From then on the room can't record a vote on it. Members staying this Season (as for quorum) are told once, and once more a day before it closes if they haven't voted.
+2. **The ballot is secret:** For, Against or Abstain. The ballot row holds only the choice; a separate row holds only that the person voted, which also refuses a second vote (server storage test). The card shows "You voted", never the choice, and turnout as "12 of 40 voted · 10 needed".
+3. **Closing:** only at its time (hourly, and whenever someone opens the card). Late ballots are refused. Quorum is fixed when the vote opens; below it the result is Not quorate. An amendment needs the club's threshold of those voting For or Against, and a passed one publishes the next constitution version. Members are told the result. The meeting panel shows the closing time, then the result with its counts.
+
 ### 36.5 L4 · Competitions and teams (agreed 2026-11-17)
 **References** (15 searches for competitions, hackathons, teams, rosters, debate, game jams and tournaments: 125 templates, 31 rated; 5 more screens studied):
 

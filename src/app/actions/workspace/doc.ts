@@ -2045,6 +2045,9 @@ export async function recordVoteAction(projectId: string, input: unknown) {
         const b = await boardContext(projectId, userId, parsed.docSlug);
         if ("error" in b) return { success: false as const, error: b.error! };
         const { motionResult, voteFits } = await import("@/lib/workflows/meetings");
+        // B7.3c: a motion sent to an online vote is decided there, not in the room.
+        const [online] = Array.from(await db.execute(sql`SELECT 1 FROM club_motion_votes WHERE doc_id = ${b.context.readme!.id}::uuid AND motion_id = ${parsed.motionId}`));
+        if (online) return { success: false as const, error: "This motion is being voted on online." };
         const needed = await quorumNeeded(projectId, b.context.settings);
         const { amendmentPasses, readClubMeetings } = await import("@/lib/organizations/club");
         const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
@@ -2064,11 +2067,12 @@ export async function recordVoteAction(projectId: string, input: unknown) {
             const result = motion.amendment ? (amendmentPasses(votes, threshold) ? "passed" : "failed") : motionResult(votes.for, votes.against);
             return { patch: { motions: motions.map((m) => (m.id === motion.id ? { ...m, votes, result } : m)) }, result: { result, amendment: motion.amendment ?? null } };
         });
-        if ("error" in r) return { success: false as const, error: r.error };
-        if (r.result.amendment && r.result.result === "passed") await (await import("@/lib/organizations/club-server")).publishAmendment(projectId, b.context.readme!.id, parsed.motionId, r.result.amendment, userId);
-        await recordNodeEvent(projectId, userId, null, "project_readme.motion_voted", { docSlug: parsed.docSlug, result: r.result.result });
+        if ("error" in r || !r.result) return { success: false as const, error: "error" in r ? r.error : "Couldn’t record the vote." };
+        const voted = r.result;
+        if (voted.amendment && voted.result === "passed") await (await import("@/lib/organizations/club-server")).publishAmendment(projectId, b.context.readme!.id, parsed.motionId, voted.amendment, userId);
+        await recordNodeEvent(projectId, userId, null, "project_readme.motion_voted", { docSlug: parsed.docSlug, result: voted.result });
         revalidateProjectDoc(b.context.project);
-        return { success: true as const, result: r.result.result };
+        return { success: true as const, result: voted.result };
     } catch (error) {
         logger.error("meetings.vote_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t record the vote." };
@@ -2124,14 +2128,18 @@ async function boardView(projectId: string, docId: string, s: ReturnType<typeof 
     const club = s.kind === "general" || s.kind === "agm" ? await (await import("@/lib/organizations/club-server")).meetingClub(projectId) : null;
     const constitution = club === projectId ? await (await import("@/lib/organizations/club-server")).currentConstitution(projectId) : null;
     const [org] = constitution ? await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1) : [];
+    // B7.3c: motions sent to an online vote show its closing time, then its result.
+    const online = club === projectId ? Array.from(await db.execute<{ motion_id: string; closes_at: string; state: string; result: { for: number; against: number; abstain: number; result: string } | null }>(sql`
+        SELECT motion_id, closes_at, state, result FROM club_motion_votes WHERE doc_id = ${docId}::uuid`)) : [];
     return {
         board: {
-            needed: await quorumNeeded(projectId, s), motionsOn: hasMotions(s.kind),
+            needed: await quorumNeeded(projectId, s), motionsOn: hasMotions(s.kind), onlineVotes: club === projectId,
             amendments: constitution ? { version: constitution.version, articles: constitution.articles.map((a) => ({ n: a.n, title: a.title })), threshold: (await import("@/lib/organizations/club")).readClubMeetings(org?.settings).amendThreshold } : null,
             size: s.boardSize ?? null, present: insider ? s.present ?? [] : [], presentCount: (s.present ?? []).length, approvedAt: s.approvedAt ?? null,
             motions: (s.motions ?? []).map((m) => {
                 const d = numbers.find((x) => x.id === m.decisionDocId);
-                return { id: m.id, text: m.text, amendment: m.amendment ?? null, proposedBy: insider ? m.proposedBy ?? null : null, secondedBy: insider ? m.secondedBy ?? null : null, votes: m.votes ?? null, result: m.result ?? null,
+                const o = online.find((x) => x.motion_id === m.id);
+                return { id: m.id, text: m.text, amendment: m.amendment ?? null, online: o ? { closesAt: new Date(o.closes_at).toISOString(), open: o.state === "open", result: o.result } : null, proposedBy: insider ? m.proposedBy ?? null : null, secondedBy: insider ? m.secondedBy ?? null : null, votes: m.votes ?? null, result: m.result ?? null,
                     decision: d?.n ? { slug: d.slug, label: `D-${String(d.n).padStart(3, "0")}` } : null };
             }),
             toApprove: previous && !previous.settings.approvedAt ? { slug: previous.slug, title: previous.settings.meetingTitle ?? previous.slug } : null,

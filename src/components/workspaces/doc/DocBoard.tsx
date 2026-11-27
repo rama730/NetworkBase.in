@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Gavel, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { sendMotionToVoteAction } from "@/app/actions/club-motion-votes";
 import { addMotionAction, approveMinutesAction, markPresentAction, recordDecisionAction, recordVoteAction, unlinkWorkspaceDocAction } from "@/app/actions/workspace/doc";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -16,8 +17,9 @@ import { decisionMarkdown } from "@/lib/workspaces/doc-sections";
 
 type Person = { id: string; name: string };
 type Amendment = { article: string; title?: string; text: string | null };
-type Motion = { id: string; text: string; amendment: Amendment | null; proposedBy: string | null; secondedBy: string | null; votes: { for: number; against: number; abstain: number } | null; result: "passed" | "failed" | null; decision: { slug: string; label: string } | null };
-export type BoardData = { needed: number; motionsOn: boolean; amendments: { version: number; articles: Array<{ n: string; title: string }>; threshold: number } | null; size: number | null; present: string[]; presentCount: number; approvedAt: string | null; motions: Motion[]; toApprove: { slug: string; title: string } | null };
+type Online = { closesAt: string; open: boolean; result: { for: number; against: number; abstain: number; result: string } | null };
+type Motion = { id: string; text: string; amendment: Amendment | null; online?: Online | null; proposedBy: string | null; secondedBy: string | null; votes: { for: number; against: number; abstain: number } | null; result: "passed" | "failed" | null; decision: { slug: string; label: string } | null };
+export type BoardData = { needed: number; motionsOn: boolean; onlineVotes?: boolean; amendments: { version: number; articles: Array<{ n: string; title: string }>; threshold: number } | null; size: number | null; present: string[]; presentCount: number; approvedAt: string | null; motions: Motion[]; toApprove: { slug: string; title: string } | null };
 
 /** B7.3b: "two-thirds" for the default threshold, else a percentage. */
 const share = (t: number) => (Math.abs(t - 2 / 3) < 0.01 ? "two-thirds" : `${Math.round(t * 100)}%`);
@@ -32,7 +34,7 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
   projectId: string; docSlug: string; title: string; board: BoardData; attendees: Person[]; canEdit: boolean; onOpenDoc: (slug: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const [dialog, setDialog] = useState<{ kind: "motion" } | { kind: "vote"; motion: Motion } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: "motion" } | { kind: "vote"; motion: Motion } | { kind: "online"; motion: Motion } | null>(null);
   const [busy, setBusy] = useState(false);
   const editable = canEdit && !board.approvedAt;
   // Ticks show at once; the server's list replaces them when it answers.
@@ -106,7 +108,11 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
               {[name(m.proposedBy) ? `Proposed by ${name(m.proposedBy)}` : null, name(m.secondedBy) ? `seconded by ${name(m.secondedBy)}` : null].filter(Boolean).join(" · ")}
               {m.votes ? <span className="font-mono">{name(m.proposedBy) ? " · " : ""}For {m.votes.for} · Against {m.votes.against} · Abstain {m.votes.abstain}</span> : null}
             </p>
-            {editable && !m.result ? <button type="button" className={`${FORM_SECONDARY_CLASS} mt-1.5`} disabled={busy} onClick={() => setDialog({ kind: "vote", motion: m })}>Record vote</button> : null}
+            {m.online ? <p className="mt-1 pl-5 text-[12px] text-muted-foreground" data-testid="motion-online">{m.online.open ? `Online vote, closes ${new Date(m.online.closesAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+              : m.online.result ? `Online vote: ${m.online.result.result === "passed" ? "Passed" : m.online.result.result === "failed" ? "Failed" : "Not quorate"} · For ${m.online.result.for} · Against ${m.online.result.against} · Abstain ${m.online.result.abstain}` : "Online vote closed"}</p> : null}
+            {editable && !m.result && !m.online ? <span className="mt-1.5 flex flex-wrap gap-2">
+              <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog({ kind: "vote", motion: m })}>Record vote</button>
+              {board.onlineVotes && m.secondedBy ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog({ kind: "online", motion: m })}>Send to an online vote</button> : null}</span> : null}
             {editable && m.result === "passed" && !m.decision ? (
               <button type="button" className={`${FORM_SECONDARY_CLASS} mt-1.5`} disabled={busy} onClick={() => void run(async () => ({ success: true as const, label: await recordDecision(m, m.votes!) }), (r) => `Recorded ${r.label}`)}>Record the decision</button>
             ) : null}
@@ -121,6 +127,8 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
       </div>
       {dialog?.kind === "motion" ? <MotionDialog attendees={attendees} amendments={board.amendments} busy={busy} onClose={() => setDialog(null)}
         onSave={(v) => void run(() => addMotionAction(projectId, { docSlug, ...v }), () => "Motion added")} /> : null}
+      {dialog?.kind === "online" ? <OnlineVoteDialog motion={dialog.motion} busy={busy} onClose={() => setDialog(null)}
+        onSave={(closesAt) => void run(() => sendMotionToVoteAction(projectId, docSlug, dialog.motion.id, closesAt), () => "Sent to an online vote; members are told")} /> : null}
       {dialog?.kind === "vote" ? <VoteDialog motion={dialog.motion} threshold={dialog.motion.amendment ? board.amendments?.threshold ?? null : null} present={presentCount} quorate={q.met} needed={q.needed} busy={busy} onClose={() => setDialog(null)}
         onSave={(votes) => void run(async () => {
           const r = await recordVoteAction(projectId, { docSlug, motionId: dialog.motion.id, ...votes });
@@ -175,6 +183,29 @@ function MotionDialog({ attendees, amendments, busy, onClose, onSave }: { attend
         <div className={FORM_FOOTER_CLASS}>
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
           <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={save}>Add motion</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** B7.3c (report 36.4 call 4): a secret online vote of members staying this Season, closing at the time chosen here. */
+function OnlineVoteDialog({ motion, busy, onClose, onSave }: { motion: Motion; busy: boolean; onClose: () => void; onSave: (closesAt: string) => void }) {
+  const [when, setWhen] = useState(() => {
+    const d = new Date(Date.now() + 3 * 86_400_000);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  });
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="online-vote-dialog">
+        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">Send to an online vote</DialogTitle><DialogDescription className="text-xs text-muted-foreground">{motion.text}</DialogDescription></div>
+        <div className="space-y-3 px-6 py-4 text-[13px]">
+          <p className="text-muted-foreground">Members staying this Season vote For, Against or Abstain by secret ballot. It closes only at this time; ballots after it aren’t counted.</p>
+          <Field label="Closes" htmlFor="online-closes"><input id="online-closes" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={`${inputClassName(false)} font-mono`} /></Field>
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !when} onClick={() => onSave(new Date(when).toISOString())}>Open the vote</button>
         </div>
       </DialogContent>
     </Dialog>

@@ -25,7 +25,7 @@ async function club(orgId: string) {
     SELECT org_type AS type, org_settings AS settings, title FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   if (w?.type !== "club" || !a.canRead) return null;
   const pub = Boolean((w.settings as { club?: { constitution?: { public?: unknown } } } | null)?.club?.constitution?.public === true);
-  return { userId, w, pub, member: Boolean(userId) && (a.isOwner || a.isMember), officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin"), president: Boolean(userId) && a.isOwner && !a.writeBlocked };
+  return { userId, w, pub, member: Boolean(userId) && (a.isOwner || a.isMember), officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, president: Boolean(userId) && a.isOwner && !a.writeBlocked };
 }
 
 /** The constitution (members; visitors when public): the current articles and every version with what changed. */

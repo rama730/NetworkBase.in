@@ -15,12 +15,13 @@ async function open(page: Page, opts: { view?: string; now?: string; finished?: 
         timeZone: 'Asia/Kolkata', attendees: [{ id: 'u2', name: 'Dev', avatarUrl: null }], seriesRule: series ? 'weekly' : null, seriesTitle: series ? 'Weekly' : null, seriesId: series ? 's1' : null,
         finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 0,
         ...(board ? { type: 'board', attendees: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Asha', avatarUrl: null }, { id: '22222222-2222-4222-8222-222222222222', name: 'Dev', avatarUrl: null }, { id: '33333333-3333-4333-8333-333333333333', name: 'Mia', avatarUrl: null }],
-          board: { needed: 2, motionsOn: true, amendments: amend ? { version: 4, articles: [{ n: '1', title: 'Name' }, { n: '6', title: 'Amendments' }], threshold: 2 / 3 } : null, size: 3, present: (window as any).__present ?? [], presentCount: ((window as any).__present ?? []).length, approvedAt: null, toApprove: { slug: 'board-dec', title: 'Board · Dec 7' },
+          board: { needed: 2, motionsOn: true, onlineVotes: Boolean(amend), amendments: amend ? { version: 4, articles: [{ n: '1', title: 'Name' }, { n: '6', title: 'Amendments' }], threshold: 2 / 3 } : null, size: 3, present: (window as any).__present ?? [], presentCount: ((window as any).__present ?? []).length, approvedAt: null, toApprove: { slug: 'board-dec', title: 'Board · Dec 7' },
             motions: [{ id: 'm1', text: 'Approve the 2027 budget', proposedBy: '11111111-1111-4111-8111-111111111111', secondedBy: '22222222-2222-4222-8222-222222222222', votes: null, result: null, decision: null },
               { id: 'm2', text: 'Move the office', proposedBy: null, secondedBy: null, votes: { for: 1, against: 2, abstain: 0 }, result: 'failed', decision: null }] } } : {}) }),
       markPresentAction: async (_p: string, input: { present: string[] }) => { calls.push(['present', input.present.length]); (window as any).__present = input.present; return { success: true, present: input.present }; },
       recordVoteAction: async (_p: string, input: unknown) => { calls.push(['vote', input]); return { success: true, result: 'failed' }; },
       addMotionAction: async (_p: string, input: unknown) => { calls.push(['motion', input]); return { success: true, motionId: 'm3' }; },
+      sendMotionToVoteAction: async (_o: string, doc: string, motion: string, closesAt: string) => { calls.push(['online', doc, motion, typeof closesAt]); return { success: true, id: 'v1' }; },
       approveMinutesAction: async (_p: string, input: unknown) => { calls.push(['approve', input]); return { success: true, approvedSlug: 'board-dec', approvedAt: '2027-01-07T05:00:00.000Z' }; },
       readMeetingFeedAction: async () => ({ success: true, hasLink: false, since: null }),
       newMeetingFeedAction: async () => { calls.push(['feed']); return { success: true, path: '/api/feeds/meetings/abcdefghijklmnopqrstuvwx' }; },
@@ -197,5 +198,18 @@ test('B7.3b: a motion that adds an article to the constitution, with the two-thi
   expect(await axeViolations(page)).toEqual([]);
   await d.getByRole('button', { name: 'Add motion' }).click();
   await expect.poll(() => calls(page)).toContainEqual(['motion', { docSlug: 'weekly-jan-7', text: 'Add a Tech officer', amendment: { article: '6.4', title: 'Tech officer', text: "A Tech officer looks after the club's tools." } }]);
+});
+
+// Plan B7.3c (report 36.4 call 4): a seconded club motion can go to an online vote.
+test('B7.3c: Send to an online vote from the meeting panel, closing at a chosen time', async ({ page }) => {
+  await open(page, { board: true, amend: true });
+  const m1 = page.getByTestId('motion').filter({ hasText: 'Approve the 2027 budget' });
+  await m1.getByRole('button', { name: 'Send to an online vote' }).click();
+  const d = page.getByTestId('online-vote-dialog');
+  await expect(d).toContainText('It closes only at this time');
+  expect(await axeViolations(page)).toEqual([]);
+  await d.getByRole('button', { name: 'Open the vote' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['online', 'weekly-jan-7', 'm1', 'string']);
+  await expect(page.getByTestId('motion').filter({ hasText: 'Move the office' }).getByRole('button', { name: 'Send to an online vote' })).toHaveCount(0);
 });
 

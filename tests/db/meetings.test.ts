@@ -26,6 +26,8 @@ let taskActions: typeof import("../../src/app/actions/task");
 let tasksServer: typeof import("../../src/lib/workspaces/server/tasks");
 let clubMeetings: typeof import("../../src/app/actions/club-meetings");
 let constitution: typeof import("../../src/app/actions/club-constitution");
+let motionVotes: typeof import("../../src/app/actions/club-motion-votes");
+let clubServer: typeof import("../../src/lib/organizations/club-server");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -41,6 +43,8 @@ before(async () => {
   tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   clubMeetings = await loadAppModule(() => import("../../src/app/actions/club-meetings"));
   constitution = await loadAppModule(() => import("../../src/app/actions/club-constitution"));
+  motionVotes = await loadAppModule(() => import("../../src/app/actions/club-motion-votes"));
+  clubServer = await loadAppModule(() => import("../../src/lib/organizations/club-server"));
 });
 
 const created: string[] = [];
@@ -475,5 +479,59 @@ test("36.4 (B7.3b): the constitution's first version by the President, then only
   viewerId = t.member;
   const mine = await constitution.readDecisionsAction(t.ws);
   assert.ok(mine.success && !mine.seasons.some((x) => x.entries.some((e) => e.kind === "attempt")), "members see attempts once the minutes are approved");
+});
+
+// Plan B7.3c (report 36.4 call 4): an online motion vote is a secret ballot that closes at its time.
+test("36.4 (B7.3c): an online vote — ballots never name a voter, one vote, closes only at its time, quorum fixed at the start, a passed amendment publishes", async () => {
+  const t = await workspace();
+  const [third, fourth] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  await sql`DELETE FROM workspace_workflows WHERE workspace_id = ${t.ws}`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active', org_settings = ${sql.json({ club: { meetings: { agendaDays: 3, propose: true, quorumShare: 0.5 } } })} WHERE id = ${t.ws}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${t.ws}, ${third!}, 'member'), (${t.ws}, ${fourth!}, 'member')`;
+  const cols = async (n: string) => (await sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${n}`).map((c) => String(c.column_name)).sort();
+  assert.deepEqual(await cols("club_motion_ballots"), ["choice", "id", "vote_id"], "a ballot never names its voter");
+  assert.deepEqual(await cols("club_motion_voted"), ["user_id", "vote_id"], "the voted record never holds a choice");
+
+  viewerId = t.owner;
+  const { STARTER_ARTICLES } = await import("../../src/lib/organizations/club");
+  assert.ok((await constitution.writeConstitutionAction(t.ws, STARTER_ARTICLES)).success);
+  await t.doc("general-x");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "general-x", type: "general", title: "General · Nov", startsAt: ist("2027-11-01T18:00:00"), lengthMinutes: 60, attendeeIds: [t.owner, t.member], repeat: "none" })).success);
+  const bare = await docs.addMotionAction(t.ws, { docSlug: "general-x", text: "Unseconded", proposedBy: t.member });
+  const amend = await docs.addMotionAction(t.ws, { docSlug: "general-x", text: "Weekend lab hours", proposedBy: t.member, secondedBy: t.owner, amendment: { article: "5.1", title: "Lab hours", text: "The lab opens on weekends." } });
+  assert.ok(bare.success && amend.success);
+  const soon = new Date(Date.now() + 2 * 3_600_000).toISOString();
+  assert.match(String((await motionVotes.sendMotionToVoteAction(t.ws, "general-x", bare.motionId, soon) as { error?: string }).error), /seconder/);
+  assert.match(String((await motionVotes.sendMotionToVoteAction(t.ws, "general-x", amend.motionId, new Date(Date.now() + 60_000).toISOString()) as { error?: string }).error), /between an hour and 30 days/);
+  viewerId = t.member;
+  assert.equal((await motionVotes.sendMotionToVoteAction(t.ws, "general-x", amend.motionId, soon)).success, false, "officers send motions to a vote");
+  viewerId = t.owner;
+  const sent = await motionVotes.sendMotionToVoteAction(t.ws, "general-x", amend.motionId, soon);
+  assert.ok(sent.success);
+  assert.equal((await docs.recordVoteAction(t.ws, { docSlug: "general-x", motionId: amend.motionId, for: 1, against: 0, abstain: 0 }) as { error?: string }).error, "This motion is being voted on online.");
+  const [v] = await sql`SELECT needed, eligible, threshold::float AS threshold FROM club_motion_votes WHERE id = ${sent.id}`;
+  assert.deepEqual({ ...v }, { needed: 2, eligible: 4, threshold: 2 / 3 }, "quorum fixed at the start: half of 4 staying");
+
+  for (const [who, choice] of [[t.owner, "for"], [t.member, "for"], [third!, "against"]] as const) { viewerId = who; assert.ok((await motionVotes.castMotionVoteAction(t.ws, sent.id, choice)).success); }
+  viewerId = t.member;
+  assert.match(String((await motionVotes.castMotionVoteAction(t.ws, sent.id, "against") as { error?: string }).error), /voted on this motion/, "one vote");
+  viewerId = t.viewer;
+  assert.equal((await motionVotes.castMotionVoteAction(t.ws, sent.id, "for")).success, false, "Viewers don't vote");
+  viewerId = fourth!;
+  const open = await motionVotes.readMotionVotesAction(t.ws);
+  assert.ok(open.success && open.votes[0]!.open && open.votes[0]!.turnout === 3 && !open.votes[0]!.voted && open.votes[0]!.result === null, "turnout as a count; no result before it closes");
+  assert.equal((await clubServer.closeMotionVotes(new Date())).closed, 0, "it closes only at its time");
+  await sql`UPDATE club_motion_votes SET closes_at = now() - interval '1 minute' WHERE id = ${sent.id}`;
+  assert.match(String((await motionVotes.castMotionVoteAction(t.ws, sent.id, "for") as { error?: string }).error), /closed/, "late ballots aren't counted");
+  const closed = await motionVotes.readMotionVotesAction(t.ws);
+  assert.ok(closed.success && !closed.votes[0]!.open);
+  assert.deepEqual(closed.votes[0]!.result, { for: 2, against: 1, abstain: 0, result: "passed" }, "two-thirds of those voting");
+  const c = await constitution.readConstitutionAction(t.ws);
+  assert.ok(c.success && c.version === 2 && c.articles.some((a) => a.n === "5.1"), "the passed amendment publishes the next version");
+  const [counts] = await sql`SELECT (SELECT count(*)::int FROM club_motion_ballots WHERE vote_id = ${sent.id}) AS ballots, (SELECT count(*)::int FROM club_motion_voted WHERE vote_id = ${sent.id}) AS voted`;
+  assert.deepEqual({ ...counts }, { ballots: 3, voted: 3 });
+  viewerId = t.owner;
+  const panel = await docs.readMeetingAction(t.ws, "general-x");
+  assert.ok(panel.success && "board" in panel && panel.board?.motions.find((m) => m.id === amend.motionId)?.online?.result?.result === "passed");
 });
 

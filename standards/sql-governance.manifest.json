@@ -177,7 +177,8 @@
     "drizzle/0172_club_elections.sql",
     "drizzle/0173_club_handover.sql",
     "drizzle/0174_club_agenda_requests.sql",
-    "drizzle/0175_club_constitution.sql"
+    "drizzle/0175_club_constitution.sql",
+    "drizzle/0176_club_motion_votes.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

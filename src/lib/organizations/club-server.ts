@@ -174,12 +174,60 @@ export async function meetingClub(projectId: string) {
 export async function clubQuorum(clubId: string) {
   const { clubQuorumNeeded } = await import("@/lib/workflows/meetings");
   const [w] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${clubId}::uuid`));
-  const r = readRenewal(w?.settings);
   const share = readClubMeetings(w?.settings).quorumShare;
   const [n] = Array.from(await db.execute<{ n: number }>(sql`
-    SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${clubId}::uuid AND role <> 'viewer' AND completed_at IS NULL
-      ${r?.on ? sql`AND (joined_at >= ${r.season}::date - 30 OR (view_prefs->'club'->'renewal'->>'season' = ${r.season} AND view_prefs->'club'->'renewal'->>'answer' = 'staying'))` : sql``}`));
+    SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${clubId}::uuid AND ${staying(w?.settings)}`));
   return { staying: n?.n ?? 0, needed: clubQuorumNeeded(n?.n ?? 0, share) };
+}
+
+/** Members staying this Season (a workspace_members row): not Viewers, not finished, and with renewal on, Staying or too new to ask. */
+export function staying(settings: unknown) {
+  const r = readRenewal(settings);
+  return sql`role <> 'viewer' AND completed_at IS NULL
+    ${r?.on ? sql`AND (joined_at >= ${r.season}::date - 30 OR (view_prefs->'club'->'renewal'->>'season' = ${r.season} AND view_prefs->'club'->'renewal'->>'answer' = 'staying'))` : sql``}`;
+}
+
+/**
+ * B7.3c (call 4): close online motion votes whose time has come (all, or one club's). Abstentions count for turnout only;
+ * below the quorum fixed when it opened the motion is Not quorate; an amendment needs its threshold of those voting For
+ * or Against, and a passed one publishes the next constitution. Members are told the result (Normal). Hourly, and on read.
+ */
+export async function closeMotionVotes(now = new Date(), clubId?: string) {
+  const due = Array.from(await db.execute<{ id: string }>(sql`
+    SELECT id FROM club_motion_votes WHERE state = 'open' AND closes_at <= ${now.toISOString()}::timestamptz ${clubId ? sql`AND org_id = ${clubId}::uuid` : sql``} LIMIT 200`));
+  let closed = 0;
+  for (const { id } of due) {
+    const done = await db.transaction(async (tx) => {
+      const [v] = Array.from(await tx.execute<{ org_id: string; doc_id: string; motion_id: string; text: string; amendment: Amendment | null; threshold: string; needed: number; created_by: string | null }>(sql`
+        SELECT org_id, doc_id, motion_id, text, amendment, threshold::text, needed, created_by FROM club_motion_votes WHERE id = ${id}::uuid AND state = 'open' FOR UPDATE`));
+      if (!v) return null;
+      const counts = { for: 0, against: 0, abstain: 0 };
+      for (const b of Array.from(await tx.execute<{ choice: "for" | "against" | "abstain"; n: number }>(sql`SELECT choice, count(*)::int AS n FROM club_motion_ballots WHERE vote_id = ${id}::uuid GROUP BY choice`))) counts[b.choice] = b.n;
+      const { amendmentPasses } = await import("@/lib/organizations/club");
+      const turnout = counts.for + counts.against + counts.abstain;
+      const result = turnout < v.needed ? "not_quorate" : (v.amendment ? amendmentPasses(counts, Number(v.threshold)) : counts.for > counts.against) ? "passed" : "failed";
+      await tx.execute(sql`UPDATE club_motion_votes SET state = 'closed', closed_at = now(), result = ${JSON.stringify({ ...counts, result })}::jsonb WHERE id = ${id}::uuid`);
+      return { v, result };
+    });
+    if (!done) continue;
+    closed++;
+    if (done.result === "passed" && done.v.amendment) await publishAmendment(done.v.org_id, done.v.doc_id, done.v.motion_id, done.v.amendment, done.v.created_by);
+    const [w] = Array.from(await db.execute<{ slug: string | null; title: string; settings: unknown }>(sql`SELECT slug, title, org_settings AS settings FROM workspaces WHERE id = ${done.v.org_id}::uuid`));
+    const members = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${done.v.org_id}::uuid AND ${staying(w?.settings)} LIMIT 2000`));
+    const word = done.result === "passed" ? "passed" : done.result === "failed" ? "failed" : "was not quorate";
+    await notifyAll(done.v.org_id, w?.slug ?? done.v.org_id, members.map((m) => ({ to: m.id, title: `Online vote ${word}: ${done.v.text}` })), null, `club-motion-vote-result:${id}`);
+  }
+  // One reminder, a day before it closes, to members who haven't voted.
+  const soon = Array.from(await db.execute<{ id: string; org_id: string; text: string }>(sql`
+    UPDATE club_motion_votes SET reminded_at = now() WHERE state = 'open' AND reminded_at IS NULL AND closes_at <= ${now.toISOString()}::timestamptz + interval '1 day'
+      ${clubId ? sql`AND org_id = ${clubId}::uuid` : sql``} RETURNING id, org_id, text`));
+  for (const v of soon) {
+    const [w] = Array.from(await db.execute<{ slug: string | null; settings: unknown }>(sql`SELECT slug, org_settings AS settings FROM workspaces WHERE id = ${v.org_id}::uuid`));
+    const left = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${v.org_id}::uuid AND ${staying(w?.settings)}
+      AND NOT EXISTS (SELECT 1 FROM club_motion_voted x WHERE x.vote_id = ${v.id}::uuid AND x.user_id = workspace_members.user_id) LIMIT 2000`));
+    await notifyAll(v.org_id, w?.slug ?? v.org_id, left.map((m) => ({ to: m.id, title: `Online vote closes in a day: ${v.text}` })), null, `club-motion-vote-remind:${v.id}`);
+  }
+  return { closed };
 }
 
 /** B7.3b (call 7): the club's current constitution (latest version), or null before the first. */
@@ -193,7 +241,7 @@ export async function currentConstitution(clubId: string, exec: Exec = db) {
  * A passed amendment motion publishes the next version (under the club row's lock, so two never take one number),
  * linked to its meeting and motion; members are told (Normal). Returns the new version, or null when it no longer fits.
  */
-export async function publishAmendment(clubId: string, docId: string, motionId: string, a: Amendment, actor: string) {
+export async function publishAmendment(clubId: string, docId: string, motionId: string, a: Amendment, actor: string | null) {
   const out = await db.transaction(async (tx) => {
     const [w] = Array.from(await tx.execute<{ settings: unknown; slug: string | null; title: string }>(sql`SELECT org_settings AS settings, slug, title FROM workspaces WHERE id = ${clubId}::uuid FOR UPDATE`));
     const cur = await currentConstitution(clubId, tx);

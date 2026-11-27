@@ -13,6 +13,7 @@ test('Club recruiting: the banner while it lasts, the officers card with drive c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
@@ -62,6 +63,7 @@ test('Season renewal: the member ask, officers see counts and end only after a c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
@@ -104,6 +106,7 @@ test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
@@ -149,6 +152,7 @@ test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice)
     (window as any).__calls = calls;
     let voted = false;
     (window as any).__actions = {
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
@@ -189,6 +193,7 @@ test('B7.2c Handover: progress of 5, ticks, Move open work to the incoming offic
     (window as any).__calls = calls;
     let moved = false;
     (window as any).__actions = {
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
@@ -231,6 +236,7 @@ test('B7.3a Next general meeting: quorum from members staying, Add to the agenda
     (window as any).__calls = calls;
     let decided = false;
     (window as any).__actions = {
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
@@ -269,6 +275,7 @@ test('B7.3b Constitution: numbered articles, version and what changed; Decisions
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
       readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
@@ -296,6 +303,42 @@ test('B7.3b Constitution: numbered articles, version and what changed; Decisions
   await expect(dec.getByRole('region', { name: 'Season 2026–27' })).toContainText('Constitution version 5: Article 6.4 added');
   await expect(dec.getByRole('link', { name: 'D-004 Two competitions this year' })).toBeVisible();
   await expect(dec).toContainText('Not passed');
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B7.3c Online votes: a secret ballot For, Against or Abstain, You voted (never the choice), turnout as a count, the result', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    let voted = false;
+    (window as any).__actions = {
+      readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
+      readRenewalAction: async () => ({ success: true, on: false, officer: false }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25, amendThreshold: 2 / 3 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
+      readMotionVotesAction: async () => ({ success: true, votes: [
+        { id: 'v1', text: 'Weekend lab hours', amendment: { article: '5.1', text: 'The lab opens on weekends.' }, closesAt: '2099-10-05T12:00:00.000Z', open: true, turnout: voted ? 13 : 12, eligible: 40, needed: 10, voted, canVote: true, result: null },
+        { id: 'v2', text: 'Two competitions this year', amendment: null, closesAt: '2026-09-04T12:00:00.000Z', open: false, turnout: 30, eligible: 40, needed: 10, voted: true, canVote: true, result: { for: 20, against: 8, abstain: 2, result: 'passed' } }] }),
+      castMotionVoteAction: async (_o: string, id: string, choice: string) => { calls.push(['cast', id, choice]); voted = true; return { success: true }; },
+    };
+  });
+  await openApp(page, 'tests/browser/club.fixture.tsx');
+  const card = page.getByTestId('club-motion-votes');
+  const open = card.getByTestId('club-motion-vote').filter({ hasText: 'Weekend lab hours' });
+  await expect(open).toContainText('Changes Article 5.1 of the constitution');
+  await expect(open).toContainText('12 of 40 voted · 10 needed');
+  await open.getByLabel('Against').check();
+  await open.getByRole('button', { name: 'Submit' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['cast', 'v1', 'against']);
+  await expect(open.getByTestId('club-motion-voted')).toHaveText('You voted');
+  await expect(open).not.toContainText('Against');
+  await expect(card.getByTestId('club-motion-vote').filter({ hasText: 'Two competitions' })).toContainText('For 20 · Against 8 · Abstain 2');
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });

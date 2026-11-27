@@ -1219,6 +1219,13 @@
       "when": 1795714818968,
       "tag": "0175_club_constitution",
       "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1795714878968,
+      "tag": "0176_club_motion_votes",
+      "breakpoints": true
     }
   ]
 }
