@@ -43,7 +43,8 @@ jobs:
           npm run check:sql-governance
 
   browser:
-    runs-on: ubuntu-latest
+    # ubuntu-latest moved to 26.04, which this Playwright release doesn't support.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
