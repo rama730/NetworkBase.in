@@ -1,0 +1,56 @@
+name: push-gate
+
+# The checks a commit passes before it goes to main, run here instead of on the laptop (2026-11-27: running them locally,
+# together, froze the machine). Push the commits to a gate/<anything> branch, wait for this run, then push the same
+# commits to main. Database tests run on main in onboarding-release-gate.
+on:
+  push:
+    branches:
+      - "gate/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role
+      RATE_LIMIT_MODE: best-effort
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Migration and SQL contracts
+        run: |
+          npm run check:db:migration-journal
+          npm run check:rls-contract
+          npm run check:sql-governance
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Component browser specs
+        run: npx playwright test -c tests/browser/playwright.config.ts --project=chromium
