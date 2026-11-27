@@ -58,7 +58,7 @@ test('W1 + W2: an owner adds Bugs, the tab appears after a divider, Undo takes i
   await page.screenshot({ path: 'test-results/workflow-tabs/tabs-light-1440.png' });
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('tab', { name: 'Bugs' })).toHaveCount(0);
-  await expect(page.getByText('Bugs removed')).toBeVisible();
+  await expect(page.getByTestId('toast').getByText('Bugs removed')).toBeVisible();
   expect(await page.evaluate(() => (window as any).__calls)).toEqual([['add', 'bugs'], ['undo', 'bugs']]);
 });
 
