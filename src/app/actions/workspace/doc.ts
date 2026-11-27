@@ -1892,7 +1892,7 @@ export async function createMeetingAction(projectId: string, input: unknown) {
         const [orgRow] = context.project.kind === "organization" ? await db.select({ orgType: workspaces.orgType, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1) : [];
         // B8.5 (report 37.2): an Other organization with Board meetings (or Meetings) switched on holds them itself too.
         const { partOn } = await import("@/lib/organizations/kits");
-        const clubMeetings = orgRow?.orgType === "club" || (orgRow?.orgType === "other" && (partOn(orgRow.settings, "boardMeetings") || partOn(orgRow.settings, "meetings")));
+        const clubMeetings = orgRow?.orgType === "club" || (orgRow?.orgType === "other" && (partOn(orgRow.settings, "boardMeetings") || partOn(orgRow.settings, "meetings") || partOn(orgRow.settings, "clubMeetings")));
         if (!clubMeetings && !availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("meetings")) return { success: false as const, error: "Add Meetings and decisions first." };
         const attendeeIds = await memberIds(projectId, data.attendeeIds);
         const startsAt = new Date(data.startsAt).toISOString();

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { readClubMeetings } from "@/lib/organizations/club";
 import { closeMotionVotes, clubQuorum, notifyAll, staying } from "@/lib/organizations/club-server";
 import { normalizeWorkspaceDocSettings } from "@/lib/workspaces/doc";
+import { clubLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -25,7 +26,7 @@ async function club(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; slug: string | null; title: string }>(sql`
     SELECT org_type AS type, org_settings AS settings, slug, title FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "club" || !a.canRead || !(a.isOwner || a.isMember)) return null;
+  if (!clubLike(w?.type, w?.settings, "clubMeetings") || !a.canRead || !(a.isOwner || a.isMember)) return null;
   return { userId, w, officer: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, blocked: Boolean(a.writeBlocked) };
 }
 

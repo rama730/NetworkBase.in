@@ -13,5 +13,7 @@ export async function readMeetingSettings(projectId: string) {
     // B3.5a: a school (an institution) gets the school meeting types; B7.2c: a club gets the Handover meeting;
     // B8.5: an Other organization with Board meetings on gets the Board meeting (the nonprofit types).
     const board = ws?.orgType === "other" && partOn(ws.orgSettings, "boardMeetings");
-    return meetingSettings((ws?.settings as Record<string, unknown> | null)?.meetings, ws?.level === "institution" ? "school" : ws?.orgType === "club" ? "club" : board ? "nonprofit" : ws?.category);
+    // B8.7: an Other organization with Meetings and minutes on (the Association kit) gets the club's meeting types.
+    const club = ws?.orgType === "club" || (ws?.orgType === "other" && partOn(ws.orgSettings, "clubMeetings"));
+    return meetingSettings((ws?.settings as Record<string, unknown> | null)?.meetings, ws?.level === "institution" ? "school" : club ? "club" : board ? "nonprofit" : ws?.category);
 }

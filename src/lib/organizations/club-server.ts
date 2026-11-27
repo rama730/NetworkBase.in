@@ -27,7 +27,7 @@ const DAY = 86_400_000;
 export async function renewalReminders(now = new Date()) {
   const today = now.toISOString().slice(0, 10);
   const clubs = Array.from(await db.execute<{ id: string; slug: string | null; settings: unknown }>(sql`
-    SELECT id, slug, org_settings AS settings FROM workspaces WHERE kind = 'organization' AND org_type = 'club' AND deleted_at IS NULL AND suspended_at IS NULL AND status <> 'archived'
+    SELECT id, slug, org_settings AS settings FROM workspaces WHERE kind = 'organization' AND (org_type = 'club' OR (org_type = 'other' AND coalesce(org_settings->'parts'->'on', '[]'::jsonb) ? 'renewal')) AND deleted_at IS NULL AND suspended_at IS NULL AND status <> 'archived'
       AND coalesce((org_settings->'club'->'renewal'->>'on')::boolean, false) LIMIT 500`));
   let sent = 0;
   for (const c of clubs) {
@@ -129,7 +129,7 @@ export async function notifyAll(orgId: string, slug: string, list: Array<{ to: s
 export async function handoverSteps(now = new Date()) {
   const today = now.toISOString().slice(0, 10);
   const clubs = Array.from(await db.execute<{ id: string; slug: string | null; title: string; owner: string; settings: unknown }>(sql`
-    SELECT id, slug, title, owner_id AS owner, org_settings AS settings FROM workspaces WHERE kind = 'organization' AND org_type = 'club' AND deleted_at IS NULL
+    SELECT id, slug, title, owner_id AS owner, org_settings AS settings FROM workspaces WHERE kind = 'organization' AND (org_type = 'club' OR (org_type = 'other' AND coalesce(org_settings->'parts'->'on', '[]'::jsonb) ? 'positions')) AND deleted_at IS NULL
       AND suspended_at IS NULL AND status <> 'archived' AND org_settings->'club'->'handover' IS NOT NULL AND NOT (org_settings->'club'->'handover' ? 'switchedAt') LIMIT 500`));
   let switched = 0;
   for (const c of clubs) {
@@ -165,7 +165,8 @@ export async function meetingClub(projectId: string) {
   const [w] = Array.from(await db.execute<{ id: string }>(sql`
     -- A committee is a group of the club (org_settings.groupOf), not a parent_id child.
     SELECT c.id FROM workspaces w JOIN workspaces c ON c.id::text = coalesce(CASE WHEN w.kind = 'organization' THEN w.id::text END, w.parent_id::text, w.org_settings->>'groupOf')
-    WHERE w.id = ${projectId}::uuid AND c.kind = 'organization' AND c.org_type = 'club' AND c.deleted_at IS NULL`));
+    WHERE w.id = ${projectId}::uuid AND c.kind = 'organization' AND c.deleted_at IS NULL
+      AND (c.org_type = 'club' OR (c.org_type = 'other' AND coalesce(c.org_settings->'parts'->'on', '[]'::jsonb) ? 'clubMeetings'))`));
   return w?.id ?? null;
 }
 

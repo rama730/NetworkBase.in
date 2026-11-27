@@ -16,9 +16,9 @@ export const PARTS: Record<PartId, Part> = {
   events: { id: "events", name: "Events", line: "Events with RSVPs, a waitlist and check-in (M3).", where: "Sprints", ready: true },
   boardMeetings: { id: "boardMeetings", name: "Board meetings", line: "Motions, votes, quorum and approved minutes (17.5).", where: "Overview", ready: true },
   meetings: { id: "meetings", name: "Meetings", line: "Meetings with agendas, notes and action items (11.6).", where: "Overview", ready: true },
-  renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year (L1).", where: "Overview", ready: false },
-  positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover (L2).", where: "Overview", ready: false },
-  clubMeetings: { id: "clubMeetings", name: "Meetings and minutes", line: "General meetings, minutes, motions and the constitution (L3).", where: "Overview", ready: false },
+  renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year (L1).", where: "Overview", ready: true },
+  positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover (L2).", where: "Overview", ready: true },
+  clubMeetings: { id: "clubMeetings", name: "Meetings and minutes", line: "General meetings, minutes, motions and the constitution (L3).", where: "Overview", ready: true },
   handbook: { id: "handbook", name: "Handbook", line: "Handbook pages and processes (K1).", where: "Documents", ready: false },
   directory: { id: "directory", name: "Directory", line: "Who does what, and who to ask (K2).", where: "Members", ready: false },
   goals: { id: "goals", name: "Goals and projects", line: "Goals for the period and the projects behind them (K3).", where: "Overview", ready: false },
@@ -85,3 +85,7 @@ export function kitSettings(id: string | null | undefined, keyDate?: string | nu
     ? { fixedTime: { keyDate, endDate: new Date(Date.parse(`${keyDate}T00:00:00Z`) + 30 * 86_400_000).toISOString().slice(0, 10) } } : {};
   return { kit: k.id, parts: { on: k.parts }, ...fixed };
 }
+
+/** B8.7: a club's part (L1–L3) in a club, or in an Other organization that switched it on (the Association kit). */
+export const clubLike = (type: string | null | undefined, orgSettings: unknown, part: "renewal" | "positions" | "clubMeetings") =>
+  type === "club" || (type === "other" && partOn(orgSettings, part));

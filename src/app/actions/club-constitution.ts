@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { articlesSchema, readPositions, sortArticles, type Article } from "@/lib/organizations/club";
+import { clubLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -23,7 +24,7 @@ async function club(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; title: string }>(sql`
     SELECT org_type AS type, org_settings AS settings, title FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "club" || !a.canRead) return null;
+  if (!clubLike(w?.type, w?.settings, "clubMeetings") || !a.canRead) return null;
   const pub = Boolean((w.settings as { club?: { constitution?: { public?: unknown } } } | null)?.club?.constitution?.public === true);
   return { userId, w, pub, member: Boolean(userId) && (a.isOwner || a.isMember), officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, president: Boolean(userId) && a.isOwner && !a.writeBlocked };
 }

@@ -161,7 +161,7 @@ test("kits: a ready kit saves its id and switches its parts on; Blank and unread
   const { kitSettings, readyKits } = await import("../../src/lib/organizations/kits");
   assert.deepEqual(kitSettings("nonprofit"), { kit: "nonprofit", parts: { on: ["volunteers", "programs", "boardMeetings", "events"] } });
   assert.deepEqual(kitSettings("blank"), {});
-  assert.deepEqual(kitSettings("association"), {}, "not ready yet: its parts don't work in Other organizations");
-  assert.deepEqual(readyKits().map((k) => k.id), ["nonprofit", "event_team", "blank"]);
+  assert.deepEqual(kitSettings("public_sector"), {}, "not ready yet: its parts don't work in Other organizations");
+  assert.deepEqual(readyKits().map((k) => k.id), ["nonprofit", "event_team", "association", "blank"]);
   assert.deepEqual(kitSettings("event_team", "2027-02-13"), { kit: "event_team", parts: { on: ["fixedTime", "volunteers", "events", "meetings"] }, fixedTime: { keyDate: "2027-02-13", endDate: "2027-03-15" } }, "the Event team kit keeps its event date");
 });

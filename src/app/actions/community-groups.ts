@@ -10,6 +10,7 @@ import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { createNotification } from "@/lib/notifications/service";
 import { GROUP_KINDS } from "@/lib/organizations/chapters";
 import { pauseActive } from "@/lib/organizations/community";
+import { clubLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { generateWorkspaceKey } from "@/lib/workspace-key";
@@ -35,7 +36,9 @@ async function community(orgId: string) {
   const [w] = Array.from(await db.execute<{ type: string | null; chapter_of: string | null; settings: unknown }>(sql`
     SELECT org_type AS type, org_settings->>'chapterOf' AS chapter_of, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   // B7.2a (36.3 call 3): a club's committees are its groups of kind Committee, started by officers.
-  if ((w?.type !== "community" && w?.type !== "club") || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
+  // B8.7: an Other organization with Committee and handover on (the Association kit) has committees as a club does.
+  const clubish = clubLike(w?.type, w?.settings, "positions");
+  if ((w?.type !== "community" && !clubish) || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
   const pauseIn = (settings: unknown) => (settings as { community?: { pauses?: Record<string, { until: string }> } } | null)?.community?.pauses?.[userId] ?? null;
   let paused = pauseActive(pauseIn(w.settings), new Date());
   if (w.chapter_of) {
@@ -46,7 +49,7 @@ async function community(orgId: string) {
     const [cw] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${w.chapter_of}::uuid`));
     paused = paused || pauseActive(pauseIn(cw?.settings), new Date());
   }
-  return { userId, communityId: w.chapter_of ?? orgId, chapterId: w.chapter_of ? orgId : null, paused, club: w.type === "club", officer: a.isOwner || a.memberRole === "admin" };
+  return { userId, communityId: w.chapter_of ?? orgId, chapterId: w.chapter_of ? orgId : null, paused, club: clubish, officer: a.isOwner || a.memberRole === "admin" };
 }
 
 /** Groups (call 8): the community's and its chapters' groups — name, kind, size and cap, when, chapter, join mode; never their content. */

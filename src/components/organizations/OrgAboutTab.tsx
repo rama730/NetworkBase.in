@@ -116,8 +116,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {/* Report 35.2 (B6.1c): a lab's About is its public page. */}
                 {org?.type === 'research' ? <LabAboutSections orgId={project.id} /> : null}
                 {org?.type === 'club' ? <RecruitingBanner orgId={project.id} /> : null}
-                {org?.type === 'club' ? <CommitteeCard orgId={project.id} about /> : null}
-                {org?.type === 'club' ? <ConstitutionCard orgId={project.id} about /> : null}
+                {org?.type === 'club' || (org?.type === 'other' && org.parts?.includes('positions')) ? <CommitteeCard orgId={project.id} about /> : null}
+                {org?.type === 'club' || (org?.type === 'other' && org.parts?.includes('clubMeetings')) ? <ConstitutionCard orgId={project.id} about /> : null}
                 {org?.type === 'other' ? <OurPrograms orgId={project.id} /> : null}
                 {org?.type === 'other' ? <VolunteerWithUs orgId={project.id} /> : null}
                 {org?.type === 'community' || org?.type === 'club' || (org?.type === 'other' && org.parts?.includes('events')) ? <NextEventCard orgId={project.id} base={base} /> : null}

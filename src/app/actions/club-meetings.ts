@@ -6,6 +6,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { agendaOpen, clubMeetingsSchema, readClubMeetings } from "@/lib/organizations/club";
 import { clubQuorum, notifyAll } from "@/lib/organizations/club-server";
+import { clubLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -24,7 +25,7 @@ async function club(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; slug: string | null; title: string }>(sql`
     SELECT org_type AS type, org_settings AS settings, slug, title FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "club" || !a.canRead || !(a.isOwner || a.isMember)) return null;
+  if (!clubLike(w?.type, w?.settings, "clubMeetings") || !a.canRead || !(a.isOwner || a.isMember)) return null;
   return { userId, w, officer: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, president: a.isOwner && !a.writeBlocked,
     member: !a.writeBlocked && (a.isOwner || a.memberRole !== "viewer"), settings: readClubMeetings(w.settings) };
 }

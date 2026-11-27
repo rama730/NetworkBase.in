@@ -45,10 +45,10 @@ test("37.2 (B8.4a): parts switch on and off from Settings → Workflows; off hid
   viewerId = owner!;
   assert.equal((await v.readVolunteersAction(id)).success, false, "a part that's off shows nothing");
   const parts = await op.readPartsAction(id);
-  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings,meetings");
+  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings,meetings,renewal,positions,clubMeetings");
   assert.ok((await op.setPartAction(id, "volunteers", true)).success);
   assert.match(String((await op.setPartAction(id, "volunteers", true) as { error?: string }).error), /already on/);
-  assert.equal((await op.setPartAction(id, "renewal", true)).success, false, "parts that don't work here yet aren't offered");
+  assert.equal((await op.setPartAction(id, "handbook", true)).success, false, "parts that don’t work here yet aren’t offered");
   assert.ok((await v.saveVolunteerSettingsAction(id, { on: true, agreement: { text: "", version: 0 }, roles: [{ id: "sorting", name: "Sorting", line: "", training: false }] })).success);
   const shift = await v.saveShiftAction(id, { roleId: "sorting", place: "", start: new Date(Date.now() + 86_400_000).toISOString(), end: new Date(Date.now() + 90_000_000).toISOString(), places: 3, note: "" });
   assert.ok(shift.success);
@@ -60,7 +60,7 @@ test("37.2 (B8.4a): parts switch on and off from Settings → Workflows; off hid
   assert.ok((await op.setPartAction(id, "volunteers", true)).success);
   const back = await v.readVolunteersAction(id);
   assert.ok(back.success && "shifts" in back && back.shifts.length === 1, "on again brings everything back");
-  assert.equal((await op.addKitPartsAction(id, "association")).success, false, "a kit is added only once all its parts work here");
+  assert.equal((await op.addKitPartsAction(id, "public_sector")).success, false, "a kit is added only once all its parts work here");
   const kit = await op.addKitPartsAction(id, "nonprofit");
   assert.ok(kit.success && kit.added === 3, "Add from a kit switches on the parts not on yet");
 });
@@ -100,3 +100,27 @@ test("37.2 (B8.5): the Nonprofit kit — events and board meetings work in an Ot
   const all = await board.readBoardMeetingsAction(id);
   assert.ok(all.success && all.all && all.meetings.length === 2);
 });
+
+test("37.2 (B8.7): the Association kit — positions, elections, general meetings and the constitution work in an Other organization with their parts on", async () => {
+  const [chair, ann] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, chair!, {}));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Hostel committee' WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${chair!}, 'owner'), (${id}, ${ann!}, 'member')`;
+  const pos = await loadAppModule(() => import("../../src/app/actions/club-positions"));
+  const con = await loadAppModule(() => import("../../src/app/actions/club-constitution"));
+  const { STARTER_ARTICLES } = await import("../../src/lib/organizations/club");
+  viewerId = chair!;
+  assert.equal((await pos.readCommitteeAction(id)).success, false, "off until its part is on");
+  assert.ok((await op.addKitPartsAction(id, "association")).success);
+  assert.ok((await pos.appointAction(id, "secretary", ann!)).success, "the chair appoints");
+  viewerId = ann!;
+  const offer = (await sql`SELECT id FROM club_position_terms WHERE org_id = ${id} AND user_id = ${ann!}`)[0]!.id as string;
+  assert.ok((await pos.answerAppointmentAction(id, offer, true)).success);
+  assert.equal((await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${ann!}`)[0]!.role, "admin", "holding the position gives Officer (the admin role)");
+  viewerId = chair!;
+  assert.ok((await con.writeConstitutionAction(id, STARTER_ARTICLES)).success, "the constitution works here");
+  const meetings = await loadAppModule(() => import("../../src/lib/workflows/meeting-settings-server"));
+  assert.ok((await meetings.readMeetingSettings(id)).types.includes("general"), "general meetings, the AGM and the rest");
+});
+

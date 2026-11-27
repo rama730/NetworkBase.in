@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { positionsSettingsSchema, readHandover, readPositions } from "@/lib/organizations/club";
 import { notifyAll, switchSeason } from "@/lib/organizations/club-server";
+import { clubLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -26,7 +27,7 @@ async function club(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; owner: string; slug: string | null; title: string }>(sql`
     SELECT org_type AS type, org_settings AS settings, owner_id AS owner, slug, title FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "club" || !a.canRead) return null;
+  if (!clubLike(w?.type, w?.settings, "positions") || !a.canRead) return null;
   return { userId, w, president: Boolean(userId) && a.isOwner && !a.writeBlocked, officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin"),
     member: Boolean(userId) && (a.isOwner || a.isMember), blocked: Boolean(a.writeBlocked), settings: readPositions(w.settings), handover: readHandover(w.settings) };
 }

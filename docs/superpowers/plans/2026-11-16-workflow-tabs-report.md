@@ -14940,6 +14940,10 @@ SETTINGS · Workflows (any org)       On: Members & renewal · Committee & hando
 1. **Meetings** (11.6) work in an Other organization with the part on: the card on Overview becomes "Meetings" (every meeting, with Plan a meeting) when Meetings is on, or "Board meetings" with only that part.
 2. **The Event team kit** (Key date and wrap-up · Volunteers · Events · Meetings) is now offered. In the wizard it asks for the event date (required to continue). The new organization starts with that key date and an end 30 days after, so the Dates card is ready for a plan starter.
 
+**Build calls (B8.7 Association or committee, 2026-11-27):**
+1. **Club parts in Other organizations:** with their parts on, Members and renewal (L1), Committee and handover (L2: positions, elections, the handover, committees) and Meetings and minutes (L3: general meetings, the AGM, agenda requests, the constitution, online votes, Decisions) work as they do in a club. The owner is the Chair (the club's President role); a position that gives Officer gives the admin role (server test). Their hourly steps (renewal reminders, the handover) include these organizations.
+2. **The Association kit** (Members and renewal · Committee and handover · Meetings and minutes · Events) is now offered. Recruiting and competitions stay club-only.
+
 ### 37.3 X2 · Volunteers and shifts (agreed 2026-11-17)
 **References** (37.1, plus 11 searches for shifts, rotas, rosters, availability and volunteer hours: 79 templates, 17 rated; 4 more screens studied):
 

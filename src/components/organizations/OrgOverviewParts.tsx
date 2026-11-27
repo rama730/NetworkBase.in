@@ -310,14 +310,14 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'other' ? <VolunteersCard orgId={orgId} /> : null}
                 {orgType === 'other' ? <ProgramsCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <CompetitionsCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <ClubMeetingCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <MotionVotesCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <CommitteeCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <ElectionCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <HandoverCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <ConstitutionCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <DecisionsCard orgId={orgId} /> : null}
-                {orgType === 'club' ? <RenewalCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('clubMeetings')) ? <ClubMeetingCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('clubMeetings')) ? <MotionVotesCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('positions')) ? <CommitteeCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('positions')) ? <ElectionCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('positions')) ? <HandoverCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('clubMeetings')) ? <ConstitutionCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('clubMeetings')) ? <DecisionsCard orgId={orgId} /> : null}
+                {orgType === 'club' || (orgType === 'other' && parts.includes('renewal')) ? <RenewalCard orgId={orgId} /> : null}
                 {orgType === 'community' || orgType === 'club' || (orgType === 'other' && parts.includes('events')) ? <NextEventCard orgId={orgId} base={base} /> : null}
                 {orgType === 'other' && (parts.includes('boardMeetings') || parts.includes('meetings')) ? <BoardMeetingsCard orgId={orgId} base={base} /> : null}
                 {orgType === 'community' ? <CurrentChallengeCard orgId={orgId} base={base} /> : null}
