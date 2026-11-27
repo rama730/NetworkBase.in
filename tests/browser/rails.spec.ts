@@ -485,7 +485,7 @@ test.describe('touch layouts', () => {
   });
 });
 
-test('Network filters apply immediately, retain per-section URL state, and restore with Back',async({page})=>{
+test('Network filters apply immediately, retain per-section URL state, and replace history (unified back A2)',async({page})=>{
  await page.setViewportSize({width:1440,height:1000});await open(page,'surface=network-layout&more');
  const toolbar=page.locator('.nb-network-toolbar');
  const gap=await toolbar.evaluate(el=>el.getBoundingClientRect().top-el.previousElementSibling!.getBoundingClientRect().bottom);
@@ -530,9 +530,16 @@ test('Network filters apply immediately, retain per-section URL state, and resto
  await page.getByRole('tab',{name:/^Suggested\b/}).click();
  await expect(page.getByRole('searchbox',{name:'Search people'})).toHaveValue('Mira');
  await expect(page.getByRole('group',{name:'Selected network filters'})).toContainText('Location: Lisbon');
+ // Unified back A2 (167e61309): filters replace history, so removing a chip adds no entry and Back leaves Network.
+ const beforeRemove=await page.evaluate(()=>history.length);
  await page.getByRole('button',{name:'Remove Location: Lisbon',exact:true}).click();
  await expect(page).not.toHaveURL(/suggested.location/);
- await page.goBack();await expect(page.getByRole('group',{name:'Selected network filters'})).toContainText('Location: Lisbon');
+ expect(await page.evaluate(()=>history.length)).toBe(beforeRemove);
+ await toolbar.getByRole('button',{name:/^Filters/}).click();
+ await page.getByRole('textbox',{name:'Location',exact:true}).fill('Lisbon');
+ await expect(page).toHaveURL(/suggested.location=Lisbon/);
+ await page.getByRole('button',{name:'Done',exact:true}).click();
+ await expect(page.getByRole('group',{name:'Selected network filters'})).toContainText('Location: Lisbon');
  await page.getByRole('button',{name:'Clear all',exact:true}).click();
  await expect(page.getByRole('group',{name:'Selected network filters'})).toHaveCount(0);
  await expect(page.getByRole('searchbox',{name:'Search people'})).toHaveValue('Mira');
@@ -662,17 +669,17 @@ test('Network skills, location and Clear all update the feed while the panel sta
   await panel.getByRole('checkbox',{name:'Mutual connections',exact:true}).check();
   await expect(page).toHaveURL(/suggested.shared=1/);
   await expect(panel).toBeVisible();
+  const beforeClear=await page.evaluate(()=>history.length);
   await panel.getByRole('button',{name:'Clear all',exact:true}).click();
   await expect(page).not.toHaveURL(/suggested.(skill|location|shared)=/);
+  // Unified back A2: Clear all replaces history (no new entry), like every filter change.
+  expect(await page.evaluate(()=>history.length)).toBe(beforeClear);
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('button',{name:'Clear all',exact:true})).toBeDisabled();
   expect(await page.evaluate(()=>(window as any).railsFixture.lastPeopleQuery.filters)).toMatchObject({skills:[],location:'',hasMutuals:false});
-  await page.goBack();
-  await expect(panel.getByRole('textbox',{name:'Location',exact:true})).toHaveValue('New York');
-  await expect(panel.getByRole('checkbox',{name:'Mutual connections',exact:true})).toBeChecked();
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
-  await expect(page).toHaveURL(/suggested.shared=1/);
+  await expect(page).not.toHaveURL(/suggested.shared=1/);
  }
 });
 
