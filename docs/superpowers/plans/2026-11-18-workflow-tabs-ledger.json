@@ -1368,9 +1368,9 @@
       "text": "B7.4 L4 Competitions and teams (36.5) — Depends: C4 (B2.5), M4 (B5.4).",
       "kind": "unit",
       "milestone": "B7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 476cc3570): B7.4a competitions (kind competition, never on the board), Open sign-up / Tryouts with private hand-ins / Picked by officers, outcomes told only to the person (server test), private team workspaces under the club with captain/roles/substitutes that cannot read each other (server test), Practice meeting type (0177); B7.4b registration reference, results typed by the captain and confirmed by another officer on the version they saw before members see them, debriefs in Past entries; B7.4c teams get the Capstone card (milestones from the club checks, Showcase with every member yes; in clubs only officers see unagreed Ready cards). 0177 in prod. Not built: profile entries for results, calendar, a send-a-check shortcut. Live check pending."
     },
     {
       "key": "B8.1",
