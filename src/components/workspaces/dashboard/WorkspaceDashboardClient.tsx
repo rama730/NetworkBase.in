@@ -401,7 +401,13 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const [isAddWorkflowOpen, setIsAddWorkflowOpen] = useState(false);
     // Report 38.2 S1: own tabs from added workflows, in catalog order, after the default tabs.
     const workflowTabs = useMemo(() => workflowTabsFor(workflows.added), [workflows.added]);
-    const addedWorkflowIds = useMemo(() => workflows.added.map((w) => w.workflow), [workflows.added]);
+    // Live check 2026-11-28: a club, or an Other organization with a meetings part on, holds its meetings in Documents —
+    // so the Meetings section (with the meeting panel: motions, votes, minutes) is there without adding the workflow.
+    const orgMeetings = organization?.type === 'club' || (organization?.type === 'other' && Boolean(organization.parts?.some((p) => p === 'clubMeetings' || p === 'meetings' || p === 'boardMeetings')))
+    const addedWorkflowIds = useMemo(() => {
+        const ids = workflows.added.map((w) => w.workflow)
+        return orgMeetings && !ids.includes('meetings') ? [...ids, 'meetings'] : ids
+    }, [workflows.added, orgMeetings]);
     const workflowTabLabel = workflowTabs.find((tab) => tab.id === activeTab)?.label;
     // A link to a workflow tab this workspace hasn't added lands on Overview once the workflows are known.
     useEffect(() => {
