@@ -4,7 +4,8 @@ import { sql } from "drizzle-orm";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
-import { isRecruiting, readRecruiting, recruitingSchema } from "@/lib/organizations/club";
+import { DEFAULT_ASK, isRecruiting, readRecruiting, readRenewal, recruitingSchema, renewalSchema, renewalState, windowClosed, type RenewalState } from "@/lib/organizations/club";
+import { askMembers } from "@/lib/organizations/club-server";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -75,4 +76,77 @@ export async function readDriveCountsAction(orgId: string) {
     SELECT (SELECT count(*)::int FROM joined) AS joined,
       (SELECT count(DISTINCT v.user_id)::int FROM community_rsvps v JOIN joined j ON j.user_id = v.user_id WHERE v.workspace_id = ${orgId}::uuid AND v.checked_in_at IS NOT NULL) AS came`));
   return { success: true as const, counts: { joined: c?.joined ?? 0, came: c?.came ?? 0, from: r.from, to: r.to } };
+}
+
+/**
+ * Season renewal (call 6): the member's own ask, or the officers' view of everyone's answers (officers only — answers
+ * are never shown to other members).
+ */
+export async function readRenewalAction(orgId: string) {
+  const ctx = await club(orgId);
+  if (!ctx?.member) return DENIED;
+  const r = readRenewal(ctx.w.settings);
+  if (!r?.on) return { success: true as const, on: false as const, officer: ctx.officer };
+  const rows = Array.from(await db.execute<{ id: string; name: string; role: string; joined: string | null; answer: { season?: string; answer?: string } | null }>(sql`
+    SELECT m.user_id AS id, coalesce(p.full_name, p.username, 'Member') AS name, m.role, m.joined_at::text AS joined, m.view_prefs->'club'->'renewal' AS answer
+    FROM workspace_members m JOIN profiles p ON p.id = m.user_id
+    WHERE m.workspace_id = ${orgId}::uuid AND m.completed_at IS NULL ${ctx.officer ? sql`` : sql`AND m.user_id = ${ctx.userId}::uuid`} ORDER BY 2 LIMIT 2000`));
+  const shaped = rows.map((x) => ({ id: x.id, name: x.name, officer: x.role === "owner" || x.role === "admin", state: renewalState(r, x.answer, x.joined) }));
+  const mine = shaped.find((x) => x.id === ctx.userId) ?? null;
+  return { success: true as const, on: true as const, officer: ctx.officer, season: r.season, ask: r.ask, days: r.days, closed: windowClosed(r, today()), mine: mine?.state ?? null,
+    people: ctx.officer ? shaped : [] };
+}
+
+/** Officers start (or stop) Season renewal; starting asks every member once (call 6). */
+export async function saveRenewalAction(orgId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await club(orgId);
+  if (!ctx?.officer) return DENIED;
+  const parsed = renewalSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Give the Season’s start date and an answer window of 7 to 90 days." };
+  const r = parsed.data;
+  const before = readRenewal(ctx.w.settings);
+  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{club}', coalesce(org_settings->'club', '{}'::jsonb) || jsonb_build_object('renewal', ${JSON.stringify({ ...r, ask: r.ask || DEFAULT_ASK })}::jsonb))
+    WHERE id = ${orgId}::uuid`);
+  if (r.on && (!before?.on || before.season !== r.season)) await askMembers(orgId, ctx.w.slug ?? orgId, r.season, r.ask, ctx.userId, "ask");
+  return { success: true };
+}
+
+/** A member answers Staying or Leaving. Leaving changes nothing on its own (layer 12). */
+export async function answerRenewalAction(orgId: string, answer: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await club(orgId);
+  if (!ctx?.member || (answer !== "staying" && answer !== "leaving")) return DENIED;
+  const r = readRenewal(ctx.w.settings);
+  if (!r?.on) return DENIED;
+  await db.execute(sql`UPDATE workspace_members SET view_prefs = coalesce(view_prefs, '{}'::jsonb) || jsonb_build_object('club', coalesce(view_prefs->'club', '{}'::jsonb)
+    || jsonb_build_object('renewal', jsonb_build_object('season', ${r.season}::text, 'answer', ${answer}::text, 'at', now())))
+    WHERE workspace_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND completed_at IS NULL`);
+  return { success: true };
+}
+
+/**
+ * End memberships not renewed (officers, once the window closed): everyone asked who didn't answer Staying, never an
+ * officer (they hand over first) and never someone who joined this Season. Recorded as Season ended.
+ */
+export async function endNotRenewedAction(orgId: string): Promise<{ success: true; ended: number } | Failure> {
+  const ctx = await club(orgId);
+  if (!ctx?.officer) return DENIED;
+  const r = readRenewal(ctx.w.settings);
+  if (!r?.on) return DENIED;
+  if (!windowClosed(r, today())) return { success: false, error: "Wait until the answer window has closed." };
+  const { removeFromOrg } = await import("@/lib/organizations/members");
+  const rows = Array.from(await db.execute<{ id: string; role: string; joined: string | null; answer: { season?: string; answer?: string } | null }>(sql`
+    SELECT user_id AS id, role, joined_at::text AS joined, view_prefs->'club'->'renewal' AS answer FROM workspace_members
+    WHERE workspace_id = ${orgId}::uuid AND completed_at IS NULL AND role NOT IN ('owner', 'admin') LIMIT 2000`));
+  const ending = rows.filter((x) => (["leaving", "not_answered"] as RenewalState[]).includes(renewalState(r, x.answer, x.joined)));
+  let ended = 0;
+  for (const m of ending) {
+    await db.transaction(async (tx) => {
+      // Re-checked under the transaction: still a member, still not an officer.
+      const [still] = Array.from(await tx.execute<{ role: string }>(sql`SELECT role FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${m.id}::uuid AND completed_at IS NULL FOR UPDATE`));
+      if (!still || still.role === "owner" || still.role === "admin") return;
+      await removeFromOrg(tx as never, orgId, m.id, ctx.userId!, { by: ctx.userId!, reason: "term_ended" });
+      ended += 1;
+    });
+  }
+  return { success: true, ended };
 }

@@ -973,6 +973,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Only the paper’s member authors change its author list.": {"title": "Only the paper’s member authors change its author list.", "type": "warning"},
   "The draft is a document in this workspace.": {"title": "The draft is a document in this workspace.", "type": "warning"},
   "Link a draft you can edit.": {"title": "Link a draft you can edit.", "type": "warning"},
+  "Give the Season’s start date and an answer window of 7 to 90 days.": {"title": "Give the Season’s start date and an answer window of 7 to 90 days.", "type": "warning"},
+  "Wait until the answer window has closed.": {"title": "Wait until the answer window has closed.", "type": "warning"},
   "Recruiting needs a start and an end date after it.": {"title": "Recruiting needs a start and an end date after it.", "type": "warning"},
   "Say what you did this year before handing it in.": {"title": "Say what you did this year before handing it in.", "type": "warning"},
   "It’s with your supervisor now.": {"title": "It’s with your supervisor now.", "type": "warning"},

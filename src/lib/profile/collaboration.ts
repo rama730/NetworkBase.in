@@ -1395,7 +1395,7 @@ export async function upsertProfileWorkspaceContributionFromMembership(
 }
 
 /** How a membership ended (report §10.1): leaving keeps credit; removal also withdraws verification (§4.3). */
-export type MembershipEnding = { reason: "left" | "removed" | "completed" | "workspace_completed" | "finished"; by: string | null; note?: string | null; orgTitle?: string | null };
+export type MembershipEnding = { reason: "left" | "removed" | "completed" | "workspace_completed" | "finished" | "term_ended"; by: string | null; note?: string | null; orgTitle?: string | null };
 
 export async function endProfileWorkspaceContributionMembership(
   executor: DbExecutor,

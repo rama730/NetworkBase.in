@@ -14025,6 +14025,12 @@ SEASON 2026 renewal     Staying 122 · Not answered 58 · Leaving 6    [ End mem
 4. **Drive counts** (call 7, officers only): who joined between the dates, and how many of them checked in at an event. Numbers only, never names or a ranking. Nothing about visitors is collected (call 5).
 5. **Next:** B7.1b covers Season renewal (Staying this Season?, officers' review, End memberships not renewed recorded as Season ended, officers never included).
 
+**Build calls (B7.1b, 2026-11-27):**
+1. **Season renewal** (call 6): officers start it on a Season renewal card on Overview, with the Season's start date, the ask (default "Staying this Season?") and an answer window (default 30 days). Starting it notifies every member once (Normal); the hourly job sends one more at day 25 to those who haven't answered. Someone who joined in the 30 days before the Season's start isn't asked.
+2. **Answers:** each member sees one card with Staying and Leaving. Leaving changes nothing on its own. The answers are stored on the membership and seen by officers only: Staying, Not answered, Leaving and Joined this Season, as words.
+3. **End memberships not renewed:** officers only, and only once the window has closed, after a confirm that says how many. It ends everyone asked who didn't answer Staying, never an officer (they hand over first, L2) and never someone who joined this Season. It goes through the usual removal path (child workspaces, open work, the Former list) recorded as term_ended, which keeps verification like leaving. The Former list still labels it "Term ended" rather than "Season ended".
+4. **Not built:** the alumni offer to graduates (R1's alumni belong to labs; clubs have none yet) waits until clubs have an alumni list.
+
 ### 36.3 L2 · Officers, committees and the yearly handover (agreed 2026-11-17)
 **References** (36.1, plus 16 searches for handovers, elections, voting, roles, org charts and job descriptions: 142 templates, 33 rated; 4 more screens studied; no rated template covers a club handover, so it follows the pattern):
 

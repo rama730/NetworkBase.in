@@ -20,3 +20,14 @@ test("clubs get the front door and their own Getting started", () => {
   assert.deepEqual(readCommunitySettings({}, "club").gettingStarted, CLUB_GETTING_STARTED);
   assert.notDeepEqual(readCommunitySettings({}, "community").gettingStarted, CLUB_GETTING_STARTED);
 });
+
+test("Season renewal: states, new joiners not asked, the window", async () => {
+  const { renewalState, windowClosed } = await import("../../src/lib/organizations/club");
+  const r = { on: true, season: "2026-09-01", ask: "Staying this Season?", days: 30 };
+  assert.equal(renewalState(r, null, "2025-01-01T00:00:00Z"), "not_answered");
+  assert.equal(renewalState(r, { season: "2026-09-01", answer: "staying" }, "2025-01-01T00:00:00Z"), "staying");
+  assert.equal(renewalState(r, { season: "2025-09-01", answer: "staying" }, "2025-01-01T00:00:00Z"), "not_answered", "last Season's answer doesn't count");
+  assert.equal(renewalState(r, null, "2026-08-20T00:00:00Z"), "not_asked", "joined in the 30 days before");
+  assert.equal(windowClosed(r, "2026-09-30"), false);
+  assert.equal(windowClosed(r, "2026-10-01"), true);
+});

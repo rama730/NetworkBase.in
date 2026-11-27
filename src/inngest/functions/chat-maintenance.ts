@@ -101,6 +101,8 @@ export const chatDue = inngest.createFunction(
       await step.run("lab-reading-group", async () => (await import("@/lib/organizations/lab-reading-group-server")).readingGroupNotices());
       // B6.5b (report 35.6 layer 15): supervision due (a week past the rhythm) and milestones 30 and 7 days ahead.
       await step.run("lab-progress", async () => (await import("@/lib/organizations/lab-progress-server")).progressNotices());
+      // B7.1b (report 36.2 layer 15): the Season renewal reminder at day 25 to members who haven't answered (once).
+      await step.run("club-renewal", async () => (await import("@/lib/organizations/club-server")).renewalReminders());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

@@ -93,3 +93,43 @@ test("36.2: club front door, recruiting period, drive counts, Discover filter", 
   const off = await club.readRecruitingAction(id);
   assert.ok(off.success && !off.recruiting, "it turns itself off after the end date");
 });
+
+test("36.2 call 6: Season renewal asks once, answers for officers only, ends only non-officers who didn't stay, after the window", async () => {
+  const [pres, coord, stay, leave, quiet, fresh] = await Promise.all([1, 2, 3, 4, 5, 6].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, pres!, { visibility: "public" }));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active' WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (${id}, ${pres!}, 'owner', now() - interval '2 years'), (${id}, ${coord!}, 'admin', now() - interval '1 year'),
+    (${id}, ${stay!}, 'member', now() - interval '1 year'), (${id}, ${leave!}, 'member', now() - interval '1 year'), (${id}, ${quiet!}, 'member', now() - interval '1 year'), (${id}, ${fresh!}, 'member', now() - interval '5 days')`;
+  const season = new Date().toISOString().slice(0, 10);
+  viewerId = stay!;
+  assert.equal((await club.saveRenewalAction(id, { on: true, season, ask: "Staying this Season?", days: 30 })).success, false);
+  viewerId = coord!;
+  assert.ok((await club.saveRenewalAction(id, { on: true, season, ask: "Staying this Season?", days: 30 })).success);
+  const [asked] = await sql`SELECT count(*)::int AS n FROM user_notifications WHERE dedupe_key LIKE ${`club-renewal:ask:${id}:%`}`;
+  assert.equal(asked!.n, 4, "each member asked once, not the one who started it, not the one who just joined");
+  viewerId = stay!;
+  assert.ok((await club.answerRenewalAction(id, "staying")).success);
+  const mine = await club.readRenewalAction(id);
+  assert.ok(mine.success && mine.on && mine.mine === "staying" && mine.people.length === 0, "members never see others' answers");
+  viewerId = leave!;
+  assert.ok((await club.answerRenewalAction(id, "leaving")).success);
+  viewerId = coord!;
+  const view = await club.readRenewalAction(id);
+  assert.ok(view.success && view.on && view.people.find((p) => p.id === quiet!)?.state === "not_answered" && view.people.find((p) => p.id === fresh!)?.state === "not_asked");
+  assert.match(String((await club.endNotRenewedAction(id) as { error?: string }).error), /window has closed/, "nobody is removed before the window closes");
+  const [still] = await sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${id} AND completed_at IS NULL`;
+  assert.equal(still!.n, 6, "Leaving changes nothing on its own");
+  // The window closes: the Season started 31 days ago.
+  const earlier = new Date(Date.now() - 31 * 86_400_000).toISOString().slice(0, 10);
+  await sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{club,renewal,season}', ${sql.json(earlier)}) WHERE id = ${id}`;
+  await sql`UPDATE workspace_members SET view_prefs = jsonb_set(view_prefs, '{club,renewal,season}', ${sql.json(earlier)}) WHERE workspace_id = ${id} AND user_id IN (${stay!}, ${leave!})`;
+  await sql`INSERT INTO profile_contributions (profile_id, workspace_id, source, role_kind) VALUES (${quiet!}, ${id}, 'membership', 'member')`;
+  const ended = await club.endNotRenewedAction(id);
+  assert.ok(ended.success && ended.ended === 2, "Leaving and Not answered end; Staying, officers and the new joiner stay");
+  const left = await sql`SELECT user_id FROM workspace_members WHERE workspace_id = ${id}`;
+  const ids = left.map((r) => r.user_id);
+  assert.ok(ids.includes(pres!) && ids.includes(coord!) && ids.includes(stay!) && ids.includes(fresh!) && !ids.includes(leave!) && !ids.includes(quiet!));
+  const [why] = await sql`SELECT end_reason FROM profile_contributions WHERE profile_id = ${quiet!} AND workspace_id = ${id}`;
+  assert.equal(why?.end_reason, "term_ended", "recorded as Season ended");
+});
