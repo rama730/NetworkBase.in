@@ -64,7 +64,7 @@ export async function readLabProgressAction(orgId: string) {
     WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 300`));
   const t = today();
   return { success: true as const, people: people.map(({ id, name }) => ({ id, name })), leads: people.filter((p) => p.lead).map(({ id, name }) => ({ id, name })), rows: rows.map((r) => ({ id: r.id, name: r.name, startDate: r.start, next: r.next_name ? { name: r.next_name, dueOn: r.next_due! } : null,
-    ...supervisionRhythm(r.last, r.start, r.weeks, t), lastMet: r.last })) };
+    overdue: supervisionRhythm(r.last, r.start, r.weeks, t).overdue, lastMet: r.last })) };
 }
 
 const setupSchema = z.object({ startDate: z.string().date(), partTime: z.boolean(), coSupervisorId: z.string().uuid().nullable(), weeks: z.number().int().min(1).max(12) }).strict();
