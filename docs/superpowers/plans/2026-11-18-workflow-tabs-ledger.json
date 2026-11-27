@@ -1378,9 +1378,9 @@
       "text": "B8.1 X2 Volunteers and shifts (37.3) — Depends: S1 event item, M3 RSVP slice, R4 training.",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/club.test.ts; tests/db/volunteers.test.ts; tests/browser/volunteers.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 77cda7e92): B8.1a roles with training sign-off, versioned agreement, shifts on the RSVP slice with a waitlist that moves up, check-in window, hours seen only by the volunteer and coordinators (server test), coverage, Volunteer with us on About (no migration: shifts are event tasks kind shift + community_events/rsvps); B8.1b weekly series and Regulars, swaps a named volunteer accepts (re-checked at accept), hand-added hours counted once confirmed, availability and involvement for coordinators, day-before reminders and short-2-days notices with Ask, Add to my profile (0178). Gated on Other orgs (kits switch it on in B8.4). Live check pending."
     },
     {
       "key": "B8.2",
