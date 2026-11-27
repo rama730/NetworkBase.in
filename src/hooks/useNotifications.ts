@@ -14,8 +14,16 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { formatLongDate } from "@/lib/utils/date";
 
 import {
+    actOnNotificationAction,
     dismissAllNotificationsAction,
     dismissNotificationAction,
+    dismissReadNotificationsAction,
+    markAllNotificationsReadAction,
+    readHandInProgressAction,
+    readNeedsYouAction,
+    readSnoozedNotificationsAction,
+    restoreNotificationAction,
+    updateNotificationPreferencesAction,
     markNotificationReadAction,
     markNotificationUnreadAction,
     markNotificationsSeenAction,
@@ -36,7 +44,12 @@ import {
     shouldSuppressNotificationToast,
 } from "@/lib/notifications/presentation";
 import { showBrowserNotification } from "@/lib/notifications/browser-push";
+import { createTaskCommentAction } from "@/app/actions/task-comment";
+import { createWorkspaceUpdateCommentAction } from "@/app/actions/workspace/updates";
+import { updateMySettingsAction } from "@/app/actions/workspace/member-journey";
+import type { NeedsYouItem, NotificationAct } from "@/lib/notifications/needs-you";
 import { useNotificationPreferences } from "@/hooks/useSettingsQueries";
+import { DEFAULT_ORG_NOTIFICATION_CHOICE, getNotificationPauseUntil, getQuietHoursResumeAt, isNotificationPauseActive, isQuietHoursActive, orgChoiceFor } from "@/lib/notifications/preferences";
 import type {
     NotificationFeedPage,
     NotificationItem,
@@ -57,9 +70,13 @@ const NOTIFICATION_RESYNC_MS = 300;
 const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
 const IDLE_FLUSH_DEBOUNCE_MS = 400;
 
-type UnreadCounts = { total: number; important: number };
+/** `needs` is the Needs you count: the bell's number (notifications mix). */
+type UnreadCounts = { total: number; important: number; needs?: number };
 
-const ZERO_COUNTS: UnreadCounts = { total: 0, important: 0 };
+const ZERO_COUNTS: UnreadCounts = { total: 0, important: 0, needs: 0 };
+const NEEDS_KEY = ["notifications", "needs-you"] as const;
+const SNOOZED_KEY = ["notifications", "snoozed"] as const;
+const LAST_OPEN_KEY = "nb:notif:lastOpen";
 
 function deriveUnreadCounts(data: InfiniteData<NotificationFeedPage> | undefined): UnreadCounts {
     if (!data) return ZERO_COUNTS;
@@ -85,9 +102,9 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
     const [isIdle, setIsIdle] = useState(false);
     const isTrayOpenRef = useRef(false);
     const viewedNotificationIdsRef = useRef(new Set<string>());
-    const toastQueueRef = useRef<NotificationItem[]>([]);
+    const toastQueueRef = useRef<NeedsYouItem[]>([]);
     const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const queueImportantToastRef = useRef<(item: NotificationItem) => void>(() => { });
+    const queueImportantToastRef = useRef<(item: NeedsYouItem) => void>(() => { });
     const isIdleRef = useRef(false);
     const browserDeliveryEnabledRef = useRef<boolean>(false);
     const preferencesQuery = useNotificationPreferences({
@@ -104,7 +121,8 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         browserDeliveryEnabledRef.current = Boolean(preferencesQuery.data?.delivery?.browser);
     }, [preferencesQuery.data]);
 
-    const notificationsQueryKey = useMemo(() => queryKeys.notifications.page(limit), [limit]);
+    // Unread is a server query (notifications mix), so each tab keeps its own pages.
+    const notificationsQueryKey = useMemo(() => [...queryKeys.notifications.page(limit), activeFilter] as const, [limit, activeFilter]);
     const unreadCountQueryKey = useMemo(() => queryKeys.notifications.unreadCount(), []);
     const getCurrentSearch = useCallback(() => {
         return typeof window === "undefined" ? "" : window.location.search;
@@ -137,7 +155,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             if (!result.success) {
                 throw new Error(result.error || "Couldn’t load notification count");
             }
-            return { total: result.unreadCount, important: result.unreadImportantCount };
+            return { total: result.unreadCount, important: result.unreadImportantCount, needs: result.needsYouCount ?? 0 };
         },
         staleTime: 60_000,
         refetchOnWindowFocus: false,
@@ -149,14 +167,15 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         enabled: Boolean(isAuthenticated && user?.id && isTrayOpen),
         initialPageParam: undefined as string | undefined,
         queryFn: async ({ pageParam }) => {
-            const result = await readNotificationsAction(limit, pageParam);
+            const result = await readNotificationsAction(limit, pageParam, { unreadOnly: activeFilter === "unread" });
             if (!result.success || !result.page) {
                 throw new Error(result.error || "Couldn’t fetch notifications");
             }
-            queryClient.setQueryData<UnreadCounts>(unreadCountQueryKey, {
-                total: result.page.unreadCount,
-                important: result.page.unreadImportantCount,
-            });
+            queryClient.setQueryData<UnreadCounts>(unreadCountQueryKey, (current = ZERO_COUNTS) => ({
+                ...current,
+                total: result.page!.unreadCount,
+                important: result.page!.unreadImportantCount,
+            }));
             return result.page satisfies NotificationFeedPage;
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -216,40 +235,43 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         unreadCountQueryKey,
     ]);
 
+    // Toasts are for Needs you arrivals only (notifications mix), each with its row's main answer.
+    const actRef = useRef<(item: NeedsYouItem, act: NotificationAct & { questionKey?: string }) => Promise<boolean>>(async () => false);
     const flushToastQueue = useCallback(() => {
         const queued = toastQueueRef.current;
         toastQueueRef.current = [];
         toastTimerRef.current = null;
         if (queued.length === 0) return;
-        const first = queued[0]!;
-        const context = first.preview?.contextLabel ?? first.preview?.secondaryText ?? "your workspace";
-        const title = queued.length === 1
-            ? first.title
-            : `${queued.length} new updates in ${context}`;
-        toast.info(title, {
-            description: queued.length === 1 ? first.preview?.contextLabel ?? undefined : undefined,
-            action: queued.length > 1
-                ? { label: "Review updates", onClick: () => { isTrayOpenRef.current = true; setActiveFilter("all"); setIsTrayOpen(true); } }
-                : first.href ? { label: "Open", onClick: () => void openItem(first, "notification_toast") } : undefined,
-        });
-    }, [openItem]);
-
-    const queueImportantToast = useCallback((item: NotificationItem) => {
-        if (shouldSuppressNotificationToast({
-            item,
-            pathname,
-            search: getCurrentSearch(),
-            trayOpen: isTrayOpen,
-            documentVisible: typeof document === "undefined" ? true : document.visibilityState === "visible",
-        })) {
+        const openTrayNow = () => { isTrayOpenRef.current = true; setActiveFilter("unread"); setIsTrayOpen(true); };
+        if (queued.length > 3) {
+            toast.info(`${queued.length} things need you`, { action: { label: "Open notifications", onClick: openTrayNow }, duration: 0 });
             return;
         }
+        for (const item of queued) {
+            const title = `${item.sentence.actor}${item.sentence.verb}${item.sentence.object}`.trim();
+            const primary = item.primary;
+            toast.info(title, {
+                description: item.context ?? undefined,
+                action: primary && primary.act !== "open"
+                    ? { label: primary.label, onClick: () => void actRef.current(item, primary) }
+                    : { label: primary?.label ?? "Open", onClick: () => { router.push(item.href); } },
+                duration: 0,
+            });
+        }
+    }, [router]);
+
+    const queueImportantToast = useCallback((item: NeedsYouItem) => {
+        const prefs = preferencesQuery.data;
+        const held = prefs ? isNotificationPauseActive(prefs) || isQuietHoursActive(prefs) : false;
+        const visible = typeof document === "undefined" ? true : document.visibilityState === "visible";
+        // Pause and quiet hours hold toasts too; safety notices still come through the tray.
+        if (isTrayOpenRef.current || !visible || held) return;
         toastQueueRef.current.push(item);
         // Idle users get a single flush on return, not a cascade of toasts mid-AFK.
         if (isIdleRef.current) return;
         if (toastTimerRef.current) return;
         toastTimerRef.current = setTimeout(flushToastQueue, TOAST_BATCH_MS);
-    }, [flushToastQueue, getCurrentSearch, isTrayOpen, pathname]);
+    }, [flushToastQueue, preferencesQuery.data]);
 
     useEffect(() => {
         queueImportantToastRef.current = queueImportantToast;
@@ -338,12 +360,12 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             const result = await readNotificationsAction(20);
             if (!result.success || !result.page) return;
             const { items, unreadCount, unreadImportantCount } = result.page;
-            queryClient.setQueryData<UnreadCounts>(unreadCountQueryKey, { total: unreadCount, important: unreadImportantCount });
+            queryClient.setQueryData<UnreadCounts>(unreadCountQueryKey, (current = ZERO_COUNTS) => ({ ...current, total: unreadCount, important: unreadImportantCount }));
+            void queryClient.invalidateQueries({ queryKey: NEEDS_KEY });
             for (const item of items) {
                 if (!fresh.has(item.id)) continue;
                 patchNotificationCache((existing) => upsertNotificationInInfiniteData(existing, item));
                 if (item.seenAt) continue;
-                queueImportantToastRef.current(item);
                 if (browserDeliveryEnabledRef.current) {
                     showBrowserNotification({
                         item,
@@ -638,7 +660,196 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
     const snooze = useCallback((notificationId: string, snoozedUntil: string) =>
         snoozeMutation.mutateAsync({ notificationId, snoozedUntil }), [snoozeMutation]);
 
+    // ---- Notifications mix: Needs you, answers in the row, Done with Undo, the noise coach, levels, snoozed ----
+    const needsQuery = useQuery({
+        queryKey: NEEDS_KEY,
+        enabled: Boolean(isAuthenticated && user?.id),
+        queryFn: async () => {
+            const result = await readNeedsYouAction();
+            if (!result.success) throw new Error(result.error || "Couldn’t load what needs you");
+            return result.items as NeedsYouItem[];
+        },
+        staleTime: 30_000,
+        refetchOnWindowFocus: true,
+    });
+    const needs = useMemo(() => needsQuery.data ?? [], [needsQuery.data]);
+    const seenNeedKeysRef = useRef<Set<string> | null>(null);
+    useEffect(() => {
+        if (!needsQuery.data) return;
+        const keys = new Set(needsQuery.data.map((item) => item.key));
+        const before = seenNeedKeysRef.current;
+        seenNeedKeysRef.current = keys;
+        queryClient.setQueryData<UnreadCounts>(unreadCountQueryKey, (current = ZERO_COUNTS) => ({ ...current, needs: keys.size }));
+        if (!before) return; // the first read is what was already waiting, not an arrival
+        for (const item of needsQuery.data) if (!before.has(item.key)) queueImportantToastRef.current(item);
+    }, [needsQuery.data, queryClient, unreadCountQueryKey]);
+
+    const act = useCallback(async (item: NeedsYouItem, choice: NotificationAct & { questionKey?: string }) => {
+        const result = await actOnNotificationAction({ key: item.key, notificationId: item.notificationId ?? undefined }, { act: choice.act, value: choice.value, questionKey: choice.questionKey });
+        if (!result.success) {
+            toast.error(result.error || "Couldn’t do that just now");
+            return false;
+        }
+        window.setTimeout(() => {
+            void queryClient.invalidateQueries({ queryKey: NEEDS_KEY });
+            void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
+        }, 1_400);
+        return true;
+    }, [queryClient, unreadCountQueryKey]);
+    useEffect(() => { actRef.current = act; }, [act]);
+
+    const doneKindsRef = useRef(new Map<string, number>());
+    const [coachKind, setCoachKind] = useState<string | null>(null);
+    const done = useCallback(async (item: NotificationItem) => {
+        try {
+            await dismissMutation.mutateAsync(item.id);
+        } catch {
+            return;
+        }
+        void queryClient.invalidateQueries({ queryKey: NEEDS_KEY });
+        toast.success("Marked done.", {
+            action: { label: "Undo", onClick: () => void restoreNotificationAction(item.id).then(() => {
+                void queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+                void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
+            }) },
+            duration: 5_000,
+        });
+        // Noise coach: the third Done of one kind in a sitting offers to turn that kind off (never safety notices).
+        if (item.kind === "trust_safety") return;
+        const n = (doneKindsRef.current.get(item.kind) ?? 0) + 1;
+        doneKindsRef.current.set(item.kind, n);
+        if (n === 3) setCoachKind(item.kind);
+    }, [dismissMutation, notificationsQueryKey, queryClient, unreadCountQueryKey]);
+    const coachTurnOff = useCallback(async () => {
+        if (!coachKind) return;
+        await muteMutation.mutateAsync({ kind: "notification_type", value: coachKind });
+        setCoachKind(null);
+        doneKindsRef.current.set(coachKind, -1_000);
+        toast.success("Turned off. You can turn it back on in Settings › Notifications.");
+    }, [coachKind, muteMutation]);
+    const coachKeep = useCallback(() => {
+        if (coachKind) doneKindsRef.current.set(coachKind, -1_000);
+        setCoachKind(null);
+    }, [coachKind]);
+
+    const markAllRead = useCallback(async () => {
+        const result = await markAllNotificationsReadAction();
+        if (!result.success) { toast.error(result.error || "Couldn’t mark them read"); return; }
+        await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root() });
+    }, [queryClient]);
+    const dismissRead = useCallback(async () => {
+        const result = await dismissReadNotificationsAction();
+        if (!result.success) { toast.error(result.error || "Couldn’t mark them done"); return 0; }
+        await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root() });
+        toast.success(result.count === 1 ? "1 read notification marked done." : `${result.count} read notifications marked done.`);
+        return result.count;
+    }, [queryClient]);
+
+    const reply = useCallback(async (item: NotificationItem, text: string) => {
+        const refs = item.entityRefs ?? {};
+        if (!refs.projectId) return false;
+        const parent = refs.parentCommentId ?? refs.commentId ?? null;
+        const result = refs.updateId
+            ? await createWorkspaceUpdateCommentAction(refs.projectId, refs.updateId, text, parent)
+            : refs.taskId ? await createTaskCommentAction(refs.taskId, refs.projectId, text, parent) : null;
+        if (!result || !result.success) {
+            toast.error((result && "error" in result && result.error) || "Couldn’t send the reply");
+            return false;
+        }
+        return true;
+    }, []);
+
+    const muteWorkspace = useCallback(async (item: NotificationItem, until: string | "forever") => {
+        const projectId = item.entityRefs?.projectId;
+        if (!projectId) return;
+        const result = await updateMySettingsAction(projectId, { muteUntil: until });
+        if (!result.success) { toast.error(("error" in result && result.error) || "Couldn’t mute it"); return; }
+        const where = item.preview?.contextLabel ?? "This workspace";
+        toast.success(until === "forever" ? `${where} is muted until you turn it back on.` : `${where} is muted until ${formatLongDate(until)}.`, {
+            action: { label: "Undo", onClick: () => void updateMySettingsAction(projectId, { muteUntil: null }) },
+        });
+    }, []);
+    const setOrgLevel = useCallback(async (item: NotificationItem, level: "all" | "important" | "off") => {
+        const orgId = item.entityRefs?.orgId;
+        const prefs = preferencesQuery.data;
+        if (!orgId || !prefs) return;
+        const next = { ...prefs, organizations: { ...prefs.organizations, [orgId]: { ...(orgChoiceFor(prefs, orgId) ?? DEFAULT_ORG_NOTIFICATION_CHOICE), level } } };
+        const result = await updateNotificationPreferencesAction(next, ["organizations"]);
+        if (!result.success) { toast.error(result.error || "Couldn’t change it"); return; }
+        void preferencesQuery.refetch();
+        toast.success(level === "all" ? "You’ll get everything from it." : level === "important" ? "Only important notifications from it now." : "Off, except safety notices.");
+    }, [preferencesQuery]);
+
+    const snoozedQuery = useQuery({
+        queryKey: SNOOZED_KEY,
+        enabled: Boolean(isAuthenticated && user?.id && isTrayOpen),
+        queryFn: async () => {
+            const result = await readSnoozedNotificationsAction();
+            if (!result.success) throw new Error(result.error || "Couldn’t load snoozed notifications");
+            return result.items as NotificationItem[];
+        },
+        staleTime: 60_000,
+    });
+
+    const handInIds = useMemo(() => Array.from(new Set(items
+        .filter((item) => item.kind === "org_assignment" && item.aggregateCount > 1 && item.entityRefs?.taskId)
+        .map((item) => item.entityRefs!.taskId!))).sort(), [items]);
+    const handInQuery = useQuery({
+        queryKey: ["notifications", "hand-in", handInIds.join(",")],
+        enabled: isTrayOpen && handInIds.length > 0,
+        queryFn: async () => (await readHandInProgressAction(handInIds)).progress as Record<string, { handedIn: number; total: number }>,
+        staleTime: 60_000,
+    });
+
+    // The away summary compares with when the tray was last open (this browser only).
+    const [lastOpenedAt, setLastOpenedAt] = useState<string | null>(null);
+    useEffect(() => {
+        if (!isTrayOpen) return;
+        try {
+            setLastOpenedAt(window.localStorage.getItem(LAST_OPEN_KEY));
+            window.localStorage.setItem(LAST_OPEN_KEY, new Date().toISOString());
+        } catch {
+            setLastOpenedAt(null);
+        }
+    }, [isTrayOpen]);
+
+    const quiet = useMemo(() => {
+        const prefs = preferencesQuery.data;
+        if (!prefs) return null;
+        const until = isNotificationPauseActive(prefs) ? getNotificationPauseUntil(prefs) : isQuietHoursActive(prefs) ? getQuietHoursResumeAt(prefs) : null;
+        return until ? { kind: isNotificationPauseActive(prefs) ? "paused" as const : "quiet" as const, until: until.toISOString() } : null;
+    }, [preferencesQuery.data]);
+    const resume = useCallback(async () => {
+        const prefs = preferencesQuery.data;
+        if (!prefs) return;
+        const next = { ...prefs, pausedUntil: null, quietHours: isQuietHoursActive(prefs) ? { ...prefs.quietHours, enabled: false } : prefs.quietHours };
+        const result = await updateNotificationPreferencesAction(next, ["pausedUntil", "quietHours"]);
+        if (!result.success) toast.error(result.error || "Couldn’t resume");
+        else void preferencesQuery.refetch();
+    }, [preferencesQuery]);
+
+    const needsYouCount = unreadCountQuery.data?.needs ?? needs.length;
+
     return useMemo(() => ({
+        needs,
+        needsYouCount,
+        needsLoading: needsQuery.isLoading,
+        act,
+        done,
+        coachKind,
+        coachTurnOff,
+        coachKeep,
+        markAllRead,
+        dismissRead,
+        reply,
+        muteWorkspace,
+        setOrgLevel,
+        snoozed: snoozedQuery.data ?? [],
+        handIn: handInQuery.data ?? {},
+        lastOpenedAt,
+        quiet,
+        resume,
+        isError: query.isError,
         items,
         unreadCount,
         unreadImportantCount,
@@ -689,5 +900,24 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         muteItemType,
         snooze,
         openItem,
+        needs,
+        needsYouCount,
+        needsQuery.isLoading,
+        act,
+        done,
+        coachKind,
+        coachTurnOff,
+        coachKeep,
+        markAllRead,
+        dismissRead,
+        reply,
+        muteWorkspace,
+        setOrgLevel,
+        snoozedQuery.data,
+        handInQuery.data,
+        lastOpenedAt,
+        quiet,
+        resume,
+        query.isError,
     ]);
 }

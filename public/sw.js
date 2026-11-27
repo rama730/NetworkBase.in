@@ -49,7 +49,11 @@ self.addEventListener("push", (event) => {
         renotify: tag.startsWith("chat:"),
         badge: "/icon-paper-64.png",
         data: { href, id: payload.id || null, actorUserId: payload.actorUserId || null },
-        requireInteraction: false,
+        // Needs you pushes carry their answer (notifications mix); a browser without buttons just opens the item.
+        actions: Array.isArray(payload.actions)
+          ? payload.actions.filter((a) => a && typeof a.action === "string" && typeof a.title === "string").slice(0, 2).map((a) => ({ action: a.action, title: a.title.slice(0, 40) }))
+          : [],
+        requireInteraction: Array.isArray(payload.actions) && payload.actions.length > 0,
       });
     })(),
   );
@@ -68,9 +72,42 @@ function askToNavigate(client, href) {
   });
 }
 
+/** Accept or Allow from the push itself: the same route the tray's buttons use, with the page's CSRF token. */
+async function answerFromPush(id, act) {
+  try {
+    const tokenResponse = await fetch("/api/v1/security/csrf", { credentials: "include", headers: { accept: "application/json" } });
+    const token = tokenResponse.ok ? ((await tokenResponse.json()).data || {}).token : null;
+    if (typeof token !== "string") return false;
+    const response = await fetch("/api/v1/notifications/" + encodeURIComponent(id) + "/act", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json", "x-csrf-token": token },
+      body: JSON.stringify({ act }),
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const href = event.notification.data && event.notification.data.href;
+  const data = event.notification.data || {};
+  if ((event.action === "accept" || event.action === "allow") && typeof data.id === "string" && /^[0-9a-f-]{36}$/i.test(data.id)) {
+    const act = event.action;
+    event.waitUntil(
+      (async () => {
+        if (await answerFromPush(data.id, act)) return;
+        // It didn't go through (signed out, answered elsewhere): open the item instead.
+        await openTarget(data.href);
+      })(),
+    );
+    return;
+  }
+  event.waitUntil(openTarget(data.href));
+});
+
+async function openTarget(href) {
   let targetUrl = self.location.origin + "/";
   if (typeof href === "string" && href && !href.startsWith("//") && (href.startsWith("/") || /^https?:\/\//i.test(href)) && !/[\u0000-\u0020\u007f\\]/.test(href)) {
     try {
@@ -79,32 +116,28 @@ self.addEventListener("notificationclick", (event) => {
     } catch { /* Malformed notification targets fall back to the application. */ }
   }
 
-  event.waitUntil(
-    (async () => {
-      const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      // The focused tab first, then any other tab of this site.
-      allClients.sort((a, b) => Number(b.focused) - Number(a.focused));
-      for (const client of allClients) {
-        try {
-          const url = new URL(client.url);
-          if (url.origin === self.location.origin) {
-            await client.focus();
-            const target = new URL(targetUrl);
-            if (await askToNavigate(client, target.pathname + target.search + target.hash)) return;
-            if ("navigate" in client && typeof client.navigate === "function") {
-              try {
-                await client.navigate(targetUrl);
-              } catch (error) {
-                // best effort
-              }
-            }
-            return;
+  const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  // The focused tab first, then any other tab of this site.
+  allClients.sort((a, b) => Number(b.focused) - Number(a.focused));
+  for (const client of allClients) {
+    try {
+      const url = new URL(client.url);
+      if (url.origin === self.location.origin) {
+        await client.focus();
+        const target = new URL(targetUrl);
+        if (await askToNavigate(client, target.pathname + target.search + target.hash)) return;
+        if ("navigate" in client && typeof client.navigate === "function") {
+          try {
+            await client.navigate(targetUrl);
+          } catch (error) {
+            // best effort
           }
-        } catch (error) {
-          // ignore
         }
+        return;
       }
-      await self.clients.openWindow(targetUrl);
-    })(),
-  );
-});
+    } catch (error) {
+      // ignore
+    }
+  }
+  await self.clients.openWindow(targetUrl);
+}

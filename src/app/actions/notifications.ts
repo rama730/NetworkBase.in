@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { mergeNotificationPreferences } from "@/lib/notifications/merge";
 import { isTransientDbError, readDbErrorCode, withDbRetry } from "@/lib/db/retry";
@@ -505,5 +505,25 @@ export async function actOnNotificationAction(
         return { success: true as const };
     } catch (error) {
         return failure("notifications.act_failed", error, "Couldn’t do that just now");
+    }
+}
+
+/** "38 of 52 handed in" for an admin's combined submissions row: copies handed in over all copies, per assignment. */
+export async function readHandInProgressAction(assignmentIds: string[]) {
+    try {
+        const userId = await signedInUserId();
+        if (!userId) return { success: false as const, error: "Sign in to continue", progress: {} };
+        const ids = Array.from(new Set(assignmentIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id)))).slice(0, 20);
+        if (!ids.length) return { success: true as const, progress: {} };
+        const rows = Array.from(await db.execute<{ id: string; total: number; handed_in: number }>(sql`
+            SELECT m.id, count(c.id)::int AS total, count(c.id) FILTER (WHERE c.submission IS NOT NULL)::int AS handed_in
+            FROM tasks m JOIN workspaces w ON w.id = m.workspace_id
+            LEFT JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL
+            WHERE m.id = ANY(${ids}::uuid[])
+              AND (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.user_id = ${userId}::uuid AND wm.role IN ('owner', 'admin')))
+            GROUP BY m.id`));
+        return { success: true as const, progress: Object.fromEntries(rows.map((r) => [r.id, { handedIn: Number(r.handed_in), total: Number(r.total) }])) };
+    } catch (error) {
+        return { ...failure("notifications.hand_in_failed", error, "Couldn’t load hand-ins"), progress: {} };
     }
 }

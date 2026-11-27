@@ -1,90 +1,70 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 
-const ROOT = process.cwd();
+// Notifications mix (2026-11-27): the tray follows design spec §31 and the locked decisions — My reviews folds into
+// Unread as Needs you, the bell's number is the Needs you count, Done replaces Dismiss, rows answer in place.
+const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf-8");
 
-test("Notification tray redesign architecture: solid opaque sticky headers eliminate bleed-through", () => {
-    const listSource = readFileSync(resolve(ROOT, "src/components/notifications/NotificationList.tsx"), "utf-8");
-
-    // 1. Sticky headers use solid opaque backgrounds (no transparent bleed-through)
-    assert.match(listSource, /sticky top-0 z-10 border-b border-border bg-card dark:bg-\[#141A1E\] px-4 py-2 text-destructive/);
-    assert.match(listSource, /sticky top-0 z-10 border-b border-border bg-card dark:bg-\[#141A1E\]/);
-    assert.doesNotMatch(listSource, /bg-muted\/80 px-4 py-2 backdrop-blur-none/);
-
-    // 2. Needs attention header is clean and typographic without status dot
-    assert.match(listSource, /<div className="nb-micro sticky top-0 z-10 border-b border-border bg-card dark:bg-\[#141A1E\] px-4 py-2 text-destructive shadow-2xs">\s*Needs attention\s*<\/div>/);
-
-    // 3. Empty state renders canonical EmptyState with nb-grid-ground blueprint grid
-    assert.match(listSource, /import \{ EmptyState \} from ["']@\/components\/ui\/EmptyState["']/);
-    assert.match(listSource, /<EmptyState[\s\S]*?icon=\{Bell\}[\s\S]*?title="No notifications"/);
+test("tray geometry follows spec §31: 400px popover, 12px radius, lg shadow, 17px header, 34px squares, 13px text, 12px mono", () => {
+    const css = read("src/components/notifications/notifications.css");
+    const tray = read("src/components/layout/header/NotificationPreview.tsx");
+    assert.match(css, /\.nb-nt-panel \{ width: min\(400px, calc\(100vw - 24px\)\); border-radius: 12px; box-shadow: 0 18px 44px -16px rgba\(13, 17, 20, \.26\); \}/);
+    assert.match(css, /\.nb-nt-tile \{ display: grid; place-items: center; width: 34px; height: 34px; border-radius: 5px;/);
+    assert.match(css, /\.nb-nt-tile svg \{ width: 14px; height: 14px; \}/);
+    assert.match(tray, /<h2 className="nb-card-title">/);
+    assert.match(read("src/components/notifications/NotificationRow.tsx"), /className="nb-nt-t1 nb-compact"/);
+    assert.match(read("src/components/notifications/NotificationList.tsx"), /<span className="nb-micro"><b>\{text\}<\/b><\/span>/);
 });
 
-test("Notification dropdown shell architecture: segmented tab bar, stable scroll panel, and unread pill", () => {
-    const previewSource = readFileSync(resolve(ROOT, "src/components/layout/header/NotificationPreview.tsx"), "utf-8");
-
-    // 1. DropdownContent geometry: max 26rem, 12px rounded-xl, solid card background
-    assert.match(previewSource, /max-w-\[26rem\] flex-col overflow-hidden rounded-xl border border-border bg-card/);
-
-    // 2. Unread badge rendered as subtle drafting pill
-    assert.match(previewSource, /rounded-full bg-primary\/10 px-2 py-0\.5 font-mono text-\[11px\] font-medium text-primary/);
-
-    // 3. Segmented tab bar (controls round 2): hairline cells across the width, the clay marker, the unread count in mono
-    assert.match(previewSource, /className="nb-seg" data-fill="" role="tablist"/);
-    assert.match(previewSource, /<TabMarker \/>/);
-    assert.match(previewSource, /<span className="nb-seg-n">\{unreadCount\}<\/span>/);
-
-    // 4. Scroll panel has overflow-anchor: none to prevent layout jumps
-    assert.match(previewSource, /\[overflow-anchor:none\]/);
+test("two underlined tabs, Unread and All; My reviews is gone and its reviews live in Needs you", () => {
+    const tray = read("src/components/layout/header/NotificationPreview.tsx");
+    assert.match(tray, /\(\["unread", "all"\] as const\)/);
+    assert.match(tray, /<TabMarker overlap \/>/);
+    assert.doesNotMatch(tray, /My reviews|MyReviewsList|nb-seg/);
+    assert.equal(existsSync("src/components/notifications/MyReviewsList.tsx"), false);
+    assert.match(read("src/lib/notifications/needs-you.ts"), /FROM merge_request_reviews r/);
+    assert.match(read("src/lib/notifications/types.ts"), /export type NotificationTrayFilter = "unread" \| "all";/);
 });
 
-test("Notification thread rail architecture: geometric drafting stem, branching elbow, and aligned avatar", () => {
-    const bundleSource = readFileSync(resolve(ROOT, "src/components/notifications/NotificationBundleRow.tsx"), "utf-8");
-    const rowSource = readFileSync(resolve(ROOT, "src/components/notifications/NotificationRow.tsx"), "utf-8");
-
-    // 1. Lead row uses standard px-4 padding so lead avatar aligns with standard rows
-    assert.match(bundleSource, /group relative flex min-h-16 items-start gap-2 px-4 py-3/);
-
-    // 2. Chevron toggle is right-aligned beside action menu
-    assert.match(bundleSource, /<div className="flex items-center gap-0\.5 shrink-0 mt-0\.5">\s*<button[\s\S]*?onClick=\{\(\) => setExpanded/);
-
-    // 3. Continuous vertical drafting rail stem centered at x=33px under avatar
-    assert.match(bundleSource, /absolute left-\[33px\] top-0 bottom-4 w-px bg-border\/80 dark:bg-border/);
-
-    // 4. Curved branching elbow (rounded-bl-[6px]) into child rows
-    assert.match(bundleSource, /absolute left-\[33px\] top-3\.5 h-3 w-3 rounded-bl-\[6px\] border-b border-l border-border\/80/);
-
-    // 5. Child row receives compact prop
-    assert.match(bundleSource, /<NotificationRow[\s\S]*?compact\s*\/>/);
-
-    // 6. NotificationRow renders 26px avatar and min-h-12 when compact
-    assert.match(rowSource, /compact \? 26 : 34/);
-    assert.match(rowSource, /compact \? "min-h-12 px-3 py-2" : "min-h-16 px-4 py-3"/);
+test("the bell's number is the Needs you count; a dot means new with nothing waiting", () => {
+    const tray = read("src/components/layout/header/NotificationPreview.tsx");
+    assert.match(tray, /\{needsCount > 0 \? \(\s*<span key=\{needsCount\} data-settle=\{badgeChanged \|\| undefined\} className="nb-topbar-badge">/);
+    assert.match(tray, /n\.unreadCount > 0 \? <span className="nb-topbar-badge nb-topbar-badge--dot" \/>/);
 });
 
-test("Notification polish enhancements: compact timestamps, drafting chip excerpts, unread paper wash, RotateCcw icon, and Clear All", () => {
-    const listSource = readFileSync(resolve(ROOT, "src/components/notifications/NotificationList.tsx"), "utf-8");
-    const rowSource = readFileSync(resolve(ROOT, "src/components/notifications/NotificationRow.tsx"), "utf-8");
-    const previewSource = readFileSync(resolve(ROOT, "src/components/layout/header/NotificationPreview.tsx"), "utf-8");
-
-    // Idea 1: Compact drafting timestamps & chip excerpts
-    assert.match(rowSource, /formatRelativeTimestamp/);
-    // Messages mix (Notify board): the message excerpt is a paper cell, no longer a mono bordered chip.
-    assert.match(rowSource, /className="nb-notif-body"/);
-
-    // Idea 2: Unread paper wash, RotateCcw icon, list pb-3 gutter
-    assert.match(rowSource, /bg-primary\/\[0\.04\] hover:bg-primary\/\[0\.07\] dark:bg-primary\/\[0\.08\] dark:hover:bg-primary\/\[0\.12\]/);
-    assert.match(rowSource, /<RotateCcw className="mr-2 h-4 w-4" \/>\s*Mark as unread/);
-    assert.match(listSource, /className="pb-3"/);
-
-    // Idea 3: Clear all action button on "All" tab when items exist
-    assert.match(previewSource, /activeFilter === "all" && items\.length > 0/);
-    assert.match(previewSource, />\s*Clear all\s*<\/button>/);
-
-    // Bundle row consistency
-    const bundleSource = readFileSync(resolve(ROOT, "src/components/notifications/NotificationBundleRow.tsx"), "utf-8");
-    assert.match(bundleSource, /formatRelativeTimestamp/);
-    assert.match(bundleSource, /bg-primary\/\[0\.04\] hover:bg-primary\/\[0\.07\] dark:bg-primary\/\[0\.08\] dark:hover:bg-primary\/\[0\.12\]/);
+test("Done replaces Dismiss, with Undo; rows never show the old orange placeholder", () => {
+    const row = read("src/components/notifications/NotificationRow.tsx");
+    const hook = read("src/hooks/useNotifications.ts");
+    assert.match(row, /aria-label="Done"/);
+    assert.doesNotMatch(row, />Dismiss</);
+    assert.match(hook, /toast\.success\("Marked done\.", \{\s*action: \{ label: "Undo"/);
+    assert.match(read("src/components/notifications/NotificationGlyph.tsx"), /<span className="nb-nt-tile" data-tone=\{tone\}><GlyphIcon glyph=\{glyph\} \/><\/span>/);
 });
 
+test("answers in the row call one dispatcher; the push service worker uses the same route", () => {
+    assert.match(read("src/components/notifications/NeedsYouRow.tsx"), /onAct\(item, \{ \.\.\.act, questionKey: item\.questionKey \}\)/);
+    assert.match(read("src/hooks/useNotifications.ts"), /actOnNotificationAction\(\{ key: item\.key/);
+    assert.match(read("public/sw.js"), /"\/api\/v1\/notifications\/" \+ encodeURIComponent\(id\) \+ "\/act"/);
+});
+
+test("the notifications page sits on Network's frame: page title, underlined tabs with mono counts, 256px search, Filters, rail", () => {
+    const page = read("src/components/notifications/NotificationsPageClient.tsx");
+    assert.match(read("src/app/(site)/(main)/notifications/page.tsx"), /redirect\(`\/login\?next=\$\{encodeURIComponent\("\/notifications"\)\}`\)/);
+    assert.match(page, /<h1 className="nb-page-title">Notifications<\/h1>/);
+    assert.match(page, /max-w-\[1240px\]/);
+    assert.match(page, /className="nb-network-rail sticky self-start space-y-4"/);
+    assert.match(page, /<SearchField value=\{value\} onChange=\{setValue\} label="Search notifications" className="w-64 max-w-full" \/>/);
+    assert.match(page, /<TabMarker overlap \/>/);
+    assert.match(page, /<RailSection title="Quiet right now">/);
+    assert.match(read("src/components/layout/header/NotificationPreview.tsx"), /<Link href="\/notifications"/);
+});
+
+test("push: Needs you kinds carry their answer, and hidden message text hides the sentence", () => {
+    const push = read("src/lib/notifications/web-push.ts");
+    assert.match(push, /if \(item\.kind === "connection_request_received"\) return \[\{ action: "accept", title: "Accept" \}, \{ action: "open", title: "Open" \}\];/);
+    assert.match(push, /if \(item\.kind === "agent_access_request"\) return \[\{ action: "allow", title: "Allow once" \}/);
+    assert.match(push, /Object\.assign\(payload, \{ title: "Something needs you", body: "" \}\)/);
+    assert.match(read("public/sw.js"), /if \(await answerFromPush\(data\.id, act\)\) return;\s*\/\/ It didn't go through/);
+});

@@ -230,11 +230,13 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(mobileMenu, /<SidebarNav \/>/);
   assert.match(source("src/components/layout/AppSidebar.tsx"), /<SidebarNav \/>/);
   assert.match(notifications, /href=\{settingsTabHref\("notifications"\)\}/);
-  assert.match(notifications, /onItemsViewed/);
+  assert.match(notifications, /onViewed: n\.stageViewedNotifications/);
   // The bell is a top-bar cell; an open menu gets the orange underline (globals.css).
   assert.match(notifications, /className="nb-cell nb-cell-icon nb-topbar-bell/);
   assert.match(globals, /\.nb-cell\[data-state="open"\]/);
-  assert.doesNotMatch(notifications, /Mark all read/);
+  // Notifications mix (2026-11-27, the user locked it): Mark all read replaces Clear all.
+  assert.match(notifications, />Mark all read</);
+  assert.doesNotMatch(notifications, /Clear all/);
   assert.match(runtime, /<NetworkNotificationsProvider>/);
   assert.doesNotMatch(runtime, /PresencePublisher|startPresenceHeartbeat/);
   assert.match(realtime, /event === 'profile\.changed'/);

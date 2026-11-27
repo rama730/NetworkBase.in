@@ -11,6 +11,7 @@ const ALLOWED: Record<string, string> = {
   "src/lib/server/request-via.ts": "writes the record",
   "src/lib/agents/access-settings.ts": "agent sign-in names (extension_device_sessions), not labels on work",
   "src/lib/extension/device-codes.ts": "agent sign-in names (device codes), not labels on work",
+  "src/lib/notifications/needs-you.ts": "the agent asking this person (their own sign-in or a question to them), shown only to them, not a label on work",
 };
 const READS = [
   /\b(taskSubtasks|taskComments|fileVersions|tasks)\.(via|agentName)\b/,

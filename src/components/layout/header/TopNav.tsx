@@ -230,27 +230,7 @@ export default function TopNav() {
                         </button>
                     )}
                     {authUiState === "signed-in" && (
-                        <NotificationPreview
-                            unreadCount={notifications.unreadCount}
-                            unreadImportantCount={notifications.unreadImportantCount}
-                            items={notifications.items}
-                            activeFilter={notifications.activeFilter}
-                            isOpen={notifications.isTrayOpen}
-                            isLoading={notifications.isLoading}
-                            hasMore={notifications.hasMore}
-                            isLoadingMore={notifications.isLoadingMore}
-                            connectionHealth={connectionHealth}
-                            onOpenChange={notifications.setTrayOpen}
-                            onFilterChange={notifications.setActiveFilter}
-                            onOpenItem={notifications.openItem}
-                            onItemsViewed={notifications.stageViewedNotifications}
-                            onMarkUnread={notifications.markUnread}
-                            onDismiss={notifications.dismiss}
-                            onClearAll={notifications.dismissAll}
-                            onMuteScope={notifications.muteScope}
-                            onSnooze={notifications.snooze}
-                            onLoadMore={notifications.loadMore}
-                        />
+                        <NotificationPreview n={notifications} connectionHealth={connectionHealth} />
                     )}
 
                     {authUiState === "loading" ? (

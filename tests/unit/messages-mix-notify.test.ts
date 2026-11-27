@@ -16,12 +16,13 @@ test('reported content is a filled cell, never a left bar', () => {
   assert.doesNotMatch(read('src/components/trust/Evidence.tsx'), /border-l-2/);
 });
 
-test('bell row: square unread mark, the body as a paper cell, context as a square tag, mono time', () => {
+test('bell row (notifications mix): square unread mark, the body as a muted snippet, context and time in mono', () => {
   const row = read('src/components/notifications/NotificationRow.tsx');
-  assert.doesNotMatch(row, /size-2 rounded-full ring-2/);
-  assert.match(row, /size-2 rounded-\[2px\] ring-2/);
-  assert.doesNotMatch(row, /font-mono text-\[11px\] text-foreground\/80/);
-  assert.match(row, /className="nb-notif-body"/);
-  assert.match(row, /value === preview\?\.contextLabel \? <span className="nb-state-tag">/);
-  assert.match(row, /nb-notif-time/);
+  const css = read('src/components/notifications/notifications.css');
+  assert.match(row, /<span className="nb-nt-mark" aria-hidden="true" \/>/);
+  assert.match(css, /\.nb-nt-mark \{ width: 6px; height: 6px; border-radius: 1px; background: var\(--primary\);/);
+  assert.match(row, /<span className="nb-nt-snip">\{snippet\}<\/span>/);
+  assert.match(row, /<span className="nb-nt-meta nb-meta">/);
+  assert.match(row, /className="nb-nt-when nb-meta"/);
+  assert.doesNotMatch(row, /rounded-full/);
 });

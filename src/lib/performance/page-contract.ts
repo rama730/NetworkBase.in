@@ -266,6 +266,15 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
+  "/notifications": buildUserShellContract("/notifications", "src/app/(site)/(main)/notifications/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "server-action",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "auth_snapshot",
+    maxInitialPayloadKb: 260,
+    allowForceDynamic: true,
+  }),
   "/network": buildUserShellContract("/network", "src/app/(site)/(main)/network/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 30,

@@ -199,7 +199,7 @@ export type NotificationFeedPage = {
 };
 
 /** "reviews": merge requests waiting on you (report H23), not notifications. */
-export type NotificationTrayFilter = "unread" | "all" | "reviews";
+export type NotificationTrayFilter = "unread" | "all";
 
 export type NotificationTimeGroup = "new" | "today" | "earlier";
 

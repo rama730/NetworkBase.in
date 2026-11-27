@@ -8,13 +8,15 @@ function readProjectFile(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
-test('legacy bulk-read support remains defensive but is removed from the tray workflow', () => {
+test('mark all read is one server call over every unread row (notifications mix), and the tray offers it', () => {
     const actions = readProjectFile('src/app/actions/notifications.ts');
-    const hook = readProjectFile('src/hooks/useNotifications.ts');
+    const service = readProjectFile('src/lib/notifications/service.ts');
     const tray = readProjectFile('src/components/layout/header/NotificationPreview.tsx');
 
-    assert.doesNotMatch(actions, /markAllNotificationsReadAction/);
-    assert.doesNotMatch(tray, /Mark all read/);
+    assert.match(actions, /export async function markAllNotificationsReadAction\(\)/);
+    assert.match(service, /export async function markAllNotificationsRead\(userId: string/);
+    assert.match(tray, />Mark all read</);
+    assert.doesNotMatch(tray, /Clear all/);
 });
 
 test('tray reviews are staged until close, then committed as seen without consuming linked content', () => {

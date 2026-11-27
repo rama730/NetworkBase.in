@@ -1,253 +1,105 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { Bell } from "lucide-react";
+import { useState } from "react";
+import { Clock, Heart } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { NotificationBundleRow } from "@/components/notifications/NotificationBundleRow";
-import { NotificationRow } from "@/components/notifications/NotificationRow";
-import {
-    bundleNotifications,
-    filterNotifications,
-    groupNotificationsByTime,
-} from "@/lib/notifications/presentation";
-import type {
-    NotificationItem,
-    NotificationMuteScope,
-    NotificationTrayFilter,
-} from "@/lib/notifications/types";
+import { NeedsYouRow } from "@/components/notifications/NeedsYouRow";
+import { NotificationRow, type RowHandlers } from "@/components/notifications/NotificationRow";
+import type { NeedsYouItem, NotificationAct } from "@/lib/notifications/needs-you";
+import type { NotificationBundle } from "@/lib/notifications/presentation";
+import type { TrayShape } from "@/lib/notifications/tray-model";
 
-const GROUP_LABELS = {
-    new: "Unread",
-    today: "Today",
-    earlier: "Earlier",
-} as const;
+export type FeedProps = RowHandlers & {
+    filter: "unread" | "all";
+    now: Date;
+    needs: NeedsYouItem[];
+    shape: TrayShape;
+    scopeLabel?: string | null;
+    inScope?: (bundle: NotificationBundle) => boolean;
+    handIn?: Record<string, { handedIn: number; total: number }>;
+    activeKey?: string | null;
+    onAct: (item: NeedsYouItem, act: NotificationAct & { questionKey?: string }) => Promise<boolean>;
+    snoozedCount?: number;
+    onShowSnoozed?: () => void;
+};
 
-export function NotificationList(props: {
-    items: NotificationItem[];
-    filter: NotificationTrayFilter;
-    onOpen: (item: NotificationItem) => void | Promise<unknown>;
-    onViewed: (notificationIds: string[]) => void;
-    onMarkUnread: (item: NotificationItem) => void | Promise<unknown>;
-    onDismiss: (item: NotificationItem) => void | Promise<unknown>;
-    onMuteScope: (item: NotificationItem, scope: NotificationMuteScope) => void | Promise<unknown>;
-    onSnooze?: (item: NotificationItem, snoozedUntil: string) => void | Promise<unknown>;
-    emptyState?: ReactNode;
-    hasMore?: boolean;
-    isLoadingMore?: boolean;
-    onLoadMore?: () => void | Promise<unknown>;
-}) {
-    const {
-        items,
-        filter,
-        onOpen,
-        onViewed,
-        onMarkUnread,
-        onDismiss,
-        onMuteScope,
-        onSnooze,
-        emptyState,
-        hasMore,
-        isLoadingMore,
-        onLoadMore,
-    } = props;
-    const filteredItems = useMemo(() => filterNotifications(items, filter), [items, filter]);
-    const importantItems = useMemo(() => filteredItems.filter((item) => item.importance === "important"), [filteredItems]);
-    const regularItems = useMemo(() => filteredItems.filter((item) => item.importance !== "important"), [filteredItems]);
-    const grouped = useMemo(() => groupNotificationsByTime(regularItems), [regularItems]);
+function Label({ text, count, tone, aside }: { text: string; count?: number; tone?: "act"; aside?: string }) {
+    return (
+        <div className="nb-nt-label">
+            <span className="nb-micro"><b>{text}</b></span>
+            {typeof count === "number" ? <span className="nb-nt-n" data-tone={tone}>{count}</span> : null}
+            {aside ? <span className="nb-micro nb-nt-aside">{aside}</span> : null}
+        </div>
+    );
+}
 
-    const importantBundles = useMemo(() => bundleNotifications(importantItems), [importantItems]);
-    const groupBundles = useMemo(() => {
-        return {
-            new: bundleNotifications(grouped.new),
-            today: bundleNotifications(grouped.today),
-            earlier: bundleNotifications(grouped.earlier),
-        };
-    }, [grouped]);
-
-    const containerRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-        const first = containerRef.current?.querySelector<HTMLElement>("[data-notification-row]");
-        if (first && containerRef.current && !containerRef.current.contains(document.activeElement)) {
-            first.setAttribute("tabindex", "0");
-        }
-    }, [filteredItems.length]);
-
-    const focusRow = (direction: 1 | -1) => {
-        const root = containerRef.current;
-        if (!root) return;
-        const rows = Array.from(root.querySelectorAll<HTMLElement>("[data-notification-row]"));
-        if (rows.length === 0) return;
-        const active = document.activeElement as HTMLElement | null;
-        const currentIndex = rows.findIndex((row) => row === active || row.contains(active));
-        const nextIndex = currentIndex === -1
-            ? (direction === 1 ? 0 : rows.length - 1)
-            : Math.max(0, Math.min(rows.length - 1, currentIndex + direction));
-        const target = rows[nextIndex];
-        if (!target) return;
-        rows.forEach((row) => row.setAttribute("tabindex", "-1"));
-        target.setAttribute("tabindex", "0");
-        target.focus({ preventScroll: false });
-    };
-
-    const resolveFocusedItem = (): NotificationItem | null => {
-        const active = document.activeElement as HTMLElement | null;
-        const row = active?.closest<HTMLElement>("[data-notification-row]");
-        const id = row?.dataset.notificationId;
-        if (!id) return null;
-        return filteredItems.find((item) => item.id === id) ?? null;
-    };
-
-    const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-        const target = event.target as HTMLElement | null;
-        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
-            return;
-        }
-        switch (event.key) {
-            case "j":
-            case "ArrowDown":
-                event.preventDefault();
-                focusRow(1);
-                return;
-            case "k":
-            case "ArrowUp":
-                event.preventDefault();
-                focusRow(-1);
-                return;
-            case "Enter": {
-                const item = resolveFocusedItem();
-                if (!item) return;
-                event.preventDefault();
-                void onOpen(item);
-                return;
-            }
-            case "e": {
-                const item = resolveFocusedItem();
-                if (!item) return;
-                event.preventDefault();
-                void onDismiss(item);
-                return;
-            }
-            case "r": {
-                const item = resolveFocusedItem();
-                if (!item || !item.seenAt) return;
-                event.preventDefault();
-                void onMarkUnread(item);
-                return;
-            }
-            default:
-                return;
-        }
-    };
-
-    if (filteredItems.length === 0) {
-        return (
-            <div className="p-4">
-                <EmptyState
-                    icon={Bell}
-                    title="No notifications"
-                    description={emptyState ?? "You’re all caught up."}
-                    compact
-                    className="rounded-xl"
-                />
-            </div>
-        );
-    }
+/**
+ * The feed (notifications mix), shared by the bell's tray and the notifications page: Needs you first, then New (or
+ * Today and Earlier on All), one quiet Activity line, and Snoozed at the bottom. Inside a workspace or organization its
+ * own rows come first.
+ */
+export function NotificationList(props: FeedProps) {
+    const { filter, now, needs, shape, scopeLabel, inScope, handIn, activeKey, onAct, snoozedCount, onShowSnoozed, ...handlers } = props;
+    const [activityOpen, setActivityOpen] = useState(false);
+    const row = (bundle: NotificationBundle) => (
+        <NotificationRow key={bundle.key + bundle.lead.id} bundle={bundle} now={now} active={activeKey === `row:${bundle.lead.id}`} handIn={handIn?.[bundle.lead.entityRefs?.taskId ?? ""] ?? null} {...handlers} />
+    );
+    const needsRows = needs.map((item) => item.source === "important" && item.notification
+        ? row({ key: item.key, lead: item.notification, items: [item.notification] })
+        : <NeedsYouRow key={item.key} item={item} now={now} active={activeKey === item.key} onAct={onAct} />);
+    const scoped = inScope ? shape.fresh.filter(inScope) : [];
+    const elsewhere = inScope ? shape.fresh.filter((b) => !inScope(b)) : shape.fresh;
 
     return (
-        <div
-            ref={containerRef}
-            onKeyDown={handleKeyDown}
-            role="region"
-            aria-label="Notifications list. Press J or down arrow to move down, K or up arrow to move up, Enter to open, E to dismiss, R to mark as unread."
-            className="pb-3"
-        >
-            {importantItems.length > 0 ? (
-                <section aria-label="Notifications needing attention">
-                    <div className="nb-micro sticky top-0 z-10 border-b border-border bg-card dark:bg-[#141A1E] px-4 py-2 text-destructive shadow-2xs">
-                        Needs attention
-                    </div>
-                    <div role="list" className="divide-y divide-border">
-                        {importantBundles.map((bundle) => (
-                            <div role="listitem" key={bundle.key + ":" + bundle.lead.id}>
-                                {bundle.items.length > 1 ? (
-                                    <NotificationBundleRow
-                                        bundle={bundle}
-                                        onOpen={onOpen}
-                                        onViewed={onViewed}
-                                        onMarkUnread={onMarkUnread}
-                                        onDismiss={onDismiss}
-                                        onMuteScope={onMuteScope}
-                                        onSnooze={onSnooze}
-                                    />
-                                ) : (
-                                    <NotificationRow
-                                        item={bundle.lead}
-                                        onOpen={onOpen}
-                                        onViewed={onViewed}
-                                        onMarkUnread={onMarkUnread}
-                                        onDismiss={onDismiss}
-                                        onMuteScope={onMuteScope}
-                                        onSnooze={onSnooze}
-                                    />
-                                )}
-                            </div>
-                        ))}
-                    </div>
+        <div role="region" aria-label="Notifications list. J and K move, Enter opens, A answers, E marks done, S snoozes, R marks unread.">
+            {needs.length ? (
+                <section aria-label="Needs you">
+                    <Label text="Needs you" count={needs.length} tone="act" aside="Stays until answered" />
+                    <div role="list">{needsRows.map((node, i) => <div role="listitem" key={i}>{node}</div>)}</div>
                 </section>
             ) : null}
-            {(["new", "today", "earlier"] as const).map((group) => {
-                const groupItems = grouped[group];
-                if (groupItems.length === 0) return null;
-                return (
-                    <section key={group} aria-label={`${GROUP_LABELS[group]} notifications`}>
-                        <div className="nb-micro sticky top-0 z-10 border-b border-border bg-card dark:bg-[#141A1E] px-4 py-2 text-muted-foreground shadow-2xs">
-                            {GROUP_LABELS[group]}
-                        </div>
-                        <div role="list" className="divide-y divide-border">
-                            {groupBundles[group].map((bundle) => (
-                                <div role="listitem" key={bundle.key + ":" + bundle.lead.id}>
-                                    {bundle.items.length > 1 ? (
-                                        <NotificationBundleRow
-                                            bundle={bundle}
-                                            onOpen={onOpen}
-                                            onViewed={onViewed}
-                                            onMarkUnread={onMarkUnread}
-                                            onDismiss={onDismiss}
-                                            onMuteScope={onMuteScope}
-                                            onSnooze={onSnooze}
-                                        />
-                                    ) : (
-                                        <NotificationRow
-                                            item={bundle.lead}
-                                            onOpen={onOpen}
-                                            onViewed={onViewed}
-                                            onMarkUnread={onMarkUnread}
-                                            onDismiss={onDismiss}
-                                            onMuteScope={onMuteScope}
-                                            onSnooze={onSnooze}
-                                        />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                );
-            })}
-            {hasMore ? (
-                <div className="border-t border-border px-4 py-3">
-                    <Button pending={isLoadingMore} pendingLabel="Loading"
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        disabled={isLoadingMore || !onLoadMore}
-                        onClick={() => onLoadMore?.()}
-                    >
-                        {"Load earlier"}
-                    </Button>
+            {scopeLabel && scoped.length ? (
+                <section aria-label={`In ${scopeLabel}`}>
+                    <Label text={`In ${scopeLabel}`} count={scoped.length} />
+                    <div role="list">{scoped.map((b) => <div role="listitem" key={b.key + b.lead.id}>{row(b)}</div>)}</div>
+                </section>
+            ) : null}
+            {elsewhere.length ? (
+                <section aria-label={filter === "unread" ? "New" : "Today"}>
+                    <Label text={scopeLabel && scoped.length ? "Everywhere" : filter === "unread" ? "New" : "Today"} count={elsewhere.length} />
+                    <div role="list">{elsewhere.map((b) => <div role="listitem" key={b.key + b.lead.id}>{row(b)}</div>)}</div>
+                </section>
+            ) : null}
+            {shape.activity ? (
+                <section aria-label="Activity">
+                    <div className="nb-nt-row">
+                        <span className="nb-nt-who"><span className="nb-nt-tile"><Heart aria-hidden="true" /></span></span>
+                        <span className="nb-nt-tx">
+                            <span className="nb-nt-t1 nb-compact"><b>{shape.activity.label}</b></span>
+                            <span className="nb-nt-meta nb-meta"><span>Activity · not counted on the bell</span></span>
+                        </span>
+                        <span className="nb-nt-side">
+                            <button type="button" className="nb-nt-ib" aria-expanded={activityOpen} aria-label={activityOpen ? "Hide activity" : "Show activity"} onClick={() => setActivityOpen((v) => !v)}>
+                                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.75" style={activityOpen ? { transform: "rotate(90deg)" } : undefined}><path d="m9 6 6 6-6 6" /></svg>
+                            </button>
+                        </span>
+                    </div>
+                    {activityOpen ? <div className="nb-nt-kids">{shape.activity.items.map((item) => (
+                        <div key={item.id} className="nb-nt-kid"><span className="nb-nt-tx"><span className="nb-compact">{item.title}</span></span></div>
+                    ))}</div> : null}
+                </section>
+            ) : null}
+            {shape.earlier.length ? (
+                <section aria-label="Earlier">
+                    <Label text="Earlier" count={shape.earlier.length} />
+                    <div role="list">{shape.earlier.map((b) => <div role="listitem" key={b.key + b.lead.id}>{row(b)}</div>)}</div>
+                </section>
+            ) : null}
+            {snoozedCount && onShowSnoozed ? (
+                <div className="nb-nt-snz">
+                    <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
+                    <span className="nb-compact flex-1">Snoozed {snoozedCount}</span>
+                    <button type="button" className="nb-nt-btn" data-kind="ghost" onClick={onShowSnoozed}>Show</button>
                 </div>
             ) : null}
         </div>

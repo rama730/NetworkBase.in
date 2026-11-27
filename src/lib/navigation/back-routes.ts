@@ -20,6 +20,8 @@ export const DETAIL_RULES: { pattern: RegExp; fallback: string }[] = [
   { pattern: /^\/appeal\/[^/]+/, fallback: "/discover" },
   // Search results (global search mix): back returns to the page you searched from; Discover if you arrived by link.
   { pattern: /^\/search$/, fallback: "/discover" },
+  // The notifications page (notifications mix) is opened from the bell's "See all": back returns to that page.
+  { pattern: /^\/notifications$/, fallback: "/discover" },
   // An agent's access page is opened from Settings → Integrations or an inbox item (report A8).
   { pattern: /^\/settings\/agents\/[^/]+$/, fallback: "/settings" },
 ];

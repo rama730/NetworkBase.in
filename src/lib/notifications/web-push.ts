@@ -61,10 +61,21 @@ export type WebPushPayload = {
     tag: string;
     /** Lets the device close this notice if the two later block each other (Blocking B35). */
     actorUserId?: string | null;
+    /** Needs you pushes carry their answer (notifications mix): the service worker posts it, or opens the item. */
+    actions?: Array<{ action: "accept" | "allow" | "open"; title: string }>;
 };
+
+/** The push's buttons: Accept a connection, Allow an agent once, Review a merge request; Open always last. */
+export function pushActions(item: Pick<NotificationItem, "kind" | "title">): WebPushPayload["actions"] {
+    if (item.kind === "connection_request_received") return [{ action: "accept", title: "Accept" }, { action: "open", title: "Open" }];
+    if (item.kind === "agent_access_request") return [{ action: "allow", title: "Allow once" }, { action: "open", title: "Open" }];
+    if (item.kind === "merge_request" && /review/i.test(item.title)) return [{ action: "open", title: "Review" }];
+    return undefined;
+}
 
 function buildPayload(item: NotificationItem): WebPushPayload {
     return {
+        actions: pushActions(item),
         id: item.id,
         title: item.title,
         body: (item.body ?? item.preview?.secondaryText ?? "").slice(0, 240),
@@ -105,7 +116,14 @@ export async function dispatchWebPush(userId: string, item: NotificationItem): P
         return { attempted: 0, delivered: 0, pruned: 0 };
     }
 
-    return sendPushToUser(userId, buildPayload(item), { notificationId: item.id });
+    const payload = buildPayload(item);
+    // "Show message text" off (Settings › Notifications): a Needs you push says only that something needs you.
+    if (payload.actions) {
+        const { getNotificationPreferencesMap } = await import("@/lib/notifications/service");
+        const prefs = (await getNotificationPreferencesMap(db, [userId])).get(userId);
+        if (prefs?.chat?.showPreview === false) Object.assign(payload, { title: "Something needs you", body: "" });
+    }
+    return sendPushToUser(userId, payload, { notificationId: item.id });
 }
 
 export type SendPushOptions = {

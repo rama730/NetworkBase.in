@@ -1,98 +1,111 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellOff, Clock, ExternalLink, EyeOff, MoreVertical, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { BellOff, Check, ChevronRight, Clock, MoreHorizontal, RotateCcw } from "lucide-react";
 
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    buildNotificationMuteScopes,
-    formatAbsoluteTimestamp,
-    formatRelativeTimestamp,
-    getAggregateLabel,
-    getNotificationReasonLabel,
-} from "@/lib/notifications/presentation";
+import { LinkPending } from "@/components/ui/LinkPending";
+import { NotificationWho } from "@/components/notifications/NotificationGlyph";
+import { isPlainLeftClick } from "@/lib/navigation/links";
+import { buildNotificationMuteScopes, formatAbsoluteTimestamp, formatRelativeTimestamp, getAggregateLabel, getNotificationReasonLabel, type NotificationBundle } from "@/lib/notifications/presentation";
+import { notificationSentence } from "@/lib/notifications/sentence";
+import { whyYouGotIt } from "@/lib/notifications/tray-model";
 import type { NotificationItem, NotificationMuteScope } from "@/lib/notifications/types";
 import { projectUpdateDisplayText } from "@/lib/workspaces/updates";
-import { NotificationAvatar } from "@/components/notifications/NotificationAvatar";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
-import { LinkPending } from "@/components/ui/LinkPending";
-import { isPlainLeftClick } from "@/lib/navigation/links";
 
 const QUALIFIED_VIEW_MS = 750;
 const FOCUS_VIEW_MS = 500;
+const REPLY_KINDS = new Set(["task_comment_mention", "task_comment_reply", "project_update_mention", "project_update_comment", "project_update_reply"]);
 
-function snoozePresets() {
-    const now = new Date();
-    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
-    const tomorrowMorning = new Date(now);
-    tomorrowMorning.setDate(tomorrowMorning.getDate() + 1);
-    tomorrowMorning.setHours(9, 0, 0, 0);
-    const nextMondayMorning = new Date(now);
-    const daysUntilMonday = ((8 - nextMondayMorning.getDay()) % 7) || 7;
-    nextMondayMorning.setDate(nextMondayMorning.getDate() + daysUntilMonday);
-    nextMondayMorning.setHours(9, 0, 0, 0);
+export type OrgLevel = "all" | "important" | "off";
+export type RowHandlers = {
+    onOpen: (item: NotificationItem) => void | Promise<unknown>;
+    onViewed: (ids: string[]) => void;
+    onDone: (item: NotificationItem) => void | Promise<unknown>;
+    onMarkUnread: (item: NotificationItem) => void | Promise<unknown>;
+    onSnooze: (item: NotificationItem, until: string) => void | Promise<unknown>;
+    onMute: (item: NotificationItem, scope: NotificationMuteScope) => void | Promise<unknown>;
+    onMuteWorkspace?: (item: NotificationItem, until: string | "forever") => void | Promise<unknown>;
+    onOrgLevel?: (item: NotificationItem, level: OrgLevel) => void | Promise<unknown>;
+    onReply?: (item: NotificationItem, text: string) => Promise<boolean>;
+};
+
+export function snoozePresets(now = new Date()) {
+    const hour = new Date(now.getTime() + 3_600_000);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    const monday = new Date(now);
+    monday.setDate(monday.getDate() + (((8 - monday.getDay()) % 7) || 7));
+    monday.setHours(9, 0, 0, 0);
     return [
-        { label: "Snooze 1 hour", until: inOneHour },
-        { label: "Snooze until tomorrow", until: tomorrowMorning },
-        { label: "Snooze until next week", until: nextMondayMorning },
+        { label: "Snooze 1 hour", until: hour },
+        { label: "Snooze until tomorrow 9:00", until: tomorrow },
+        { label: "Snooze until Monday 9:00", until: monday },
     ];
 }
 
+function names(items: NotificationItem[]) {
+    const seen: string[] = [];
+    for (const item of items) {
+        const name = item.preview?.actorName?.trim();
+        if (name && !seen.includes(name)) seen.push(name);
+    }
+    if (seen.length <= 2) return seen.join(" and ");
+    return `${seen.slice(0, 2).join(", ")} and ${seen.length - 2} ${seen.length - 2 === 1 ? "other" : "others"}`;
+}
+
+/**
+ * One row (notifications mix): who, one sentence, one mono line of where and when. A thread is the same row with a
+ * count on the corner and its children under it. Hover swaps the time for Snooze and Done; ⋯ opens with why it came.
+ */
 export function NotificationRow(props: {
-    item: NotificationItem;
-    onOpen: (item: NotificationItem) => void | Promise<unknown>;
-    onViewed: (notificationIds: string[]) => void;
-    onMarkUnread: (item: NotificationItem) => void | Promise<unknown>;
-    onDismiss: (item: NotificationItem) => void | Promise<unknown>;
-    onMuteScope: (item: NotificationItem, scope: NotificationMuteScope) => void | Promise<unknown>;
-    onSnooze?: (item: NotificationItem, snoozedUntil: string) => void | Promise<unknown>;
-    compact?: boolean;
-}) {
-    const { item, onOpen, onViewed, onMarkUnread, onDismiss, onMuteScope, onSnooze, compact = false } = props;
-    const [destinationMissing, setDestinationMissing] = useState(false);
+    bundle: NotificationBundle;
+    now: Date;
+    active?: boolean;
+    handIn?: { handedIn: number; total: number } | null;
+} & RowHandlers) {
+    const { bundle, now, active, handIn, onOpen, onViewed, onDone, onMarkUnread, onSnooze, onMute, onMuteWorkspace, onOrgLevel, onReply } = props;
+    const item = bundle.lead;
+    const count = bundle.items.length;
+    const [open, setOpen] = useState(false);
+    const [replying, setReplying] = useState(false);
+    const [draft, setDraft] = useState("");
+    const [replied, setReplied] = useState(false);
+    const [sending, setSending] = useState(false);
+    const [missing, setMissing] = useState(false);
     const rowRef = useRef<HTMLDivElement | null>(null);
     const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const preview = item.preview;
-    const relativeTime = formatRelativeTimestamp(item.activityAt) ?? "Just now";
-    const absoluteTime = formatAbsoluteTimestamp(item.activityAt);
-    const aggregateLabel = getAggregateLabel(item.kind, item.aggregateCount);
-    const muteScopes = useMemo(() => buildNotificationMuteScopes(item), [item]);
-    const reasonLabel = getNotificationReasonLabel(item.reason);
-    const isNew = !item.seenAt;
-    const isImportant = item.importance === "important";
+    const unreadIds = useMemo(() => bundle.items.filter((i) => !i.seenAt).map((i) => i.id), [bundle.items]);
+    const isNew = unreadIds.length > 0;
+    const sentence = notificationSentence(item);
+    const actor = item.actorUserId || item.preview?.actorName ? { id: item.actorUserId, name: item.preview?.actorName ?? null, avatarUrl: item.preview?.actorAvatarUrl ?? null } : null;
     const bodyText = item.body ? projectUpdateDisplayText(item.body) : null;
-    const secondaryText = preview?.secondaryText ? projectUpdateDisplayText(preview.secondaryText) : null;
-    const showSecondaryText = Boolean(
-        secondaryText
-        && secondaryText !== bodyText
-        && secondaryText !== item.title
-        && (!bodyText || !bodyText.toLowerCase().includes(secondaryText.toLowerCase())),
-    );
-
-    const clearViewTimers = () => {
-        if (viewTimerRef.current) clearTimeout(viewTimerRef.current);
-        if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
-        viewTimerRef.current = null;
-        focusTimerRef.current = null;
-    };
-
-    const markViewed = () => {
-        viewTimerRef.current = null;
-        focusTimerRef.current = null;
-        if (isNew) onViewed([item.id]);
-    };
+    const secondaryText = item.preview?.secondaryText ? projectUpdateDisplayText(item.preview.secondaryText) : null;
+    const snippet = bodyText ?? (secondaryText && secondaryText !== bodyText && secondaryText !== item.title ? secondaryText : null);
+    const relative = formatRelativeTimestamp(item.activityAt) ?? "now";
+    const absolute = formatAbsoluteTimestamp(item.activityAt) ?? undefined;
+    const backFromSnooze = Boolean(item.snoozedUntil && new Date(item.snoozedUntil) <= now && !item.seenAt);
+    const isHandIn = item.kind === "org_assignment" && item.aggregateCount > 1 && /^New submission for /.test(item.title);
+    const handInTitle = isHandIn ? item.title.replace(/^New submission for /, "") : null;
+    const aggregate = getAggregateLabel(item.kind, item.aggregateCount);
+    const meta = [sentence.context, count > 1 ? `${count} updates` : isHandIn ? null : aggregate].filter(Boolean).join(" · ");
+    const muteScopes = buildNotificationMuteScopes(item).slice(0, 3);
+    const reasonLabel = getNotificationReasonLabel(item.reason);
+    const canReply = Boolean(onReply) && REPLY_KINDS.has(item.kind) && Boolean(item.entityRefs?.projectId && (item.entityRefs?.taskId || item.entityRefs?.updateId));
 
     useEffect(() => {
         if (!isNew || !rowRef.current || typeof IntersectionObserver === "undefined") return;
         const element = rowRef.current;
+        const markViewed = () => { viewTimerRef.current = null; onViewed(unreadIds); };
         const observer = new IntersectionObserver(([entry]) => {
             if (entry?.isIntersecting && entry.intersectionRatio >= 0.6 && !viewTimerRef.current) {
                 viewTimerRef.current = setTimeout(markViewed, QUALIFIED_VIEW_MS);
@@ -102,149 +115,160 @@ export function NotificationRow(props: {
             }
         }, { threshold: [0, 0.6, 1] });
         observer.observe(element);
-        return () => {
-            observer.disconnect();
-            clearViewTimers();
-        };
-    // The item ID/seen state intentionally restarts the qualified-view timer.
-    }, [item.id, isNew]);
+        return () => { observer.disconnect(); if (viewTimerRef.current) clearTimeout(viewTimerRef.current); viewTimerRef.current = null; };
+    // A new unread set restarts the qualified-view timer.
+    }, [isNew, unreadIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleOpen = async () => {
-        setDestinationMissing(false);
-        const opened = await onOpen(item);
-        if (opened === false) setDestinationMissing(true);
+        setMissing(false);
+        if ((await onOpen(item)) === false) setMissing(true);
+    };
+    const sendReply = async () => {
+        if (!onReply || !draft.trim()) return;
+        setSending(true);
+        const ok = await onReply(item, draft.trim());
+        setSending(false);
+        if (ok) { setReplied(true); setReplying(false); setDraft(""); }
     };
 
-    const metadata = [
-        preview?.contextLabel,
-        showSecondaryText ? secondaryText : null,
-        aggregateLabel,
-        relativeTime,
-    ].filter((value): value is string => Boolean(value));
+    const sentenceNode = isHandIn ? (
+        <span className="nb-nt-t1 nb-compact">{handIn ? <><b>{handIn.handedIn} of {handIn.total}</b> handed in </> : <><b>{item.aggregateCount} new submissions</b> for </>}<b>{handInTitle}</b></span>
+    ) : (
+        <span className="nb-nt-t1 nb-compact">
+            {count > 1 && names(bundle.items) ? <b>{names(bundle.items)}</b> : sentence.actor ? <b>{sentence.actor}</b> : null}
+            {count > 1 && names(bundle.items) && !sentence.actor ? ` · ${sentence.verb}` : sentence.verb}
+            {sentence.object ? <b>{sentence.object}</b> : null}
+        </span>
+    );
+    const body = (
+        <>
+            <NotificationWho actor={actor} glyph={sentence.glyph} tone={sentence.tone} count={count} />
+            <span className="nb-nt-tx">
+                {sentenceNode}
+                {snippet && !isHandIn ? <span className="nb-nt-snip">{snippet}</span> : null}
+                {isHandIn && handIn ? <span className="nb-nt-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, Math.round((handIn.handedIn / Math.max(1, handIn.total)) * 100))}%` }} /></span> : null}
+                <span className="nb-nt-meta nb-meta">
+                    {backFromSnooze ? <span className="nb-nt-wait">Back from snooze</span> : null}
+                    {meta ? <span>{meta}</span> : null}
+                </span>
+                {missing ? <span className="nb-compact font-medium text-[var(--status-warning)]">This item is no longer available.</span> : null}
+            </span>
+        </>
+    );
+    const label = `${isNew ? "Unread" : "Read"} ${reasonLabel}: ${item.title}, ${relative}`;
 
     return (
-        <div
-            ref={rowRef}
-            data-notification-row
-            data-notification-id={item.id}
-            tabIndex={-1}
-            onFocus={() => {
-                if (isNew && !focusTimerRef.current) focusTimerRef.current = setTimeout(markViewed, FOCUS_VIEW_MS);
-            }}
-            onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) clearViewTimers();
-            }}
-            className={cn(
-                "group relative flex items-start gap-2 outline-none transition-[background-color,box-shadow] duration-[130ms] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                compact ? "min-h-12 px-3 py-2" : "min-h-16 px-4 py-3",
-                isNew
-                    ? "bg-primary/[0.04] hover:bg-primary/[0.07] dark:bg-primary/[0.08] dark:hover:bg-primary/[0.12]"
-                    : "hover:bg-muted/60",
-            )}
-        >
-            {/* A real link when the item has an address: Cmd/middle-click opens a new tab (unified back B15). */}
-            {(() => {
-                const shared = {
-                    onFocus: () => { if (isNew) focusTimerRef.current = setTimeout(markViewed, FOCUS_VIEW_MS); },
-                    onBlur: clearViewTimers,
-                    "aria-label": `${isNew ? "Unread" : "Read"} ${reasonLabel}: ${item.title}${relativeTime ? `, ${relativeTime}` : ""}`,
-                    className: "nb-pressable relative flex min-w-0 flex-1 items-start gap-3 rounded-sm text-left outline-none",
-                };
-                const body = (
-                    <>
-                <div className="relative mt-0.5 shrink-0">
-                    <NotificationAvatar actorUserId={item.actorUserId} actorName={preview?.actorName} avatarUrl={preview?.actorAvatarUrl} size={compact ? 26 : 34} />
-                    {isNew ? (
-                        <span
-                            aria-label={isImportant ? "Needs attention" : "Unread"}
-                            className={cn(
-                                "absolute -right-0.5 -top-0.5 size-2 rounded-[2px] ring-2 ring-card",
-                                isImportant ? "bg-destructive" : "bg-primary",
-                            )}
-                        />
+        <div>
+            <div
+                ref={rowRef}
+                className="nb-nt-row"
+                data-notification-row
+                data-notification-id={item.id}
+                data-unread={isNew || undefined}
+                data-active={active || undefined}
+                tabIndex={-1}
+            >
+                <span className="flex min-w-0 flex-1 flex-col">
+                    {item.href && item.href.startsWith("/") ? (
+                        <Link href={item.href} prefetch={false} aria-label={label} className="nb-nt-main nb-pressable" onClick={(event) => { if (isPlainLeftClick(event)) { event.preventDefault(); void handleOpen(); } }}>
+                            {body}
+                            <LinkPending />
+                        </Link>
+                    ) : (
+                        <button type="button" aria-label={label} className="nb-nt-main" onClick={() => void handleOpen()}>{body}</button>
+                    )}
+                    {isHandIn || canReply || replied ? (
+                        <span className="nb-nt-acts" style={{ paddingLeft: 46 }}>
+                            {isHandIn && item.href ? <Link href={item.href} prefetch={false} className="nb-nt-btn" data-kind="primary">Open review queue</Link> : null}
+                            {canReply && !replying && !replied ? <button type="button" className="nb-nt-btn" onClick={() => setReplying(true)}>Reply</button> : null}
+                            {replied ? <span className="nb-nt-ok"><Check className="size-4" aria-hidden="true" />Replied</span> : null}
+                        </span>
                     ) : null}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                    <p className={cn("nb-compact line-clamp-2 text-foreground", isNew ? "font-semibold" : "font-medium")}>{item.title}</p>
-                    {bodyText ? (
-                        <p className="nb-notif-body">{bodyText}</p>
-                    ) : null}
-                    <div className="nb-meta mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                        {metadata.map((value, index) => (
-                            <span key={`${value}:${index}`} className="inline-flex items-center gap-1.5">
-                                {index > 0 ? <span aria-hidden="true" className="text-muted-foreground/40 font-bold">·</span> : null}
-                                {value === preview?.contextLabel ? <span className="nb-state-tag">{value}</span>
-                                    : <span className={value === relativeTime ? "nb-notif-time" : undefined} title={value === relativeTime ? absoluteTime ?? undefined : undefined}>{value}</span>}
+                    {replying ? (
+                        <span className="nb-nt-reply" style={{ paddingLeft: 46 }}>
+                            <label className="nb-micro" htmlFor={`nb-nt-reply-${item.id}`}>Reply{sentence.actor ? ` to ${sentence.actor}` : ""}</label>
+                            <textarea
+                                id={`nb-nt-reply-${item.id}`}
+                                value={draft}
+                                autoFocus
+                                maxLength={4000}
+                                onChange={(event) => setDraft(event.target.value)}
+                                onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void sendReply(); } event.stopPropagation(); }}
+                            />
+                            <span className="flex items-center gap-1.5">
+                                <button type="button" className="nb-nt-btn" data-kind="primary" disabled={sending || !draft.trim()} onClick={() => void sendReply()}>{sending ? "Sending…" : "Send"}</button>
+                                <button type="button" className="nb-nt-btn" data-kind="ghost" onClick={() => setReplying(false)}>Cancel</button>
+                                <span className="nb-meta ml-auto">⌘↵ sends</span>
                             </span>
-                        ))}
-                    </div>
-                    {destinationMissing ? (
-                        <p className="nb-compact mt-2 font-medium text-[var(--status-warning)]">This item is no longer available.</p>
+                        </span>
                     ) : null}
-                </div>
-                    </>
-                );
-                return item.href && item.href.startsWith("/") ? (
-                    <Link
-                        href={item.href}
-                        prefetch={false}
-                        {...shared}
-                        onClick={(event) => { if (isPlainLeftClick(event)) { event.preventDefault(); void handleOpen(); } }}
-                    >
-                        {body}
-                        <LinkPending />
-                    </Link>
-                ) : (
-                    <button type="button" onClick={() => void handleOpen()} {...shared}>{body}</button>
-                );
-            })()}
-
-            <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                    <button
-                        type="button"
-                        className="nb-icon-button nb-touch-target mt-0.5 h-7 w-7 shrink-0 opacity-100 transition-[background-color,color,opacity,transform] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
-                        aria-label="Notification actions"
-                    >
-                        <MoreVertical className="h-4 w-4" />
-                    </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => void handleOpen()} disabled={!item.href}>
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Open
-                    </DropdownMenuItem>
-                    {item.seenAt ? (
-                        <DropdownMenuItem onClick={() => void onMarkUnread(item)}>
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Mark as unread
-                        </DropdownMenuItem>
+                </span>
+                <span className="nb-nt-side">
+                    <span className="nb-nt-when nb-meta" title={absolute}>{relative}</span>
+                    <span className="nb-nt-hov">
+                        <button type="button" className="nb-nt-ib" aria-label="Snooze until tomorrow 9:00" onClick={() => void onSnooze(item, snoozePresets(now)[1]!.until.toISOString())}><Clock aria-hidden="true" /></button>
+                        <button type="button" className="nb-nt-ib" aria-label="Done" onClick={() => void onDone(item)}><Check aria-hidden="true" /></button>
+                        <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                                <button type="button" className="nb-nt-ib" aria-label="More for this notification"><MoreHorizontal aria-hidden="true" /></button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-72">
+                                <DropdownMenuLabel className="flex flex-col gap-1 font-normal">
+                                    <span className="nb-micro">Why you got this</span>
+                                    <span className="nb-compact text-foreground">{whyYouGotIt(item)}</span>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {item.seenAt ? <DropdownMenuItem onClick={() => void onMarkUnread(item)}><RotateCcw className="mr-2 size-4" />Mark unread</DropdownMenuItem> : null}
+                                {snoozePresets(now).map((preset) => (
+                                    <DropdownMenuItem key={preset.label} onClick={() => void onSnooze(item, preset.until.toISOString())}><Clock className="mr-2 size-4" />{preset.label}</DropdownMenuItem>
+                                ))}
+                                <DropdownMenuSeparator />
+                                {muteScopes.map((scope) => (
+                                    <DropdownMenuItem key={`${scope.kind}:${scope.value}`} onClick={() => void onMute(item, scope)}>
+                                        <BellOff className="mr-2 size-4" />{scope.kind === "notification_type" ? `Turn off ${reasonLabel.toLowerCase()} notifications` : `Mute ${scope.label ?? scope.kind}`}
+                                    </DropdownMenuItem>
+                                ))}
+                                {item.entityRefs?.orgId && onOrgLevel ? (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuLabel className="nb-micro font-normal">From {sentence.context ?? "this organization"}</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => void onOrgLevel(item, "all")}>Everything</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => void onOrgLevel(item, "important")}>Important only</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => void onOrgLevel(item, "off")}>Off, except safety notices</DropdownMenuItem>
+                                    </>
+                                ) : item.entityRefs?.projectId && onMuteWorkspace ? (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuLabel className="nb-micro font-normal">Mute {sentence.context ?? "this workspace"}</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => void onMuteWorkspace(item, snoozePresets(now)[0]!.until.toISOString())}>For 1 hour</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => void onMuteWorkspace(item, snoozePresets(now)[1]!.until.toISOString())}>Until tomorrow 9:00</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => void onMuteWorkspace(item, "forever")}>Until I turn it back on</DropdownMenuItem>
+                                    </>
+                                ) : null}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </span>
+                    {isNew ? <span className="nb-nt-mark" aria-hidden="true" /> : null}
+                    {count > 1 ? (
+                        <button type="button" className="nb-nt-ib" aria-expanded={open} aria-label={open ? "Hide the thread" : `Show ${count} updates`} onClick={() => setOpen((v) => !v)}>
+                            <ChevronRight aria-hidden="true" style={open ? { transform: "rotate(90deg)" } : undefined} />
+                        </button>
                     ) : null}
-                    <DropdownMenuItem onClick={() => void onDismiss(item)}>
-                        <EyeOff className="mr-2 h-4 w-4" />
-                        Dismiss
-                    </DropdownMenuItem>
-                    {onSnooze ? (
-                        <>
-                            <DropdownMenuSeparator />
-                            {snoozePresets().map((preset) => (
-                                <DropdownMenuItem key={preset.label} onClick={() => void onSnooze(item, preset.until.toISOString())}>
-                                    <Clock className="mr-2 h-4 w-4" />
-                                    {preset.label}
-                                </DropdownMenuItem>
-                            ))}
-                        </>
-                    ) : null}
-                    <DropdownMenuSeparator />
-                    {muteScopes.slice(0, 3).map((scope) => (
-                        <DropdownMenuItem key={`${scope.kind}:${scope.value}`} onClick={() => void onMuteScope(item, scope)}>
-                            <BellOff className="mr-2 h-4 w-4" />
-                            {scope.kind === "notification_type" ? `Turn off ${reasonLabel}` : `Mute ${scope.label ?? scope.kind}`}
-                        </DropdownMenuItem>
+                </span>
+            </div>
+            {open && count > 1 ? (
+                <div className="nb-nt-kids">
+                    {bundle.items.map((child) => (
+                        <div key={child.id} className="nb-nt-kid">
+                            <span className="nb-nt-tx">
+                                <span className="nb-compact">{child.title}</span>
+                                <span className="nb-meta">{formatRelativeTimestamp(child.activityAt) ?? "now"}</span>
+                            </span>
+                            <button type="button" className="nb-nt-ib" aria-label="Done" onClick={() => void onDone(child)}><Check aria-hidden="true" /></button>
+                        </div>
                     ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
+                </div>
+            ) : null}
         </div>
     );
 }
