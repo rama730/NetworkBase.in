@@ -31,7 +31,7 @@ export function CompanyPeople({ orgId, roster }: { orgId: string; roster: ReactN
   const tabs = [{ key: "directory" as const, label: "Directory", count: d.people.length }, ...(d.limited ? [] : [{ key: "chart" as const, label: "Org chart" }, { key: "out" as const, label: "Who’s out" }]), ...(d.admin || (!d.limited && (d.people as DirectoryPerson[]).some((p) => p.reportsTo === d.me)) ? [{ key: "onboarding" as const, label: "Onboarding" }] : []), ...(d.admin ? [{ key: "counts" as const, label: "Counts" }] : []), ...(roster ? [{ key: "roster" as const, label: "Roster" }] : [])];
   return (
     <section aria-label="People" className="space-y-4" data-testid="company-people">
-      <UnderlineTabs tabs={tabs} value={view} onChange={setView} label="People views" idPrefix="company-people" />
+      <UnderlineTabs tabs={tabs} value={view} onChange={setView} label="People views" idPrefix="company-people" className="max-sm:overflow-x-auto app-scroll-x" />
       <div id={`company-people-panel-${view}`} role="tabpanel">
         {view === "roster" && roster ? roster : view === "counts" && d.admin ? <Counts orgId={orgId} /> : view === "out" && !d.limited ? <WhosOut orgId={orgId} /> : view === "onboarding" ? <OnboardingBoard orgId={orgId} /> : view === "chart" && !d.limited ? <OrgChart orgId={orgId} people={d.people as DirectoryPerson[]} admin={d.admin} managerLeft={"managerLeft" in d ? d.managerLeft ?? [] : []} />
           : d.limited ? <ul className="space-y-1 text-[13px]" data-testid="directory-limited">{d.people.map((p) => <li key={p.id}><span className="font-medium">{p.name}</span>{p.title ? <span className="text-muted-foreground"> · {p.title}</span> : null}</li>)}</ul>
