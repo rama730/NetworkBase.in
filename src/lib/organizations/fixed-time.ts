@@ -11,11 +11,13 @@ export const fixedTimeSchema = z.object({
   keyDate: z.string().date(),
   endDate: z.string().date(),
 }).strict().refine((d) => d.endDate >= d.keyDate, "The end date is on or after the key date.");
-export type FixedTime = z.infer<typeof fixedTimeSchema> & { starter?: string | null; moves?: Array<{ from: string; to: string; reason: string | null; at: string }> };
+export type Workstream = { id: string; name: string; owner: string | null };
+export type FixedTime = z.infer<typeof fixedTimeSchema> & { starter?: string | null; moves?: Array<{ from: string; to: string; reason: string | null; at: string }>; workstreams?: Workstream[] };
 export function readFixedTime(orgSettings: unknown): FixedTime | null {
   const raw = (orgSettings as { fixedTime?: Record<string, unknown> } | null)?.fixedTime;
   const p = fixedTimeSchema.safeParse(raw ? { keyDate: raw.keyDate, endDate: raw.endDate } : null);
-  return p.success ? { ...p.data, starter: typeof raw!.starter === "string" ? raw!.starter : null, moves: Array.isArray(raw!.moves) ? (raw!.moves as FixedTime["moves"]) : [] } : null;
+  return p.success ? { ...p.data, starter: typeof raw!.starter === "string" ? raw!.starter : null, moves: Array.isArray(raw!.moves) ? (raw!.moves as FixedTime["moves"]) : [],
+    workstreams: Array.isArray(raw!.workstreams) ? (raw!.workstreams as Workstream[]) : [] } : null;
 }
 export const defaultEnd = (keyDate: string) => new Date(Date.parse(`${keyDate}T00:00:00Z`) + 30 * DAY).toISOString().slice(0, 10);
 export const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
@@ -53,3 +55,15 @@ export const STARTERS: Record<string, { name: string; tasks: StarterTask[] }> = 
     { phase: "Work", title: "Draft the recommendation", offset: -14 }, { phase: "Work", title: "Review with stakeholders", offset: -7 },
     { phase: "Deliver", title: "Hand in the recommendation", offset: 0 }, { phase: "Wrap-up", title: "Debrief", offset: 7 }] },
 };
+
+/**
+ * B8.2b (37.4 calls 2–3): workstreams (each with an owner), Bookings (a task with a supplier and a typed reference;
+ * NetworkBase never books or pays) and Issues today (tasks marked Issue, shown on the day).
+ */
+export const workstreamsSchema = z.array(z.object({ id: z.string().regex(/^[a-z0-9-]{1,30}$/), name: z.string().trim().min(1).max(40), owner: z.string().uuid().nullable() }).strict()).max(12);
+export const BOOKING_STATES = ["to_book", "applied", "confirmed", "cancelled"] as const;
+export type BookingState = (typeof BOOKING_STATES)[number];
+export const BOOKING_WORDS: Record<BookingState, string> = { to_book: "To book", applied: "Applied", confirmed: "Confirmed", cancelled: "Cancelled" };
+export type Booking = { supplier: string; ref: string; state: BookingState; workstream: string | null };
+export const bookingSchema = z.object({ supplier: z.string().trim().max(120), ref: z.string().trim().max(60), state: z.enum(BOOKING_STATES), workstream: z.string().max(30).nullable() }).strict()
+  .refine((b) => b.state !== "confirmed" || b.ref.length > 0, "A confirmed booking has its reference.");

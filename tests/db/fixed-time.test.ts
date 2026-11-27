@@ -75,3 +75,37 @@ test("37.4 (B8.2a): a plan worked back from the key date; moving it moves plan d
   const [w2] = await sql`SELECT org_settings->'fixedTime'->'moves' AS moves FROM workspaces WHERE id = ${id}`;
   assert.equal(w2!.moves.at(-1).reason, "Rain");
 });
+
+test("37.4 (B8.2b): workstreams with owners, bookings with typed references (confirmed needs one), the unconfirmed-booking notice, Issues today only on the day", async () => {
+  const [owner, asha, dev] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, {}));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Fest' WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${asha!}, 'member'), (${id}, ${dev!}, 'member')`;
+  const { addDays } = await import("../../src/lib/organizations/fixed-time");
+  const today = new Date().toISOString().slice(0, 10);
+  viewerId = owner!;
+  assert.ok((await ft.setFixedTimeAction(id, { keyDate: addDays(today, 10) })).success);
+  assert.ok((await ft.saveWorkstreamsAction(id, [{ id: "venue", name: "Venue", owner: asha! }, { id: "comms", name: "Comms", owner: null }])).success);
+  viewerId = dev!;
+  assert.equal((await ft.addBookingAction(id, { title: "Venue", supplier: "MG Hall", workstream: "venue" })).success, false, "only organisers and the workstream's owner add its bookings");
+  viewerId = asha!;
+  const b = await ft.addBookingAction(id, { title: "Venue", supplier: "MG Hall", workstream: "venue" });
+  assert.ok(b.success);
+  assert.match(String((await ft.updateBookingAction(id, b.id, { supplier: "MG Hall", ref: "", state: "confirmed", workstream: "venue" }) as { error?: string }).error), /reference/);
+  // Within 14 days of the key date and not confirmed: its owner is told once.
+  const notices = await loadAppModule(() => import("../../src/lib/organizations/fixed-time-server"));
+  await notices.fixedTimeNotices(); await notices.fixedTimeNotices();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${asha!} AND title = 'Booking not confirmed yet: Venue'`)[0]!.n, 1);
+  assert.ok((await ft.updateBookingAction(id, b.id, { supplier: "MG Hall", ref: "MG-2231", state: "confirmed", workstream: "venue" })).success);
+  const read = await ft.readFixedTimeAction(id);
+  assert.ok(read.success && "bookings" in read && read.bookings[0]!.ref === "MG-2231" && read.bookings[0]!.state === "confirmed" && read.workstreams[0]!.ownerName);
+  assert.equal((await sql`SELECT status FROM tasks WHERE id = ${b.id}`)[0]!.status, "done");
+  assert.match(String((await ft.raiseIssueAction(id, "Lost keys") as { error?: string }).error), /day itself/);
+  await sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{fixedTime,keyDate}', to_jsonb(${today}::text)) WHERE id = ${id}`;
+  viewerId = dev!;
+  assert.ok((await ft.raiseIssueAction(id, "Lost keys")).success);
+  const day = await ft.readFixedTimeAction(id);
+  assert.ok(day.success && "issues" in day && day.issues.length === 1 && day.issues[0]!.title === "Lost keys");
+  assert.ok((await ft.solveIssueAction(id, day.issues[0]!.id, true)).success);
+});

@@ -109,6 +109,8 @@ export const chatDue = inngest.createFunction(
       await step.run("club-motion-votes", async () => (await import("@/lib/organizations/club-server")).closeMotionVotes());
       // B8.1b (report 37.3 layer 15): a volunteer shift's reminder the day before; still short 2 days before tells coordinators.
       await step.run("volunteer-notices", async () => (await import("@/lib/organizations/volunteers-server")).volunteerNotices());
+      // B8.2b (report 37.4 layer 15): a booking still not confirmed 14 days before the key date tells its owner.
+      await step.run("fixed-time-notices", async () => (await import("@/lib/organizations/fixed-time-server")).fixedTimeNotices());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

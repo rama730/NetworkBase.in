@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Hourglass } from "lucide-react";
 
-import { applyStarterAction, moveKeyDateAction, previewMoveAction, readFixedTimeAction, setFixedTimeAction } from "@/app/actions/fixed-time";
+import { addBookingAction, applyStarterAction, moveKeyDateAction, previewMoveAction, raiseIssueAction, readFixedTimeAction, saveWorkstreamsAction, setFixedTimeAction, solveIssueAction, updateBookingAction } from "@/app/actions/fixed-time";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
+import { BOOKING_STATES, BOOKING_WORDS, type BookingState } from "@/lib/organizations/fixed-time";
 
 const safe = <T,>(p: Promise<T>) => p.catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
 const full = (d: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
@@ -21,6 +22,10 @@ const STATE = { planning: "Planning", this_week: "This week", today: "Today", wr
 export function FixedTimeCard({ orgId, other }: { orgId: string; other: boolean }) {
   const q = useQuery({ queryKey: ["fixed-time", orgId], queryFn: () => readFixedTimeAction(orgId), staleTime: 60_000 });
   const [setting, setSetting] = useState<{ keyDate: string; endDate: string } | null>(null);
+  const [streams, setStreams] = useState<Array<{ id: string; name: string; owner: string | null }> | null>(null);
+  const [booking, setBooking] = useState<{ title: string; supplier: string; workstream: string } | null>(null);
+  const [refs, setRefs] = useState<Record<string, string>>({});
+  const [issue, setIssue] = useState("");
   const [move, setMove] = useState<{ to: string; reason: string; preview: { passed: boolean; moves: Array<{ id: string; title: string; from: string | null; to: string }>; stays: Array<{ id: string; title: string; due: string | null }> } | null } | null>(null);
   const d = q.data?.success ? q.data : null;
   if (!d || (!d.fixed && !(d.organiser && other))) return null;
@@ -58,6 +63,41 @@ export function FixedTimeCard({ orgId, other }: { orgId: string; other: boolean 
         </div> : null}
         {!f.starter && d.organiser ? <span className="flex flex-wrap items-center gap-2"><span className="text-muted-foreground">Pick a plan, laid out backwards from the key date:</span>
           {d.starters.map((s) => <button key={s.id} type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(applyStarterAction(orgId, s.id), `${s.name} plan added`)}>{s.name} ({s.tasks} tasks)</button>)}</span> : null}
+        {"workstreams" in d ? <p className="flex flex-wrap items-center gap-2" data-testid="fixed-time-workstreams"><span className="font-medium">Workstreams</span>
+          <span className="text-muted-foreground">{d.workstreams.length ? d.workstreams.map((w) => `${w.name}${w.ownerName ? ` (${w.ownerName})` : ""}`).join(" · ") : "none yet"}</span>
+          {d.organiser && !streams ? <button type="button" className="nb-link" onClick={() => setStreams(d.workstreams.map(({ id, name, owner }) => ({ id, name, owner })))}>Edit</button> : null}</p> : null}
+        {streams && "people" in d ? <fieldset className="space-y-1.5 rounded-md border border-border p-3"><legend className="sr-only">Workstreams</legend>
+          {streams.map((w, i) => <span key={i} className="flex flex-wrap items-center gap-2">
+            <Input value={w.name} maxLength={40} aria-label={`Workstream ${i + 1}`} onChange={(e) => setStreams(streams.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} className="w-[180px]" />
+            <select className="nb-select" aria-label={`Owner of workstream ${i + 1}`} value={w.owner ?? ""} onChange={(e) => setStreams(streams.map((x, j) => (j === i ? { ...x, owner: e.target.value || null } : x)))}>
+              <option value="">No owner</option>{d.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></span>)}
+          <span className="flex gap-2"><button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setStreams([...streams, { id: "", name: "", owner: null }])}>Add a workstream</button>
+            <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(saveWorkstreamsAction(orgId, streams.filter((w) => w.name.trim()).map((w, i) => ({ ...w, id: w.id || `ws-${i}-${w.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 20)}` }))), "Workstreams saved").then((ok) => ok && setStreams(null))}>Save</button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setStreams(null)}>Cancel</button></span></fieldset> : null}
+        {"issues" in d && f.state === "today" ? <section aria-label="Day of" className="space-y-1.5 rounded-md border border-border p-3" data-testid="fixed-time-day-of">
+          <h4 className="font-medium">Day of · Issues today</h4>
+          {d.issues.length ? <ul className="space-y-0.5">{d.issues.map((i) => <li key={i.id}><label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={i.done}
+            onChange={(e) => void run(solveIssueAction(orgId, i.id, e.target.checked), e.target.checked ? "Solved" : "Open again")} />{i.title}{i.by ? <span className="text-muted-foreground"> · {i.by}</span> : null}</label></li>)}</ul>
+            : <p className="text-muted-foreground">No issues yet.</p>}
+          {d.member ? <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (issue.trim()) void run(raiseIssueAction(orgId, issue), "Issue added").then((ok) => ok && setIssue("")); }}>
+            <Input value={issue} maxLength={200} placeholder="What needs sorting" aria-label="Add an issue" onChange={(e) => setIssue(e.target.value)} className="w-[280px]" />
+            <button type="submit" className={FORM_SECONDARY_CLASS} disabled={!issue.trim()}>Add</button></form> : null}</section> : null}
+        {"bookings" in d && (d.bookings.length || d.organiser) ? <section aria-label="Bookings" data-testid="fixed-time-bookings"><h4 className="font-medium">Bookings</h4>
+          <ul className="mt-1 space-y-1">{d.bookings.map((b) => <li key={b.id} className="flex flex-wrap items-center gap-2" data-testid="fixed-time-booking">
+            <span className="min-w-[140px] font-medium">{b.title}</span>{b.supplier ? <span className="text-muted-foreground">{b.supplier}</span> : null}
+            <select className="nb-select" aria-label={`State of ${b.title}`} value={b.state} onChange={(e) => void run(updateBookingAction(orgId, b.id, { supplier: b.supplier, ref: refs[b.id] ?? b.ref, state: e.target.value as BookingState, workstream: b.workstream }), "Saved")}>
+              {BOOKING_STATES.map((k) => <option key={k} value={k}>{BOOKING_WORDS[k]}</option>)}</select>
+            <Input value={refs[b.id] ?? b.ref} maxLength={60} placeholder="Reference" aria-label={`Reference for ${b.title}`} onChange={(e) => setRefs({ ...refs, [b.id]: e.target.value })} className="w-[140px] font-mono" />
+            {(refs[b.id] ?? b.ref) !== b.ref ? <button type="button" className="nb-link" onClick={() => void run(updateBookingAction(orgId, b.id, { supplier: b.supplier, ref: refs[b.id]!, state: b.state, workstream: b.workstream }), "Reference saved")}>Save<span className="sr-only"> the reference for {b.title}</span></button> : null}
+            {b.due ? <span className="text-muted-foreground">by {full(b.due)}</span> : null}</li>)}</ul>
+          {booking ? <span className="mt-1 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col">What<Input value={booking.title} maxLength={120} placeholder="Venue, sound, permit" onChange={(e) => setBooking({ ...booking, title: e.target.value })} className="mt-0.5 w-[180px]" /></label>
+            <label className="flex flex-col">Supplier<Input value={booking.supplier} maxLength={120} onChange={(e) => setBooking({ ...booking, supplier: e.target.value })} className="mt-0.5 w-[180px]" /></label>
+            {d.workstreams.length ? <label className="flex flex-col">Workstream<select className="nb-select mt-0.5" value={booking.workstream} onChange={(e) => setBooking({ ...booking, workstream: e.target.value })}>
+              <option value="">None</option>{d.workstreams.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label> : null}
+            <button type="button" className={FORM_PRIMARY_CLASS} disabled={!booking.title.trim()} onClick={() => void run(addBookingAction(orgId, { title: booking.title, supplier: booking.supplier, workstream: booking.workstream || null }), "Booking added").then((ok) => ok && setBooking(null))}>Add</button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setBooking(null)}>Cancel</button></span>
+            : d.organiser || d.workstreams.some((w) => w.owner) ? <button type="button" className="nb-link mt-1" onClick={() => setBooking({ title: "", supplier: "", workstream: "" })}>Add a booking</button> : null}</section> : null}
         {"week" in d && d.week.length ? <section aria-label="This week"><h4 className="font-medium">This week, worked back from {full(f.keyDate)}</h4>
           <ul className="mt-1 space-y-0.5">{d.week.map((t) => <li key={t.id} data-testid="fixed-time-task">{t.title} <span className="text-muted-foreground">· {full(t.due)} · {t.handSet ? "set by hand" : t.offset}{t.overdue ? " · not done yet" : ""}</span></li>)}</ul></section> : null}
       </div>

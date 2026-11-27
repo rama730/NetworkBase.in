@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { addDays, countdown, defaultEnd, fixedTimeSchema, offsetWords, readFixedTime, STARTERS } from "@/lib/organizations/fixed-time";
+import { addDays, bookingSchema, countdown, defaultEnd, fixedTimeSchema, offsetWords, readFixedTime, STARTERS, workstreamsSchema, type Booking } from "@/lib/organizations/fixed-time";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -27,7 +27,8 @@ async function org(orgId: string) {
   const [w] = Array.from(await db.execute<{ settings: unknown; slug: string | null; title: string; status: string }>(sql`
     SELECT org_settings AS settings, slug, title, status FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   if (!w || !a.canRead || !(a.isOwner || a.isMember)) return null;
-  return { userId, w, fixed: readFixedTime(w.settings), organiser: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked };
+  return { userId, w, fixed: readFixedTime(w.settings), organiser: (a.isOwner || a.memberRole === "admin") && !a.writeBlocked,
+    member: !a.writeBlocked && (a.isOwner || a.memberRole !== "viewer") };
 }
 const today = () => new Date().toISOString().slice(0, 10);
 const noon = (date: string) => new Date(`${date}T12:00:00Z`);
@@ -42,8 +43,22 @@ export async function readFixedTimeAction(orgId: string) {
     SELECT id, title, (due_date AT TIME ZONE 'UTC')::date::text AS due, type_fields->'plan' AS plan, (due_date AT TIME ZONE 'UTC')::date::text <> type_fields->'plan'->>'set' AS hand
     FROM tasks WHERE workspace_id = ${orgId}::uuid AND deleted_at IS NULL AND status <> 'done' AND type_fields ? 'plan'
       AND due_date < ${noon(addDays(today(), 7)).toISOString()}::timestamptz ORDER BY due_date LIMIT 30`));
-  return { success: true as const, organiser: ctx.organiser, starters: Object.entries(STARTERS).map(([id, s]) => ({ id, name: s.name, tasks: s.tasks.length })),
+  // B8.2b: bookings (with supplier and reference), and on the day the issues raised today.
+  const bookings = Array.from(await db.execute<{ id: string; title: string; booking: Booking; due: string | null; owner: string | null }>(sql`
+    SELECT t.id, t.title, t.type_fields->'booking' AS booking, (t.due_date AT TIME ZONE 'UTC')::date::text AS due, coalesce(p.full_name, p.username) AS owner
+    FROM tasks t LEFT JOIN profiles p ON p.id = coalesce(t.assignee_id, t.creator_id) WHERE t.workspace_id = ${orgId}::uuid AND t.deleted_at IS NULL AND t.type_fields ? 'booking' ORDER BY t.created_at LIMIT 100`));
+  const state = countdown(f, today()).state;
+  const issues = state === "today" ? Array.from(await db.execute<{ id: string; title: string; done: boolean; by: string | null }>(sql`
+    SELECT t.id, t.title, t.status = 'done' AS done, coalesce(p.full_name, p.username) AS by FROM tasks t LEFT JOIN profiles p ON p.id = t.creator_id
+    WHERE t.workspace_id = ${orgId}::uuid AND t.deleted_at IS NULL AND (t.type_fields->>'issue')::boolean IS TRUE AND t.created_at >= ${noon(today()).toISOString()}::timestamptz - interval '12 hours' ORDER BY t.created_at LIMIT 100`)) : [];
+  const owners = (f.workstreams ?? []).some((x) => x.owner) ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+    SELECT id, coalesce(full_name, username, 'Member') AS name FROM profiles WHERE id = ANY(${`{${(f.workstreams ?? []).flatMap((x) => (x.owner ? [x.owner] : [])).join(",")}}`}::uuid[])`)) : [];
+  const people = ctx.organiser ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+    SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 300`)) : [];
+  return { success: true as const, organiser: ctx.organiser, member: ctx.member, starters: Object.entries(STARTERS).map(([id, s]) => ({ id, name: s.name, tasks: s.tasks.length })), people,
     fixed: { keyDate: f.keyDate, endDate: f.endDate, starter: f.starter ?? null, ...countdown(f, today()), moves: f.moves ?? [] },
+    workstreams: (f.workstreams ?? []).map((x) => ({ ...x, ownerName: owners.find((o) => o.id === x.owner)?.name ?? null })),
+    bookings: bookings.map((b) => ({ id: b.id, title: b.title, ...b.booking, due: b.due, owner: b.owner })), issues,
     week: week.map((t) => ({ id: t.id, title: t.title, due: t.due, phase: t.plan.phase, offset: offsetWords(t.plan.offset), handSet: t.hand, overdue: t.due < today() })) };
 }
 
@@ -130,3 +145,77 @@ export async function moveKeyDateAction(orgId: string, keyDate: string, reason?:
     href: `/org/${encodeURIComponent(slug)}`, entityRefs: { projectId: orgId, projectSlug: slug }, dedupeKey: `fixed-time-move:${orgId}:${keyDate}:${m.id}` }).catch(() => undefined);
   return { success: true, moved };
 }
+
+/** Workstreams (organisers): up to 12, each with an owner who sees its bookings. */
+export async function saveWorkstreamsAction(orgId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.organiser || !ctx.fixed) return DENIED;
+  const parsed = workstreamsSchema.safeParse(input);
+  if (!parsed.success || new Set(parsed.data.map((x) => x.id)).size !== parsed.data.length) return { success: false, error: "Each workstream needs a name; up to 12." };
+  const owners = parsed.data.flatMap((x) => (x.owner ? [x.owner] : []));
+  if (owners.length) {
+    const ok = Array.from(await db.execute(sql`SELECT user_id FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role <> 'viewer' AND completed_at IS NULL AND user_id = ANY(${`{${owners.join(",")}}`}::uuid[])`));
+    if (ok.length !== new Set(owners).size) return { success: false, error: "Owners are people on the team." };
+  }
+  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{fixedTime,workstreams}', ${JSON.stringify(parsed.data)}::jsonb) WHERE id = ${orgId}::uuid`);
+  return { success: true };
+}
+
+/** Add a booking (organisers and workstream owners): what, supplier, and the date it's needed by (14 days before the key date by default). */
+export async function addBookingAction(orgId: string, input: { title: string; supplier: string; workstream: string | null; neededBy?: string | null }): Promise<{ success: true; id: string } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.member || !ctx.fixed) return DENIED;
+  const ws = input?.workstream ? (ctx.fixed.workstreams ?? []).find((x) => x.id === input.workstream) : null;
+  if (!(ctx.organiser || (ws && ws.owner === ctx.userId))) return DENIED;
+  const title = typeof input?.title === "string" ? input.title.trim().slice(0, 120) : "";
+  if (!title) return { success: false, error: "Say what’s being booked." };
+  const neededBy = typeof input?.neededBy === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.neededBy) ? input.neededBy : addDays(ctx.fixed.keyDate, -14);
+  const booking: Booking = { supplier: String(input?.supplier ?? "").trim().slice(0, 120), ref: "", state: "to_book", workstream: ws?.id ?? null };
+  const { insertTask } = await import("@/lib/organizations/assignments");
+  const id = await db.transaction(async (tx) => {
+    const tid = await insertTask(tx as never, { projectId: orgId, title, description: null, dueDate: noon(neededBy), sprintId: null, assigneeId: ws?.owner ?? ctx.userId, creatorId: ctx.userId,
+      kind: "task", assignmentId: null, assignmentSettings: null, teamName: null });
+    await tx.execute(sql`UPDATE tasks SET type_fields = coalesce(type_fields, '{}'::jsonb) || jsonb_build_object('booking', ${JSON.stringify(booking)}::jsonb) WHERE id = ${tid}::uuid`);
+    return tid;
+  });
+  return { success: true, id };
+}
+
+/** Update a booking (organisers, its workstream's owner, or whoever it's assigned to): state, supplier, typed reference. */
+export async function updateBookingAction(orgId: string, taskId: string, input: unknown): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.member || !ctx.fixed || !isLooseUuid(taskId)) return DENIED;
+  const parsed = bookingSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "A confirmed booking has its reference." };
+  const [t] = Array.from(await db.execute<{ booking: Booking; assignee: string | null }>(sql`SELECT type_fields->'booking' AS booking, assignee_id AS assignee FROM tasks
+    WHERE id = ${taskId}::uuid AND workspace_id = ${orgId}::uuid AND deleted_at IS NULL AND type_fields ? 'booking'`));
+  if (!t) return DENIED;
+  const owner = (ctx.fixed.workstreams ?? []).find((x) => x.id === t.booking.workstream)?.owner;
+  if (!(ctx.organiser || owner === ctx.userId || t.assignee === ctx.userId)) return DENIED;
+  const status = parsed.data.state === "confirmed" || parsed.data.state === "cancelled" ? "done" : "todo";
+  await db.execute(sql`UPDATE tasks SET type_fields = jsonb_set(type_fields, '{booking}', ${JSON.stringify({ ...parsed.data, workstream: t.booking.workstream })}::jsonb), status = ${status}, updated_at = now() WHERE id = ${taskId}::uuid`);
+  return { success: true };
+}
+
+/** Raise an issue on the day (any team member, one line): a task marked Issue, shown in Issues today. */
+export async function raiseIssueAction(orgId: string, title: string): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.member || !ctx.fixed || typeof title !== "string" || !title.trim()) return DENIED;
+  if (countdown(ctx.fixed, today()).state !== "today") return { success: false, error: "Issues today are for the day itself." };
+  const { insertTask } = await import("@/lib/organizations/assignments");
+  await db.transaction(async (tx) => {
+    const tid = await insertTask(tx as never, { projectId: orgId, title: title.trim().slice(0, 200), description: null, dueDate: noon(today()), sprintId: null, assigneeId: null, creatorId: ctx.userId,
+      kind: "task", assignmentId: null, assignmentSettings: null, teamName: null });
+    await tx.execute(sql`UPDATE tasks SET type_fields = coalesce(type_fields, '{}'::jsonb) || '{"issue": true}'::jsonb WHERE id = ${tid}::uuid`);
+  });
+  return { success: true };
+}
+
+/** Mark an issue solved (or open again) on the day (any team member). */
+export async function solveIssueAction(orgId: string, taskId: string, done: boolean): Promise<{ success: true } | Failure> {
+  const ctx = await org(orgId);
+  if (!ctx?.member || !isLooseUuid(taskId) || typeof done !== "boolean") return DENIED;
+  const ok = Array.from(await db.execute(sql`UPDATE tasks SET status = ${done ? "done" : "todo"}, updated_at = now() WHERE id = ${taskId}::uuid AND workspace_id = ${orgId}::uuid AND (type_fields->>'issue')::boolean IS TRUE RETURNING id`));
+  return ok.length ? { success: true } : DENIED;
+}
+

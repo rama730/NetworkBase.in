@@ -15294,7 +15294,12 @@ NEXT YEAR         [ Run it again ] → Book Fest 2028, dates moved to Feb 12 202
 2. **Plan starters** (once): Event (8 weeks before to 2 weeks after), Campaign or Task force. Each lands its tasks with dates worked out backwards from the key date; each task keeps its offset, phase and the date the plan set.
 3. **Moving the key date:** a preview lists every date that moves and every date set by hand that stays. A task moves only while its date is still the one the plan set (server test), so no edit path needs a "set by hand" switch. The end date keeps its distance. If the key date has passed, a reason is required and kept with the move for the debrief. The team is told (Important).
 4. **This week** on the card: plan tasks due in the next 7 days with their date in full and the offset as words ("21 days before"), or "set by hand".
-5. **Not built yet (B8.2b–c):** workstreams with owners, Bookings with typed references, the Day of view with Issues today, the wrap-up checklist and the Close prompt, Run it again with the pinned debrief, the profile entry, and the booking and close notices.
+5. **Not built yet:** see B8.2b and B8.2c.
+
+**Build calls (B8.2b, 2026-11-27):**
+1. **Workstreams:** up to 12, each with an owner from the team, shown on the Dates card ("Venue (Asha) · Comms"). W8's sections aren't used; a workstream is a name and an owner kept with the dates.
+2. **Bookings:** organisers and a workstream's owner add one (what, supplier, workstream), needed by 14 days before the key date by default and assigned to the workstream's owner. States are words (To book · Applied · Confirmed · Cancelled), and Confirmed needs the typed reference (server test). NetworkBase never books or pays. A booking still not confirmed 14 days before the key date tells its owner once (Normal).
+3. **Day of:** on the key date the card shows Issues today. Anyone on the team adds one in a line and ticks it solved; issues can only be raised on the day.
 
 ### 37.5 X4 · Programs and impact (agreed 2026-11-17)
 **References** (37.1, plus 12 searches for impact reports, logic models, theories of change, program evaluation, annual plans, KPIs and mission statements: 107 templates, 20 rated; 4 more screens studied):
