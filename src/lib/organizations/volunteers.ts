@@ -36,7 +36,7 @@ export const shiftSchema = z.object({
   note: z.string().trim().max(500),
 }).strict().refine((s) => Date.parse(s.end) > Date.parse(s.start) && Date.parse(s.end) - Date.parse(s.start) <= 24 * 3_600_000, "A shift ends after it starts, within a day.");
 export type Shift = z.infer<typeof shiftSchema>;
-export type ShiftFields = Omit<Shift, "places"> & { kind: "shift" };
+export type ShiftFields = Omit<Shift, "places"> & { kind: "shift"; series?: string };
 
 const MIN = 60_000;
 /** Self check-in: from 15 minutes before the shift starts until 30 minutes after. */

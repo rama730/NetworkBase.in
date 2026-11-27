@@ -2029,6 +2029,32 @@ export const clubCompetitionPeople = pgTable("club_competition_people", {
 }, (t) => [uniqueIndex("club_competition_people_one").on(t.competitionId, t.userId), index("club_competition_people_org_idx").on(t.orgId),
   index("club_competition_people_user_idx").on(t.userId).where(sql`user_id IS NOT NULL`), index("club_competition_people_team_idx").on(t.teamWorkspaceId).where(sql`team_workspace_id IS NOT NULL`),
   index("club_competition_people_decided_by_idx").on(t.decidedBy).where(sql`decided_by IS NOT NULL`)]);
+/** B8.1b (0178): hours a volunteer adds by hand (counted once a coordinator confirms), and shift swaps a named volunteer accepts. */
+export const volunteerHours = pgTable("volunteer_hours", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  hours: numeric("hours", { precision: 5, scale: 2 }).notNull(),
+  roleId: text("role_id"),
+  note: text("note").default("").notNull(),
+  state: text("state").default("waiting").notNull(),
+  confirmedBy: uuid("confirmed_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+}, (t) => [index("volunteer_hours_org_user_idx").on(t.orgId, t.userId, t.day), index("volunteer_hours_user_idx").on(t.userId),
+  index("volunteer_hours_waiting_idx").on(t.orgId).where(sql`state = 'waiting'`), index("volunteer_hours_confirmed_by_idx").on(t.confirmedBy).where(sql`confirmed_by IS NOT NULL`)]);
+export const volunteerSwaps = pgTable("volunteer_swaps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  shiftId: uuid("shift_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  fromUser: uuid("from_user").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  toUser: uuid("to_user").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  state: text("state").default("asked").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  answeredAt: timestamp("answered_at", { withTimezone: true }),
+}, (t) => [uniqueIndex("volunteer_swaps_one_open").on(t.shiftId, t.fromUser).where(sql`state = 'asked'`), index("volunteer_swaps_org_idx").on(t.orgId),
+  index("volunteer_swaps_from_idx").on(t.fromUser), index("volunteer_swaps_to_idx").on(t.toUser)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

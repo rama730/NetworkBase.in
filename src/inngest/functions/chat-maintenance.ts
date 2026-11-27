@@ -107,6 +107,8 @@ export const chatDue = inngest.createFunction(
       await step.run("club-handover", async () => (await import("@/lib/organizations/club-server")).handoverSteps());
       // B7.3c (report 36.4 call 4): online motion votes close at their time; one reminder a day before.
       await step.run("club-motion-votes", async () => (await import("@/lib/organizations/club-server")).closeMotionVotes());
+      // B8.1b (report 37.3 layer 15): a volunteer shift's reminder the day before; still short 2 days before tells coordinators.
+      await step.run("volunteer-notices", async () => (await import("@/lib/organizations/volunteers-server")).volunteerNotices());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

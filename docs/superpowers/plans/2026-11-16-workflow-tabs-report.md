@@ -15106,7 +15106,16 @@ VOLUNTEER · My shifts       Sat 08:00 Sorting  [ Check in ] (opens at 07:45)   
 4. **Hours** come from checked-in shifts (each shift's length). Each volunteer sees only their own; coordinators see attended and missed as counts, never a score (server test).
 5. **Coverage:** coordinators see shifts short of people in the next 14 days, soonest first. "6 of 8", Short and Full show as words.
 6. **Volunteer with us** on About lists the next 30 days of shifts with places left and whether training is needed; visitors are pointed to Join.
-7. **Not built yet (B8.1b):** Regulars on a weekly rota, swaps with a named volunteer, hours added by hand with a coordinator's confirmation, availability, involvement (New · Regular · Occasional), the day-before reminder and the "short 2 days before" notice with Ask, and Add to my profile.
+7. **Agreement:** with no agreement text there is nothing to accept; once there is one, signing up needs the current version.
+
+**Build calls (B8.1b, 2026-11-27):**
+1. **Repeats and Regulars:** a shift can repeat every week for up to 12 more weeks as one series. Be a Regular takes a place on every coming shift of the series (waitlisted where full); stopping frees them, and the waitlists move up.
+2. **Swaps** (0178): a volunteer going on a shift asks a named volunteer who has agreed and is trained for the role. Only that person answers; yes takes the place straight over (no waitlist), no leaves it. Can't go withdraws an open ask.
+3. **Hours** = checked-in shift time + hours added by hand that a coordinator confirmed (server test). Additions waiting confirmation show apart; coordinators are told (Normal, once a day) and Confirm or Decline. A day in the future or more than 24 hours is refused.
+4. **Add to my profile:** the volunteer adds "2.5 hours volunteering with WT Food bank, 2026" as a profile entry, from confirmed hours only; adding again updates the number.
+5. **Availability and involvement:** volunteers type their weekly availability. Coordinators see it with involvement (Regular, New if joined in the last 30 days or not yet attended, else Occasional), never a score.
+6. **Notices** (hourly): a reminder the day before to everyone going; a shift still short 2 days before tells coordinators once. Coverage has Ask, which messages agreed, trained volunteers not on it (one message each, up to 50).
+7. **Not built:** the "missed 3 in a row" question to Regulars, and Away blocking a swap.
 
 ### 37.4 X3 · Teams for a fixed time (agreed 2026-11-17)
 **References** (37.1, plus 14 searches for event planning, countdowns, task forces, campaigns, wrap-ups and post-mortems: 126 templates, 34 rated; 4 more screens studied; wedding and party planners are personal and left out):

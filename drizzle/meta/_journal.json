@@ -1233,6 +1233,13 @@
       "when": 1795714938968,
       "tag": "0177_club_competition_people",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1795714998968,
+      "tag": "0178_volunteer_hours_swaps",
+      "breakpoints": true
     }
   ]
 }
