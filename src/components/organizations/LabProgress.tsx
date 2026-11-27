@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { addSupervisionNoteAction, decideMilestoneAction, handInMilestoneAction, readLabProgressAction, readProgressAction, setProgressAction } from "@/app/actions/lab-progress";
+import { AnnualReview, DevelopmentPlan } from "@/components/organizations/LabReviews";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -26,6 +27,7 @@ export function MyProgressCard({ orgId }: { orgId: string }) {
 }
 
 function ProgressPanel({ orgId, d, onDone }: { orgId: string; d: Progress; onDone: () => void }) {
+  const [review, setReview] = useState<string | null>(null);
   const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); onDone(); };
   const p = d.person;
   return (
@@ -38,11 +40,14 @@ function ProgressPanel({ orgId, d, onDone }: { orgId: string; d: Progress; onDon
           <li key={m.key} className="flex flex-wrap items-center gap-2 px-3 py-1.5"><span className="font-medium">{m.name}</span><span>{day(m.dueOn)}</span>
             <StatusBadge state={m.state === "done" ? "done" : m.state === "handed_in" ? "active" : "draft"}>{MILESTONE_WORDS[m.state]}</StatusBadge>
             {m.movedReason ? <span className="text-muted-foreground">Moved: {m.movedReason}</span> : null}
-            {d.self && m.state === "upcoming" ? <button type="button" className="nb-link" onClick={() => void run(handInMilestoneAction(orgId, m.key), "Handed in; your supervisor is told")}>Hand in<span className="sr-only"> {m.name}</span></button> : null}
+            {m.key.startsWith("annual-review") && d.pair ? <button type="button" className="nb-link" aria-expanded={review === m.key} onClick={() => setReview(review === m.key ? null : m.key)}>Progress report<span className="sr-only"> for {m.name}</span></button> : null}
+            {d.self && m.state === "upcoming" && !m.key.startsWith("annual-review") ? <button type="button" className="nb-link" onClick={() => void run(handInMilestoneAction(orgId, m.key), "Handed in; your supervisor is told")}>Hand in<span className="sr-only"> {m.name}</span></button> : null}
             {d.canDecide && !d.self && m.state !== "done" ? <MilestoneDecision name={m.name} onDone={(v) => run(decideMilestoneAction(orgId, p.id, m.key, v), "done" in v ? "Marked done" : "Milestone moved")} /> : null}
           </li>))}</ul>
         {!d.milestones.length ? <p className="text-muted-foreground">No milestones for this position.</p> : null}
+        {review ? <AnnualReview orgId={orgId} userId={p.id} milestoneKey={review} /> : null}
       </section>
+      {d.pair ? <DevelopmentPlan orgId={orgId} userId={p.id} self={d.self} /> : null}
       {d.pair ? <SupervisionLog orgId={orgId} d={d} onDone={onDone} /> : <p className="text-muted-foreground">Supervision notes stay with {p.name} and their supervisors.</p>}
     </div>
   );

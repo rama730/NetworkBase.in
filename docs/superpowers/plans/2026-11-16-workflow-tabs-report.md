@@ -13708,6 +13708,14 @@ PERSON · Meera · PhD student (2024)       Supervisor Dr. Rao · Co-supervisor 
 5. **Notices** (hourly): "supervision is due" once a week past the rhythm, to the person and their supervisors, once per gap (a new note resets it). Milestones notify 30 and 7 days ahead, each once.
 6. **Next:** B6.5c covers the annual review (Progress report → feedback → committee → Agreed next steps), the development plan, concern routing and the PI's counts card.
 
+**Build calls (B6.5c, 2026-11-27):**
+1. **Annual review** (call 5) hangs off each "Annual review N" milestone: the person writes the Progress report (What I did, Outputs, Trainings, Plan for next year, Anything worrying me). Outputs and trainings start filled from their papers (R2) and protocol trainings (R4). They save, then hand it in, and the supervisor is told. The supervisor (or co-supervisor) writes feedback, then either sends it to a committee or agrees the next steps. Agreeing closes the milestone. States are words: Writing, With supervisor, With committee, Agreed. There is no rating, score or rank field anywhere (server test).
+2. **Committee** (call 6): up to 5 people already in the lab, Viewers included (outside members join as Viewers). They read the report and feedback and comment only while it's With committee; access ends when it's agreed (server test). This is a list on the review, not a new label on Members.
+3. **Development plan** (call 7): up to 3 goals for the year, career aims, and an optional About me. The person writes it; their supervisors read it; no one else.
+4. **Raise a concern** (call 8): a card on the lab Overview for every member. It can go to your supervisor, co-supervisor, the PI, or the owner of the institution the lab belongs to (there is no named-contact setting yet). Never to the person it's about: that's refused, and the receiver list hides them. It's private to the receiver (an Important notice). A concern about the PI is never shown to the PI (server test).
+5. **The PI's counts** (call 9): supervision gaps over 4 weeks, milestones in the next 60 days, overdue annual reviews. The numbers show on the card; names and dates appear only when one is opened; never a ranking. PI only.
+6. **Security review (B6.5b):** only the PI or the person's supervisor names a co-supervisor, and the person is told. Supervisors and co-supervisors count only while they're active PI or Researchers; otherwise the PI supervises and the co-supervisor lapses.
+
 ### 35.7 Research: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |

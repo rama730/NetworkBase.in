@@ -1859,6 +1859,44 @@ export const labMilestones = pgTable("lab_milestones", {
   notice7At: timestamp("notice_7_at", { withTimezone: true }),
 }, (t) => [primaryKey({ columns: [t.orgId, t.userId, t.key] }), index("lab_milestones_user_idx").on(t.userId), index("lab_milestones_due_idx").on(t.dueOn).where(sql`state <> 'done'`),
   index("lab_milestones_done_by_idx").on(t.doneBy).where(sql`done_by IS NOT NULL`)]);
+/** B6.5c (0170): annual reviews (no ratings), development plans and concerns (private to the receiver). */
+export const labReviews = pgTable("lab_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  milestoneKey: text("milestone_key").notNull(),
+  state: text("state").default("writing").notNull(),
+  report: jsonb("report").$type<Record<string, string>>().default({}).notNull(),
+  feedback: text("feedback").default("").notNull(),
+  committeeIds: uuid("committee_ids").array().default(sql`'{}'::uuid[]`).notNull(),
+  committeeComments: jsonb("committee_comments").$type<Array<{ by: string; text: string; at: string }>>().default([]).notNull(),
+  nextSteps: text("next_steps").default("").notNull(),
+  handedInAt: timestamp("handed_in_at", { withTimezone: true }),
+  agreedAt: timestamp("agreed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [unique("lab_reviews_one_per_milestone").on(t.orgId, t.userId, t.milestoneKey), index("lab_reviews_user_idx").on(t.userId),
+  index("lab_reviews_open_idx").on(t.orgId, t.state).where(sql`state <> 'agreed'`)]);
+export const labPlans = pgTable("lab_plans", {
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  year: integer("year").notNull(),
+  goals: jsonb("goals").$type<string[]>().default([]).notNull(),
+  careerAims: text("career_aims").default("").notNull(),
+  aboutMe: text("about_me").default("").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.orgId, t.userId, t.year] }), index("lab_plans_user_idx").on(t.userId)]);
+export const labConcerns = pgTable("lab_concerns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  fromId: uuid("from_id").references(() => profiles.id, { onDelete: "set null" }),
+  toId: uuid("to_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  aboutId: uuid("about_id").references(() => profiles.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_concerns_to_idx").on(t.toId, t.createdAt.desc()), index("lab_concerns_from_idx").on(t.fromId).where(sql`from_id IS NOT NULL`),
+  index("lab_concerns_about_idx").on(t.aboutId).where(sql`about_id IS NOT NULL`), index("lab_concerns_org_idx").on(t.orgId)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),
