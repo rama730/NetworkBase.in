@@ -1463,7 +1463,7 @@ function ProjectSettingsContent({
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <CompanySettingsCard orgId={projectId} /> : null}
-                {organization && sections.some((s) => s.id === "org-profile") && organization.type === "company" ? <DirectorySettingsCard orgId={projectId} /> : null}
+                {organization && sections.some((s) => s.id === "org-profile") && (organization.type === "company" || (organization.type === "other" && organization.parts?.includes("directory"))) ? <DirectorySettingsCard orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && (organization.type === "company" || organization.type === "research") ? <OnboardingPlanSettings orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && organization.type === "research" ? <LabSettingsCard orgId={projectId} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /><AttendanceSettingsCard orgId={projectId} /><MentoringSettingsCard orgId={projectId} /><MarkingSettingsCard orgId={projectId} /><ExamSettingsCard orgId={projectId} /></> : null}
@@ -1885,7 +1885,7 @@ function ProjectSettingsContent({
                 {sections.some((s) => s.id === "readme") && (
                     <section id="project-settings-readme" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
-                            {organization?.type === "company" || organization?.type === "research" ? <HandbookSettings orgId={projectId} /> : null}
+                            {organization?.type === "company" || organization?.type === "research" || (organization?.type === "other" && organization.parts?.includes("handbook")) ? <HandbookSettings orgId={projectId} /> : null}
                             <SettingsCard
                                 title="Document publishing"
                                 headingLevel={2}

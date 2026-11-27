@@ -2306,8 +2306,8 @@ export async function createGoalsDocAction(projectId: string, input: unknown) {
         if (context.settings.section || context.settings.approvedAt) return { success: false as const, error: "That document is already filed in a section." };
         const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
         // Report 33.4 call 1 (B4.3): a company writes its goals in its own quarterly goals document, with no workflow to add.
-        const [orgRow] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
-        const companyGoals = orgRow?.kind === "organization" && orgRow.orgType === "company";
+        const [orgRow] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const companyGoals = orgRow?.kind === "organization" && (orgRow.orgType === "company" || (orgRow.orgType === "other" && (await import("@/lib/organizations/kits")).partOn(orgRow.orgSettings, "goals")));
         if (!companyGoals && !availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("goals")) return { success: false as const, error: "Add Quarterly goals first." };
         const [taken] = await db.select({ id: workspaceDocuments.id }).from(workspaceDocuments)
             .where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.id} <> ${context.readme.id}::uuid`, sql`${workspaceDocuments.settings}->>'section' = 'goals'`, sql`${workspaceDocuments.settings}->>'period' = ${data.period}`)).limit(1);

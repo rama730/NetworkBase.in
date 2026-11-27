@@ -19,10 +19,10 @@ export const PARTS: Record<PartId, Part> = {
   renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year (L1).", where: "Overview", ready: true },
   positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover (L2).", where: "Overview", ready: true },
   clubMeetings: { id: "clubMeetings", name: "Meetings and minutes", line: "General meetings, minutes, motions and the constitution (L3).", where: "Overview", ready: true },
-  handbook: { id: "handbook", name: "Handbook", line: "Handbook pages and processes (K1).", where: "Documents", ready: false },
-  directory: { id: "directory", name: "Directory", line: "Who does what, and who to ask (K2).", where: "Members", ready: false },
-  goals: { id: "goals", name: "Goals and projects", line: "Goals for the period and the projects behind them (K3).", where: "Overview", ready: false },
-  requests: { id: "requests", name: "Requests", line: "Requests to teams with an owner and a due date (K5).", where: "Tasks", ready: false },
+  handbook: { id: "handbook", name: "Handbook", line: "Handbook pages and processes (K1).", where: "Documents", ready: true },
+  directory: { id: "directory", name: "Directory", line: "Who does what, and who to ask (K2).", where: "Members", ready: true },
+  goals: { id: "goals", name: "Goals and projects", line: "Goals for the period and the projects behind them (K3).", where: "Overview", ready: true },
+  requests: { id: "requests", name: "Requests", line: "Requests to teams with an owner and a due date (K5).", where: "Tasks", ready: true },
   frontDoor: { id: "frontDoor", name: "Welcome", line: "The front door: agreement, welcome and first steps (M1).", where: "About", ready: false },
   members: { id: "members", name: "Members", line: "A member directory with statuses (M2).", where: "Members", ready: false },
   groups: { id: "groups", name: "Small groups", line: "Groups people join or ask to join (M5).", where: "Projects", ready: false },
@@ -89,3 +89,7 @@ export function kitSettings(id: string | null | undefined, keyDate?: string | nu
 /** B8.7: a club's part (L1–L3) in a club, or in an Other organization that switched it on (the Association kit). */
 export const clubLike = (type: string | null | undefined, orgSettings: unknown, part: "renewal" | "positions" | "clubMeetings") =>
   type === "club" || (type === "other" && partOn(orgSettings, part));
+
+/** B8.8: a company's part (K1–K5) in a company, or in an Other organization that switched it on (the Public-sector kit). */
+export const companyLike = (type: string | null | undefined, orgSettings: unknown, part: "handbook" | "directory" | "goals" | "requests") =>
+  type === "company" || (type === "other" && partOn(orgSettings, part));

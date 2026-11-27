@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { db } from '@/lib/db';
+import { db } from '@/lib/db'
+import { partOn } from '@/lib/organizations/kits';
 import { docOpens, workspaceDocuments, workspaceMembers, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, sprintMaterials } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
@@ -139,7 +140,9 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const listed = await listWorkspaceDocsAction(orgId);
     if (!listed.success) return { success: false, error: listed.error };
     const ids = listed.docs.map((d) => d.id);
-    const groups = readDocGroups((org.orgSettings as { docGroups?: unknown } | null)?.docGroups, org.orgType);
+    // B8.8: an Other organization with the Handbook on reads its documents as a company does (groups, templates).
+    const docType = org.orgType === "other" && partOn(org.orgSettings, "handbook") ? "company" : org.orgType;
+    const groups = readDocGroups((org.orgSettings as { docGroups?: unknown } | null)?.docGroups, docType);
     const [rows, opens, sprints] = ids.length === 0 ? [[], [], []] : await Promise.all([
         db.select({ id: workspaceDocuments.id, settings: workspaceDocuments.settings, updatedAt: workspaceNodes.updatedAt, linkedNodeId: workspaceDocuments.linkedNodeId,
             publishedVersionId: workspaceDocuments.publishedVersionId,
@@ -186,7 +189,7 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
         : [];
     const [members] = isAdmin ? await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${orgId} AND role IN ('member', 'viewer')`) : [];
     return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, isInside: Boolean(role), memberCount: members?.n ?? 0, signedIn: Boolean(userId), groups, docs, sprints: linkable,
-        viewerId: userId ?? null, orgType: org.orgType ?? null, canRun: Boolean(userId && role && role !== 'viewer'), reviewMonths: reviewMonthsOf(org.orgSettings), people: isAdmin ? people : [] } };
+        viewerId: userId ?? null, orgType: docType ?? null, canRun: Boolean(userId && role && role !== 'viewer'), reviewMonths: reviewMonthsOf(org.orgSettings), people: isAdmin ? people : [] } };
 }
 
 const optionsSchema = z.object({
@@ -215,7 +218,7 @@ export async function updateOrgDocOptionsAction(orgId: string, docId: string, in
     // Report §37.4: Public only when the organization itself is public.
     if (visibility === 'public' && org && !(await orgIsPublic(orgId))) return { success: false, error: `${org.title} is private, so its documents can’t be public.` };
     // A template moves to the Templates group unless a group is chosen too (report §37.4).
-    if (patch.template === true && patch.group === undefined && readDocGroups((org?.orgSettings as { docGroups?: unknown } | null)?.docGroups, org?.orgType).some((g) => g.id === 'templates')) patch.group = 'templates';
+    if (patch.template === true && patch.group === undefined && readDocGroups((org?.orgSettings as { docGroups?: unknown } | null)?.docGroups, org?.orgType === "other" && partOn(org.orgSettings, "handbook") ? "company" : org?.orgType).some((g) => g.id === 'templates')) patch.group = 'templates';
     if (patch.owner && !(await pageOwners(orgId)).some((p) => p.id === patch.owner)) return { success: false, error: 'Pick someone in the organization as the owner.' };
     // Report 35.2 call 3 (B6.1b): a page placed in a lab guide's Safety and training is Required reading unless said otherwise.
     if (org?.orgType === 'research' && patch.group === 'safety' && patch.required === undefined) patch.required = true;

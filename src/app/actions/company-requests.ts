@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
+import { companyLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { activeTypes } from "@/lib/workflows/requests";
@@ -27,8 +28,9 @@ async function companyMember(orgId: string) {
   const { userId } = await getViewerAuthContext();
   if (!userId) return null;
   const a = await getWorkspaceAccessById(orgId, userId);
-  const [w] = Array.from(await db.execute<{ type: string | null }>(sql`SELECT org_type AS type FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "company" || !(a.isOwner || (a.isMember && a.memberRole !== "viewer"))) return null;
+  const [w] = Array.from(await db.execute<{ type: string | null; org: unknown }>(sql`SELECT org_type AS type, org_settings AS org FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
+  // B8.8: an Other organization with Requests on (the Public-sector kit).
+  if (!w || !companyLike(w.type, w.org, "requests") || !(a.isOwner || (a.isMember && a.memberRole !== "viewer"))) return null;
   return { userId };
 }
 

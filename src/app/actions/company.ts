@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
+import { companyLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -24,7 +25,8 @@ async function company(orgId: string) {
   const { userId } = await getViewerAuthContext();
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown }>(sql`SELECT org_type AS type, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (!w || w.type !== "company" || !a.canRead) return null;
+  // B8.8: an Other organization with the Handbook on reads What's new and Needs review as a company does.
+  if (!w || !companyLike(w.type, w.settings, "handbook") || !a.canRead) return null;
   const c = ((w.settings as { company?: Partial<CompanySettings> } | null)?.company ?? {}) as Partial<CompanySettings>;
   return { userId, admin: a.isOwner || a.memberRole === "admin", inside: a.isOwner || a.isMember,
     settings: { values: Array.isArray(c.values) ? c.values : [], offices: Array.isArray(c.offices) ? c.offices : [], publicValues: c.publicValues === true, publicOffices: c.publicOffices === true } };

@@ -359,10 +359,10 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 ) : null}
                 {data.pinned ? <PinnedRow orgId={orgId} base={base} pinned={data.pinned} onChanged={() => void query.refetch()} /> : null}
                 {/* Report 33.2 (B4.1d): a company's home — What's new under the pinned post; Needs review for admins. */}
-                {orgType === 'company' ? <WhatsNewCard orgId={orgId} base={base} /> : null}
-                {orgType === 'company' ? <NeedsReviewCard orgId={orgId} base={base} /> : null}
-                {orgType === 'company' ? <CompanyGoalsCard orgId={orgId} base={base} /> : null}
-                {orgType === 'company' ? <AskTeamCard orgId={orgId} base={base} /> : null}
+                {orgType === 'company' || (orgType === 'other' && parts.includes('handbook')) ? <WhatsNewCard orgId={orgId} base={base} /> : null}
+                {orgType === 'company' || (orgType === 'other' && parts.includes('handbook')) ? <NeedsReviewCard orgId={orgId} base={base} /> : null}
+                {orgType === 'company' || (orgType === 'other' && parts.includes('goals')) ? <CompanyGoalsCard orgId={orgId} base={base} /> : null}
+                {orgType === 'company' || (orgType === 'other' && parts.includes('requests')) ? <AskTeamCard orgId={orgId} base={base} /> : null}
                 {data.getStarted.length ? (
                     // Report §7.2, decision 7: three cards while the organization is empty, each opening the real form.
                     <OrgCard title="Get started" action={typeProfile(orgType).schools ? <Link href="/help/running-a-class" className="nb-link text-[13px]">Running a class on NetworkBase</Link> : undefined}>

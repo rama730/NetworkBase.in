@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { expectedPace, goalSettings, goalStatus, krProgress, objectiveProgress, periodLabel, periodOf, periodRange, type GoalStatus } from "@/lib/workflows/goals";
+import { companyLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -26,9 +27,10 @@ async function companyOf(orgId: string) {
   const { userId } = await getViewerAuthContext();
   if (!userId) return null;
   const a = await getWorkspaceAccessById(orgId, userId);
-  const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown }>(sql`
-    SELECT org_type AS type, workflow_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (!w || w.type !== "company" || !(a.isOwner || a.isMember)) return null;
+  const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown; org: unknown }>(sql`
+    SELECT org_type AS type, workflow_settings AS settings, org_settings AS org FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
+  // B8.8: an Other organization with Goals and projects on (the Public-sector kit).
+  if (!w || !companyLike(w.type, w.org, "goals") || !(a.isOwner || a.isMember)) return null;
   return { userId, admin: a.isOwner || a.memberRole === "admin", gs: goalSettings((w.settings as { goals?: unknown } | null)?.goals) };
 }
 
@@ -90,10 +92,10 @@ async function projectOf(projectId: string) {
   const { userId } = await getViewerAuthContext();
   if (!userId) return null;
   const a = await getWorkspaceAccessById(projectId, userId);
-  const [w] = Array.from(await db.execute<{ parent: string | null; type: string | null }>(sql`
-    SELECT w.parent_id AS parent, o.org_type AS type FROM workspaces w LEFT JOIN workspaces o ON o.id = w.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+  const [w] = Array.from(await db.execute<{ parent: string | null; type: string | null; org: unknown }>(sql`
+    SELECT w.parent_id AS parent, o.org_type AS type, o.org_settings AS org FROM workspaces w LEFT JOIN workspaces o ON o.id = w.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL
     WHERE w.id = ${projectId}::uuid AND w.kind = 'workspace' AND w.deleted_at IS NULL`));
-  if (!w?.parent || w.type !== "company" || !(a.isOwner || a.isMember)) return null;
+  if (!w?.parent || !companyLike(w.type, w.org, "goals") || !(a.isOwner || a.isMember)) return null;
   return { userId, companyId: w.parent, lead: a.isOwner || a.memberRole === "admin" || a.memberRole === "owner", member: a.isOwner || (a.isMember && a.memberRole !== "viewer") };
 }
 

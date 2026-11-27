@@ -45,10 +45,10 @@ test("37.2 (B8.4a): parts switch on and off from Settings → Workflows; off hid
   viewerId = owner!;
   assert.equal((await v.readVolunteersAction(id)).success, false, "a part that's off shows nothing");
   const parts = await op.readPartsAction(id);
-  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings,meetings,renewal,positions,clubMeetings");
+  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings,meetings,renewal,positions,clubMeetings,handbook,directory,goals,requests");
   assert.ok((await op.setPartAction(id, "volunteers", true)).success);
   assert.match(String((await op.setPartAction(id, "volunteers", true) as { error?: string }).error), /already on/);
-  assert.equal((await op.setPartAction(id, "handbook", true)).success, false, "parts that don’t work here yet aren’t offered");
+  assert.equal((await op.setPartAction(id, "groups", true)).success, false, "parts that don’t work here yet aren’t offered");
   assert.ok((await v.saveVolunteerSettingsAction(id, { on: true, agreement: { text: "", version: 0 }, roles: [{ id: "sorting", name: "Sorting", line: "", training: false }] })).success);
   const shift = await v.saveShiftAction(id, { roleId: "sorting", place: "", start: new Date(Date.now() + 86_400_000).toISOString(), end: new Date(Date.now() + 90_000_000).toISOString(), places: 3, note: "" });
   assert.ok(shift.success);
@@ -60,7 +60,7 @@ test("37.2 (B8.4a): parts switch on and off from Settings → Workflows; off hid
   assert.ok((await op.setPartAction(id, "volunteers", true)).success);
   const back = await v.readVolunteersAction(id);
   assert.ok(back.success && "shifts" in back && back.shifts.length === 1, "on again brings everything back");
-  assert.equal((await op.addKitPartsAction(id, "public_sector")).success, false, "a kit is added only once all its parts work here");
+  assert.equal((await op.addKitPartsAction(id, "faith")).success, false, "a kit is added only once all its parts work here");
   const kit = await op.addKitPartsAction(id, "nonprofit");
   assert.ok(kit.success && kit.added === 3, "Add from a kit switches on the parts not on yet");
 });
@@ -122,5 +122,25 @@ test("37.2 (B8.7): the Association kit — positions, elections, general meeting
   assert.ok((await con.writeConstitutionAction(id, STARTER_ARTICLES)).success, "the constitution works here");
   const meetings = await loadAppModule(() => import("../../src/lib/workflows/meeting-settings-server"));
   assert.ok((await meetings.readMeetingSettings(id)).types.includes("general"), "general meetings, the AGM and the rest");
+});
+
+test("37.2 (B8.8): the Public-sector kit — the handbook, directory, goals and requests work in an Other organization with their parts on", async () => {
+  const [owner, member] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, owner!, {}));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'other', status = 'active', title = 'WT Ward office' WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${member!}, 'member')`;
+  const docs = await loadAppModule(() => import("../../src/app/actions/org-docs"));
+  const people = await loadAppModule(() => import("../../src/app/actions/company-people"));
+  const goals = await loadAppModule(() => import("../../src/app/actions/company-goals"));
+  viewerId = owner!;
+  const before = await docs.readOrgDocsAction(id);
+  assert.ok(before.success && before.data?.orgType === "other");
+  assert.ok((await op.addKitPartsAction(id, "public_sector")).success);
+  const after = await docs.readOrgDocsAction(id);
+  assert.ok(after.success && after.data?.orgType === "company" && after.data.groups.some((g) => g.id === "how"), "documents read as a company's: the Handbook group and templates");
+  viewerId = member!;
+  assert.ok((await people.readDirectoryAction(id)).success, "the directory works here");
+  assert.ok((await goals.readCompanyGoalsAction(id)).success, "goals work here");
 });
 

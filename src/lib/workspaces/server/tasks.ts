@@ -1178,8 +1178,9 @@ async function isCommunityOrg(projectId: string) {
 }
 
 async function isCompanyOrg(projectId: string) {
-  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
-  return row?.kind === "organization" && row.orgType === "company";
+  const [row] = await db.select({ kind: workspaces.kind, orgType: workspaces.orgType, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  // B8.8: an Other organization with Requests on (the Public-sector kit).
+  return row?.kind === "organization" && (row.orgType === "company" || (row.orgType === "other" && (await import("@/lib/organizations/kits")).partOn(row.settings, "requests")));
 }
 
 async function checkNewItemType(projectId: string, userId: string, type: string, stage: string | null, fields: Record<string, unknown>) {

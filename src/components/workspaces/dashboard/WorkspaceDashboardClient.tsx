@@ -1320,7 +1320,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     <TabErrorBoundary tabName="Workspaces">
                         {organization?.isSchool ? <SchoolClassesTab orgId={project.id} />
                             // Report 33.4 (B4.3): a company's Workspaces add Goals and Timeline beside the list.
-                            : organization?.type === 'company' ? <CompanyProjects orgId={project.id} base={canonicalProjectHref} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
+                            : organization?.type === 'company' || (organization?.type === 'other' && organization.parts?.includes('goals')) ? <CompanyProjects orgId={project.id} base={canonicalProjectHref} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
                             // Report 34.6 (B5.5a): a community's Workspaces add Chapters.
                             : organization?.type === 'community' ? <CommunityProjects orgId={project.id} list={<OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />} />
                             // Report 36.3 (B7.2a): a club's Workspaces add Committees.
@@ -1331,7 +1331,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             )}
 
             {/* Report 33.3 (B4.2): a company's Members is the Directory for everyone inside; admins keep the roster there. */}
-            {isOrganization && organization?.type === 'company' && activeTab === 'members' && (
+            {isOrganization && (organization?.type === 'company' || (organization?.type === 'other' && organization.parts?.includes('directory'))) && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
                         <CompanyPeople orgId={project.id} roster={canManageProjectSettings ? <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} /> : null} />
@@ -1354,7 +1354,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     </TabErrorBoundary>
                 </div>
             )}
-            {isOrganization && organization?.type !== 'company' && organization?.type !== 'community' && organization?.type !== 'research' && canManageProjectSettings && activeTab === 'members' && (
+            {isOrganization && organization?.type !== 'company' && organization?.type !== 'community' && organization?.type !== 'research' && !(organization?.type === 'other' && organization.parts?.includes('directory')) && canManageProjectSettings && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
                         {organization && !organization.isSchool && typeProfile(organization.type).schools

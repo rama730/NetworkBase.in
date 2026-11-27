@@ -7,6 +7,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { wouldLoop, type ReportsTo } from "@/lib/organizations/directory";
+import { companyLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -27,7 +28,8 @@ async function company(orgId: string) {
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; slug: string | null; settings: unknown }>(sql`
     SELECT org_type AS type, slug, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (!w || w.type !== "company" || !(a.isOwner || a.isMember)) return null;
+  // B8.8: an Other organization with the Directory on (the Public-sector kit).
+  if (!w || !companyLike(w.type, w.settings, "directory") || !(a.isOwner || a.isMember)) return null;
   const s = (w.settings ?? {}) as { directory?: { viewers?: boolean }; staffGrowth?: { reportsTo?: ReportsTo }; company?: { offices?: Array<{ name: string }> } };
   return { userId, slug: w.slug, admin: a.isOwner || a.memberRole === "admin", viewer: !a.isOwner && a.memberRole === "viewer",
     viewersAllowed: s.directory?.viewers === true, reportsTo: (s.staffGrowth?.reportsTo ?? {}) as ReportsTo, offices: (s.company?.offices ?? []).map((o) => o.name) };
