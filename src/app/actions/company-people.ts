@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { isTimeOffType, seesTimeOffType, TIME_OFF_TYPES, timeOffNames, wouldLoop, type ReportsTo } from "@/lib/organizations/directory";
+import { isTimeOffType, nextDays, seesTimeOffType, TIME_OFF_TYPES, timeOffNames, wouldLoop, type ReportsTo } from "@/lib/organizations/directory";
 import { recordAway } from "@/lib/organizations/away-server";
 import { orgLabel } from "@/lib/organizations/notify";
 import { zonedInputToIso } from "@/lib/organizations/zoned-time";
@@ -181,23 +181,34 @@ export async function bookTimeOffAction(orgId: string, input: z.input<typeof tim
   const parsed = timeOffSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Pick the first and last day, and a type." };
   const zone = (await orgLabel(orgId))?.timeZone ?? null;
+  // Security review: time off starts today or later, so it can't excuse work already due.
+  if (parsed.data.from < nextDays(new Date(), zone, 1)[0]!) return { success: false, error: "Book from today on." };
   const from = new Date(zonedInputToIso(`${parsed.data.from}T00:00`, zone)), to = new Date(zonedInputToIso(`${parsed.data.to}T23:59`, zone));
   if (to <= from) return { success: false, error: "The last day can’t be before the first." };
-  if (to.getTime() < Date.now()) return { success: false, error: "Those days have passed." };
   if (to.getTime() - from.getTime() > 366 * 86_400_000) return { success: false, error: "Book up to a year at a time." };
-  const excused = await db.transaction((tx) => recordAway(tx, { orgId, userId: ctx.userId, from, to, reason: null, type: parsed.data.type, createdBy: ctx.userId }));
+  const excused = await db.transaction((tx) => recordAway(tx, { orgId, userId: ctx.userId, from, to, reason: null, type: parsed.data.type, createdBy: ctx.userId, excuseFrom: new Date() }));
   return { success: true, excused };
 }
 
-/** Cancel my own time off: one still to come is removed; one under way ends now. Nothing already excused comes back. */
+/**
+ * Cancel my own time off (only what I booked myself; an admin's Mark away stays theirs): one still to come is removed,
+ * one under way ends now. Security review: work it excused that's still to come and not done is due again.
+ */
 export async function cancelTimeOffAction(orgId: string, awayId: string): Promise<{ success: true } | Failure> {
   const ctx = await company(orgId);
   if (!ctx || ctx.viewer || !isLooseUuid(awayId)) return DENIED;
-  const gone = Array.from(await db.execute(sql`DELETE FROM org_member_away WHERE id = ${awayId}::uuid AND org_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND starts_at > now() RETURNING id`));
-  if (gone.length) return { success: true };
-  const ended = Array.from(await db.execute(sql`UPDATE org_member_away SET ends_at = greatest(starts_at + interval '1 minute', now())
-    WHERE id = ${awayId}::uuid AND org_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND ends_at > now() RETURNING id`));
-  return ended.length ? { success: true } : DENIED;
+  return db.transaction(async (tx) => {
+    const [a] = Array.from(await tx.execute<{ starts: string; ends: string; created: string }>(sql`
+      SELECT starts_at::text AS starts, ends_at::text AS ends, created_at::text AS created FROM org_member_away
+      WHERE id = ${awayId}::uuid AND org_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND created_by = ${ctx.userId}::uuid AND type IS NOT NULL AND ends_at > now() FOR UPDATE`));
+    if (!a) return DENIED;
+    await tx.execute(sql`UPDATE tasks SET excused_at = NULL, excused_reason = NULL, updated_at = now()
+      WHERE workspace_id = ${orgId}::uuid AND assignee_id = ${ctx.userId}::uuid AND excused_reason = 'Away' AND excused_at >= ${a.created}::timestamptz
+        AND status <> 'done' AND due_date > now() AND due_date >= ${a.starts}::timestamptz AND due_date <= ${a.ends}::timestamptz`);
+    if (new Date(a.starts) > new Date()) await tx.execute(sql`DELETE FROM org_member_away WHERE id = ${awayId}::uuid`);
+    else await tx.execute(sql`UPDATE org_member_away SET ends_at = greatest(starts_at + interval '1 minute', now()) WHERE id = ${awayId}::uuid`);
+    return { success: true as const };
+  });
 }
 
 /** Counts (call 8, admins): people by team and by office, and joins per month for the last 12 — never a name. */

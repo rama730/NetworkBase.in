@@ -102,7 +102,7 @@ test("33.3 call 5 (B4.2c): book time off with a type; others see Away; the type 
 
   viewerId = dev!;
   assert.match(String((await people.bookTimeOffAction(id, { from: day(3), to: day(1), type: "vacation" }) as { error?: string }).error), /before the first/);
-  assert.match(String((await people.bookTimeOffAction(id, { from: day(-5), to: day(-3), type: "vacation" }) as { error?: string }).error), /passed/);
+  assert.match(String((await people.bookTimeOffAction(id, { from: day(-5), to: day(3), type: "vacation" }) as { error?: string }).error), /from today/, "security review: no backdating to excuse work already due");
   assert.equal((await people.bookTimeOffAction(id, { from: day(2), to: day(4), type: "bogus" as never })).success, false);
   assert.ok((await people.bookTimeOffAction(id, { from: day(2), to: day(4), type: "vacation" })).success);
   const label = async (who: string) => { viewerId = who; const r = await people.readWhosOutAction(id); assert.ok(r.success); return r.out.find((o) => o.person === dev!)?.label; };
@@ -120,6 +120,18 @@ test("33.3 call 5 (B4.2c): book time off with a type; others see Away; the type 
   viewerId = dev!;
   assert.ok((await people.cancelTimeOffAction(id, row.id as string)).success);
   assert.equal((await sql`SELECT count(*)::int AS n FROM org_member_away WHERE org_id = ${id}`)[0]!.n, 0, "time off still to come is removed");
+
+  // Security review: booking excuses my work due then; cancelling makes it due again; an admin's Mark away isn't mine to cancel.
+  const [m] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_settings, creator_id) VALUES (${id}, 'WT report', 'assignment', ${sql.json({})}, ${owner!}) RETURNING id`;
+  const [c] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, due_date) VALUES (${id}, 'WT report', 'task', ${m!.id}, ${dev!}, ${owner!}, now() + interval '3 days') RETURNING id`;
+  const booked = await people.bookTimeOffAction(id, { from: day(2), to: day(4), type: "sick" });
+  assert.ok(booked.success && booked.excused === 1);
+  const again = (await sql`SELECT id FROM org_member_away WHERE org_id = ${id} AND user_id = ${dev!}`)[0]!.id as string;
+  assert.ok((await people.cancelTimeOffAction(id, again)).success);
+  assert.equal((await sql`SELECT excused_at FROM tasks WHERE id = ${c!.id}`)[0]!.excused_at, null, "the work is due again");
+  await sql`INSERT INTO org_member_away (org_id, user_id, starts_at, ends_at, created_by) VALUES (${id}, ${dev!}, now() + interval '5 days', now() + interval '6 days', ${owner!})`;
+  const admins = (await sql`SELECT id FROM org_member_away WHERE org_id = ${id} AND user_id = ${dev!}`)[0]!.id as string;
+  assert.equal((await people.cancelTimeOffAction(id, admins)).success, false, "an admin's Mark away isn't cancelled by the member");
   viewerId = owner!;
   assert.ok((await people.saveDirectorySettingsAction(id, { typeNames: { sick: "Unwell" } })).success);
   const s = (await sql`SELECT org_settings->'directory' AS d, org_settings->'staffGrowth' AS g FROM workspaces WHERE id = ${id}`)[0]!;
