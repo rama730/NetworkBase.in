@@ -28,8 +28,8 @@ async function tell(ctx: Ctx, orgId: string, to: string[], title: string, key: s
 }
 
 type ReviewRow = { id: string; state: ReviewState; report: Record<string, string>; feedback: string; committee_ids: string[]; committee_comments: Array<{ by: string; text: string; at: string }>; next_steps: string };
-async function reviewOf(orgId: string, userId: string, key: string, lock = false) {
-  const [r] = Array.from(await db.execute<ReviewRow>(sql`
+async function reviewOf(orgId: string, userId: string, key: string, lock = false, ex: Pick<typeof db, "execute"> = db) {
+  const [r] = Array.from(await ex.execute<ReviewRow>(sql`
     SELECT id, state, report, feedback, to_jsonb(committee_ids) AS committee_ids, committee_comments, next_steps FROM lab_reviews
     WHERE org_id = ${orgId}::uuid AND user_id = ${userId}::uuid AND milestone_key = ${key} ${lock ? sql`FOR UPDATE` : sql``}`));
   return r ?? null;
@@ -118,7 +118,8 @@ export async function decideReviewAction(orgId: string, userId: string, key: str
     if (ok.length !== new Set(d.committeeIds).size) return { success: false, error: "Committee members are people in the lab (Viewers too), not the student." };
   }
   const done = await db.transaction(async (tx) => {
-    const r = await reviewOf(orgId, userId, key, true);
+    // Security review: the row lock is taken inside this transaction.
+    const r = await reviewOf(orgId, userId, key, true, tx);
     if (!r || (r.state !== "with_supervisor" && r.state !== "with_committee")) return false;
     if (toCommittee && r.state === "with_supervisor") {
       await tx.execute(sql`UPDATE lab_reviews SET feedback = ${d.feedback}, committee_ids = ${`{${[...new Set(d.committeeIds)].join(",")}}`}::uuid[], state = 'with_committee', updated_at = now() WHERE id = ${r.id}::uuid`);
@@ -152,13 +153,14 @@ async function readAsCommittee(orgId: string, userId: string, key: string) {
 /** A committee member comments while the review is with the committee (Viewers included). */
 export async function commentReviewAction(orgId: string, userId: string, key: string, text: unknown): Promise<{ success: true } | Failure> {
   const ctx = await labMember(orgId);
-  if (!ctx || !isLooseUuid(userId) || typeof key !== "string" || typeof text !== "string" || !text.trim() || text.length > 4000) return DENIED;
+  if (!ctx || ctx.blocked || !isLooseUuid(userId) || typeof key !== "string" || typeof text !== "string" || !text.trim() || text.length > 4000) return DENIED;
   const ok = await db.transaction(async (tx) => {
-    const r = await reviewOf(orgId, userId, key, true);
+    const r = await reviewOf(orgId, userId, key, true, tx);
     if (!r || r.state !== "with_committee" || !r.committee_ids.includes(ctx.userId)) return false;
     const comments = [...r.committee_comments, { by: ctx.userId, text: text.trim(), at: new Date().toISOString() }].slice(-30);
-    await tx.execute(sql`UPDATE lab_reviews SET committee_comments = ${JSON.stringify(comments)}::jsonb, updated_at = now() WHERE id = ${r.id}::uuid`);
-    return true;
+    const done = Array.from(await tx.execute(sql`UPDATE lab_reviews SET committee_comments = ${JSON.stringify(comments)}::jsonb, updated_at = now()
+      WHERE id = ${r.id}::uuid AND state = 'with_committee' AND ${ctx.userId}::uuid = ANY(committee_ids) RETURNING id`));
+    return done.length > 0;
   });
   return ok ? { success: true } : DENIED;
 }
@@ -229,6 +231,7 @@ const concernSchema = z.object({ to: z.string().uuid(), about: z.string().uuid()
 export async function raiseConcernAction(orgId: string, input: unknown): Promise<{ success: true } | Failure> {
   const ctx = await lab(orgId);
   const parsed = concernSchema.safeParse(input);
+  // Deliberately no write-block refusal: a concern is a safety channel and stays open while a lab is restricted.
   if (!ctx) return DENIED;
   if (!parsed.success) return { success: false, error: "Say what worries you and who should hear it." };
   const c = parsed.data;

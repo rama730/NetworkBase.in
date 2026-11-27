@@ -43,13 +43,17 @@ export async function personOf(ctx: Ctx, orgId: string, userId: string) {
 }
 export const supervises = (ctx: Ctx, person: { supervisor: string; co: string | null }) => ctx.userId === person.supervisor || ctx.userId === person.co;
 
-/** B6.5c: any active member of the research lab, Viewers included (committee members are often Viewers). */
+/**
+ * B6.5c: any active member of the research lab, Viewers included (committee members are often Viewers). Security review:
+ * the same read rule as everywhere else, and `blocked` when the lab takes no changes.
+ */
 export async function labMember(orgId: string) {
   if (!isLooseUuid(orgId)) return null;
   const { userId } = await getViewerAuthContext();
   if (!userId) return null;
+  const a = await getWorkspaceAccessById(orgId, userId);
   const [m] = Array.from(await db.execute<{ ok: boolean }>(sql`
-    SELECT true AS ok FROM workspace_members m JOIN workspaces o ON o.id = m.workspace_id AND o.org_type = 'research' AND o.deleted_at IS NULL
+    SELECT true AS ok FROM workspace_members m JOIN workspaces o ON o.id = m.workspace_id AND o.kind = 'organization' AND o.org_type = 'research' AND o.deleted_at IS NULL
     WHERE m.workspace_id = ${orgId}::uuid AND m.user_id = ${userId}::uuid AND m.completed_at IS NULL`));
-  return m ? { userId } : null;
+  return m && a.canRead ? { userId, blocked: Boolean(a.writeBlocked) } : null;
 }
