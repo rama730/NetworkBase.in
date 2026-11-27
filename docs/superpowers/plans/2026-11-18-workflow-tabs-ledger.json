@@ -1358,9 +1358,9 @@
       "text": "B7.3 L3 Meetings, minutes, votes (36.4)",
       "kind": "unit",
       "milestone": "B7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/meeting-rules.test.ts; tests/unit/club.test.ts; tests/db/meetings.test.ts; tests/browser/club.spec.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 779b94036): B7.3a General/Committee/AGM meetings held by the club itself, minutes leaders-only until approved then members, quorum a share of members staying this Season, a motion needs a seconder, agenda requests Accept/Hold (0174); B7.3b constitution in versions, first by the President then only by an amendment motion passed by two-thirds of those voting, public on About if chosen, Decisions by Season with failed attempts (0175); B7.3c online motion votes by secret ballot (storage test), close only at their time, quorum fixed at open, electorate fixed at open (also for elections). 0174-0176 in prod. Live check pending (Chrome extension disconnected)."
     },
     {
       "key": "B7.4",
