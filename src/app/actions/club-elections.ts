@@ -7,6 +7,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { readPositions, tally } from "@/lib/organizations/club";
+import { giveRoles } from "@/lib/organizations/club-server";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -213,6 +214,9 @@ export async function closeVotingAction(orgId: string): Promise<{ success: true;
           SELECT ${orgId}::uuid, ${p.id}, ${p.label}, ${e.season}, ${w}::uuid, coalesce(pr.full_name, pr.username, 'Member'), 'election', 'holding', now() FROM profiles pr WHERE pr.id = ${w}::uuid
           ON CONFLICT DO NOTHING`);
       }
+      // B7.2c: winners for the Season under way (a by-election) take their role now; a later Season's at the handover.
+      const committee = readPositions(ctx.w.settings);
+      if (e.season === committee.season) await giveRoles(tx, orgId, e.season, committee.positions.filter((p) => p.gives === "coordinator").map((p) => p.id));
     }
     return { runoffs, id: e.id, done };
   });

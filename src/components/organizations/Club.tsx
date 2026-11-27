@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Megaphone, Printer } from "lucide-react";
 
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
+import { moveWorkAction, readHandoverAction, saveHandoverAction, tickHandoverAction } from "@/app/actions/club-handover";
 import { answerNominationAction, closeVotingAction, nominateAction, openVotingAction, readElectionAction, startElectionAction, voteAction } from "@/app/actions/club-elections";
 import { answerAppointmentAction, appointAction, endTermAction, readCommitteeAction, savePositionsAction } from "@/app/actions/club-positions";
 import { readCommunityEventsAction } from "@/app/actions/community-events";
@@ -14,13 +15,14 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { DEFAULT_ASK, RENEWAL_WORDS, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
+import { DEFAULT_ASK, HANDOVER_ITEMS, RENEWAL_WORDS, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
 
 // Report 36.2 (plan B7.1a, L1): Recruiting now on a club's About, the officers' Recruiting card (dates, line, first event,
 // the drive's counts) and the printable join poster (the short link and the code; no QR code).
 const safe = <T,>(p: Promise<T>) => p.catch(() => ({ success: false as const, error: "Couldn’t save that. Try again." }));
 const day = (d: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
 const key = (orgId: string) => ["club-recruiting", orgId] as const;
+const count = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** About (everyone): the Recruiting now banner while the period lasts. */
 export function RecruitingBanner({ orgId }: { orgId: string }) {
@@ -294,3 +296,67 @@ export function ElectionCard({ orgId }: { orgId: string }) {
     </OrgCard>
   );
 }
+
+/**
+ * The handover (B7.2c, 36.3 call 10): the President sets the incoming Season and the date; each outgoing officer ticks
+ * five items, moves their open work to the incoming officer, and on the date roles switch. Seen by the people in it.
+ */
+export function HandoverCard({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["club-handover", orgId], queryFn: () => readHandoverAction(orgId), staleTime: 60_000 });
+  const [form, setForm] = useState<{ season: string; date: string } | null>(null);
+  const [appoint, setAppoint] = useState<Record<string, string>>({});
+  const d = q.data?.success ? q.data : null;
+  if (!d || (!d.handover && !d.president)) return null;
+  const refresh = () => void q.refetch();
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); refresh(); };
+  const h = d.handover;
+  const setup = form ? <fieldset className="flex flex-wrap items-end gap-2 text-[13px]" data-testid="club-handover-setup">
+    <label className="flex flex-col">Incoming Season<Input value={form.season} maxLength={20} onChange={(x) => setForm({ ...form, season: x.target.value })} className="mt-0.5 w-[120px] font-mono" /></label>
+    <label className="flex flex-col">Handover date<Input type="date" value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value })} className="mt-0.5 w-auto font-mono" /></label>
+    <button type="button" className={FORM_PRIMARY_CLASS} disabled={!form.season.trim() || !form.date} onClick={() => void run(saveHandoverAction(orgId, form), "Handover set").then(() => setForm(null))}>Save</button>
+    <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setForm(null)}>Cancel</button>
+  </fieldset> : null;
+  if (!h || !("rows" in d)) return (
+    <OrgCard title="Handover" testId="club-handover">
+      {setup ?? <span className="flex flex-wrap items-center gap-2 text-[13px]"><span className="text-muted-foreground">{d.last ? `Roles switched to ${d.last}. ` : ""}Set the incoming Season and the date its officers take over.</span>
+        <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setForm({ season: "", date: "" })}>Set the handover</button></span>}
+    </OrgCard>
+  );
+  const rows = d.rows.filter((r) => r.outgoing || r.incoming);
+  const withOut = rows.filter((r) => r.outgoing);
+  const status = withOut.length && withOut.every((r) => r.done === HANDOVER_ITEMS.length) ? "Done" : withOut.some((r) => r.done > 0) ? "In progress" : "Not started";
+  return (
+    <OrgCard title={`Handover · ${h.season}`} testId="club-handover" action={<StatusBadge state={status === "Done" ? "done" : status === "In progress" ? "active" : "draft"}>{status}</StatusBadge>}>
+      <div className="space-y-3 text-[13px]">
+        <p className="text-muted-foreground">Roles switch on {day(h.date)}. {h.open ? "Outgoing officers stay members." : "The checklist opens three weeks before."}
+          {d.president && !form ? <> <button type="button" className="nb-link" onClick={() => setForm({ season: h.season, date: h.date })}>Change</button></> : null}</p>
+        {setup}
+        <ul className="space-y-2">{d.rows.map((r) => (
+          <li key={r.id} className="space-y-1.5 rounded-md border border-border p-3" data-testid="club-handover-position">
+            <p className="flex flex-wrap items-center gap-2"><span className="font-medium">{r.label}</span>
+              <span className="text-muted-foreground">Outgoing: {r.outgoing?.name ?? "none"} · Incoming: {r.incoming ? `${r.incoming.name}${r.incoming.state === "offered" ? " (asked)" : ""}` : "none"}</span>
+              {r.outgoing ? <span className="text-muted-foreground">{r.done} of {HANDOVER_ITEMS.length}</span> : null}</p>
+            {r.president && r.incoming && r.incoming.userId !== r.outgoing?.userId ? <p className="text-muted-foreground">The presidency moves when you transfer ownership in Settings to {r.incoming.name}.</p> : null}
+            {!r.incoming && d.president && !r.president ? <span className="flex flex-wrap items-center gap-1.5">
+              <select className="nb-select" aria-label={`Appoint ${r.label} for ${h.season}`} value={appoint[r.id] ?? ""} onChange={(e) => setAppoint({ ...appoint, [r.id]: e.target.value })}>
+                <option value="">Appoint…</option>{d.people.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+              <button type="button" className={FORM_SECONDARY_CLASS} disabled={!appoint[r.id]} onClick={() => void run(appointAction(orgId, r.id, appoint[r.id]!, h.season), "Asked; they accept to take it")}>Ask</button></span> : null}
+            {r.outgoing && h.open ? <ul className="space-y-1" aria-label={`${r.label} handover checklist`}>{HANDOVER_ITEMS.map((i) => {
+              const ticked = Boolean(r.ticks[i.id]);
+              const moving = i.id === "tasks" || i.id === "docs";
+              return <li key={i.id} className="flex flex-wrap items-center gap-1.5">
+                <label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={ticked} disabled={!r.canTick || moving}
+                  onChange={(e) => void run(tickHandoverAction(orgId, r.outgoing!.termId, i.id, e.target.checked), "Saved")} />{i.label}</label>
+                {i.id === "meeting" && !ticked ? <span className="text-muted-foreground">Add a Handover meeting in Documents</span> : null}
+                {i.id === "accounts" && !ticked ? <span className="text-muted-foreground">On the role page, by name; never passwords</span> : null}
+              </li>;
+            })}</ul> : null}
+            {r.outgoing && h.open && r.canTick && !(r.ticks.tasks && r.ticks.docs) && r.incoming?.state === "holding" && r.incoming.userId !== r.outgoing.userId ?
+              <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(moveWorkAction(orgId, r.outgoing!.termId), `Moved to ${r.incoming!.name}`)}>
+                Move {count(r.work.tasks, "open task")} and {count(r.work.docs, "document")} to {r.incoming.name}</button> : null}
+          </li>))}</ul>
+      </div>
+    </OrgCard>
+  );
+}
+

@@ -103,6 +103,8 @@ export const chatDue = inngest.createFunction(
       await step.run("lab-progress", async () => (await import("@/lib/organizations/lab-progress-server")).progressNotices());
       // B7.1b (report 36.2 layer 15): the Season renewal reminder at day 25 to members who haven't answered (once).
       await step.run("club-renewal", async () => (await import("@/lib/organizations/club-server")).renewalReminders());
+      // B7.2c (report 36.3 call 10): the handover checklist opens three weeks before; on the date roles switch.
+      await step.run("club-handover", async () => (await import("@/lib/organizations/club-server")).handoverSteps());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

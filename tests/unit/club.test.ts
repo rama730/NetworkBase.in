@@ -49,3 +49,15 @@ test("tally: the most votes wins; abstain counts only as turnout; a tie goes to 
   assert.deepEqual(tally([null, null], ["a"]), { counts: { a: 0 }, abstained: 2, winner: null, tied: [] });
   assert.equal(tally(["x"], ["a"]).winner, null, "a choice that isn't a candidate counts for nobody");
 });
+
+test("handover: the checklist opens three weeks before; due on the date, once", async () => {
+  const { checklistOpen, handoverDue, readHandover } = await import("../../src/lib/organizations/club");
+  const h = { season: "2027–28", date: "2027-04-01" };
+  assert.equal(checklistOpen(h, "2027-03-10"), false);
+  assert.equal(checklistOpen(h, "2027-03-11"), true);
+  assert.equal(handoverDue(h, "2027-03-31"), false);
+  assert.equal(handoverDue(h, "2027-04-01"), true);
+  assert.equal(handoverDue({ ...h, switchedAt: "2027-04-01T00:00:00Z" }, "2027-04-02"), false);
+  assert.equal(readHandover({ club: { handover: { season: "", date: "2027-04-01" } } }), null);
+});
+

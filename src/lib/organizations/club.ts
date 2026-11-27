@@ -85,3 +85,22 @@ export function tally(choices: Array<string | null>, candidates: string[]) {
   const leaders = top > 0 ? candidates.filter((c) => counts[c] === top) : [];
   return { counts, abstained: choices.filter((c) => c === null).length, winner: leaders.length === 1 ? leaders[0]! : null, tied: leaders.length > 1 ? leaders : [] };
 }
+
+/**
+ * B7.2c (36.3 call 10): the handover — the incoming Season and the date roles switch. The checklist opens three weeks
+ * before; on the date the hourly job switches roles, and work the outgoing officer didn't move moves anyway (edge 12).
+ */
+export const handoverSchema = z.object({ season: z.string().trim().min(1).max(20), date: z.string().date(),
+  noticedAt: z.string().optional(), switchedAt: z.string().optional() }).strict();
+export type Handover = z.infer<typeof handoverSchema>;
+export function readHandover(orgSettings: unknown): Handover | null {
+  const p = handoverSchema.safeParse((orgSettings as { club?: { handover?: unknown } } | null)?.club?.handover);
+  return p.success ? p.data : null;
+}
+export const HANDOVER_ITEMS = [
+  { id: "role_page", label: "Role page updated" }, { id: "tasks", label: "Open tasks moved" }, { id: "docs", label: "Documents moved" },
+  { id: "accounts", label: "Accounts listed (names only)" }, { id: "meeting", label: "Handover meeting held" },
+] as const;
+export type HandoverItem = (typeof HANDOVER_ITEMS)[number]["id"];
+export const checklistOpen = (h: Handover, today: string) => Date.parse(`${today}T00:00:00Z`) >= Date.parse(`${h.date}T00:00:00Z`) - 21 * DAY;
+export const handoverDue = (h: Handover, today: string) => !h.switchedAt && today >= h.date;

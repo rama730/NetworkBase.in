@@ -14234,6 +14234,14 @@ HANDOVER · Treasurer · Ravi → Leena (Apr 1)        ☑ Role page updated  �
 4. **Counting** (call 6): the returning officer closes the round. The most votes wins; a tie opens a run-off round between the tied candidates (voting stays open for those positions); no votes leaves it unfilled. When nothing is tied, the election moves to Results and each winner holds the position for the election's Season. Their role switches at the handover (B7.2c), not now.
 5. **Not built:** the college's contact as returning officer (29.2), and dates that open and close phases by themselves; the returning officer moves each phase.
 
+**Build calls (B7.2c, 2026-11-27):**
+1. **The handover** is set by the President: the incoming Season's name and the handover date. Incoming holders come from the election (B7.2b) or an appointment for the incoming Season, which the person accepts; their role waits for the date.
+2. **The checklist** (0173) sits on the outgoing officer's term: role page updated, open tasks moved, documents moved, accounts listed (names only), Handover meeting held. Progress is "3 of 5". It opens three weeks before the date (one Normal notice to outgoing and incoming officers). The outgoing officer or the President ticks the three by-hand items; the two moves are ticked by **Move open tasks and documents**, which needs the incoming officer to have accepted. It moves open tasks in the club, and in its groups the incoming officer belongs to, plus the club documents the outgoing officer owns.
+3. **On the date** (hourly job): last Season's terms end; outgoing officers lose the Coordinator role their term gave, unless they hold a Coordinator position again (that carries on). Incoming holders get the role their position gives. Work nobody moved moves anyway (edge 12). The committee's Season becomes the incoming one, and both sides get "Roles switched". A President renaming the Season in Positions runs the same switch.
+4. **The presidency** isn't switched: the card tells the President to transfer ownership to the incoming President.
+5. **Handover meeting:** a new meeting type for clubs (The role · Open work · Accounts (names only) · Key dates · Tips). The checklist points to it rather than creating one.
+6. **Not built:** moving files (club files have no owner to move); the alumni offer to graduating officers (R1) and the org chart drawing (K2).
+
 ### 36.4 L3 · Meetings, minutes and votes (agreed 2026-11-17)
 **References** (12 searches for minutes, agendas, general meetings, constitutions, motions and board meetings: 101 templates, 41 rated; 4 more screens studied):
 

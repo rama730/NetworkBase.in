@@ -31,6 +31,7 @@ test('Club recruiting: the banner while it lasts, the officers card with drive c
       endTermAction: async () => ({ success: true }),
       savePositionsAction: async () => ({ success: true }),
       readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -72,6 +73,7 @@ test('Season renewal: the member ask, officers see counts and end only after a c
       endTermAction: async () => ({ success: true }),
       savePositionsAction: async () => ({ success: true }),
       readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -107,6 +109,7 @@ test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the
       endTermAction: async () => ({ success: true }),
       savePositionsAction: async () => ({ success: true }),
       readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -134,6 +137,7 @@ test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice)
     (window as any).__calls = calls;
     let voted = false;
     (window as any).__actions = {
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
       readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
@@ -160,3 +164,43 @@ test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice)
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['close']);
   expect(await axeViolations(page)).toEqual([]);
 });
+
+test('B7.2c Handover: progress of 5, ticks, Move open work to the incoming officer, the presidency by ownership transfer', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    let moved = false;
+    (window as any).__actions = {
+      readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
+      readRenewalAction: async () => ({ success: true, on: false, officer: false }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, president: false, me: 'u1', season: '2026–27', people: [], last: null,
+        handover: { season: '2027–28', date: '2027-04-01', open: true },
+        rows: [
+          { id: 'president', label: 'President', president: true, filled: 'election', outgoing: null, incoming: { termId: 't9', userId: 'u9', name: 'Pat', state: 'holding' }, ticks: {}, done: 0, canTick: false, work: { tasks: 0, docs: 0 } },
+          { id: 'secretary', label: 'Secretary', president: false, filled: 'election', outgoing: { termId: 't1', userId: 'u1', name: 'Sam' }, incoming: { termId: 't2', userId: 'u2', name: 'Ann', state: 'holding' },
+            ticks: moved ? { role_page: true, tasks: true, docs: true } : { role_page: true }, done: moved ? 3 : 1, canTick: true, work: { tasks: moved ? 0 : 2, docs: moved ? 0 : 1 } }] }),
+      tickHandoverAction: async (_o: string, t: string, i: string, on: boolean) => { calls.push(['tick', t, i, on]); return { success: true }; },
+      moveWorkAction: async (_o: string, t: string) => { calls.push(['move', t]); moved = true; return { success: true, tasks: 2, docs: 1 }; },
+    };
+  });
+  await openApp(page, 'tests/browser/club.fixture.tsx');
+  const card = page.getByTestId('club-handover');
+  await expect(card).toContainText('Roles switch on 1 April 2027');
+  await expect(card).toContainText('In progress');
+  await expect(card).toContainText('transfer ownership in Settings to Pat');
+  const sec = card.getByTestId('club-handover-position').filter({ hasText: 'Secretary' });
+  await expect(sec).toContainText('Outgoing: Sam · Incoming: Ann');
+  await expect(sec).toContainText('1 of 5');
+  await expect(sec.getByLabel('Open tasks moved')).toBeDisabled();
+  await sec.getByLabel('Accounts listed (names only)').click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['tick', 't1', 'accounts', true]);
+  await sec.getByRole('button', { name: 'Move 2 open tasks and 1 document to Ann' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['move', 't1']);
+  await expect(sec).toContainText('3 of 5');
+  await expect(sec.getByRole('button', { name: /Move/ })).toHaveCount(0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+

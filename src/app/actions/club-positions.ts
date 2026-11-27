@@ -5,7 +5,8 @@ import { sql } from "drizzle-orm";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { positionsSettingsSchema, readPositions } from "@/lib/organizations/club";
+import { positionsSettingsSchema, readHandover, readPositions } from "@/lib/organizations/club";
+import { notifyAll, switchSeason } from "@/lib/organizations/club-server";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -27,7 +28,7 @@ async function club(orgId: string) {
     SELECT org_type AS type, org_settings AS settings, owner_id AS owner, slug, title FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   if (w?.type !== "club" || !a.canRead) return null;
   return { userId, w, president: Boolean(userId) && a.isOwner && !a.writeBlocked, officer: Boolean(userId) && (a.isOwner || a.memberRole === "admin"),
-    member: Boolean(userId) && (a.isOwner || a.isMember), blocked: Boolean(a.writeBlocked), settings: readPositions(w.settings) };
+    member: Boolean(userId) && (a.isOwner || a.isMember), blocked: Boolean(a.writeBlocked), settings: readPositions(w.settings), handover: readHandover(w.settings) };
 }
 
 /** This Season's committee (everyone who can read the club), past Seasons (members), and what the viewer can do. */
@@ -58,7 +59,7 @@ export async function readCommitteeAction(orgId: string) {
         holder: t ? { termId: t.id, userId: t.user_id, name: t.holder_name, avatar: t.avatar, username: t.username, state: t.state as "offered" | "holding", how: t.how } : null };
     }),
     // Call 8: the committee history, kept after people leave (members only).
-    history: ctx.member ? terms.filter((t) => t.season !== season && (t.state === "holding" || t.state === "ended")).map((t) => ({ season: t.season, position: t.position_label, name: t.holder_name })) : [] };
+    history: ctx.member ? terms.filter((t) => t.season !== season && t.season !== ctx.handover?.season && (t.state === "holding" || t.state === "ended")).map((t) => ({ season: t.season, position: t.position_label, name: t.holder_name })) : [] };
 }
 
 /** Positions and the Season's name (the President): rename, add, remove, how each is filled, what it gives, its role page. */
@@ -81,26 +82,27 @@ export async function savePositionsAction(orgId: string, input: unknown): Promis
     if ((hidden?.n ?? 0) > 0) return { success: false, error: "A role page is one every member can read: publish it first." };
   }
   const newSeason = d.season !== ctx.settings.season;
-  await db.transaction(async (tx) => {
+  const tell = await db.transaction(async (tx) => {
     await tx.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{club}', coalesce(org_settings->'club', '{}'::jsonb) || jsonb_build_object('committee', ${JSON.stringify(d)}::jsonb))
       WHERE id = ${orgId}::uuid`);
-    if (!newSeason) return;
-    // Security review: a new Season ends last Season's terms, and the roles they gave go with them.
-    const ended = Array.from(await tx.execute<{ user_id: string | null; gave_role: boolean }>(sql`
-      UPDATE club_position_terms SET state = CASE WHEN state = 'holding' THEN 'ended' ELSE 'declined' END, ended_at = now()
-      WHERE org_id = ${orgId}::uuid AND season <> ${d.season} AND state IN ('offered', 'holding') RETURNING user_id, gave_role`));
-    for (const u of new Set(ended.filter((e) => e.gave_role && e.user_id && e.user_id !== ctx.w.owner).map((e) => e.user_id!))) {
-      await tx.execute(sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${orgId}::uuid AND user_id = ${u}::uuid AND role = 'admin'
-        AND NOT EXISTS (SELECT 1 FROM club_position_terms t WHERE t.org_id = ${orgId}::uuid AND t.user_id = ${u}::uuid AND t.state = 'holding' AND t.season = ${d.season})`);
-    }
+    // Security review + B7.2c: a new Season ends last Season's terms (their roles go with them) and gives the new holders theirs.
+    if (!newSeason) return [];
+    if (ctx.handover?.season === d.season && !ctx.handover.switchedAt) await tx.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{club,handover,switchedAt}', to_jsonb(now()::text)) WHERE id = ${orgId}::uuid`);
+    return switchSeason(tx, orgId, ctx.w.owner, d.season, d.positions);
   });
+  if (tell.length) await notifyAll(orgId, ctx.w.slug ?? orgId, tell, ctx.userId, `club-season:${orgId}:${d.season}`);
   return { success: true };
 }
 
-/** Appoint (the President): an offer the person accepts. One holder per position per Season. */
-export async function appointAction(orgId: string, positionId: string, userId: string): Promise<{ success: true } | Failure> {
+/**
+ * Appoint (the President): an offer the person accepts. One holder per position per Season. B7.2c: also for the incoming
+ * Season of a set handover; that role comes on the handover date, not now.
+ */
+export async function appointAction(orgId: string, positionId: string, userId: string, forSeason?: string): Promise<{ success: true } | Failure> {
   const ctx = await club(orgId);
   if (!ctx?.president || !isLooseUuid(userId) || typeof positionId !== "string") return DENIED;
+  const season = forSeason ?? ctx.settings.season;
+  if (season !== ctx.settings.season && (season !== ctx.handover?.season || ctx.handover.switchedAt)) return DENIED;
   const p = ctx.settings.positions.find((x) => x.id === positionId);
   if (!p) return DENIED;
   if (p.gives === "president") return { success: false, error: "The presidency moves through Transfer ownership in Settings." };
@@ -110,12 +112,12 @@ export async function appointAction(orgId: string, positionId: string, userId: s
   if (!m) return { success: false, error: "Officers are people in the club." };
   const [made] = Array.from(await db.execute<{ id: string }>(sql`
     INSERT INTO club_position_terms (org_id, position_id, position_label, season, user_id, holder_name, how, state, offered_by)
-    VALUES (${orgId}::uuid, ${p.id}, ${p.label}, ${ctx.settings.season}, ${userId}::uuid, ${m.name}, 'appointment', ${userId === ctx.userId ? "holding" : "offered"}, ${ctx.userId}::uuid)
+    VALUES (${orgId}::uuid, ${p.id}, ${p.label}, ${season}, ${userId}::uuid, ${m.name}, 'appointment', ${userId === ctx.userId ? "holding" : "offered"}, ${ctx.userId}::uuid)
     ON CONFLICT DO NOTHING RETURNING id`));
   if (!made) return { success: false, error: "That position already has someone this Season." };
-  if (userId === ctx.userId) await giveRole(orgId, userId, p.gives, made.id);
+  if (userId === ctx.userId && season === ctx.settings.season) await giveRole(orgId, userId, p.gives, made.id);
   else await createNotification({ recipientUserId: userId, actorUserId: ctx.userId, kind: "project_task_activity", category: "tasks", importance: "more",
-    title: `You're asked to be ${p.label} of ${ctx.w.title} this Season`, href: `/org/${encodeURIComponent(ctx.w.slug ?? orgId)}`, entityRefs: { projectId: orgId, projectSlug: ctx.w.slug ?? orgId },
+    title: `You're asked to be ${p.label} of ${ctx.w.title} for ${season}`, href: `/org/${encodeURIComponent(ctx.w.slug ?? orgId)}`, entityRefs: { projectId: orgId, projectSlug: ctx.w.slug ?? orgId },
     dedupeKey: `club-appoint:${made.id}` }).catch(() => undefined);
   return { success: true };
 }
@@ -131,11 +133,12 @@ async function giveRole(orgId: string, userId: string, gives: string, termId: st
 export async function answerAppointmentAction(orgId: string, termId: string, accept: boolean): Promise<{ success: true } | Failure> {
   const ctx = await club(orgId);
   if (!ctx?.member || ctx.blocked || !isLooseUuid(termId) || typeof accept !== "boolean") return DENIED;
-  const [t] = Array.from(await db.execute<{ position_id: string }>(sql`
+  const [t] = Array.from(await db.execute<{ position_id: string; season: string }>(sql`
     UPDATE club_position_terms SET state = ${accept ? "holding" : "declined"}, accepted_at = ${accept ? sql`now()` : sql`NULL`}
-    WHERE id = ${termId}::uuid AND org_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND state = 'offered' RETURNING position_id`));
+    WHERE id = ${termId}::uuid AND org_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND state = 'offered' RETURNING position_id, season`));
   if (!t) return DENIED;
-  if (accept) await giveRole(orgId, ctx.userId!, ctx.settings.positions.find((p) => p.id === t.position_id)?.gives ?? "none", termId);
+  // B7.2c: an incoming Season's role comes on the handover date.
+  if (accept && t.season === ctx.settings.season) await giveRole(orgId, ctx.userId!, ctx.settings.positions.find((p) => p.id === t.position_id)?.gives ?? "none", termId);
   return { success: true };
 }
 

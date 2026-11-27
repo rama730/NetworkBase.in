@@ -22,6 +22,8 @@ let club: typeof import("../../src/app/actions/club");
 let pos: typeof import("../../src/app/actions/club-positions");
 let el: typeof import("../../src/app/actions/club-elections");
 let groups: typeof import("../../src/app/actions/community-groups");
+let ho: typeof import("../../src/app/actions/club-handover");
+let srv: typeof import("../../src/lib/organizations/club-server");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -34,6 +36,8 @@ before(async () => {
   pos = await loadAppModule(() => import("../../src/app/actions/club-positions"));
   el = await loadAppModule(() => import("../../src/app/actions/club-elections"));
   groups = await loadAppModule(() => import("../../src/app/actions/community-groups"));
+  ho = await loadAppModule(() => import("../../src/app/actions/club-handover"));
+  srv = await loadAppModule(() => import("../../src/lib/organizations/club-server"));
 });
 
 const created: string[] = [];
@@ -256,3 +260,73 @@ test("36.3 (B7.2b): secret ballots — never joinable to a voter; one vote; the 
     (SELECT count(*)::int FROM club_voted v JOIN club_elections e ON e.id = v.election_id WHERE e.org_id = ${id}) AS voted`;
   assert.deepEqual({ ...counts }, { ballots: 6, voted: 6 }, "one ballot per voted record, and nothing ties them");
 });
+
+test("36.3 (B7.2c): the handover — checklist, open work moves, roles switch on the date and outgoing officers lose Coordinator", async () => {
+  const [pres, sam, ann, eve, tom, tia] = await Promise.all([1, 2, 3, 4, 5, 6].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, pres!, { visibility: "public" }));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active', org_settings = ${sql.json({ club: { committee: { season: "2026–27", positions: [
+    { id: "president", label: "President", filled: "election", gives: "president", docId: null }, { id: "secretary", label: "Secretary", filled: "election", gives: "coordinator", docId: null },
+    { id: "events", label: "Events officer", filled: "appointment", gives: "coordinator", docId: null }, { id: "tech", label: "Tech officer", filled: "appointment", gives: "coordinator", docId: null }] } } })} WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${pres!}, 'owner'), (${id}, ${sam!}, 'admin'), (${id}, ${ann!}, 'member'), (${id}, ${eve!}, 'admin'), (${id}, ${tom!}, 'admin'), (${id}, ${tia!}, 'member')`;
+  const term = async (pos: string, u: string, season: string) => (await sql`INSERT INTO club_position_terms (org_id, position_id, position_label, season, user_id, holder_name, how, state, gave_role)
+    VALUES (${id}, ${pos}, ${pos}, ${season}, ${u}, 'WT Holder', 'appointment', 'holding', ${season === "2026–27"}) RETURNING id`)[0]!.id as string;
+  const samTerm = await term("secretary", sam!, "2026–27");
+  await term("events", eve!, "2026–27");
+  await term("tech", tom!, "2026–27");
+  await term("events", eve!, "2027–28");
+  await term("tech", tia!, "2027–28");
+  const [t1] = await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id, creator_id, task_number) VALUES (${id}, 'WT Minutes', 'todo', ${sam!}, ${pres!}, 9301), (${id}, 'WT Done one', 'done', ${sam!}, ${pres!}, 9302),
+    (${id}, 'WT Site', 'in_progress', ${tom!}, ${pres!}, 9303), (${id}, 'WT Agenda', 'in_progress', ${sam!}, ${pres!}, 9304) RETURNING id`;
+  assert.ok(t1);
+  await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'wt-minutes-book', 'Minutes book.md', ${sql.json({ org: { lifecycle: "published", owner: sam! } })})`;
+
+  viewerId = sam!;
+  assert.equal((await ho.saveHandoverAction(id, { season: "2027–28", date: "2099-04-01" })).success, false, "the President sets the handover");
+  viewerId = pres!;
+  assert.match(String((await ho.saveHandoverAction(id, { season: "2026–27", date: "2099-04-01" }) as { error?: string }).error), /its own name/);
+  assert.ok((await ho.saveHandoverAction(id, { season: "2027–28", date: "2026-12-01" })).success);
+  assert.ok((await pos.appointAction(id, "secretary", ann!, "2027–28")).success, "the incoming Season can be appointed");
+  assert.equal((await pos.appointAction(id, "secretary", ann!, "2030–31")).success, false, "only the current or incoming Season");
+
+  viewerId = ann!;
+  assert.equal((await ho.tickHandoverAction(id, samTerm, "role_page", true)).success, false, "only the outgoing officer (or the President) ticks");
+  const seen = await ho.readHandoverAction(id);
+  assert.ok(seen.success && seen.handover && "rows" in seen, "the incoming officer sees the handover");
+  viewerId = sam!;
+  assert.equal((await ho.tickHandoverAction(id, samTerm, "tasks", true)).success, false, "moving work is ticked by moving it");
+  assert.ok((await ho.tickHandoverAction(id, samTerm, "role_page", true)).success);
+  assert.match(String((await ho.moveWorkAction(id, samTerm) as { error?: string }).error), /accepts the position first/);
+  viewerId = ann!;
+  const offer = (await sql`SELECT id FROM club_position_terms WHERE org_id = ${id} AND user_id = ${ann!} AND state = 'offered'`)[0]!.id as string;
+  assert.ok((await pos.answerAppointmentAction(id, offer, true)).success);
+  assert.equal((await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${ann!}`)[0]!.role, "member", "the incoming role comes on the date, not now");
+  viewerId = sam!;
+  const moved = await ho.moveWorkAction(id, samTerm);
+  assert.ok(moved.success && moved.tasks === 2 && moved.docs === 1, "open tasks and owned documents move; done ones stay");
+  const view = await ho.readHandoverAction(id);
+  const row = view.success && "rows" in view ? view.rows!.find((r) => r.id === "secretary") : null;
+  assert.equal(row?.done, 3, "role page, tasks, documents");
+
+  // The date: roles switch; outgoing lose Coordinator; a holder who carries on keeps it; unmoved work moves anyway.
+  const r1 = await srv.handoverSteps(new Date("2026-12-01T01:00:00Z"));
+  assert.equal(r1.switched, 1);
+  const roles = Object.fromEntries((await sql`SELECT user_id, role FROM workspace_members WHERE workspace_id = ${id}`).map((m) => [String(m.user_id), String(m.role)]));
+  assert.equal(roles[sam!], "member", "the outgoing Secretary loses Coordinator");
+  assert.equal(roles[tom!], "member");
+  assert.equal(roles[ann!], "admin", "the incoming Secretary becomes a Coordinator");
+  assert.equal(roles[tia!], "admin");
+  assert.equal(roles[eve!], "admin", "someone who carries on keeps it");
+  const [site] = await sql`SELECT assignee_id FROM tasks WHERE workspace_id = ${id} AND task_number = 9303`;
+  assert.equal(site!.assignee_id, tia!, "work the outgoing officer didn't move moves anyway (edge 12)");
+  const [w] = await sql`SELECT org_settings->'club'->'committee'->>'season' AS season, org_settings->'club'->'handover' ? 'switchedAt' AS switched FROM workspaces WHERE id = ${id}`;
+  assert.deepEqual({ ...w }, { season: "2027–28", switched: true });
+  assert.equal((await sql`SELECT count(*)::int AS n FROM club_position_terms WHERE org_id = ${id} AND season = '2026–27' AND state = 'holding'`)[0]!.n, 0);
+  assert.equal((await srv.handoverSteps(new Date("2026-12-01T02:00:00Z"))).switched, 0, "once");
+  // Next Season, Eve steps down: the role her carried-on term holds goes with it.
+  const eveTerm = (await sql`SELECT id FROM club_position_terms WHERE org_id = ${id} AND user_id = ${eve!} AND state = 'holding'`)[0]!.id as string;
+  viewerId = eve!;
+  assert.ok((await pos.endTermAction(id, eveTerm)).success);
+  assert.equal((await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${eve!}`)[0]!.role, "member");
+});
+

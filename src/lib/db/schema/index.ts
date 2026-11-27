@@ -1910,6 +1910,8 @@ export const clubPositionTerms = pgTable("club_position_terms", {
   state: text("state").default("offered").notNull(),
   offeredBy: uuid("offered_by").references(() => profiles.id, { onDelete: "set null" }),
   gaveRole: boolean("gave_role").default(false).notNull(),
+  /** B7.2c (0173): the outgoing officer's handover checklist ticks. */
+  handover: jsonb("handover").$type<Record<string, boolean>>().default({}).notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

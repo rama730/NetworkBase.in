@@ -41,6 +41,8 @@ export const MEETING_TYPES: MeetingType[] = [
   { id: "leadership", name: "Leadership meeting", line: "Agenda, notes, decisions and action items for leaders.", sections: ["Agenda", "Notes"], actionItems: true, decisions: true },
   { id: "line_management", name: "Line management", line: "Since last time, how it's going, goals and next steps.", sections: ["Since last time", "How it's going", "Goals"], actionItems: true, actionItemsLabel: "Next steps", decisions: false },
   { id: "training", name: "Training session", line: "The topic, notes and what I'll try.", sections: ["Topic", "Notes", "What I'll try"], actionItems: false, decisions: false },
+  // B7.2c (report 36.3 call 10): the outgoing officer walks the incoming one through the role.
+  { id: "handover", name: "Handover", line: "The outgoing officer walks the incoming one through the role.", sections: ["The role", "Open work", "Accounts (names only)", "Key dates", "Tips"], actionItems: true, decisions: false },
   { id: "blank", name: "Blank", line: "Notes and action items.", sections: ["Notes"], actionItems: true, decisions: false },
 ];
 export const meetingType = (id: string) => MEETING_TYPES.find((t) => t.id === id) ?? null;
@@ -172,7 +174,7 @@ const COMMON_TYPES = ["weekly", "standup", "planning", "retro", "kickoff", "clie
 const CATEGORY_TYPES: Record<string, string[]> = {
   startup: ["board", "interview"], nonprofit: ["board"], podcast: ["recording"], video: ["shoot"], web_app: ["interview"],
   tool: ["incident"], open_source: ["incident"], game: ["playtest"], learning: ["supervision"],
-  school: ["department", "leadership", "line_management", "training"],
+  school: ["department", "leadership", "line_management", "training"], club: ["handover"],
 };
 export type MeetingSettings = { types: string[]; lengthMinutes: number; reminderMinutes: number };
 export function meetingSettings(raw: unknown, category: string | null | undefined): MeetingSettings {
