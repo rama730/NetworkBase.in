@@ -15099,6 +15099,15 @@ VOLUNTEER · My shifts       Sat 08:00 Sorting  [ Check in ] (opens at 07:45)   
 10. Volunteers can add verified hours to their profile with their yes.
 11. Contact is Message only.
 
+**Build calls (B8.1a, 2026-11-27):**
+1. **Volunteers** is for organizations of type Other, switched on in its Settings (kits switch it on later, B8.4). Coordinators are the owner and admins. They set roles (name, what it involves, whether it needs training), the volunteer agreement (a changed text is a new version everyone agrees to again) and shifts.
+2. **A shift** is a calendar event with a role, place, time and places. Sign-up reuses M3's RSVP slice: a full shift puts you on the waitlist, and Can't go moves the next person up (told: Important). Signing up needs the current agreement and, for a role that needs it, a coordinator's training sign-off (server test). Cancelling tells everyone going or waiting (Important).
+3. **Check-in:** the volunteer taps Check in from 15 minutes before the start to 30 after; coordinators tick names from an hour before until the day after.
+4. **Hours** come from checked-in shifts (each shift's length). Each volunteer sees only their own; coordinators see attended and missed as counts, never a score (server test).
+5. **Coverage:** coordinators see shifts short of people in the next 14 days, soonest first. "6 of 8", Short and Full show as words.
+6. **Volunteer with us** on About lists the next 30 days of shifts with places left and whether training is needed; visitors are pointed to Join.
+7. **Not built yet (B8.1b):** Regulars on a weekly rota, swaps with a named volunteer, hours added by hand with a coordinator's confirmation, availability, involvement (New · Regular · Occasional), the day-before reminder and the "short 2 days before" notice with Ask, and Add to my profile.
+
 ### 37.4 X3 · Teams for a fixed time (agreed 2026-11-17)
 **References** (37.1, plus 14 searches for event planning, countdowns, task forces, campaigns, wrap-ups and post-mortems: 126 templates, 34 rated; 4 more screens studied; wedding and party planners are personal and left out):
 

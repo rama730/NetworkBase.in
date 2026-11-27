@@ -93,3 +93,20 @@ test("placing: results as words", async () => {
     ["1st of 32", "2nd", "3rd of 10", "4th of 32", "11th of 40", "12th of 40", "13th of 40", "21st of 40", "22nd of 40", "112th of 200"]);
 });
 
+
+test("volunteers: shift times, the check-in window, Short within 14 days, hours from shifts", async () => {
+  const { checkInOpen, isShort, readVolunteers, shiftHours, shiftSchema, volunteersFor } = await import("../../src/lib/organizations/volunteers");
+  const start = "2099-12-06T08:00:00.000Z";
+  const at = (iso: string) => Date.parse(iso);
+  assert.equal(checkInOpen(start, at("2099-12-06T07:44:00Z")), false);
+  assert.equal(checkInOpen(start, at("2099-12-06T07:45:00Z")), true);
+  assert.equal(checkInOpen(start, at("2099-12-06T08:30:00Z")), true);
+  assert.equal(checkInOpen(start, at("2099-12-06T08:31:00Z")), false);
+  assert.equal(isShort(start, 3, 6, at("2099-12-04T08:00:00Z")), true);
+  assert.equal(isShort(start, 6, 6, at("2099-12-04T08:00:00Z")), false);
+  assert.equal(isShort(start, 3, 6, at("2099-11-01T08:00:00Z")), false, "more than 14 days away");
+  assert.equal(shiftHours([{ start, end: "2099-12-06T11:00:00.000Z" }, { start: "2099-12-07T10:00:00.000Z", end: "2099-12-07T11:30:00.000Z" }]), 4.5);
+  assert.equal(shiftSchema.safeParse({ roleId: "sorting", place: "", start, end: start, places: 8, note: "" }).success, false);
+  assert.deepEqual(readVolunteers({}).roles, []);
+  assert.deepEqual(["other", "community", "club"].map(volunteersFor), [true, false, false]);
+});
