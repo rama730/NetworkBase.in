@@ -59,6 +59,8 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     return (
         // Live-fix 49: the owner or a member is already in; only others are invited.
         <AuthShell title={preview.title} description={preview.state === 'member' ? `You’re already in ${preview.title}.` : "Check the details before you join."} panel={JOIN_PANEL} step={[2, 2]} panelRoute={`join/${code}`}>
+            {/* Live check 2026-11-28: the join terms (B5.1b) and Report read through React Query; the (auth) pages have no provider of their own. */}
+            <JoinProviders>
             <div className="space-y-6">
                 <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3.5">
                     {preview.coverImage
@@ -83,13 +85,12 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                     <Button asChild className="h-11 w-full font-medium"><Link href={orgHref}>Open {preview.title}</Link></Button>
                 ) : preview.state === 'waiting' ? (
                     // Report §26.1 #6, §26.2: someone waiting can withdraw from here.
-                    <JoinProviders><JoinRequestPending orgId={preview.id} /></JoinProviders>
+                    <JoinRequestPending orgId={preview.id} />
                 ) : preview.stateMessage ? (
                     // Full, blocked, ended, recently declined or at the 50-organization limit: said plainly, nothing is created.
                     <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-center text-sm">{preview.stateMessage}</p>
                 ) : (
-                    // Live check 2026-11-28: the join terms (B5.1b) read through React Query; the auth pages have no provider of their own.
-                    <JoinProviders><JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} /></JoinProviders>
+                    <JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} />
                 )}
                 {/* Report §29.4, decision 63: what admins can see, before anyone joins. */}
                 {preview.state === 'open' || preview.state === 'waiting' ? <p className="text-center text-xs text-muted-foreground" data-testid="join-admins-line">{preview.adminsLine}</p> : null}
@@ -97,6 +98,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                 {preview.viewer !== 'member' ? <p className="text-center text-xs text-muted-foreground">You must be 18 or older to join.</p> : null}
                 {user && preview.viewer !== 'member' ? <JoinReportLink orgId={preview.id} code={code!} /> : null}
             </div>
+            </JoinProviders>
         </AuthShell>
     )
 }

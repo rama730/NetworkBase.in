@@ -12,7 +12,7 @@ test("the join page gives its React Query buttons a provider", () => {
   const usesQuery = /useQuery|useJoinTerms/.test(read("src/components/organizations/JoinOrgButton.tsx"));
   if (!usesQuery) return;
   const providedByLayout = /QueryProvider|AuthRouteProviders/.test(layout);
-  for (const name of ["JoinOrgButton", "JoinRequestPending"]) {
+  for (const name of ["JoinOrgButton", "JoinRequestPending", "JoinReportLink"]) {
     const at = page.indexOf(`<${name} `);
     assert.ok(at > 0, name);
     assert.ok(providedByLayout || page.lastIndexOf("<JoinProviders>", at) > page.lastIndexOf("</JoinProviders>", at), `${name} renders inside a QueryProvider`);
