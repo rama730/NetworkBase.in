@@ -1014,6 +1014,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "This result is confirmed.": {"title": "This result is confirmed.", "type": "warning"},
   "There’s no result to confirm.": {"title": "There’s no result to confirm.", "type": "warning"},
   "Another officer confirms a result you typed.": {"title": "Another officer confirms a result you typed.", "type": "warning"},
+  "The result changed; check it again.": {"title": "The result changed; check it again.", "type": "warning"},
   "Write what went well and what to change next time.": {"title": "Write what went well and what to change next time.", "type": "warning"},
   "A motion needs a seconder before the vote.": {"title": "A motion needs a seconder before the vote.", "type": "warning"},
   "Give the Season’s start date and an answer window of 7 to 90 days.": {"title": "Give the Season’s start date and an answer window of 7 to 90 days.", "type": "warning"},

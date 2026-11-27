@@ -370,9 +370,9 @@ test('B7.4a–b Competitions: register by in days, Try out with a hand-in; offic
       readCompetitionsAction: async () => ({ success: true, officer: true, member: true, competitions: [
         { id: 'c1', title: 'Robocon 2099', stage: 'picking', organiser: 'IIT Delhi', category: 'Robotics', starts: '2099-03-14', ends: '2099-03-16', registerBy: '2099-01-20', place: 'IIT Delhi', link: 'https://robocon.example',
           teamSize: 5, subs: 1, picking: 'tryouts', teams: [{ workspaceId: 'w1', name: 'Team A', captain: 'Mei', slug: 'robocon-team-a', size: 4, subs: 1, mine: false, canEdit: true, registration: null, debrief: null,
-            result: { placement: 4, of: 32, awards: 'Best design', confirmed: false, mineToConfirm: true } }], mine: null, counts: { interested: 2, accepted: 1 } }] }),
+            result: { placement: 4, of: 32, awards: 'Best design', confirmed: false, mineToConfirm: true, at: '2099-03-16T10:00:00.000Z' } }], mine: null, counts: { interested: 2, accepted: 1 } }] }),
       registerTeamAction: async (_o: string, id: string, w: string, ref: string) => { calls.push(['register', id, w, ref]); return { success: true }; },
-      confirmResultAction: async (_o: string, id: string, w: string) => { calls.push(['confirm', id, w]); return { success: true }; },
+      confirmResultAction: async (_o: string, id: string, w: string, at: string) => { calls.push(['confirm', id, w, at]); return { success: true }; },
       signUpAction: async (_o: string, id: string, input: unknown) => { calls.push(['signup', id, input]); return { success: true }; },
       readPickingAction: async () => ({ success: true, picking: 'tryouts', teamSize: 5, subs: 1, members: [{ id: 'u5', name: 'Ravi' }],
         people: [{ id: 'p1', userId: 'u2', name: 'Karan', wish: 'Programming', handIn: 'A PID write-up', state: 'trying', team: null, role: null, substitute: false },
@@ -393,7 +393,7 @@ test('B7.4a–b Competitions: register by in days, Try out with a hand-in; offic
   await team.getByRole('button', { name: 'Mark registered' }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['register', 'c1', 'w1', '4471']);
   await team.getByRole('button', { name: 'Confirm the result for Team A' }).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['confirm', 'c1', 'w1']);
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['confirm', 'c1', 'w1', '2099-03-16T10:00:00.000Z']);
   await c.getByLabel('The role you’d like').fill('Driver');
   await c.getByLabel('Your tryout (a link or a few lines)').fill('My line-follower video');
   await c.getByRole('button', { name: 'Try out' }).click();

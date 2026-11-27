@@ -596,7 +596,7 @@ export function CompetitionsCard({ orgId }: { orgId: string }) {
 }
 
 type TeamView = { workspaceId: string; name: string; captain: string | null; slug: string | null; size: number; subs: number; mine: boolean; canEdit: boolean;
-  registration: { ref: string } | null; result: { placement: number; of: number | null; awards: string; confirmed: boolean; mineToConfirm: boolean } | null; debrief: { well: string; change: string } | null };
+  registration: { ref: string } | null; result: { placement: number; of: number | null; awards: string; confirmed: boolean; mineToConfirm: boolean; at: string | null } | null; debrief: { well: string; change: string } | null };
 /**
  * A team on a competition (B7.4b, 36.5 calls 6–8): its registration reference, its result (typed by the captain, seen by
  * members only once another officer confirms it) and its debrief for next year's team.
@@ -617,7 +617,7 @@ function TeamRow({ orgId, competitionId, team: t, stage, onChanged }: { orgId: s
           <button type="submit" className={FORM_SECONDARY_CLASS} disabled={!ref.trim()}>Mark registered</button></form> : null}
       {t.result ? <p data-testid="club-competition-result"><span className="font-medium">{placing(t.result.placement, t.result.of)}</span>{t.result.awards ? ` · Awards: ${t.result.awards}` : ""}
         <span className="text-muted-foreground">{t.result.confirmed ? " · confirmed by an officer" : " · waiting for an officer to confirm"}</span></p> : null}
-      {t.result?.mineToConfirm ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmResultAction(orgId, competitionId, t.workspaceId), "Result confirmed")}>Confirm the result<span className="sr-only"> for {t.name}</span></button> : null}
+      {t.result?.mineToConfirm ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmResultAction(orgId, competitionId, t.workspaceId, t.result!.at ?? ""), "Result confirmed")}>Confirm the result<span className="sr-only"> for {t.name}</span></button> : null}
       {t.canEdit && late && !t.result?.confirmed && !res ? <button type="button" className="nb-link" onClick={() => setRes({ placement: String(t.result?.placement ?? ""), of: String(t.result?.of ?? ""), awards: t.result?.awards ?? "" })}>{t.result ? "Change the result" : "Type the result"}</button> : null}
       {res ? <span className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col">Placing<Input type="number" min={1} value={res.placement} onChange={(e) => setRes({ ...res, placement: e.target.value })} className="mt-0.5 w-[80px] font-mono" /></label>

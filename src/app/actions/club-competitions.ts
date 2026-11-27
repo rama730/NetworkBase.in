@@ -68,7 +68,7 @@ export async function readCompetitionsAction(orgId: string, view: "upcoming" | "
           const r = t.result ?? null;
           return { canEdit: ctx.officer || captains.find((c) => c.id === t.workspaceId)?.owner === ctx.userId,
             registration: inside ? t.registration ?? null : null,
-            result: r && (r.confirmedAt || inside) ? { placement: r.placement, of: r.of, awards: r.awards, confirmed: Boolean(r.confirmedAt), mineToConfirm: ctx.officer && !r.confirmedAt && r.by !== ctx.userId } : null,
+            result: r && (r.confirmedAt || inside) ? { placement: r.placement, of: r.of, awards: r.awards, confirmed: Boolean(r.confirmedAt), mineToConfirm: ctx.officer && !r.confirmedAt && r.by !== ctx.userId, at: inside ? r.at : null } : null,
             debrief: t.debrief ? { well: t.debrief.well, change: t.debrief.change } : null };
         })(),
         size: of.filter((p) => p.team === t.workspaceId && !p.substitute).length, subs: of.filter((p) => p.team === t.workspaceId && p.substitute).length,
@@ -265,7 +265,7 @@ async function changeTeam(orgId: string, id: string, workspaceId: string, may: (
 export async function registerTeamAction(orgId: string, id: string, workspaceId: string, ref: string): Promise<{ success: true } | Failure> {
   const ctx = await club(orgId);
   if (!ctx || typeof ref !== "string" || !ref.trim() || ref.trim().length > 60) return DENIED;
-  const out = await changeTeam(orgId, id, workspaceId, (t) => (ctx.officer || t.captain === ctx.userId ? null : "You can’t do that here."),
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (ctx.officer || (ctx.member && t.captain === ctx.userId) ? null : "You can’t do that here."),
     (team) => ({ ...team, registration: { ref: ref.trim(), by: ctx.userId, at: new Date().toISOString() } }));
   return out ? { success: false, error: out } : { success: true };
 }
@@ -278,20 +278,24 @@ export async function setResultAction(orgId: string, id: string, workspaceId: st
   const parsed = resultSchema.safeParse(input);
   if (!ctx) return DENIED;
   if (!parsed.success) return { success: false, error: "Type the placing (and of how many) and any awards." };
-  const out = await changeTeam(orgId, id, workspaceId, (t) => (!(ctx.officer || t.captain === ctx.userId) ? "You can’t do that here." : t.team.result?.confirmedAt ? "This result is confirmed." : null),
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (!(ctx.officer || (ctx.member && t.captain === ctx.userId)) ? "You can’t do that here." : t.team.result?.confirmedAt ? "This result is confirmed." : null),
     (team) => ({ ...team, result: { ...parsed.data, by: ctx.userId, at: new Date().toISOString(), confirmedBy: null, confirmedAt: null } }));
   if (!out) {
     const officers = Array.from(await db.execute<{ id: string }>(sql`SELECT user_id AS id FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND role IN ('owner', 'admin') AND completed_at IS NULL LIMIT 50`));
-    await notifyAll(orgId, ctx.w.slug ?? orgId, officers.map((o) => ({ to: o.id, title: "A competition result is waiting for an officer to confirm it" })), ctx.userId, `club-competition-result:${id}:${workspaceId}:${Date.now()}`);
+    await notifyAll(orgId, ctx.w.slug ?? orgId, officers.map((o) => ({ to: o.id, title: "A competition result is waiting for an officer to confirm it" })), ctx.userId, `club-competition-result:${id}:${workspaceId}`);
   }
   return out ? { success: false, error: out } : { success: true };
 }
 
-/** Confirm a result (an officer other than the person who typed it); only then do members see it. */
-export async function confirmResultAction(orgId: string, id: string, workspaceId: string): Promise<{ success: true } | Failure> {
+/**
+ * Confirm a result (an officer other than the person who typed it); only then do members see it. Security review: the
+ * officer confirms the version they saw (its time), so a change made meanwhile isn't confirmed unseen.
+ */
+export async function confirmResultAction(orgId: string, id: string, workspaceId: string, seenAt: string): Promise<{ success: true } | Failure> {
   const ctx = await club(orgId);
-  if (!ctx?.officer) return DENIED;
-  const out = await changeTeam(orgId, id, workspaceId, (t) => (!t.team.result ? "There’s no result to confirm." : t.team.result.confirmedAt ? "This result is confirmed." : t.team.result.by === ctx.userId ? "Another officer confirms a result you typed." : null),
+  if (!ctx?.officer || typeof seenAt !== "string") return DENIED;
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (!t.team.result ? "There’s no result to confirm." : t.team.result.confirmedAt ? "This result is confirmed."
+    : t.team.result.by === ctx.userId ? "Another officer confirms a result you typed." : t.team.result.at !== seenAt ? "The result changed; check it again." : null),
     (team) => ({ ...team, result: { ...team.result!, confirmedBy: ctx.userId, confirmedAt: new Date().toISOString() } }));
   return out ? { success: false, error: out } : { success: true };
 }
@@ -303,7 +307,7 @@ export async function saveDebriefAction(orgId: string, id: string, workspaceId: 
   const parsed = debriefSchema.safeParse(input);
   if (!ctx) return DENIED;
   if (!parsed.success) return { success: false, error: "Write what went well and what to change next time." };
-  const out = await changeTeam(orgId, id, workspaceId, (t) => (ctx.officer || t.captain === ctx.userId ? null : "You can’t do that here."),
+  const out = await changeTeam(orgId, id, workspaceId, (t) => (ctx.officer || (ctx.member && t.captain === ctx.userId) ? null : "You can’t do that here."),
     (team) => ({ ...team, debrief: { ...parsed.data, by: ctx.userId, at: new Date().toISOString() } }));
   return out ? { success: false, error: out } : { success: true };
 }
