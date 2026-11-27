@@ -4,10 +4,10 @@ import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
 // Report 38.11 D1 W1, W3, W5, W8, W9 (plan A4.1).
-async function open(page: Page, opts: { view?: string; now?: string; finished?: boolean; series?: boolean; board?: boolean; settings?: boolean } = {}) {
+async function open(page: Page, opts: { view?: string; now?: string; finished?: boolean; series?: boolean; board?: boolean; settings?: boolean; amend?: boolean } = {}) {
   await page.clock.setFixedTime(new Date(opts.now ?? '2027-01-07T04:40:00Z'));
   await page.setViewportSize({ width: 1100, height: 900 });
-  await page.addInitScript(({ finished, series, board, settings }) => {
+  await page.addInitScript(({ finished, series, board, settings, amend }) => {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
@@ -15,7 +15,7 @@ async function open(page: Page, opts: { view?: string; now?: string; finished?: 
         timeZone: 'Asia/Kolkata', attendees: [{ id: 'u2', name: 'Dev', avatarUrl: null }], seriesRule: series ? 'weekly' : null, seriesTitle: series ? 'Weekly' : null, seriesId: series ? 's1' : null,
         finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 0,
         ...(board ? { type: 'board', attendees: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Asha', avatarUrl: null }, { id: '22222222-2222-4222-8222-222222222222', name: 'Dev', avatarUrl: null }, { id: '33333333-3333-4333-8333-333333333333', name: 'Mia', avatarUrl: null }],
-          board: { needed: 2, motionsOn: true, size: 3, present: (window as any).__present ?? [], presentCount: ((window as any).__present ?? []).length, approvedAt: null, toApprove: { slug: 'board-dec', title: 'Board · Dec 7' },
+          board: { needed: 2, motionsOn: true, amendments: amend ? { version: 4, articles: [{ n: '1', title: 'Name' }, { n: '6', title: 'Amendments' }], threshold: 2 / 3 } : null, size: 3, present: (window as any).__present ?? [], presentCount: ((window as any).__present ?? []).length, approvedAt: null, toApprove: { slug: 'board-dec', title: 'Board · Dec 7' },
             motions: [{ id: 'm1', text: 'Approve the 2027 budget', proposedBy: '11111111-1111-4111-8111-111111111111', secondedBy: '22222222-2222-4222-8222-222222222222', votes: null, result: null, decision: null },
               { id: 'm2', text: 'Move the office', proposedBy: null, secondedBy: null, votes: { for: 1, against: 2, abstain: 0 }, result: 'failed', decision: null }] } } : {}) }),
       markPresentAction: async (_p: string, input: { present: string[] }) => { calls.push(['present', input.present.length]); (window as any).__present = input.present; return { success: true, present: input.present }; },
@@ -37,7 +37,7 @@ async function open(page: Page, opts: { view?: string; now?: string; finished?: 
           { id: 'c', number: 3, title: 'Three', status: 'done', reviewStatus: 'none', dueDate: null, completedAt: null, position: 3, itemType: 'task', assignee: null, canTick: true }] }),
       endSeriesAction: async (_p: string, input: unknown) => { calls.push(['end', input]); return { success: true }; },
     };
-  }, { finished: opts.finished ?? false, series: opts.series ?? false, board: opts.board ?? false, settings: opts.settings ?? false });
+  }, { finished: opts.finished ?? false, series: opts.series ?? false, board: opts.board ?? false, settings: opts.settings ?? false, amend: opts.amend ?? false });
   await openApp(page, 'tests/browser/meeting-doc.fixture.tsx', opts.view ? { path: `/?view=${opts.view}` } : undefined);
 }
 const calls = (page: Page) => page.evaluate(() => (window as any).__calls);
@@ -80,7 +80,7 @@ test('S1: New meeting has type, default title, date and time in the zone, length
   const d = page.getByTestId('new-meeting-dialog');
   // A4.3–A4.14: type cards with an icon and one line; Weekly first, Blank last; the title follows the type.
   const types = d.getByRole('radiogroup', { name: 'Type' }).getByRole('radio');
-  await expect(types).toHaveCount(14);
+  await expect(types).toHaveCount(22); // every catalog type when Settings → Meetings has none set (the mock); clubs and schools added theirs
   await expect(types.first()).toHaveAttribute('aria-checked', 'true');
   await expect(types.first()).toContainText('WeeklyAgenda, notes, decisions and action items.');
   await expect(d.getByLabel('Title')).toHaveAttribute('placeholder', 'Weekly · Jan 7');
@@ -183,3 +183,19 @@ test('S8: New meeting offers only the switched-on types, starts at the default l
   await expect(d.getByLabel('Length')).toHaveValue('45');
   await expect(d).toContainText('No reminders (Settings → Meetings).');
 });
+
+// Plan B7.3b (report 36.4 call 7): at a club's general meeting or AGM a motion may change one article.
+test('B7.3b: a motion that adds an article to the constitution, with the two-thirds threshold', async ({ page }) => {
+  await open(page, { board: true, amend: true });
+  await page.getByTestId('board-panel').getByRole('button', { name: 'Motion', exact: true }).click();
+  const d = page.getByTestId('motion-dialog');
+  await d.getByLabel('Motion').fill('Add a Tech officer');
+  await d.getByLabel(/Changes the constitution \(version 4; needs two-thirds of those voting\)/).check();
+  await d.getByLabel('Article', { exact: true }).fill('6.4');
+  await d.getByLabel('Title of the new article').fill('Tech officer');
+  await d.getByLabel('New text').fill("A Tech officer looks after the club's tools.");
+  expect(await axeViolations(page)).toEqual([]);
+  await d.getByRole('button', { name: 'Add motion' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['motion', { docSlug: 'weekly-jan-7', text: 'Add a Tech officer', amendment: { article: '6.4', title: 'Tech officer', text: "A Tech officer looks after the club's tools." } }]);
+});
+
