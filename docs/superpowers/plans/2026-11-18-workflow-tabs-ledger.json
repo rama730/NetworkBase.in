@@ -1198,9 +1198,9 @@
       "text": "B4.2 K2 Directory and org chart (33.3) — Build: time zone + working hours on company membership; time-off type on Away; Directory, Org chart (indented tree from",
       "kind": "unit",
       "milestone": "B4",
-      "status": "live-pending",
-      "test": "tests/unit/company-directory.test.ts; tests/db/company-directory.test.ts; tests/browser/company-people.spec.ts",
-      "evidence": "K2a,b,d live (01ed43ac8, 75cc98714, f6dcc106c): Directory, my card (off hours), org chart + Reports to, Counts, Import people, Settings → Directory — checked live except Import send (would email real addresses). K2c Who's out + time-off types NOT built: needs a migration (Away type) queued behind another session's 0148–0150 not in prod. | revisit 2026-12-03: K2c Who's out needs a migration; build it once the messages migrations are live in prod."
+      "status": "live",
+      "test": "tests/unit/company-directory.test.ts; tests/db/company-directory.test.ts; tests/browser/company-people.spec.ts; tests/unit/company-directory.test.ts; tests/db/company-directory.test.ts; tests/browser/company-people.spec.ts",
+      "evidence": "K2a,b,d live (01ed43ac8, 75cc98714, f6dcc106c): Directory, my card (off hours), org chart + Reports to, Counts, Import people, Settings → Directory — checked live except Import send (would email real addresses). K2c LIVE 2026-11-28 (main a12232f4e, 0181 in prod): time off is Away with a type (renameable in Settings → Directory), members book their own from today on (work due from now excused; cancelling makes it due again; an admin's Mark away isn't theirs to cancel), Who's out = next two weeks by team, the type only to the person, their line manager and admins. Checked live on wt-test-b4-company: booked Vacation Dec 7–8 (bar under its team), cancelled, Settings types shown."
     },
     {
       "key": "B4.3",
@@ -3328,9 +3328,9 @@
       "text": "Time off reuses Away with a type; others see only \"Away until …\".",
       "kind": "call",
       "milestone": "B4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/company-directory.test.ts",
+      "evidence": "B4.2c LIVE 2026-11-28 (a12232f4e): Away gets a type; readWhosOutAction shows the type only to the person, their line manager and admins (DB test), others read Away."
     },
     {
       "key": "33.3.call6",
