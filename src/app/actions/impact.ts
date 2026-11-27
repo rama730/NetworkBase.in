@@ -89,7 +89,7 @@ export async function startProgramAction(orgId: string, input: unknown): Promise
   if (new Set(d.measures.map((m) => m.id)).size !== d.measures.length) return { success: false, error: "Give the program a name, an aim and an owner; up to 5 measures." };
   const { createWorkspaceAction } = await import("@/lib/workspaces/server/lifecycle");
   const made = await createWorkspaceAction({
-    title: d.title, description: `${d.aim} A program of ${ctx.w.title}.`.padEnd(20, "."), project_type: "other", custom_project_type: "Program", visibility: "private", status: "active",
+    title: d.title, description: `${d.aim.trim()}${/[.!?]$/.test(d.aim.trim()) ? "" : "."} A program of ${ctx.w.title}.`.padEnd(20, "."), project_type: "other", custom_project_type: "Program", visibility: "private", status: "active",
     tags: [], technologies_used: [], lifecycle_stages: [], current_stage_index: 0, member_updates_enabled: true, member_file_upload_default: true, doc_edit_policy: "members", is_draft: false, metadata: {},
     readme: { mode: "skip", publishOnCreate: false, includeRoles: false }, parent_org_id: orgId, lead_user_id: d.ownerId,
   } as Parameters<typeof createWorkspaceAction>[0]);
