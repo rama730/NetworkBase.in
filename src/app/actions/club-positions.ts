@@ -44,8 +44,12 @@ export async function readCommitteeAction(orgId: string) {
   const people = ctx.president ? Array.from(await db.execute<{ id: string; name: string }>(sql`
     SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
     WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 500`)) : [];
+  // Security review: the documents this person may read (as Documents does): drafts and leaders-only pages for officers only.
   const allDocs = ctx.member ? Array.from(await db.execute<{ id: string; slug: string; name: string }>(sql`
-    SELECT id, slug, regexp_replace(filename, '\.md$', '', 'i') AS name FROM workspace_documents WHERE workspace_id = ${orgId}::uuid ORDER BY filename LIMIT 200`)) : [];
+    SELECT d.id, d.slug, regexp_replace(d.filename, '\.md$', '', 'i') AS name FROM workspace_documents d WHERE d.workspace_id = ${orgId}::uuid
+      AND (${ctx.officer} OR ((coalesce(d.settings->'org'->>'lifecycle', 'published') <> 'draft' OR d.settings->'org'->>'owner' = ${ctx.userId ?? ""}::text)
+        AND coalesce(d.settings->>'visibilityOverride', '') <> 'leaders_only'))
+    ORDER BY d.filename LIMIT 200`)) : [];
   const docs = ctx.officer ? allDocs.map(({ id, name }) => ({ id, name })) : [];
   return { success: true as const, season, president: ctx.president, officer: ctx.officer, me: ctx.userId, people, docs,
     positions: positions.map((p) => {
@@ -70,8 +74,26 @@ export async function savePositionsAction(orgId: string, input: unknown): Promis
     const ok = Array.from(await db.execute<{ id: string }>(sql`SELECT id FROM workspace_documents WHERE workspace_id = ${orgId}::uuid AND id = ANY(${`{${docIds.join(",")}}`}::uuid[])`));
     if (ok.length !== new Set(docIds).size) return DENIED;
   }
-  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{club}', coalesce(org_settings->'club', '{}'::jsonb) || jsonb_build_object('committee', ${JSON.stringify(d)}::jsonb))
-    WHERE id = ${orgId}::uuid`);
+  // Security review: a role page members can read (not a draft, not leaders-only), since every member sees the link.
+  if (docIds.length) {
+    const [hidden] = Array.from(await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_documents WHERE id = ANY(${`{${docIds.join(",")}}`}::uuid[])
+      AND (coalesce(settings->'org'->>'lifecycle', 'published') = 'draft' OR coalesce(settings->>'visibilityOverride', '') = 'leaders_only')`));
+    if ((hidden?.n ?? 0) > 0) return { success: false, error: "A role page is one every member can read: publish it first." };
+  }
+  const newSeason = d.season !== ctx.settings.season;
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{club}', coalesce(org_settings->'club', '{}'::jsonb) || jsonb_build_object('committee', ${JSON.stringify(d)}::jsonb))
+      WHERE id = ${orgId}::uuid`);
+    if (!newSeason) return;
+    // Security review: a new Season ends last Season's terms, and the roles they gave go with them.
+    const ended = Array.from(await tx.execute<{ user_id: string | null; gave_role: boolean }>(sql`
+      UPDATE club_position_terms SET state = CASE WHEN state = 'holding' THEN 'ended' ELSE 'declined' END, ended_at = now()
+      WHERE org_id = ${orgId}::uuid AND season <> ${d.season} AND state IN ('offered', 'holding') RETURNING user_id, gave_role`));
+    for (const u of new Set(ended.filter((e) => e.gave_role && e.user_id && e.user_id !== ctx.w.owner).map((e) => e.user_id!))) {
+      await tx.execute(sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${orgId}::uuid AND user_id = ${u}::uuid AND role = 'admin'
+        AND NOT EXISTS (SELECT 1 FROM club_position_terms t WHERE t.org_id = ${orgId}::uuid AND t.user_id = ${u}::uuid AND t.state = 'holding' AND t.season = ${d.season})`);
+    }
+  });
   return { success: true };
 }
 
@@ -133,7 +155,7 @@ export async function endTermAction(orgId: string, termId: string): Promise<{ su
     if (t.user_id && t.gave_role && t.user_id !== ctx.w.owner) {
       const giving = ctx.settings.positions.filter((p) => p.gives === "coordinator").map((p) => p.id);
       const [still] = Array.from(await tx.execute<{ ok: boolean }>(sql`
-        SELECT true AS ok FROM club_position_terms WHERE org_id = ${orgId}::uuid AND user_id = ${t.user_id}::uuid AND state = 'holding'
+        SELECT true AS ok FROM club_position_terms WHERE org_id = ${orgId}::uuid AND user_id = ${t.user_id}::uuid AND state = 'holding' AND season = ${ctx.settings.season}
           AND position_id = ANY(${`{${giving.join(",") || "none"}}`}::text[]) LIMIT 1`));
       if (!still) await tx.execute(sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${orgId}::uuid AND user_id = ${t.user_id}::uuid AND role = 'admin'`);
     }

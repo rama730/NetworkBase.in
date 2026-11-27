@@ -172,10 +172,17 @@ test("36.3 (B7.2a): positions give their role on accept and take back only what 
   assert.ok((await pos.endTermAction(id, sec!.termId)).success);
   const [miaAfter] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${mia!}`;
   assert.equal(miaAfter!.role, "member", "the role the term gave goes with it");
-  // History: a new Season keeps the past.
+  // History: a new Season keeps the past, ends last Season's terms and takes back the roles they gave (security review).
   const settings = await pos.readCommitteeAction(id);
   assert.ok(settings.success);
+  await sql`INSERT INTO club_position_terms (org_id, position_id, position_label, season, user_id, holder_name, how, state, gave_role)
+    VALUES (${id}, 'events', 'Events officer', ${settings.success ? settings.season : ""}, ${raj!}, 'Raj', 'appointment', 'holding', true)`;
+  await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${id} AND user_id = ${raj!}`;
   assert.ok((await pos.savePositionsAction(id, { season: "2099–00", positions: settings.success ? settings.positions.map(({ id: pid, label, filled, gives, docId }) => ({ id: pid, label, filled, gives, docId })) : [] })).success);
+  const [rajAfter] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${raj!}`;
+  assert.equal(rajAfter!.role, "member", "last Season's Events officer is no longer a Coordinator");
+  const [coordStill] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${coord!}`;
+  assert.equal(coordStill!.role, "admin", "a Coordinator not made by a term stays one");
   viewerId = raj!;
   const hist = await pos.readCommitteeAction(id);
   assert.ok(hist.success && hist.history.some((h) => h.position === "Secretary" && h.season !== "2099–00"), "past Seasons are kept");

@@ -973,6 +973,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Only the paper’s member authors change its author list.": {"title": "Only the paper’s member authors change its author list.", "type": "warning"},
   "The draft is a document in this workspace.": {"title": "The draft is a document in this workspace.", "type": "warning"},
   "Link a draft you can edit.": {"title": "Link a draft you can edit.", "type": "warning"},
+  "A role page is one every member can read: publish it first.": {"title": "A role page is one every member can read: publish it first.", "type": "warning"},
   "Officers start committees.": {"title": "Officers start committees.", "type": "warning"},
   "Each position needs a name; up to 15.": {"title": "Each position needs a name; up to 15.", "type": "warning"},
   "The presidency moves through Transfer ownership in Settings.": {"title": "The presidency moves through Transfer ownership in Settings.", "type": "warning"},
