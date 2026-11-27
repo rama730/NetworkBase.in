@@ -53,7 +53,7 @@ test('Volunteers: places as words, Full and Short, Check in in the window, my ho
   await card.getByText('People', { exact: true }).click();
   const ann = card.getByTestId('volunteer-person');
   await expect(ann).toContainText('Occasional · 3 attended · 1 missed · Weekday evenings');
-  await ann.getByLabel('Delivery').check();
+  await ann.getByLabel('Delivery').click();
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['train', 'u2', 'delivery', true]);
   // B8.1b: Regulars, swaps, hours waiting confirmation, Ask.
   await sorting.getByRole('button', { name: 'Be a Regular for Sorting' }).click();
