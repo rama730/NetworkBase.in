@@ -50,7 +50,7 @@ export function FixedTimeCard({ orgId, other }: { orgId: string; other: boolean 
     <OrgCard title="Dates" testId="fixed-time" action={<StatusBadge state={f.state === "ended" ? "done" : f.state === "planning" ? "draft" : "active"}>{STATE[f.state]}</StatusBadge>}>
       <div className="space-y-3 text-[13px]">
         <p className="flex flex-wrap items-center gap-2" data-testid="fixed-time-countdown"><Hourglass aria-hidden="true" className="size-4 text-muted-foreground" />
-          <span className="font-medium">{f.line}</span><span className="text-muted-foreground">· {full(f.keyDate)} · ends {full(f.endDate)}</span>
+          <span><span className="font-medium">{f.line}</span> <span className="text-muted-foreground">· {full(f.keyDate)} · ends {full(f.endDate)}</span></span>
           {d.organiser && !move ? <button type="button" className="nb-link" onClick={() => setMove({ to: f.keyDate, reason: "", preview: null })}>Move the key date</button> : null}</p>
         {move ? <div className="space-y-2 rounded-md border border-border p-3" data-testid="fixed-time-move">
           <span className="flex flex-wrap items-end gap-2">
