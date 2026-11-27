@@ -6,7 +6,10 @@ import { z } from "zod";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { wouldLoop, type ReportsTo } from "@/lib/organizations/directory";
+import { isTimeOffType, seesTimeOffType, TIME_OFF_TYPES, timeOffNames, wouldLoop, type ReportsTo } from "@/lib/organizations/directory";
+import { recordAway } from "@/lib/organizations/away-server";
+import { orgLabel } from "@/lib/organizations/notify";
+import { zonedInputToIso } from "@/lib/organizations/zoned-time";
 import { companyLike } from "@/lib/organizations/kits";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -30,9 +33,9 @@ async function company(orgId: string) {
     SELECT org_type AS type, slug, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
   // B8.8: an Other organization with the Directory on (the Public-sector kit).
   if (!w || !companyLike(w.type, w.settings, "directory") || !(a.isOwner || a.isMember)) return null;
-  const s = (w.settings ?? {}) as { directory?: { viewers?: boolean }; staffGrowth?: { reportsTo?: ReportsTo }; company?: { offices?: Array<{ name: string }> } };
+  const s = (w.settings ?? {}) as { directory?: { viewers?: boolean; timeOffTypes?: unknown }; staffGrowth?: { reportsTo?: ReportsTo }; company?: { offices?: Array<{ name: string }> } };
   return { userId, slug: w.slug, admin: a.isOwner || a.memberRole === "admin", viewer: !a.isOwner && a.memberRole === "viewer",
-    viewersAllowed: s.directory?.viewers === true, reportsTo: (s.staffGrowth?.reportsTo ?? {}) as ReportsTo, offices: (s.company?.offices ?? []).map((o) => o.name) };
+    viewersAllowed: s.directory?.viewers === true, typeNames: timeOffNames(s.directory?.timeOffTypes), reportsTo: (s.staffGrowth?.reportsTo ?? {}) as ReportsTo, offices: (s.company?.offices ?? []).map((o) => o.name) };
 }
 
 export type DirectoryPerson = {
@@ -73,7 +76,7 @@ export async function readDirectoryAction(orgId: string) {
       reportsTo: manager && ids.has(manager) ? manager : null, askMeAbout: Array.isArray(r.skills) ? (r.skills as string[]).slice(0, 5) : [],
       awayFrom: a ? a.from.slice(0, 10) : null, awayUntil: a ? a.until.slice(0, 10) : null, awayNow: Boolean(a?.now) };
   });
-  return { success: true as const, me: ctx.userId, admin: ctx.admin, limited: false, offices: ctx.offices, people, viewersAllowed: ctx.viewersAllowed,
+  return { success: true as const, me: ctx.userId, admin: ctx.admin, limited: false, offices: ctx.offices, people, viewersAllowed: ctx.viewersAllowed, typeNames: ctx.admin ? ctx.typeNames : null,
     // Admins (edges): people whose manager left show "Reports to: no one" ⚠.
     managerLeft: ctx.admin ? Object.entries(ctx.reportsTo).filter(([p, m]) => ids.has(p) && !ids.has(m)).map(([p]) => p) : [] };
 }
@@ -128,11 +131,73 @@ export async function setReportsToAction(orgId: string, person: string, manager:
 }
 
 /** Settings → Directory (admins): whether Viewers see the directory (names and titles only). */
-export async function saveDirectorySettingsAction(orgId: string, input: { viewers: boolean }): Promise<{ success: true } | Failure> {
+export async function saveDirectorySettingsAction(orgId: string, input: { viewers?: boolean; typeNames?: Record<string, string> }): Promise<{ success: true } | Failure> {
   const ctx = await company(orgId);
-  if (!ctx?.admin || typeof input?.viewers !== "boolean") return DENIED;
-  await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('directory', jsonb_build_object('viewers', ${input.viewers}::boolean)) WHERE id = ${orgId}::uuid`);
+  const names = input?.typeNames;
+  if (!ctx?.admin || (input?.viewers !== undefined && typeof input.viewers !== "boolean") || (names !== undefined && (typeof names !== "object" || names === null))) return DENIED;
+  // B4.2c: time-off type names (renameable, 1–30 characters each; blank keeps the default). Merged, so each part keeps the other.
+  const patch: Record<string, unknown> = {};
+  if (typeof input.viewers === "boolean") patch.viewers = input.viewers;
+  if (names) patch.timeOffTypes = Object.fromEntries(TIME_OFF_TYPES.map((t) => [t.id, String(names[t.id] ?? "").trim().slice(0, 30)]).filter(([, v]) => v));
+  await db.execute(sql`UPDATE workspaces SET org_settings = jsonb_set(coalesce(org_settings, '{}'::jsonb), '{directory}', coalesce(org_settings->'directory', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb) WHERE id = ${orgId}::uuid`);
   return { success: true };
+}
+
+/**
+ * Who's out (B4.2c, layer 4): the next two weeks of Away by team. The type shows only to the person, their line
+ * manager and admins (layer 16); everyone else reads "Away". Never the reason. Viewers don't see it.
+ */
+export async function readWhosOutAction(orgId: string) {
+  const ctx = await company(orgId);
+  if (!ctx || ctx.viewer) return DENIED;
+  const [rows, teams] = await Promise.all([
+    db.execute<{ id: string; person: string; name: string; from: string; until: string; type: string | null }>(sql`
+      SELECT a.id, a.user_id AS person, coalesce(p.full_name, p.username, 'Someone') AS name, a.starts_at::text AS from, a.ends_at::text AS until, a.type
+      FROM org_member_away a JOIN profiles p ON p.id = a.user_id
+      JOIN workspace_members m ON m.workspace_id = a.org_id AND m.user_id = a.user_id AND m.role <> 'viewer'
+      WHERE a.org_id = ${orgId}::uuid AND a.ends_at > now() AND a.starts_at <= now() + interval '14 days' ORDER BY a.starts_at LIMIT 500`),
+    db.execute<{ user_id: string; title: string }>(sql`
+      SELECT m.user_id, w.title FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id
+      WHERE w.parent_id = ${orgId}::uuid AND w.deleted_at IS NULL AND w.status <> 'archived' AND w.visibility <> 'private' ORDER BY w.title`),
+  ]);
+  const teamsOf = new Map<string, string[]>();
+  for (const t of teams) teamsOf.set(t.user_id, [...(teamsOf.get(t.user_id) ?? []), t.title]);
+  const zone = (await orgLabel(orgId))?.timeZone ?? null;
+  return { success: true as const, me: ctx.userId, zone, types: TIME_OFF_TYPES.map((t) => ({ id: t.id, name: ctx.typeNames[t.id] })),
+    out: Array.from(rows).map((r) => {
+      const sees = seesTimeOffType(ctx.userId, r.person, ctx.admin, ctx.reportsTo);
+      return { id: r.id, person: r.person, name: r.name, teams: teamsOf.get(r.person) ?? [], from: new Date(r.from).toISOString(), until: new Date(r.until).toISOString(),
+        label: sees && isTimeOffType(r.type) ? ctx.typeNames[r.type] : "Away", mine: r.person === ctx.userId };
+    }) };
+}
+
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const timeOffSchema = z.object({ from: day, to: day, type: z.enum(["vacation", "sick", "ooo", "other"]) }).strict();
+
+/** Book time off (layer 5): my own dates and type, whole days in the organization's time zone; my work due then is excused. */
+export async function bookTimeOffAction(orgId: string, input: z.input<typeof timeOffSchema>): Promise<{ success: true; excused: number } | Failure> {
+  const ctx = await company(orgId);
+  if (!ctx || ctx.viewer) return DENIED;
+  const parsed = timeOffSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Pick the first and last day, and a type." };
+  const zone = (await orgLabel(orgId))?.timeZone ?? null;
+  const from = new Date(zonedInputToIso(`${parsed.data.from}T00:00`, zone)), to = new Date(zonedInputToIso(`${parsed.data.to}T23:59`, zone));
+  if (to <= from) return { success: false, error: "The last day can’t be before the first." };
+  if (to.getTime() < Date.now()) return { success: false, error: "Those days have passed." };
+  if (to.getTime() - from.getTime() > 366 * 86_400_000) return { success: false, error: "Book up to a year at a time." };
+  const excused = await db.transaction((tx) => recordAway(tx, { orgId, userId: ctx.userId, from, to, reason: null, type: parsed.data.type, createdBy: ctx.userId }));
+  return { success: true, excused };
+}
+
+/** Cancel my own time off: one still to come is removed; one under way ends now. Nothing already excused comes back. */
+export async function cancelTimeOffAction(orgId: string, awayId: string): Promise<{ success: true } | Failure> {
+  const ctx = await company(orgId);
+  if (!ctx || ctx.viewer || !isLooseUuid(awayId)) return DENIED;
+  const gone = Array.from(await db.execute(sql`DELETE FROM org_member_away WHERE id = ${awayId}::uuid AND org_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND starts_at > now() RETURNING id`));
+  if (gone.length) return { success: true };
+  const ended = Array.from(await db.execute(sql`UPDATE org_member_away SET ends_at = greatest(starts_at + interval '1 minute', now())
+    WHERE id = ${awayId}::uuid AND org_id = ${orgId}::uuid AND user_id = ${ctx.userId}::uuid AND ends_at > now() RETURNING id`));
+  return ended.length ? { success: true } : DENIED;
 }
 
 /** Counts (call 8, admins): people by team and by office, and joins per month for the last 12 — never a name. */

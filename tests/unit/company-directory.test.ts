@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { localTime, orgChart, wouldLoop } from "../../src/lib/organizations/directory";
+import { localTime, nextDays, orgChart, outSpan, seesTimeOffType, timeOffNames, wouldLoop } from "../../src/lib/organizations/directory";
 
 test("33.3 call 4: Reports to refuses loops", () => {
   const r = { dev: "ana", ana: "sam" };
@@ -46,3 +46,24 @@ test("33.3 Import people: email, title, team per line, grouped into invites; bad
   ]);
   assert.equal(r.skipped, 1);
 });
+
+test("33.3 call 5 (B4.2c): time-off types are renameable; the type reaches the person, their line manager and admins", () => {
+  assert.deepEqual(timeOffNames({ vacation: "  Holiday ", sick: "", bogus: "x" }), { vacation: "Holiday", sick: "Sick", ooo: "Out of office", other: "Other" });
+  assert.deepEqual(timeOffNames(null).ooo, "Out of office");
+  const r = { dev: "ana" };
+  assert.equal(seesTimeOffType("dev", "dev", false, r), true, "the person");
+  assert.equal(seesTimeOffType("ana", "dev", false, r), true, "their line manager");
+  assert.equal(seesTimeOffType("boss", "dev", true, r), true, "admins");
+  assert.equal(seesTimeOffType("kai", "dev", false, r), false, "everyone else sees Away");
+});
+
+test("B4.2c: Who's out spans the next 14 days in the organization's zone", () => {
+  const now = new Date("2026-11-27T20:00:00Z"); // 28 Nov 01:30 in Kolkata
+  const days = nextDays(now, "Asia/Kolkata");
+  assert.equal(days.length, 14);
+  assert.deepEqual([days[0], days[13]], ["2026-11-28", "2026-12-11"]);
+  assert.deepEqual(outSpan("2026-11-29T18:30:00Z", "2026-12-02T18:29:00Z", days, "Asia/Kolkata"), { start: 2, end: 4 }, "30 Nov–2 Dec");
+  assert.deepEqual(outSpan("2026-11-20T00:00:00Z", "2026-11-28T10:00:00Z", days, "Asia/Kolkata"), { start: 0, end: 0 }, "already under way: from today");
+  assert.equal(outSpan("2026-12-20T00:00:00Z", "2026-12-22T00:00:00Z", days, "Asia/Kolkata"), null, "after the two weeks");
+});
+

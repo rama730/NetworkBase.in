@@ -12,13 +12,18 @@ async function open(page: Page, view: string) {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
-      readDirectoryAction: async () => ({ success: true, me: 'dev', admin: true, limited: false, offices: ['London'], viewersAllowed: false, managerLeft: [], people }),
+      readDirectoryAction: async () => ({ success: true, me: 'dev', admin: true, limited: false, offices: ['London'], viewersAllowed: false, managerLeft: [], typeNames: { vacation: 'Holiday', sick: 'Sick', ooo: 'Out of office', other: 'Other' }, people }),
       saveMyDirectoryAction: async (_o: string, v: unknown) => { calls.push(['mine', v]); return { success: true }; },
       setReportsToAction: async (_o: string, p: string, m: string | null) => { calls.push(['reports', p, m]); return { success: true }; },
       readPeopleCountsAction: async () => ({ success: true, total: 4, teams: [{ name: 'Engineering', n: 2 }, { name: 'Sales', n: 1 }], offices: [{ name: 'London', n: 1 }, { name: 'No office', n: 3 }], joined: [{ month: '2026-11', n: 4 }] }),
       readCompanyAboutAction: async () => ({ success: true, admin: true, inside: true, values: [], offices: [], publicValues: false, publicOffices: false, teams: [{ id: '11111111-1111-4111-8111-111111111111', title: 'Sales', slug: 'sales', line: null, manager: null, members: 1 }] }),
       inviteByEmailAction: async (_o: string, v: unknown) => { calls.push(['invite', v]); return { success: true, invited: 2, existing: 0, invalid: [] }; },
       saveDirectorySettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
+      readWhosOutAction: async () => ({ success: true, me: 'dev', zone: 'Asia/Kolkata', types: [{ id: 'vacation', name: 'Holiday' }, { id: 'sick', name: 'Sick' }, { id: 'ooo', name: 'Out of office' }, { id: 'other', name: 'Other' }],
+        out: [{ id: 'a1', person: 'dev', name: 'Dev Khan', teams: ['Engineering'], from: '2026-11-30T18:30:00.000Z', until: '2026-12-03T18:29:00.000Z', label: 'Holiday', mine: true },
+          { id: 'a2', person: 'mei', name: 'Mei Lin', teams: ['Sales'], from: '2026-11-27T18:30:00.000Z', until: '2026-11-29T18:29:00.000Z', label: 'Away', mine: false }] }),
+      bookTimeOffAction: async (_o: string, v: unknown) => { calls.push(['book', v]); return { success: true, excused: 1 }; },
+      cancelTimeOffAction: async (_o: string, id: string) => { calls.push(['cancel', id]); return { success: true }; },
     };
   }, [
     person('sam', 'Sam Lee', { title: 'CEO' }),
@@ -80,3 +85,39 @@ test('Import people: a pasted CSV becomes email invites grouped by title and tea
   await page.getByRole('button', { name: 'Send 2 invites' }).click();
   await expect.poll(async () => (await calls(page)).find((c: unknown[]) => c[0] === 'invite')?.[1]).toEqual({ emails: 'mei@acme.com\nkai@acme.com', role: 'member', title: 'Account executive', childProjectId: '11111111-1111-4111-8111-111111111111' });
 });
+
+// Plan B4.2c (report 33.3 call 5): Who's out — the next two weeks by team; the type only where allowed; book and cancel.
+test("Who's out: by team with a bar per person, Book time off with a type, Cancel my own; Settings renames the types", async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-11-28T04:00:00Z'));
+  await open(page, 'people');
+  await page.getByRole('tab', { name: 'Who’s out' }).click();
+  const out = page.getByTestId('whos-out');
+  await expect(out.getByRole('heading', { name: 'Engineering' })).toBeVisible();
+  const rows = out.getByTestId('whos-out-row');
+  await expect(rows.filter({ hasText: 'Dev Khan' })).toContainText('Holiday · 1 Dec–3 Dec');
+  await expect(rows.filter({ hasText: 'Mei Lin' })).toContainText('Away · 28 Nov–29 Nov');
+  await expect(rows.filter({ hasText: 'Mei Lin' }).getByRole('button', { name: /Cancel/ })).toHaveCount(0);
+  await out.getByRole('button', { name: 'Book time off' }).click();
+  const form = out.getByTestId('book-time-off');
+  await form.getByLabel('First day').fill('2026-12-07');
+  await form.getByLabel('Last day').fill('2026-12-08');
+  await form.getByLabel('Type').selectOption('sick');
+  await form.getByRole('button', { name: 'Book' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['book', { from: '2026-12-07', to: '2026-12-08', type: 'sick' }]);
+  await rows.filter({ hasText: 'Dev Khan' }).getByRole('button', { name: 'Cancel my time off' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['cancel', 'a1']);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+  await page.setViewportSize({ width: 375, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+test('Settings → Directory: rename the time-off types', async ({ page }) => {
+  await open(page, 'settings');
+  const types = page.getByTestId('time-off-types');
+  await expect(types.getByLabel('Name for Vacation')).toHaveValue('Holiday');
+  await types.getByLabel('Name for Sick').fill('Unwell');
+  await types.getByRole('button', { name: 'Save types' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['settings', { typeNames: { vacation: 'Holiday', sick: 'Unwell', ooo: 'Out of office', other: 'Other' } }]);
+});
+

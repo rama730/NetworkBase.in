@@ -2225,6 +2225,8 @@ export const orgMemberAway = pgTable("org_member_away", {
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     reason: text("reason"),
+    /** B4.2c: vacation · sick · ooo · other; seen by the person, their line manager and admins. */
+    type: text("type"),
     createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({

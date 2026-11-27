@@ -75,3 +75,40 @@ export function importGroups(text: string): { groups: Array<{ title: string; tea
   }
   return { groups: [...groups.values()], skipped };
 }
+
+/** Plan B4.2c (call 5): time off is Away with a type; the names are renameable in Settings → Directory. */
+export const TIME_OFF_TYPES = [
+  { id: "vacation", name: "Vacation" }, { id: "sick", name: "Sick" }, { id: "ooo", name: "Out of office" }, { id: "other", name: "Other" },
+] as const;
+export type TimeOffType = (typeof TIME_OFF_TYPES)[number]["id"];
+export const isTimeOffType = (v: unknown): v is TimeOffType => TIME_OFF_TYPES.some((t) => t.id === v);
+
+/** The organization's names for the four types: a saved name (1–30 letters) wins over the default. */
+export function timeOffNames(saved: unknown): Record<TimeOffType, string> {
+  const s = (saved && typeof saved === "object" ? saved : {}) as Record<string, unknown>;
+  return Object.fromEntries(TIME_OFF_TYPES.map((t) => {
+    const v = typeof s[t.id] === "string" ? (s[t.id] as string).trim().slice(0, 30) : "";
+    return [t.id, v || t.name];
+  })) as Record<TimeOffType, string>;
+}
+
+/** Layer 16: the type reaches the person, their line manager and admins; everyone else sees "Away". */
+export const seesTimeOffType = (viewer: string, person: string, admin: boolean, reportsTo: ReportsTo) =>
+  admin || viewer === person || reportsTo[person] === viewer;
+
+const dayKey = (d: Date, zone: string | null) => new Intl.DateTimeFormat("en-CA", { timeZone: zone ?? undefined, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+
+/** Who's out (B4.2c): the next 14 days from today in the organization's zone, as YYYY-MM-DD keys. */
+export function nextDays(now: Date, zone: string | null, n = 14): string[] {
+  const base = Date.parse(`${dayKey(now, zone)}T12:00:00Z`);
+  return Array.from({ length: n }, (_, i) => new Date(base + i * 86_400_000).toISOString().slice(0, 10));
+}
+
+/** The span (day indexes) an Away covers within `days`, or null when it falls outside them. */
+export function outSpan(fromIso: string, untilIso: string, days: string[], zone: string | null): { start: number; end: number } | null {
+  const from = dayKey(new Date(fromIso), zone), until = dayKey(new Date(untilIso), zone);
+  const start = days.findIndex((k) => k >= from);
+  let end = -1;
+  days.forEach((k, i) => { if (k <= until) end = i; });
+  return start === -1 || end === -1 || end < start ? null : { start, end };
+}

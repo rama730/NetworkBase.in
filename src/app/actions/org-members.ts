@@ -23,6 +23,7 @@ import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal, removeWo
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyJoined, notifyOrg, orgEmailBase, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
 import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions';
+import { recordAway } from '@/lib/organizations/away-server';
 import { invitesLeftToday, orgLimitBlock } from '@/lib/organizations/limits';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 
@@ -950,16 +951,7 @@ export async function markAwayAction(orgId: string, userId: string, input: z.inp
     const [member] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId))).limit(1);
     if (member?.role !== 'member') return { success: false, error: 'Only members can be marked away.' };
     const reason = parsed.data.reason?.trim() || null;
-    const excused = await db.transaction(async (tx) => {
-        await tx.insert(orgMemberAway).values({ orgId, userId, startsAt: from, endsAt: to, reason, createdBy: viewer.userId });
-        const rows = await tx.execute<{ id: string }>(sql`
-            UPDATE tasks c SET excused_at = now(), excused_reason = ${reason ? `Away: ${reason}` : 'Away'}, updated_at = now()
-            FROM tasks m WHERE m.id = c.assignment_id AND m.workspace_id = ${orgId} AND c.workspace_id = ${orgId} AND c.assignee_id = ${userId}
-              AND c.team_name IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.status <> 'done' AND c.review_status IS DISTINCT FROM 'pending'
-              AND c.due_date >= ${from.toISOString()}::timestamptz AND c.due_date <= ${to.toISOString()}::timestamptz
-            RETURNING c.id`);
-        return rows.length;
-    });
+    const excused = await db.transaction((tx) => recordAway(tx, { orgId, userId, from, to, reason, type: null, createdBy: viewer.userId }));
     const org = await orgLabel(orgId);
     if (org) {
         const until = formatDueDay(to, org.timeZone);
