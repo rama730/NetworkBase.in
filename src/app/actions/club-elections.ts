@@ -206,17 +206,19 @@ export async function closeVotingAction(orgId: string): Promise<{ success: true;
     await tx.execute(sql`UPDATE club_elections SET rounds = ${JSON.stringify(rounds)}::jsonb, results = ${JSON.stringify(results)}::jsonb,
       phase = ${done ? "results" : "voting"}, closed_at = ${done ? sql`now()` : sql`NULL`} WHERE id = ${e.id}::uuid`);
     if (done) {
+      const made: string[] = [];
       for (const p of ctx.positions) {
         const w = results[p.id]?.winner;
         if (!w) continue;
-        await tx.execute(sql`
+        const [t] = Array.from(await tx.execute<{ id: string }>(sql`
           INSERT INTO club_position_terms (org_id, position_id, position_label, season, user_id, holder_name, how, state, accepted_at)
           SELECT ${orgId}::uuid, ${p.id}, ${p.label}, ${e.season}, ${w}::uuid, coalesce(pr.full_name, pr.username, 'Member'), 'election', 'holding', now() FROM profiles pr WHERE pr.id = ${w}::uuid
-          ON CONFLICT DO NOTHING`);
+          ON CONFLICT DO NOTHING RETURNING id`));
+        if (t) made.push(t.id);
       }
       // B7.2c: winners for the Season under way (a by-election) take their role now; a later Season's at the handover.
       const committee = readPositions(ctx.w.settings);
-      if (e.season === committee.season) await giveRoles(tx, orgId, e.season, committee.positions.filter((p) => p.gives === "coordinator").map((p) => p.id));
+      if (e.season === committee.season) await giveRoles(tx, orgId, made, committee.positions.filter((p) => p.gives === "coordinator").map((p) => p.id));
     }
     return { runoffs, id: e.id, done };
   });

@@ -47,6 +47,9 @@ type Exec = Pick<typeof db, "execute">;
  * groups the incoming officer belongs to) and the documents they own. Returns what moved.
  */
 export async function moveWork(tx: Exec, orgId: string, from: string, to: string) {
+  // Security review: only to someone still in the club (not a Viewer, not finished).
+  const [member] = Array.from(await tx.execute(sql`SELECT 1 FROM workspace_members WHERE workspace_id = ${orgId}::uuid AND user_id = ${to}::uuid AND role <> 'viewer' AND completed_at IS NULL`));
+  if (!member) return { tasks: 0, docs: 0 };
   const tasks = Array.from(await tx.execute(sql`
     UPDATE tasks t SET assignee_id = ${to}::uuid, updated_at = now() FROM workspaces w
     WHERE w.id = t.workspace_id AND t.assignee_id = ${from}::uuid AND t.deleted_at IS NULL AND t.status <> 'done'
@@ -54,7 +57,9 @@ export async function moveWork(tx: Exec, orgId: string, from: string, to: string
     RETURNING t.id`)).length;
   const docs = Array.from(await tx.execute(sql`
     UPDATE workspace_documents SET settings = jsonb_set(settings, '{org,owner}', to_jsonb(${to}::text))
-    WHERE workspace_id = ${orgId}::uuid AND settings->'org'->>'owner' = ${from}::text RETURNING id`)).length;
+    WHERE workspace_id = ${orgId}::uuid AND settings->'org'->>'owner' = ${from}::text
+      -- Security review: the role's documents, not private drafts or leaders-only pages (ownership would open them).
+      AND coalesce(settings->'org'->>'lifecycle', 'published') <> 'draft' AND coalesce(settings->>'visibilityOverride', '') <> 'leaders_only' RETURNING id`)).length;
   return { tasks, docs };
 }
 
@@ -88,20 +93,24 @@ export async function switchSeason(tx: Exec, orgId: string, owner: string, to: s
       AND NOT EXISTS (SELECT 1 FROM club_position_terms t WHERE t.org_id = ${orgId}::uuid AND t.user_id = ${u}::uuid AND t.state = 'holding' AND t.season = ${to}
         AND t.position_id = ANY(${`{${giving.join(",") || "none"}}`}::text[]))`);
   }
-  await giveRoles(tx, orgId, to, giving);
+  await giveRoles(tx, orgId, terms.filter((t) => t.season === to).map((t) => t.id), giving);
   return tell;
 }
 
-/** The Season's holders of Coordinator positions become Coordinators; each term remembers whether it did. */
-export async function giveRoles(tx: Exec, orgId: string, season: string, giving: string[]) {
+/**
+ * These terms' holders of Coordinator positions become Coordinators; each term remembers whether it did. Security
+ * review: by term id, so nobody the President took the role from by hand gets it back from someone else's change.
+ */
+export async function giveRoles(tx: Exec, orgId: string, termIds: string[], giving: string[]) {
+  if (!termIds.length) return;
   await tx.execute(sql`
     WITH promoted AS (
       UPDATE workspace_members m SET role = 'admin' FROM club_position_terms t
-      WHERE t.org_id = ${orgId}::uuid AND t.season = ${season} AND t.state = 'holding' AND t.position_id = ANY(${`{${giving.join(",") || "none"}}`}::text[])
+      WHERE t.id = ANY(${`{${termIds.join(",")}}`}::uuid[]) AND t.org_id = ${orgId}::uuid AND t.state = 'holding' AND t.position_id = ANY(${`{${giving.join(",") || "none"}}`}::text[])
         AND m.workspace_id = t.org_id AND m.user_id = t.user_id AND m.role = 'member' AND m.completed_at IS NULL
       RETURNING m.user_id)
     UPDATE club_position_terms t SET gave_role = true FROM promoted
-    WHERE t.org_id = ${orgId}::uuid AND t.season = ${season} AND t.state = 'holding' AND t.user_id = promoted.user_id AND t.position_id = ANY(${`{${giving.join(",") || "none"}}`}::text[])`);
+    WHERE t.id = ANY(${`{${termIds.join(",")}}`}::uuid[]) AND t.user_id = promoted.user_id AND t.position_id = ANY(${`{${giving.join(",") || "none"}}`}::text[])`);
 }
 
 export async function notifyAll(orgId: string, slug: string, list: Array<{ to: string; title: string }>, actor: string | null, key: string) {

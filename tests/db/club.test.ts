@@ -280,6 +280,7 @@ test("36.3 (B7.2c): the handover — checklist, open work moves, roles switch on
     (${id}, 'WT Site', 'in_progress', ${tom!}, ${pres!}, 9303), (${id}, 'WT Agenda', 'in_progress', ${sam!}, ${pres!}, 9304) RETURNING id`;
   assert.ok(t1);
   await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'wt-minutes-book', 'Minutes book.md', ${sql.json({ org: { lifecycle: "published", owner: sam! } })})`;
+  await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'wt-sam-draft', 'Sam draft.md', ${sql.json({ org: { lifecycle: "draft", owner: sam! } })})`;
 
   viewerId = sam!;
   assert.equal((await ho.saveHandoverAction(id, { season: "2027–28", date: "2099-04-01" })).success, false, "the President sets the handover");
@@ -304,6 +305,8 @@ test("36.3 (B7.2c): the handover — checklist, open work moves, roles switch on
   viewerId = sam!;
   const moved = await ho.moveWorkAction(id, samTerm);
   assert.ok(moved.success && moved.tasks === 2 && moved.docs === 1, "open tasks and owned documents move; done ones stay");
+  const [draft] = await sql`SELECT settings->'org'->>'owner' AS owner FROM workspace_documents WHERE workspace_id = ${id} AND slug = 'wt-sam-draft'`;
+  assert.equal(draft!.owner, sam!, "security review: a private draft never moves (ownership would open it)");
   const view = await ho.readHandoverAction(id);
   const row = view.success && "rows" in view ? view.rows!.find((r) => r.id === "secretary") : null;
   assert.equal(row?.done, 3, "role page, tasks, documents");
