@@ -313,6 +313,7 @@ export async function askSwapAction(orgId: string, shiftId: string, to: string):
 }
 
 const GONE = Symbol("gone");
+const CANT = Symbol("cant");
 /** Answer a swap (the volunteer asked): yes takes the place straight over; no leaves it with the asker. */
 export async function answerSwapAction(orgId: string, swapId: string, accept: boolean): Promise<{ success: true } | Failure> {
   const ctx = await org(orgId);
@@ -323,6 +324,10 @@ export async function answerSwapAction(orgId: string, swapId: string, accept: bo
       RETURNING shift_id, from_user`));
     if (!w) return null;
     if (!accept) return w;
+    // Security review: the person taking the place must still be able to (Volunteers on, the agreement, the role's training).
+    const [sh] = Array.from(await tx.execute<{ role: string }>(sql`SELECT type_fields->>'roleId' AS role FROM tasks WHERE id = ${w.shift_id}::uuid`));
+    const role = ctx.settings.roles.find((r) => r.id === sh?.role);
+    if (!ctx.settings.on || !agreedTo(ctx.settings, ctx.prefs) || (role?.training && !(ctx.prefs.trained ?? []).includes(role.id))) throw CANT;
     await tx.execute(sql`SELECT 1 FROM community_events WHERE task_id = ${w.shift_id}::uuid FOR UPDATE`);
     const moved = Array.from(await tx.execute(sql`UPDATE community_rsvps SET state = 'cant_go', responded_at = now(), checked_in_at = NULL
       WHERE task_id = ${w.shift_id}::uuid AND user_id = ${w.from_user}::uuid AND state = 'going' AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = ${w.shift_id}::uuid AND t.stage <> 'cancelled' AND (t.type_fields->>'start')::timestamptz > now()) RETURNING user_id`));
@@ -330,7 +335,8 @@ export async function answerSwapAction(orgId: string, swapId: string, accept: bo
     await tx.execute(sql`INSERT INTO community_rsvps (task_id, user_id, workspace_id, state) VALUES (${w.shift_id}::uuid, ${ctx.userId}::uuid, ${orgId}::uuid, 'going')
       ON CONFLICT (task_id, user_id) DO UPDATE SET state = 'going', responded_at = now()`);
     return w;
-  }).catch((e: unknown) => { if (e === GONE) return "gone" as const; throw e; });
+  }).catch((e: unknown) => { if (e === GONE) return "gone" as const; if (e === CANT) return "cant" as const; throw e; });
+  if (out === "cant") return { success: false, error: "You can’t take this shift yet (agreement or training)." };
   if (out === "gone") return { success: false, error: "That place isn’t theirs to give any more." };
   if (!out) return DENIED;
   await tell(orgId, ctx.slug, out.from_user, accept ? "Your swap was accepted: someone took your shift" : "Your swap was declined: the shift is still yours", `volunteer-swap-answer:${swapId}`, "more");
