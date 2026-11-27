@@ -81,7 +81,7 @@ test('S1: New meeting has type, default title, date and time in the zone, length
   const d = page.getByTestId('new-meeting-dialog');
   // A4.3–A4.14: type cards with an icon and one line; Weekly first, Blank last; the title follows the type.
   const types = d.getByRole('radiogroup', { name: 'Type' }).getByRole('radio');
-  await expect(types).toHaveCount(22); // every catalog type when Settings → Meetings has none set (the mock); clubs and schools added theirs
+  await expect(types).toHaveCount(23); // every catalog type when Settings → Meetings has none set (the mock); clubs, schools and club competitions added theirs
   await expect(types.first()).toHaveAttribute('aria-checked', 'true');
   await expect(types.first()).toContainText('WeeklyAgenda, notes, decisions and action items.');
   await expect(d.getByLabel('Title')).toHaveAttribute('placeholder', 'Weekly · Jan 7');
