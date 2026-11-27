@@ -19,6 +19,10 @@ export const readingGroupSchema = z.object({ on: z.boolean(), weekday: z.number(
 /** B6.5a: the lab meeting — the same slot and rotation, no pick-by. */
 export const labMeetingSchema = readingGroupSchema.omit({ pickDays: true }).strict();
 export type SessionKind = "reading_group" | "lab_meeting";
+/** B6.5b: one step of a milestone template; `every` repeats it (the annual review) until the last one-off step. */
+export const milestoneStepSchema = z.object({ key: z.string().regex(/^[a-z0-9-]{1,30}$/), name: z.string().trim().min(1).max(80), month: z.number().int().min(1).max(120),
+  every: z.number().int().min(6).max(24).nullable() }).strict();
+export type MilestoneStep = z.infer<typeof milestoneStepSchema>;
 
 export const labSettingsSchema = z.object({
   positions: z.array(z.object({ id: z.string().regex(/^[a-z0-9-]{1,24}$/), label: z.string().trim().min(1).max(40) }).strict()).min(1).max(12),
@@ -43,6 +47,8 @@ export const labSettingsSchema = z.object({
   readingGroup: readingGroupSchema,
   /** B6.5a (call 1): the lab meeting's weekly slot and talk rotation. */
   labMeeting: labMeetingSchema,
+  /** B6.5b (call 4): milestone templates per position, in months from the person's start (doubled for part-time). */
+  milestones: z.record(z.string().regex(/^[a-z0-9-]{1,24}$/), z.array(milestoneStepSchema).max(12)),
 }).strict();
 export type LabSettings = z.infer<typeof labSettingsSchema>;
 
@@ -51,6 +57,12 @@ export const DEFAULT_LAB: LabSettings = {
   about: { areas: true, people: true, alumni: true, publications: true, joinUs: true }, researchAreas: [], joinUs: "", protocolApprovers: "pi", booking: DEFAULT_BOOKING, paperReview: true, themes: [],
   readingGroup: { on: false, weekday: 2, time: "16:00", order: [], pickDays: 3 },
   labMeeting: { on: false, weekday: 4, time: "11:00", order: [] },
+  milestones: {
+    phd: [{ key: "proposal", name: "Proposal", month: 12, every: null }, { key: "qualifying", name: "Qualifying exam", month: 18, every: null },
+      { key: "annual-review", name: "Annual review", month: 12, every: 12 }, { key: "submission", name: "Thesis submission", month: 42, every: null },
+      { key: "defence", name: "Defence", month: 48, every: null }],
+    masters: [{ key: "proposal", name: "Proposal", month: 6, every: null }, { key: "submission", name: "Thesis submission", month: 22, every: null }],
+  },
 };
 
 export function readLabSettings(orgSettings: unknown): LabSettings {

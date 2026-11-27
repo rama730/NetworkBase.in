@@ -13700,6 +13700,14 @@ PERSON · Meera · PhD student (2024)       Supervisor Dr. Rao · Co-supervisor 
 6. **Notices** (hourly): "You give the talk on …" 7 days before, and "The updates box is open" to members 2 days before, each once. They link to the lab's Overview.
 7. **Next:** B6.5b covers supervision (a private running check-in per pair, rhythm) and milestones from a template per position, counted from each person's start. B6.5c covers the annual review, the development plan, concern routing and the PI's counts card.
 
+**Build calls (B6.5b, 2026-11-27):**
+1. **Progress record** (0169): the PI or a Researcher sets up each person's progress: start date, part-time, an optional co-supervisor (the PI or a Researcher), and the supervision rhythm (default every 2 weeks). The supervisor is the one set on People (B6.1); with none named, it's the PI (layer 12).
+2. **Supervision** (call 3) is a running log per person (met on, topics, notes, next steps, who wrote it). The person and their supervisor and co-supervisor read and add to it. A PI who isn't one of them sees only the rhythm (last and next date), never the notes (server test). A note is for a meeting that happened, so no future dates. It's its own log, not C5's class check-ins, which belong to class sections.
+3. **Milestones** (call 4) come from the lab's template for the person's position (Settings → Lab, default PhD: Proposal 12, Qualifying exam 18, Annual review every 12, Thesis submission 42, Defence 48; Master's: Proposal 6, Submission 22), in months from the start date. Part-time doubles them. The person hands one in; their supervisor, co-supervisor or the PI marks it done or moves it with a new date and a reason (time away is one). A new start date moves only milestones nobody moved or finished. They aren't each-child assignments; they're records with these states (Upcoming, Handed in, Done).
+4. **Views:** My progress on the lab Overview for each person who has a record. Supervision and milestones for the PI and Researchers: each person's next milestone, last supervision and "Supervision due", with dates only, no notes and no ranking, opening to the person's page.
+5. **Notices** (hourly): "supervision is due" once a week past the rhythm, to the person and their supervisors, once per gap (a new note resets it). Milestones notify 30 and 7 days ahead, each once.
+6. **Next:** B6.5c covers the annual review (Progress report → feedback → committee → Agreed next steps), the development plan, concern routing and the PI's counts card.
+
 ### 35.7 Research: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |

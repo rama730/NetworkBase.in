@@ -99,6 +99,8 @@ export const chatDue = inngest.createFunction(
       await step.run("lab-finish", async () => (await import("@/lib/organizations/lab-server")).finishDueLabMembers());
       // B6.4b (report 35.4 layer 15): the reading group's coming sessions, next-presenter, pick-by and late notices.
       await step.run("lab-reading-group", async () => (await import("@/lib/organizations/lab-reading-group-server")).readingGroupNotices());
+      // B6.5b (report 35.6 layer 15): supervision due (a week past the rhythm) and milestones 30 and 7 days ahead.
+      await step.run("lab-progress", async () => (await import("@/lib/organizations/lab-progress-server")).progressNotices());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

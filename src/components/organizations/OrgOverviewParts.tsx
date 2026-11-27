@@ -13,6 +13,7 @@ import { LabEquipmentCard } from '@/components/organizations/LabEquipment'
 import { LabPapersCard } from '@/components/organizations/LabPapers'
 import { LabLibraryCard } from '@/components/organizations/LabLibrary'
 import { LabMeetingCard } from '@/components/organizations/LabMeeting'
+import { LabProgressCard, MyProgressCard } from '@/components/organizations/LabProgress'
 import { SchoolAttentionCard } from '@/components/organizations/SchoolParts'
 import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
@@ -288,6 +289,8 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'research' ? <LabHomeCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
                 {orgType === 'research' ? <LabProtocolsCard orgId={orgId} /> : null}
                 {orgType === 'research' ? <LabPapersCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
+                {orgType === 'research' ? <MyProgressCard orgId={orgId} /> : null}
+                {orgType === 'research' ? <LabProgressCard orgId={orgId} /> : null}
                 {orgType === 'research' ? <LabMeetingCard orgId={orgId} /> : null}
                 {orgType === 'research' ? <LabLibraryCard orgId={orgId} slug={orgSlug ?? orgId} /> : null}
                 {orgType === 'research' ? <LabEquipmentCard orgId={orgId} /> : null}

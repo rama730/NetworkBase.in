@@ -57,6 +57,17 @@ async function open(page: Page, admin: boolean, view = 'people') {
       saveTalkAction: async (_o: string, id: string, v: unknown) => { calls.push(['talk', id, v]); return { success: true }; },
       saveLabMeetingAction: async () => ({ success: true }),
       finishReadingAction: async () => ({ success: true }),
+      readProgressAction: async (_o: string, who: string | null) => ({ success: true, set: true, self: !who, pair: true, canDecide: Boolean(who), admin,
+        person: { id: who ?? 'u1', name: who ? 'Mei' : 'Dr. Rao', startDate: '2024-09-01', partTime: false, weeks: 2, supervisor: { id: 'u9', name: 'Dr. Iyer' }, co: null },
+        rhythm: { lastMet: '2026-11-01', next: '2026-11-15', overdue: true },
+        milestones: [{ key: 'proposal', name: 'Proposal', dueOn: '2025-09-01', state: 'done', movedReason: null }, { key: 'qualifying', name: 'Qualifying exam', dueOn: '2026-03-01', state: 'upcoming', movedReason: 'Two months away' }],
+        notes: [{ id: 'n1', metOn: '2026-11-01', topics: 'Chapter 2', notes: 'Rerun the eval', nextSteps: 'Send draft', author: 'Dr. Iyer' }] }),
+      readLabProgressAction: async () => ({ success: true, people: [{ id: 'u1', name: 'Dr. Rao' }, { id: 'u2', name: 'Mei' }, { id: 'u3', name: 'Arjun' }], leads: [{ id: 'u1', name: 'Dr. Rao' }],
+        rows: [{ id: 'u2', name: 'Mei', startDate: '2024-09-01', next: { name: 'Qualifying exam', dueOn: '2026-03-01' }, next2: null, overdue: true, lastMet: '2026-11-01' }] }),
+      addSupervisionNoteAction: async (_o: string, id: string, v: unknown) => { calls.push(['supNote', id, v]); return { success: true }; },
+      handInMilestoneAction: async (_o: string, key: string) => { calls.push(['handIn', key]); return { success: true }; },
+      decideMilestoneAction: async (_o: string, id: string, key: string, v: unknown) => { calls.push(['decide', id, key, v]); return { success: true }; },
+      setProgressAction: async (_o: string, id: string, v: unknown) => { calls.push(['setup', id, v]); return { success: true, milestones: 8 }; },
       readProtocolsAction: async () => ({ success: true, slug: 'vision-lab', protocols: [{ id: 'p1', title: 'Capture rig setup', slug: 'rig', owner: 'Arjun', reviewBy: null, approved: 1, draft: 2, needsTraining: true, trained: false }] }),
       readProtocolAction: async () => ({ success: true, pageDraft: false, approver: admin, canTrain: admin, canEdit: admin, me: 'u1', needsTraining: true, trainers: ['u2'], trained: false,
         versions: [{ id: 'v2', version: 2, state: 'draft', by: null, at: null, created: '2026-11-20', content: admin ? '## Steps\n1. Power on' : '' }, { id: 'v1', version: 1, state: 'approved', by: 'Dr. Rao', at: '2026-10-02T10:00:00Z', created: '2026-10-01', content: '' }],
@@ -399,6 +410,35 @@ test('B6.5a Lab meeting: Coming up, the updates round with Away and Not filled a
   await talk.getByRole('button', { name: 'Save' }).click();
   await expect.poll(() => calls(page)).toContainEqual(['talk', 'm1', { talk: 'Calibrating in the dark', announcements: 'Lab dinner Friday' }]);
   await expect(card).toContainText('Then: Mei');
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B6.5b My progress and Supervision and milestones: rhythm with Supervision due, milestones as words, hand in, the private log; leads set up and move with a reason', async ({ page }) => {
+  await open(page, true, 'progress');
+  const mine = page.getByTestId('lab-my-progress');
+  await expect(mine.getByTestId('lab-supervision-rhythm')).toContainText('Supervision every 2 weeks · last 1 November 2026 · next 15 November 2026 · Supervision due');
+  await expect(mine.getByTestId('lab-milestones')).toContainText('Proposal1 September 2025Done');
+  await expect(mine.getByTestId('lab-milestones')).toContainText('Moved: Two months away');
+  await mine.getByRole('button', { name: 'Hand in Qualifying exam' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['handIn', 'qualifying']);
+  const log = mine.getByTestId('lab-supervision-log');
+  await expect(log).toContainText('only you and your supervisors see this');
+  await log.getByLabel('Topics').fill('Related work');
+  await log.getByRole('button', { name: 'Add to the log' }).click();
+  await expect.poll(async () => JSON.stringify(await calls(page))).toContain('"topics":"Related work"');
+  const leads = page.getByTestId('lab-progress-all');
+  await expect(leads).toContainText('Supervision due');
+  await leads.getByLabel('Set up progress for').selectOption({ label: 'Arjun' });
+  await page.getByTestId('lab-progress-setup').getByLabel('Start date').fill('2025-09-01');
+  await page.getByTestId('lab-progress-setup').getByRole('button', { name: 'Set up' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['setup', 'u3', { startDate: '2025-09-01', partTime: false, coSupervisorId: null, weeks: 2 }]);
+  await leads.getByRole('button', { name: /Mei/ }).click();
+  await leads.getByRole('button', { name: 'Move Qualifying exam' }).click();
+  await leads.getByLabel('New date for Qualifying exam').fill('2026-06-01');
+  await leads.getByLabel('Why Qualifying exam moves').fill('Time away');
+  await leads.getByRole('button', { name: 'Move', exact: true }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['decide', 'u2', 'qualifying', { moveTo: '2026-06-01', reason: 'Time away' }]);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });

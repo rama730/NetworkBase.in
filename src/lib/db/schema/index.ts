@@ -1821,6 +1821,44 @@ export const labMeetingUpdates = pgTable("lab_meeting_updates", {
   stuckOn: text("stuck_on").default("").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.sessionId, t.userId] }), index("lab_meeting_updates_user_idx").on(t.userId)]);
+/** B6.5b (0169): each person's progress record, the private supervision log, and milestones from the lab's template. */
+export const labProgress = pgTable("lab_progress", {
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  startDate: date("start_date").notNull(),
+  partTime: boolean("part_time").default(false).notNull(),
+  coSupervisorId: uuid("co_supervisor_id").references(() => profiles.id, { onDelete: "set null" }),
+  supervisionWeeks: integer("supervision_weeks").default(2).notNull(),
+  supervisionNoticeAt: timestamp("supervision_notice_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.orgId, t.userId] }), index("lab_progress_user_idx").on(t.userId), index("lab_progress_co_idx").on(t.coSupervisorId).where(sql`co_supervisor_id IS NOT NULL`)]);
+export const labSupervisionNotes = pgTable("lab_supervision_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  studentId: uuid("student_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  metOn: date("met_on").notNull(),
+  topics: text("topics").default("").notNull(),
+  notes: text("notes").default("").notNull(),
+  nextSteps: text("next_steps").default("").notNull(),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("lab_supervision_notes_student_idx").on(t.orgId, t.studentId, t.metOn.desc()), index("lab_supervision_notes_student_fk_idx").on(t.studentId),
+  index("lab_supervision_notes_author_idx").on(t.authorId).where(sql`author_id IS NOT NULL`)]);
+export const labMilestones = pgTable("lab_milestones", {
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  name: text("name").notNull(),
+  dueOn: date("due_on").notNull(),
+  state: text("state").default("upcoming").notNull(),
+  movedReason: text("moved_reason"),
+  handedInAt: timestamp("handed_in_at", { withTimezone: true }),
+  doneAt: timestamp("done_at", { withTimezone: true }),
+  doneBy: uuid("done_by").references(() => profiles.id, { onDelete: "set null" }),
+  notice30At: timestamp("notice_30_at", { withTimezone: true }),
+  notice7At: timestamp("notice_7_at", { withTimezone: true }),
+}, (t) => [primaryKey({ columns: [t.orgId, t.userId, t.key] }), index("lab_milestones_user_idx").on(t.userId), index("lab_milestones_due_idx").on(t.dueOn).where(sql`state <> 'done'`),
+  index("lab_milestones_done_by_idx").on(t.doneBy).where(sql`done_by IS NOT NULL`)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),
