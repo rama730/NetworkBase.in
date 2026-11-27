@@ -24,6 +24,7 @@ import { LabAboutSections } from '@/components/organizations/Lab'
 import { RulesSummary } from '@/components/organizations/CommunityFrontDoor'
 import { CommitteeCard, ConstitutionCard, RecruitingBanner } from '@/components/organizations/Club'
 import { VolunteerWithUs } from '@/components/organizations/Volunteers'
+import { OurPrograms } from '@/components/organizations/Programs'
 import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
 import { YourSectionCard } from '@/components/organizations/Sections'
 import { MessageUserLink } from "@/components/messages/MessageUserLink";
@@ -117,6 +118,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {org?.type === 'club' ? <RecruitingBanner orgId={project.id} /> : null}
                 {org?.type === 'club' ? <CommitteeCard orgId={project.id} about /> : null}
                 {org?.type === 'club' ? <ConstitutionCard orgId={project.id} about /> : null}
+                {org?.type === 'other' ? <OurPrograms orgId={project.id} /> : null}
                 {org?.type === 'other' ? <VolunteerWithUs orgId={project.id} /> : null}
                 {org?.type === 'community' || org?.type === 'club' ? <NextEventCard orgId={project.id} base={base} /> : null}
                 {org?.type === 'community' || org?.type === 'club' ? <RulesSummary orgId={project.id} base={base} /> : null}

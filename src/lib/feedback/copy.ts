@@ -1081,6 +1081,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Give the program a name, an aim and an owner; up to 5 measures.": {"title": "Give the program a name, an aim and an owner; up to 5 measures.", "type": "warning"},
   "Couldn’t make the program workspace.": {"title": "Couldn’t make the program workspace.", "type": "warning"},
   "Only typed measures take a number; hours and sessions count themselves.": {"title": "Only typed measures take a number; hours and sessions count themselves.", "type": "warning"},
+  "Give the story a headline.": {"title": "Give the story a headline.", "type": "warning"},
+  "Everyone named in the story gives their yes first.": {"title": "Everyone named in the story gives their yes first.", "type": "warning"},
   "Someone who edits the draft document sends it for review.": {"title": "Someone who edits the draft document sends it for review.", "type": "warning"},
   "Couldn’t read the draft document. Write something in it, or unlink it from the paper.": {"title": "Couldn’t read the draft document. Write something in it, or unlink it from the paper.", "type": "warning"},
   "The draft sent for review was removed with its document.": {"title": "The draft sent for review was removed with its document.", "type": "warning"},

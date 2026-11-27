@@ -40,3 +40,33 @@ test('Programs: Ongoing or dates, the goal, measures as text with their source, 
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
+
+// Plan B8.3b (report 37.5 call 9, layer 14): consent shown as words; Publish waits for everyone's yes.
+test('Stories: consent as words, Give my yes, Record consent for someone outside, Publish waits until everyone agrees', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    (window as any).__actions = {
+      readProgramsAction: async () => ({ success: true, admin: false, people: [], waiting: [],
+        programs: [{ id: 'p1', title: 'Winter food drive', slug: 'winter', owner: 'Asha', canType: true, state: 'running', start: '2026-12-01', end: '2027-01-31', goal: 'Food security', aim: '', public: true, measures: [] }] }),
+      readStoriesAction: async () => ({ success: true, canEdit: true, me: 'u3', stories: [{ id: 's1', headline: 'A warm kitchen', body: 'Forty families ate together.', state: 'draft',
+        people: [{ name: 'Ravi', member: true, mine: true, consent: null }, { name: 'Mrs Rao', member: false, mine: false, consent: null }] }] }),
+      setStoryConsentAction: async (_o: string, id: string, i: number, input: unknown) => { calls.push(['consent', id, i, input]); return { success: true }; },
+    };
+  });
+  await openApp(page, 'tests/browser/programs.fixture.tsx');
+  await page.getByRole('button', { name: 'Stories of Winter food drive' }).click();
+  const story = page.getByTestId('program-story');
+  const people = story.getByTestId('program-story-person');
+  await expect(people.nth(0)).toContainText('Ravi: no consent yet');
+  await expect(story.getByRole('button', { name: 'Publish (waiting for consent)' })).toBeDisabled();
+  await people.nth(0).getByRole('button', { name: 'Give my yes' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['consent', 's1', 0, { give: true }]);
+  await people.nth(1).getByLabel('Who gave consent for Mrs Rao').fill('Mrs Rao');
+  await people.nth(1).getByLabel('When Mrs Rao gave consent').fill('2026-11-20');
+  await people.nth(1).getByRole('button', { name: 'Record consent' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['consent', 's1', 1, { give: true, by: 'Mrs Rao', at: '2026-11-20' }]);
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});

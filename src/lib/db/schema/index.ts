@@ -2070,6 +2070,20 @@ export const programNumbers = pgTable("program_numbers", {
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
 }, (t) => [index("program_numbers_program_idx").on(t.programId, t.measureId, t.typedAt), index("program_numbers_org_waiting_idx").on(t.orgId).where(sql`state = 'waiting'`),
   index("program_numbers_typed_by_idx").on(t.typedBy).where(sql`typed_by IS NOT NULL`), index("program_numbers_confirmed_by_idx").on(t.confirmedBy).where(sql`confirmed_by IS NOT NULL`)]);
+/** B8.3b (0180): a program's stories; published only when every person named has consented. */
+export const programStories = pgTable("program_stories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  programId: uuid("program_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  headline: text("headline").notNull(),
+  body: text("body").default("").notNull(),
+  people: jsonb("people").$type<Array<{ name: string; memberId: string | null; consent: { by: string; at: string; recordedBy: string } | null }>>().default([]).notNull(),
+  state: text("state").default("draft").notNull(),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+}, (t) => [index("program_stories_program_idx").on(t.programId, t.createdAt), index("program_stories_org_idx").on(t.orgId).where(sql`state = 'published'`),
+  index("program_stories_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

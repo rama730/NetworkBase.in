@@ -656,6 +656,35 @@ ${parked("Money")}
 - [ ] 
 ` },
   // 17.7: Impact report (annual); donors named only when they agreed.
+  // Report 37.5 (B8.3b, calls 2 and 7): a program's brief and the organization's mission and values.
+  { id: "program-brief", name: "Program brief", group: "nonprofit", line: "What we want to change, the desired reality, why now and how we'll know.",
+    body: `## What we want to change
+_The problem, in people's words._
+
+## The desired reality
+
+## Why now
+
+## How it fits our mission
+
+## Who it's for
+_In words; never a list of people._
+
+## How we'll know
+_Up to five measures, each with a target._
+` },
+  { id: "mission-and-values", name: "Mission and values", group: "nonprofit", line: "Why we exist, what we do, and the values we work by.",
+    body: `## Our mission
+_One or two sentences: who we serve, what we do, and why. Clear enough that a volunteer can say it; short enough to fit on About._
+
+## What we do
+
+## Our values
+_Three to five, each with what it looks like in practice._
+
+## What we don't do
+_The work we leave to others, so the mission stays clear._
+` },
   { id: "impact-report", name: "Impact report", group: "nonprofit", line: "A yearly letter, numbers, stories and thanks.",
     body: `## A letter
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { HeartHandshake } from "lucide-react";
 
-import { confirmNumberAction, readProgramsAction, setProgramStateAction, startProgramAction, typeNumberAction } from "@/app/actions/programs";
+import { confirmNumberAction, publishStoryAction, readImpactReportAction, readOurProgramsAction, readProgramsAction, readStoriesAction, saveStoryAction, setProgramStateAction, setStoryConsentAction, startProgramAction, typeNumberAction } from "@/app/actions/programs";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -24,13 +24,16 @@ export function ProgramsCard({ orgId }: { orgId: string }) {
   const q = useQuery({ queryKey: ["programs", orgId], queryFn: () => readProgramsAction(orgId), staleTime: 60_000 });
   const [form, setForm] = useState<typeof EMPTY | null>(null);
   const [typed, setTyped] = useState<Record<string, string>>({});
+  const [stories, setStories] = useState<string | null>(null);
   const d = q.data?.success ? q.data : null;
   if (!d || (!d.programs.length && !d.admin)) return null;
   const refresh = () => void q.refetch();
   const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) { toast.error(r.error ?? "Couldn’t save that."); return false; } toast.success(ok); refresh(); return true; };
   const brief = (k: keyof typeof EMPTY.brief, label: string) => form && <label className="flex flex-col sm:col-span-2">{label}<textarea className="nb-textarea mt-0.5 text-[13px]" rows={2} maxLength={k === "serves" ? 300 : 2000} value={form.brief[k]} onChange={(e) => setForm({ ...form, brief: { ...form.brief, [k]: e.target.value } })} /></label>;
   return (
-    <OrgCard title="Programs" testId="programs" action={d.admin && !form ? <button type="button" className="nb-link text-[13px]" onClick={() => setForm(EMPTY)}>Start a program</button> : null}>
+    <OrgCard title="Programs" testId="programs" action={d.admin && !form ? <span className="flex gap-3 text-[13px]">
+      <button type="button" className="nb-link" onClick={() => setForm(EMPTY)}>Start a program</button>
+      <button type="button" className="nb-link" onClick={() => void makeReport(orgId)}>Make the impact report</button></span> : null}>
       <div className="space-y-3 text-[13px]">
         {form ? <fieldset className="grid grid-cols-1 gap-2 rounded-md border border-border p-3 sm:grid-cols-2" data-testid="program-form"><legend className="sr-only">Program brief</legend>
           <label className="flex flex-col">Name<Input value={form.title} maxLength={100} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-0.5" /></label>
@@ -65,6 +68,8 @@ export function ProgramsCard({ orgId }: { orgId: string }) {
               {m.source === "typed" && p.canType ? <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); const v = Number(typed[`${p.id}:${m.id}`]); if (typed[`${p.id}:${m.id}`] && v >= 0) void run(typeNumberAction(orgId, p.id, m.id, v), "Sent for confirmation").then((ok) => ok && setTyped({ ...typed, [`${p.id}:${m.id}`]: "" })); }}>
                 <Input type="number" min={0} value={typed[`${p.id}:${m.id}`] ?? ""} aria-label={`New number for ${m.name}`} onChange={(e) => setTyped({ ...typed, [`${p.id}:${m.id}`]: e.target.value })} className="h-8 w-[100px] font-mono" />
                 <button type="submit" className={FORM_SECONDARY_CLASS}>Send</button></form> : null}</li>)}</ul> : null}
+            <button type="button" className="nb-link" aria-expanded={stories === p.id} onClick={() => setStories(stories === p.id ? null : p.id)}>Stories<span className="sr-only"> of {p.title}</span></button>
+            {stories === p.id ? <StoriesPanel orgId={orgId} programId={p.id} people={d.people} /> : null}
             {d.admin ? <select className="nb-select" aria-label={`State of ${p.title}`} value={p.state} onChange={(e) => void run(setProgramStateAction(orgId, p.id, e.target.value as ProgramState), "Saved")}>
               {PROGRAM_STATES.map((s) => <option key={s} value={s}>{PROGRAM_STATE_WORDS[s]}</option>)}</select> : null}
           </li>))}</ul>
@@ -77,3 +82,66 @@ export function ProgramsCard({ orgId }: { orgId: string }) {
     </OrgCard>
   );
 }
+
+/** The impact report draft (admins): confirmed numbers, published stories, a letter and thanks, as a document. */
+async function makeReport(orgId: string) {
+  const r = await safe(readImpactReportAction(orgId, new Date().getFullYear()));
+  if (!r.success || !("markdown" in r)) return void toast.error("Couldn’t make the report.");
+  const { createDocFile } = await import("@/components/organizations/OrgDocParts");
+  await createDocFile(orgId, `${r.title}.md`, r.markdown).then(() => toast.success("Impact report draft made in Documents"), () => toast.error("Couldn’t make the report."));
+}
+
+/** A program's stories (B8.3b, call 9): each person named needs their yes — a member gives it, or the owner records it. */
+function StoriesPanel({ orgId, programId, people }: { orgId: string; programId: string; people: Array<{ id: string; name: string }> }) {
+  const q = useQuery({ queryKey: ["program-stories", programId], queryFn: () => readStoriesAction(orgId, programId), staleTime: 30_000 });
+  const [draft, setDraft] = useState<{ headline: string; body: string; people: Array<{ name: string; memberId: string | null }> } | null>(null);
+  const [rec, setRec] = useState<Record<string, { by: string; at: string }>>({});
+  const d = q.data?.success ? q.data : null;
+  if (!d) return null;
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) { toast.error(r.error ?? "Couldn’t save that."); return false; } toast.success(ok); void q.refetch(); return true; };
+  return (
+    <div className="space-y-2 rounded-md border border-border bg-card p-3" data-testid="program-stories">
+      {d.stories.map((s) => (
+        <article key={s.id} className="space-y-1" data-testid="program-story">
+          <p className="flex flex-wrap items-center gap-2"><span className="font-medium">{s.headline}</span><StatusBadge state={s.state === "published" ? "done" : "draft"}>{s.state === "published" ? "Published" : "Draft"}</StatusBadge></p>
+          {s.body ? <p className="whitespace-pre-wrap text-muted-foreground">{s.body}</p> : null}
+          <ul className="space-y-0.5">{s.people.map((p, i) => <li key={i} className="flex flex-wrap items-center gap-2" data-testid="program-story-person">
+            <span>{p.name}: {p.consent ? `consent given by ${p.consent.by} on ${day(p.consent.at)}` : "no consent yet"}</span>
+            {p.mine ? <button type="button" className="nb-link" onClick={() => void run(setStoryConsentAction(orgId, s.id, i, { give: !p.consent }), p.consent ? "Consent withdrawn; the story is unpublished" : "Thank you")}>{p.consent ? "Withdraw my yes" : "Give my yes"}</button>
+              : !p.member && d.canEdit && !p.consent ? <span className="flex items-center gap-1.5">
+                <Input value={rec[`${s.id}:${i}`]?.by ?? ""} placeholder="Who gave it" aria-label={`Who gave consent for ${p.name}`} onChange={(e) => setRec({ ...rec, [`${s.id}:${i}`]: { by: e.target.value, at: rec[`${s.id}:${i}`]?.at ?? "" } })} className="h-8 w-[140px]" />
+                <Input type="date" value={rec[`${s.id}:${i}`]?.at ?? ""} aria-label={`When ${p.name} gave consent`} onChange={(e) => setRec({ ...rec, [`${s.id}:${i}`]: { by: rec[`${s.id}:${i}`]?.by ?? "", at: e.target.value } })} className="h-8 w-auto font-mono" />
+                <button type="button" className={FORM_SECONDARY_CLASS} disabled={!rec[`${s.id}:${i}`]?.by || !rec[`${s.id}:${i}`]?.at} onClick={() => void run(setStoryConsentAction(orgId, s.id, i, { give: true, ...rec[`${s.id}:${i}`]! }), "Consent recorded")}>Record consent</button></span>
+              : !p.member && d.canEdit && p.consent ? <button type="button" className="nb-link" onClick={() => void run(setStoryConsentAction(orgId, s.id, i, { give: false }), "Consent withdrawn; the story is unpublished")}>Withdraw</button> : null}</li>)}</ul>
+          {d.canEdit && s.state === "draft" ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={s.people.some((p) => !p.consent)} onClick={() => void run(publishStoryAction(orgId, s.id), "Published")}>{s.people.some((p) => !p.consent) ? "Publish (waiting for consent)" : "Publish"}</button> : null}
+        </article>))}
+      {d.canEdit && !draft ? <button type="button" className="nb-link" onClick={() => setDraft({ headline: "", body: "", people: [] })}>Write a story</button> : null}
+      {draft ? <fieldset className="space-y-1.5"><legend className="sr-only">New story</legend>
+        <label className="flex flex-col">Headline<Input value={draft.headline} maxLength={140} onChange={(e) => setDraft({ ...draft, headline: e.target.value })} className="mt-0.5" /></label>
+        <label className="flex flex-col">The story<textarea className="nb-textarea mt-0.5 text-[13px]" rows={3} maxLength={4000} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></label>
+        {draft.people.map((p, i) => <span key={i} className="flex flex-wrap items-center gap-2">
+          <Input value={p.name} maxLength={80} aria-label={`Person ${i + 1} named`} onChange={(e) => setDraft({ ...draft, people: draft.people.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} className="w-[180px]" />
+          <select className="nb-select" aria-label={`Person ${i + 1} is`} value={p.memberId ?? ""} onChange={(e) => setDraft({ ...draft, people: draft.people.map((x, j) => (j === i ? { name: people.find((m) => m.id === e.target.value)?.name ?? x.name, memberId: e.target.value || null } : x)) })}>
+            <option value="">Someone outside (consent given offline)</option>{people.map((m) => <option key={m.id} value={m.id}>{m.name} (a member)</option>)}</select></span>)}
+        <button type="button" className="nb-link" onClick={() => setDraft({ ...draft, people: [...draft.people, { name: "", memberId: null }] })}>Name someone in it</button>
+        <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!draft.headline.trim()} onClick={() => void run(saveStoryAction(orgId, programId, draft), "Saved as a draft; people named are asked").then((ok) => ok && setDraft(null))}>Save</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDraft(null)}>Cancel</button></span></fieldset> : null}
+    </div>
+  );
+}
+
+/** About → Our programs (B8.3b): public programs with confirmed numbers and published stories. */
+export function OurPrograms({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["our-programs", orgId], queryFn: () => readOurProgramsAction(orgId), staleTime: 60_000 });
+  const d = q.data?.success ? q.data : null;
+  if (!d || !d.programs.length) return null;
+  return (
+    <section aria-label="Our programs" className="space-y-2 rounded-md border border-border bg-card p-3 text-[13px]" data-testid="our-programs">
+      <h3 className="font-medium">Our programs</h3>
+      <ul className="space-y-2">{d.programs.map((p) => <li key={p.id}><span className="font-medium">{p.title}</span>{p.aim ? <span className="text-muted-foreground"> · {p.aim}</span> : null}
+        {p.measures.length ? <span className="block text-muted-foreground">{p.measures.map((m) => `${m.name}: ${measureLine(m.value, m.target)}`).join(" · ")}</span> : null}
+        {p.stories.map((s, i) => <span key={i} className="block"><span className="font-medium">{s.headline}</span> {s.body.slice(0, 200)}</span>)}</li>)}</ul>
+    </section>
+  );
+}
+

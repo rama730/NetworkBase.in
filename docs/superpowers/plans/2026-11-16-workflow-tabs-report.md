@@ -15486,7 +15486,13 @@ ORG · Impact report 2026 (draft)   Letter · Numbers (confirmed only) · Storie
 1. **A program** is a private workspace under an Other organization, marked Program, started by an admin from its brief (What we want to change · The desired reality · Why now · How it fits our mission · Who it's for · How we'll know). The brief becomes its starter page. It has an owner (the workspace's lead), a place, dates or Ongoing, the impact goal it supports (a name), and whether it shows on About. States: Planned · Running · Paused · Closed (with a closing note). Members see programs they're in and public ones; admins see all, with "Not linked" where no goal is named.
 2. **Measures** (up to 5, each with a target): volunteer hours from X2 shifts tagged to the program that were checked in (the shift form has a Program picker); sessions held, counted from the program's finished meetings; or a typed number. Values show as text ("46 of 50", "not yet confirmed").
 3. **Confirmation** (0179): a typed number waits for an admin's Confirm before it counts. A later value waits too, while the last confirmed one stays shown, and every value is kept as history (server test). Admins are told once a day. Numbers are counts only; no table holds a person served (server test).
-4. **Not built yet (B8.3b):** Story updates with consent, the Mission and values template, the Year plan, the impact report, About → Our programs, and the check-in day notice.
+
+**Build calls (B8.3b, 2026-11-27):**
+1. **Stories** (0180): the program's owner or an admin writes one (headline, a few lines, the people named or shown). A member named is asked (Normal) and gives or withdraws their own yes. For someone outside, the owner records who gave consent and when (given offline); the owner can never give a member's yes (server test). Publish works only when everyone has consented; withdrawing unpublishes at once. Stories are their own records, not Updates.
+2. **Documents:** the Program brief and Mission and values templates join the Non-profit group (beside the built Impact report).
+3. **The impact report:** "Make the impact report" drafts a document in Documents for the year: a letter, each program's numbers (confirmed only; others read "not yet confirmed"), the year's published stories and thanks. No Finances part until Money exists.
+4. **About → Our programs:** public programs (not Planned) with their confirmed numbers and latest published stories (server test).
+5. **Not built:** the Year plan as K3's goals document (impact goals are names on programs for now), the check-in day notice, posting the report as a public Update, and tagging meetings and events from outside a program's workspace.
 
 ### 37.6 Other: the whole picture (complete 2026-11-17)
 

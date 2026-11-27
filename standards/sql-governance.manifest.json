@@ -181,7 +181,8 @@
     "drizzle/0176_club_motion_votes.sql",
     "drizzle/0177_club_competition_people.sql",
     "drizzle/0178_volunteer_hours_swaps.sql",
-    "drizzle/0179_program_numbers.sql"
+    "drizzle/0179_program_numbers.sql",
+    "drizzle/0180_program_stories.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
