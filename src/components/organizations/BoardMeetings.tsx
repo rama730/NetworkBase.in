@@ -19,13 +19,13 @@ export function BoardMeetingsCard({ orgId, base }: { orgId: string; base: string
   const d = q.data?.success ? q.data : null;
   if (!d || (!d.meetings.length && !d.canPlan)) return null;
   return (
-    <OrgCard title="Board meetings" testId="board-meetings" action={d.canPlan ? <button type="button" className="nb-link text-[13px]" onClick={() => setPlanning(true)}>Plan a board meeting</button> : null}>
+    <OrgCard title={d.all ? "Meetings" : "Board meetings"} testId="board-meetings" action={d.canPlan ? <button type="button" className="nb-link text-[13px]" onClick={() => setPlanning(true)}>{d.all ? "Plan a meeting" : "Plan a board meeting"}</button> : null}>
       <div className="space-y-2 text-[13px]">
         {d.meetings.length ? <ul className="space-y-1">{d.meetings.map((m) => <li key={m.slug} className="flex flex-wrap items-center gap-2" data-testid="board-meeting">
           <Gavel aria-hidden="true" className="size-4 text-muted-foreground" /><a className="nb-link" href={`${base}?tab=docs&doc=${encodeURIComponent(m.slug)}`}>{m.title}</a>
           {m.startsAt ? <span className="text-muted-foreground">{when(m.startsAt)}</span> : null}{m.approved ? <StatusBadge state="done">Minutes approved</StatusBadge> : null}</li>)}</ul>
-          : <p className="text-muted-foreground">No board meetings yet. Each has motions, votes, a quorum line and minutes approved at the next one.</p>}
-        {d.canPlan && !d.meetings.length ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setPlanning(true)}>Plan a board meeting</button> : null}
+          : <p className="text-muted-foreground">{d.all ? "No meetings yet." : "No board meetings yet. Each has motions, votes, a quorum line and minutes approved at the next one."}</p>}
+        {d.canPlan && !d.meetings.length ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setPlanning(true)}>{d.all ? "Plan a meeting" : "Plan a board meeting"}</button> : null}
         {planning ? <NewMeetingDialog projectId={orgId} open={planning} onOpenChange={(o) => { setPlanning(o); if (!o) void q.refetch(); }} /> : null}
       </div>
     </OrgCard>

@@ -609,6 +609,10 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                 toast.warning(organization.org_type ? 'Say what you call it, for example Nonprofit' : 'Choose what kind of organization this is');
                 return false;
             }
+            if (organization?.org_type === 'other' && organization.kit === 'event_team' && !organization.key_date) {
+                toast.warning('Pick the event date: the plan works back from it');
+                return false;
+            }
 
             isValid = true;
         } else if (p === 2) {

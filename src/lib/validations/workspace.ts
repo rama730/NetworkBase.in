@@ -183,6 +183,8 @@ export const createWorkspaceSchema = z.object({
         type_label: z.string().trim().max(30).optional(),
         // B8.4b (report 37.2): Other's starting kit; it sets defaults and switches its parts on.
         kit: z.enum(['nonprofit', 'event_team', 'association', 'public_sector', 'faith', 'blank']).optional(),
+        // B8.6 (37.2 call 4): the Event team kit needs its event date (X3's key date).
+        key_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
         part_of: z.string().trim().max(100).optional(),
         // G8 (2026-11-05 findings): "Part of" picked from organizations on NetworkBase.
         part_of_org_id: z.string().uuid().nullable().optional(),

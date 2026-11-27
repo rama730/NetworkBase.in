@@ -45,7 +45,7 @@ test("37.2 (B8.4a): parts switch on and off from Settings → Workflows; off hid
   viewerId = owner!;
   assert.equal((await v.readVolunteersAction(id)).success, false, "a part that's off shows nothing");
   const parts = await op.readPartsAction(id);
-  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings");
+  assert.ok(parts.success && parts.parts.every((p) => p.ready && !p.on) && parts.parts.map((p) => p.id).join() === "volunteers,fixedTime,programs,events,boardMeetings,meetings");
   assert.ok((await op.setPartAction(id, "volunteers", true)).success);
   assert.match(String((await op.setPartAction(id, "volunteers", true) as { error?: string }).error), /already on/);
   assert.equal((await op.setPartAction(id, "renewal", true)).success, false, "parts that don't work here yet aren't offered");
@@ -91,4 +91,12 @@ test("37.2 (B8.5): the Nonprofit kit — events and board meetings work in an Ot
   viewerId = member!;
   const list = await board.readBoardMeetingsAction(id);
   assert.ok(list.success && list.meetings.length === 1 && list.meetings[0]!.title === "Board · Jan" && !list.canPlan);
+  // B8.6: with Meetings on (the Event team kit), every meeting shows, not only the board's.
+  await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${id}, 'weekly-1', 'weekly-1.md', ${sql.json({ section: "meetings", kind: "weekly", meetingTitle: "Weekly · Jan", startsAt: new Date().toISOString() })})`;
+  assert.equal((await board.readBoardMeetingsAction(id) as { meetings: unknown[] }).meetings.length, 1);
+  viewerId = owner!;
+  assert.ok((await op.setPartAction(id, "meetings", true)).success);
+  viewerId = member!;
+  const all = await board.readBoardMeetingsAction(id);
+  assert.ok(all.success && all.all && all.meetings.length === 2);
 });

@@ -142,3 +142,17 @@ test('Other: Pick a starting kit — Suggested from the typed word, role names a
     await kits.getByRole('radio', { name: /Blank/ }).check();
     expect((await values(page)).organization.kit).toBe('blank');
 });
+
+// Plan B8.6 (report 37.2 call 4): the Event team kit asks for its event date.
+test('Other: the Event team kit asks for the event date', async ({ page }) => {
+    await open(page, 'step=type');
+    await page.getByText('Anything else: a nonprofit, an event, a government team').click();
+    await page.getByLabel(/What do you call it/).fill('Bengaluru Book Fest');
+    const kits = page.getByTestId('create-org-kit');
+    await expect(kits.locator('label', { hasText: 'Event team' })).toContainText('Suggested');
+    await kits.getByRole('radio', { name: /Event team/ }).check();
+    await kits.getByLabel(/Event date/).fill('2027-02-13');
+    const v = await values(page);
+    expect([v.organization.kit, v.organization.key_date, (v.organization.role_names as { owner: string }).owner]).toEqual(['event_team', '2027-02-13', 'Organiser']);
+});
+

@@ -14936,6 +14936,10 @@ SETTINGS · Workflows (any org)       On: Members & renewal · Committee & hando
 3. **First steps:** an organization made from a kit shows the kit's first steps on Overview ("Write your mission", "Add volunteer roles", "Start a program").
 4. **Not built:** the kit's starter documents made at creation (the Mission and values template is in Documents → New from a template), and the time word (Year, Phase, Quarter, Season) replacing "Sprint".
 
+**Build calls (B8.6 Event team, 2026-11-27):**
+1. **Meetings** (11.6) work in an Other organization with the part on: the card on Overview becomes "Meetings" (every meeting, with Plan a meeting) when Meetings is on, or "Board meetings" with only that part.
+2. **The Event team kit** (Key date and wrap-up · Volunteers · Events · Meetings) is now offered. In the wizard it asks for the event date (required to continue). The new organization starts with that key date and an end 30 days after, so the Dates card is ready for a plan starter.
+
 ### 37.3 X2 · Volunteers and shifts (agreed 2026-11-17)
 **References** (37.1, plus 11 searches for shifts, rotas, rosters, availability and volunteer hours: 79 templates, 17 rated; 4 more screens studied):
 

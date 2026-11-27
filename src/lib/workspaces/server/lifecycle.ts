@@ -926,7 +926,7 @@ export async function createWorkspaceAction(
                   // Report §34: Other's label, identity, and the Work defaults chosen in Setup (unset keys keep the type's).
                   ...(organization.org_type === "other" ? { typeLabel: organization.type_label?.trim() } : {}),
                   // B8.4b (report 37.2 call 2): a ready kit is remembered and switches its parts on; it sets defaults only.
-                  ...(organization.org_type === "other" ? kitSettings(organization.kit) : {}),
+                  ...(organization.org_type === "other" ? kitSettings(organization.kit, organization.key_date || null) : {}),
                   ...(organization.part_of ? { partOf: organization.part_of } : {}),
                   ...(organization.part_of && partOfOrgId ? { partOfOrgId } : {}),
                   ...(organization.location ? { location: organization.location } : {}),

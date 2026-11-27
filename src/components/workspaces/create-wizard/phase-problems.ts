@@ -12,7 +12,7 @@ export function phaseProblems(values: Partial<Values>, ctx: { uploadReady: boole
     const source = values.import_source;
     const org = values.organization;
     let start = 0;
-    if (org) start += !org.org_type || (org.org_type === 'other' && !org.type_label?.trim()) ? 1 : 0;
+    if (org) start += (!org.org_type || (org.org_type === 'other' && !org.type_label?.trim()) ? 1 : 0) + (org.org_type === 'other' && org.kit === 'event_team' && !org.key_date ? 1 : 0);
     else if (source?.type === 'github') start += !(source.repoUrl ?? '').trim() || (source.metadata as Record<string, unknown> | undefined)?.githubPreflightStatus !== 'ok' ? 1 : 0;
     else if (source?.type === 'upload') start += ctx.uploadReady ? 0 : 1;
 

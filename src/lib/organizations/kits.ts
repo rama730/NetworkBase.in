@@ -15,7 +15,7 @@ export const PARTS: Record<PartId, Part> = {
   programs: { id: "programs", name: "Programs and impact", line: "Programs with measures, confirmed numbers, stories and the impact report (X4).", where: "Overview", ready: true },
   events: { id: "events", name: "Events", line: "Events with RSVPs, a waitlist and check-in (M3).", where: "Sprints", ready: true },
   boardMeetings: { id: "boardMeetings", name: "Board meetings", line: "Motions, votes, quorum and approved minutes (17.5).", where: "Overview", ready: true },
-  meetings: { id: "meetings", name: "Meetings", line: "Meetings with agendas, notes and action items (11.6).", where: "Documents", ready: false },
+  meetings: { id: "meetings", name: "Meetings", line: "Meetings with agendas, notes and action items (11.6).", where: "Overview", ready: true },
   renewal: { id: "renewal", name: "Members and renewal", line: "Who's staying each year (L1).", where: "Overview", ready: false },
   positions: { id: "positions", name: "Committee and handover", line: "Positions, elections and the yearly handover (L2).", where: "Overview", ready: false },
   clubMeetings: { id: "clubMeetings", name: "Meetings and minutes", line: "General meetings, minutes, motions and the constitution (L3).", where: "Overview", ready: false },
@@ -77,7 +77,11 @@ export function partsOn(orgSettings: unknown): PartId[] {
 export const partOn = (orgSettings: unknown, p: PartId) => partsOn(orgSettings).includes(p);
 
 /** What a kit saves on a new Other organization: its id (for help text) and its parts, switched on. Only ready kits. */
-export function kitSettings(id: string | null | undefined) {
+export function kitSettings(id: string | null | undefined, keyDate?: string | null) {
   const k = kitById(id);
-  return k && kitReady(k) && k.id !== "blank" ? { kit: k.id, parts: { on: k.parts } } : {};
+  if (!k || !kitReady(k) || k.id === "blank") return {};
+  // The Event team kit's key date (X3): the event day, with the end 30 days after.
+  const fixed = k.needsEndDate && keyDate && /^\d{4}-\d{2}-\d{2}$/.test(keyDate)
+    ? { fixedTime: { keyDate, endDate: new Date(Date.parse(`${keyDate}T00:00:00Z`) + 30 * 86_400_000).toISOString().slice(0, 10) } } : {};
+  return { kit: k.id, parts: { on: k.parts }, ...fixed };
 }

@@ -19,12 +19,14 @@ export async function readBoardMeetingsAction(orgId: string) {
   if (!userId) return { success: false as const, error: "You can’t do that here." };
   const a = await getWorkspaceAccessById(orgId, userId);
   const [w] = Array.from(await db.execute<{ type: string | null; settings: unknown }>(sql`SELECT org_type AS type, org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid AND kind = 'organization' AND deleted_at IS NULL`));
-  if (w?.type !== "other" || !partOn(w.settings, "boardMeetings") || !a.canRead || !(a.isOwner || a.isMember)) return { success: false as const, error: "You can’t do that here." };
+  // B8.6: with Meetings on (the Event team kit) every meeting shows; with only Board meetings, the board's.
+  const all = partOn(w?.settings, "meetings");
+  if (w?.type !== "other" || !(all || partOn(w.settings, "boardMeetings")) || !a.canRead || !(a.isOwner || a.isMember)) return { success: false as const, error: "You can’t do that here." };
   const leader = a.isOwner || a.memberRole === "admin";
   const rows = Array.from(await db.execute<{ slug: string; title: string; starts: string | null; approved: boolean }>(sql`
     SELECT slug, coalesce(settings->>'meetingTitle', regexp_replace(filename, '\.md$', '', 'i')) AS title, settings->>'startsAt' AS starts, settings ? 'approvedAt' AS approved
-    FROM workspace_documents WHERE workspace_id = ${orgId}::uuid AND settings->>'section' = 'meetings' AND settings->>'kind' = 'board'
+    FROM workspace_documents WHERE workspace_id = ${orgId}::uuid AND settings->>'section' = 'meetings' AND (${all} OR settings->>'kind' = 'board')
       AND (${leader} OR coalesce(settings->>'visibilityOverride', '') <> 'leaders_only')
     ORDER BY (settings->>'startsAt')::timestamptz DESC NULLS LAST LIMIT 12`));
-  return { success: true as const, canPlan: leader && !a.writeBlocked, meetings: rows.map((r) => ({ slug: r.slug, title: r.title, startsAt: r.starts, approved: r.approved })) };
+  return { success: true as const, all, canPlan: leader && !a.writeBlocked, meetings: rows.map((r) => ({ slug: r.slug, title: r.title, startsAt: r.starts, approved: r.approved })) };
 }

@@ -319,7 +319,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'club' ? <DecisionsCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <RenewalCard orgId={orgId} /> : null}
                 {orgType === 'community' || orgType === 'club' || (orgType === 'other' && parts.includes('events')) ? <NextEventCard orgId={orgId} base={base} /> : null}
-                {orgType === 'other' && parts.includes('boardMeetings') ? <BoardMeetingsCard orgId={orgId} base={base} /> : null}
+                {orgType === 'other' && (parts.includes('boardMeetings') || parts.includes('meetings')) ? <BoardMeetingsCard orgId={orgId} base={base} /> : null}
                 {orgType === 'community' ? <CurrentChallengeCard orgId={orgId} base={base} /> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
                 {isClass ? <ClassNextLine orgId={orgId} /> : null}

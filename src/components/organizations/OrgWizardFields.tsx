@@ -105,7 +105,7 @@ export function OrgTypePicker() {
  * the typed label suggests one (a word list, in the browser). Picking one fills the untouched role names and join mode.
  */
 function KitPicker() {
-    const { setValue, getFieldState } = useFormContext<CreateWorkspaceInput>()
+    const { register, setValue, getFieldState } = useFormContext<CreateWorkspaceInput>()
     const label = useWatch<CreateWorkspaceInput, 'organization.type_label'>({ name: 'organization.type_label' }) ?? ''
     const kit = useWatch<CreateWorkspaceInput, 'organization.kit'>({ name: 'organization.kit' })
     const suggested = suggestKit(label)
@@ -130,6 +130,11 @@ function KitPicker() {
                     </label>
                 ))}
             </div>
+            {kit === 'event_team' ? <div className="mt-3 max-w-xs">
+                <label htmlFor="create-org-key-date" className={labelClass}>Event date<Required /></label>
+                <Input id="create-org-key-date" type="date" {...register('organization.key_date')} className="mt-1.5 w-auto font-mono" />
+                <p className="nb-compact mt-1 text-muted-foreground">The plan works back from it; it ends 30 days after.</p>
+            </div> : null}
         </fieldset>
     )
 }
