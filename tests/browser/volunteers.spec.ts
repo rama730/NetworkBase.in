@@ -37,7 +37,7 @@ test('Volunteers: places as words, Full and Short, Check in in the window, my ho
   const card = page.getByTestId('volunteers');
   await expect(card.getByTestId('volunteer-hours')).toContainText('My hours this year: 42 (14 shifts) · 2 waiting confirmation');
   const mine = card.getByTestId('volunteer-my-shift');
-  await expect(mine).toContainText('Sat 5 December 2099, 08:00–11:00 (UTC) · Kitchen · Hall');
+  await expect(mine).toContainText('Sat, 5 December 2099, 08:00–11:00 (UTC) · Kitchen · Hall');
   await mine.getByRole('button', { name: 'Check in' }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['checkin', 's0', null]);
   const sorting = card.getByTestId('volunteer-shift').filter({ hasText: 'Sorting' });
