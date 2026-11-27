@@ -1338,9 +1338,9 @@
       "text": "B7.1 L1 Club home and recruitment (36.2)",
       "kind": "unit",
       "milestone": "B7",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 3f417ca09): B7.1a clubs get the community front door, events and Showcase; recruiting period (banner on About, Discover Recruiting now filter, turns off by itself), join poster (link + code, no QR), drive counts; review fix: visitors see only a public first event. B7.1b Season renewal (one ask + day-25 reminder, officers-only answers, End memberships not renewed after the window, never officers or new joiners, term_ended). No migration. Club browser specs ran for the first time once added to testMatch (both pass). Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
+      "evidence": "PUSHED 2026-11-27 (main 3f417ca09): B7.1a clubs get the community front door, events and Showcase; recruiting period (banner on About, Discover Recruiting now filter, turns off by itself), join poster (link + code, no QR), drive counts; review fix: visitors see only a public first event. B7.1b Season renewal (one ask + day-25 reminder, officers-only answers, End memberships not renewed after the window, never officers or new joiners, term_ended). No migration. Club browser specs ran for the first time once added to testMatch (both pass). CHECKED LIVE 2026-11-27 on wt-test-b8-kits switched to Club: club Getting started, Recruiting drive set (Recruiting now until 11 Dec, drive counts), the About banner shown."
     },
     {
       "key": "B7.2",
@@ -1370,7 +1370,7 @@
       "milestone": "B7",
       "status": "live-pending",
       "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 476cc3570): B7.4a competitions (kind competition, never on the board), Open sign-up / Tryouts with private hand-ins / Picked by officers, outcomes told only to the person (server test), private team workspaces under the club with captain/roles/substitutes that cannot read each other (server test), Practice meeting type (0177); B7.4b registration reference, results typed by the captain and confirmed by another officer on the version they saw before members see them, debriefs in Past entries; B7.4c teams get the Capstone card (milestones from the club checks, Showcase with every member yes; in clubs only officers see unagreed Ready cards). 0177 in prod. Not built: profile entries for results, calendar, a send-a-check shortcut. Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
+      "evidence": "PUSHED 2026-11-27 (main 476cc3570): B7.4a competitions (kind competition, never on the board), Open sign-up / Tryouts with private hand-ins / Picked by officers, outcomes told only to the person (server test), private team workspaces under the club with captain/roles/substitutes that cannot read each other (server test), Practice meeting type (0177); B7.4b registration reference, results typed by the captain and confirmed by another officer on the version they saw before members see them, debriefs in Past entries; B7.4c teams get the Capstone card (milestones from the club checks, Showcase with every member yes; in clubs only officers see unagreed Ready cards). 0177 in prod. Not built: profile entries for results, calendar, a send-a-check shortcut. Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04. PARTLY CHECKED LIVE 2026-11-27: competition added (Planned, register-by countdown, team size, sign-up mode); sign-ups, picking and teams need a second member account."
     },
     {
       "key": "B8.1",
