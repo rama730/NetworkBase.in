@@ -111,7 +111,7 @@ export function LabProgressCard({ orgId }: { orgId: string }) {
             <span className="text-muted-foreground">{r.next ? `${r.next.name} ${day(r.next.dueOn)}` : "No milestones left"}</span>
             <span className="text-muted-foreground">· supervision {r.lastMet ? `last ${day(r.lastMet)}` : "none yet"}</span>
             {r.overdue ? <StatusBadge state="at_risk">Supervision due</StatusBadge> : null}</button>
-            {open === r.id ? <div className="border-t border-border bg-muted px-3 py-3"><PersonProgress orgId={orgId} id={r.id} /></div> : null}</li>))}</ul>
+            {open === r.id ? <div className="border-t border-border bg-card px-3 py-3"><PersonProgress orgId={orgId} id={r.id} /></div> : null}</li>))}</ul>
           : <p className="text-muted-foreground">Set milestones for PhD and Master’s students: pick a person and their start date.</p>}
         {unset.length ? <span className="flex flex-wrap items-center gap-2">
           <select className="nb-select" aria-label="Set up progress for" value={setup} onChange={(e) => setSetup(e.target.value)}><option value="">Set up progress for…</option>
