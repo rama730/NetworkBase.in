@@ -38,7 +38,7 @@ async function community(orgId: string) {
   // B7.2a (36.3 call 3): a club's committees are its groups of kind Committee, started by officers.
   // B8.7: an Other organization with Committee and handover on (the Association kit) has committees as a club does.
   const clubish = clubLike(w?.type, w?.settings, "positions");
-  if ((w?.type !== "community" && !clubish) || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
+  if (!w || (w.type !== "community" && !clubish) || !(a.isOwner || a.isMember) || (!a.isOwner && a.memberRole === "viewer")) return null;
   const pauseIn = (settings: unknown) => (settings as { community?: { pauses?: Record<string, { until: string }> } } | null)?.community?.pauses?.[userId] ?? null;
   let paused = pauseActive(pauseIn(w.settings), new Date());
   if (w.chapter_of) {
