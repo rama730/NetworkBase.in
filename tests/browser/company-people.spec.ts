@@ -94,8 +94,8 @@ test("Who's out: by team with a bar per person, Book time off with a type, Cance
   const out = page.getByTestId('whos-out');
   await expect(out.getByRole('heading', { name: 'Engineering' })).toBeVisible();
   const rows = out.getByTestId('whos-out-row');
-  await expect(rows.filter({ hasText: 'Dev Khan' })).toContainText('Holiday · 1 Dec–3 Dec');
-  await expect(rows.filter({ hasText: 'Mei Lin' })).toContainText('Away · 28 Nov–29 Nov');
+  await expect(rows.filter({ hasText: 'Dev Khan' })).toContainText('Holiday · Dec 1–Dec 3');
+  await expect(rows.filter({ hasText: 'Mei Lin' })).toContainText('Away · Nov 28–Nov 29');
   await expect(rows.filter({ hasText: 'Mei Lin' }).getByRole('button', { name: /Cancel/ })).toHaveCount(0);
   await out.getByRole('button', { name: 'Book time off' }).click();
   const form = out.getByTestId('book-time-off');
@@ -109,7 +109,10 @@ test("Who's out: by team with a bar per person, Book time off with a type, Cance
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
   await page.setViewportSize({ width: 375, height: 800 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  const [over, wide] = await page.evaluate(() => [document.documentElement.scrollWidth - window.innerWidth,
+    [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 0.5).slice(-5)
+      .map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 60)} → ${Math.round(e.getBoundingClientRect().right)}`)] as const);
+  expect(over, wide.join('\n')).toBeLessThanOrEqual(0);
 });
 
 test('Settings → Directory: rename the time-off types', async ({ page }) => {

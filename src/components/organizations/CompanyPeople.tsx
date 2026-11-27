@@ -14,6 +14,7 @@ import { SettingsCard } from "@/components/workspaces/settings/SettingsFormField
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { OnboardingBoard } from "@/components/organizations/CompanyOnboarding";
+import { formatInZone } from "@/lib/organizations/zoned-time";
 import { importGroups, localTime, nextDays, orgChart, outSpan, TIME_OFF_TYPES, type ChartNode, type TimeOffType } from "@/lib/organizations/directory";
 
 // Report 33.3 (plan B4.2a–b, K2): Members in a company — the Directory for every member, the org chart, and the
@@ -242,7 +243,7 @@ function TypeNames({ orgId, saved }: { orgId: string; saved: Record<TimeOffType,
   );
 }
 
-const shortDay = (iso: string, zone: string | null) => new Date(iso).toLocaleDateString("en-GB", { timeZone: zone ?? undefined, day: "numeric", month: "short" });
+const shortDay = (iso: string, zone: string | null) => formatInZone(iso, { day: "numeric", month: "short" }, zone);
 
 /**
  * Who's out (B4.2c, layer 4): the next two weeks by team, a bar per person labelled Away (or the type for those
@@ -300,7 +301,7 @@ function WhosOut({ orgId }: { orgId: string }) {
                 <li key={`${team}:${o.id}`} className="grid items-center gap-2 sm:grid-cols-[180px_1fr_auto]" data-testid="whos-out-row">
                   <span><span className="font-medium">{o.name}</span> · {o.label} · {shortDay(o.from, d.zone)}–{shortDay(o.until, d.zone)}</span>
                   <span aria-hidden="true" className="hidden grid-cols-[repeat(14,minmax(0,1fr))] gap-px sm:grid">{days.map((k, i) => (
-                    <span key={k} className={span && i >= span.start && i <= span.end ? "h-2.5 rounded-[2px] bg-[var(--status-info)]" : "h-2.5 rounded-[2px] bg-muted"} />))}</span>
+                    <span key={k} className={span && i >= span.start && i <= span.end ? "h-2.5 rounded-sm bg-[var(--status-info)]" : "h-2.5 rounded-sm bg-muted"} />))}</span>
                   {o.mine ? <button type="button" className="nb-link justify-self-start" onClick={() => void cancel(o.id)}>Cancel<span className="sr-only"> my time off</span></button> : <span />}
                 </li>
               );
