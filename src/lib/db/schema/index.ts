@@ -1954,6 +1954,19 @@ export const clubVoted = pgTable("club_voted", {
   round: integer("round").notNull(),
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
 }, (t) => [primaryKey({ columns: [t.electionId, t.positionId, t.round, t.userId] }), index("club_voted_user_idx").on(t.userId)]);
+/** B7.3a (0174): a member's proposed item for a club's general meeting; an officer accepts or holds it. */
+export const clubAgendaRequests = pgTable("club_agenda_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  docId: uuid("doc_id").notNull().references(() => workspaceDocuments.id, { onDelete: "cascade" }),
+  proposedBy: uuid("proposed_by").references(() => profiles.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  state: text("state").default("proposed").notNull(),
+  decidedBy: uuid("decided_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+}, (t) => [index("club_agenda_requests_doc_idx").on(t.docId, t.createdAt), index("club_agenda_requests_org_idx").on(t.orgId),
+  index("club_agenda_requests_proposed_by_idx").on(t.proposedBy).where(sql`proposed_by IS NOT NULL`), index("club_agenda_requests_decided_by_idx").on(t.decidedBy).where(sql`decided_by IS NOT NULL`)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

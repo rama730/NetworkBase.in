@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
-import { checklistOpen, handoverDue, readHandover, readPositions, readRenewal, windowClosed, type ClubPosition } from "@/lib/organizations/club";
+import { checklistOpen, handoverDue, readClubMeetings, readHandover, readPositions, readRenewal, windowClosed, type ClubPosition } from "@/lib/organizations/club";
 
 // Report 36.2 (plan B7.1b): Season renewal notices. Server only.
 
@@ -154,4 +154,30 @@ export async function handoverSteps(now = new Date()) {
     }
   }
   return { switched };
+}
+
+/**
+ * B7.3a (report 36.4 calls 1, 3, 5): the club a meeting belongs to — the club itself, or one of its groups (a committee's
+ * meetings live in the committee). Null for anything else.
+ */
+export async function meetingClub(projectId: string) {
+  const [w] = Array.from(await db.execute<{ id: string }>(sql`
+    SELECT c.id FROM workspaces w JOIN workspaces c ON c.id = coalesce(CASE WHEN w.kind = 'organization' THEN w.id END, w.parent_id)
+    WHERE w.id = ${projectId}::uuid AND c.kind = 'organization' AND c.org_type = 'club' AND c.deleted_at IS NULL`));
+  return w?.id ?? null;
+}
+
+/**
+ * Call 5: quorum is a share (a quarter by default) of the members staying this Season: with renewal on, those who said
+ * Staying and those who joined too recently to be asked; otherwise every member who isn't a Viewer.
+ */
+export async function clubQuorum(clubId: string) {
+  const { clubQuorumNeeded } = await import("@/lib/workflows/meetings");
+  const [w] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${clubId}::uuid`));
+  const r = readRenewal(w?.settings);
+  const share = readClubMeetings(w?.settings).quorumShare;
+  const [n] = Array.from(await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${clubId}::uuid AND role <> 'viewer' AND completed_at IS NULL
+      ${r?.on ? sql`AND (joined_at >= ${r.season}::date - 30 OR (view_prefs->'club'->'renewal'->>'season' = ${r.season} AND view_prefs->'club'->'renewal'->>'answer' = 'staying'))` : sql``}`));
+  return { staying: n?.n ?? 0, needed: clubQuorumNeeded(n?.n ?? 0, share) };
 }

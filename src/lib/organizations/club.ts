@@ -104,3 +104,17 @@ export const HANDOVER_ITEMS = [
 export type HandoverItem = (typeof HANDOVER_ITEMS)[number]["id"];
 export const checklistOpen = (h: Handover, today: string) => Date.parse(`${today}T00:00:00Z`) >= Date.parse(`${h.date}T00:00:00Z`) - 21 * DAY;
 export const handoverDue = (h: Handover, today: string) => !h.switchedAt && today >= h.date;
+
+/**
+ * B7.3a (36.4 layer 2, calls 2 and 5): Club → Meetings. The agenda deadline (days before a general meeting), whether
+ * members propose items, and the quorum as a share of members staying this Season.
+ */
+export const clubMeetingsSchema = z.object({ agendaDays: z.number().int().min(0).max(14), propose: z.boolean(), quorumShare: z.number().min(0.05).max(1) }).strict();
+export type ClubMeetings = z.infer<typeof clubMeetingsSchema>;
+export const DEFAULT_CLUB_MEETINGS: ClubMeetings = { agendaDays: 3, propose: true, quorumShare: 0.25 };
+export function readClubMeetings(orgSettings: unknown): ClubMeetings {
+  const p = clubMeetingsSchema.safeParse((orgSettings as { club?: { meetings?: unknown } } | null)?.club?.meetings);
+  return p.success ? p.data : DEFAULT_CLUB_MEETINGS;
+}
+/** Members can add to the agenda until this many days before the meeting starts. */
+export const agendaOpen = (startsAt: string, agendaDays: number, now = Date.now()) => now < Date.parse(startsAt) - agendaDays * DAY;

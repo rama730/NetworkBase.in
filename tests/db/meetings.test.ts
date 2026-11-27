@@ -24,6 +24,7 @@ let meetingSettings: typeof import("../../src/app/actions/meeting-settings");
 let feedRoute: typeof import("../../src/app/api/feeds/meetings/[token]/route");
 let taskActions: typeof import("../../src/app/actions/task");
 let tasksServer: typeof import("../../src/lib/workspaces/server/tasks");
+let clubMeetings: typeof import("../../src/app/actions/club-meetings");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -37,6 +38,7 @@ before(async () => {
   feedRoute = await loadAppModule(() => import("../../src/app/api/feeds/meetings/[token]/route"));
   taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
   tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
+  clubMeetings = await loadAppModule(() => import("../../src/app/actions/club-meetings"));
 });
 
 const created: string[] = [];
@@ -363,3 +365,60 @@ test("review: finishing a series meeting without naming the next file never file
   assert.ok((await docs.finishMeetingAction(t.ws, { docSlug: "weekly-x", carryOver: false })).success);
   assert.equal((await settingsOf(readme)).section, undefined);
 });
+
+// Plan B7.3a (report 36.4 calls 1–3, 5): a club's general meetings.
+test("36.4 (B7.3a): club minutes stay with officers until approved; quorum is the club's share of members staying; a motion needs a seconder; members add to the agenda until the deadline", async () => {
+  const t = await workspace();
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active', org_settings = ${sql.json({ club: { meetings: { agendaDays: 3, propose: true, quorumShare: 1 } } })} WHERE id = ${t.ws}`;
+  viewerId = t.owner;
+  const first = await t.doc("general-1");
+  await sql`DELETE FROM workspace_workflows WHERE workspace_id = ${t.ws}`; // a club holds its meetings without the workflow
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "general-1", type: "general", title: "General · Jan 7", startsAt: ist("2027-01-07T18:00:00"), lengthMinutes: 60, attendeeIds: [t.owner, t.member], repeat: "monthly" })).success);
+  assert.equal((await settingsOf(first)).visibilityOverride, "leaders_only", "the draft minutes start with officers");
+  viewerId = t.member;
+  assert.equal((await docs.readMeetingAction(t.ws, "general-1")).success, false, "draft minutes never reach members");
+  viewerId = t.owner;
+  const read = await docs.readMeetingAction(t.ws, "general-1");
+  assert.ok(read.success && "board" in read && read.board && read.board.needed === 2 && read.board.motionsOn, "quorum: all 2 members staying (share 100%)");
+
+  const bare = await docs.addMotionAction(t.ws, { docSlug: "general-1", text: "Weekend lab hours", proposedBy: t.member });
+  assert.ok(bare.success);
+  await docs.markPresentAction(t.ws, { docSlug: "general-1", present: [t.owner] });
+  assert.equal((await docs.recordVoteAction(t.ws, { docSlug: "general-1", motionId: bare.motionId, for: 1, against: 0, abstain: 0 }) as { error?: string }).error, "A motion needs a seconder before the vote.");
+  const moved = await docs.addMotionAction(t.ws, { docSlug: "general-1", text: "Two competitions this year", proposedBy: t.member, secondedBy: t.owner });
+  assert.ok(moved.success);
+  assert.equal((await docs.recordVoteAction(t.ws, { docSlug: "general-1", motionId: moved.motionId, for: 1, against: 0, abstain: 0 }) as { error?: string }).error, "Not quorate: 1 present, 2 needed.", "not quorate: the motion can't pass");
+  await docs.markPresentAction(t.ws, { docSlug: "general-1", present: [t.owner, t.member] });
+  assert.deepEqual(await docs.recordVoteAction(t.ws, { docSlug: "general-1", motionId: moved.motionId, for: 2, against: 0, abstain: 0 }), { success: true, result: "passed" });
+
+  // The next meeting approves the last minutes: they lock and open to members.
+  const second = await t.doc("general-2");
+  assert.ok((await docs.finishMeetingAction(t.ws, { docSlug: "general-1", carryOver: false, nextDocSlug: "general-2", nextTitle: "General · Feb 7" })).success);
+  assert.equal((await settingsOf(second)).visibilityOverride, "leaders_only");
+  assert.ok((await docs.approveMinutesAction(t.ws, { docSlug: "general-2" })).success);
+  const approved = await settingsOf(first);
+  assert.ok(approved.approvedAt && approved.visibilityOverride === "members_only");
+  viewerId = t.member;
+  assert.ok((await docs.readMeetingAction(t.ws, "general-1")).success, "approved minutes reach members");
+  assert.equal((await docs.readMeetingAction(t.ws, "general-2")).success, false);
+
+  // Agenda requests for the next general meeting (February).
+  const m = await clubMeetings.readClubMeetingAction(t.ws);
+  assert.ok(m.success && m.meeting && m.meeting.title === "General · Feb 7" && m.meeting.canPropose && m.quorum.needed === 2);
+  for (const title of ["Weekend lab hours", "Robocon budget", "New logo"]) assert.ok((await clubMeetings.proposeAgendaItemAction(t.ws, m.meeting.id, title)).success);
+  assert.match(String((await clubMeetings.proposeAgendaItemAction(t.ws, m.meeting.id, "One more") as { error?: string }).error), /3 items waiting/);
+  assert.equal((await clubMeetings.decideAgendaItemAction(t.ws, (await sql`SELECT id FROM club_agenda_requests WHERE title = 'New logo' AND org_id = ${t.ws}`)[0]!.id as string, true)).success, false, "members don't decide");
+  viewerId = t.viewer;
+  assert.equal((await clubMeetings.proposeAgendaItemAction(t.ws, m.meeting.id, "Viewer item")).success, false, "Viewers don't propose");
+  viewerId = t.owner;
+  const officer = await clubMeetings.readClubMeetingAction(t.ws);
+  assert.ok(officer.success && officer.requests.length === 3 && officer.requests.every((r) => r.state === "proposed"));
+  assert.ok((await clubMeetings.decideAgendaItemAction(t.ws, officer.requests[0]!.id, true)).success);
+  assert.ok((await clubMeetings.decideAgendaItemAction(t.ws, officer.requests[1]!.id, false)).success);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title LIKE 'Your agenda item was %'`)[0]!.n, 2);
+  // The deadline: within 3 days of the meeting the agenda is closed.
+  await sql`UPDATE workspace_documents SET settings = jsonb_set(settings, '{startsAt}', to_jsonb((now() + interval '2 days')::text)) WHERE id = ${second}`;
+  viewerId = t.member;
+  assert.match(String((await clubMeetings.proposeAgendaItemAction(t.ws, m.meeting.id, "Late item") as { error?: string }).error), /agenda for this meeting has closed/);
+});
+

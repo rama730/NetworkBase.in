@@ -85,7 +85,7 @@ test("type bodies: headings in order, guides, Decisions, a named Action items bl
   const { meetingMarkdown, meetingType, MEETING_TYPES, defaultTitle } = await import("../../src/lib/workflows/meetings");
   const { parseLiveBlocks } = await import("../../src/lib/workspaces/doc-live-blocks");
   const heads = (md: string) => md.split("\n").filter((l) => l.startsWith("## ")).map((l) => l.slice(3));
-  assert.deepEqual(MEETING_TYPES.map((t) => t.id), ["weekly", "standup", "planning", "retro", "kickoff", "client", "recording", "shoot", "interview", "incident", "playtest", "board", "supervision", "department", "leadership", "line_management", "training", "handover", "blank"]);
+  assert.deepEqual(MEETING_TYPES.map((t) => t.id), ["weekly", "standup", "planning", "retro", "kickoff", "client", "recording", "shoot", "interview", "incident", "playtest", "board", "supervision", "department", "leadership", "line_management", "training", "general", "committee", "agm", "handover", "blank"]);
   // B1.8b (report 30.6): a thesis supervision.
   assert.deepEqual(heads(meetingMarkdown(meetingType("supervision")!, "S")), ["Agenda", "Notes", "Action items"]);
   const weekly = meetingMarkdown(meetingType("weekly")!, "Weekly · Dec 3");
@@ -149,3 +149,16 @@ test("B3.5a: a school gets Department, Leadership, Line management and Training 
   assert.equal(meetingSettings(undefined, "startup").types.includes("department"), false);
   assert.ok(meetingSettings(undefined, "club").types.includes("handover"), "B7.2c: a club gets the Handover meeting");
 });
+
+test("B7.3a: club meetings — motions on General and AGM, officers-only minutes, quorum a quarter of those staying", async () => {
+  const { approvesMinutes, clubQuorumNeeded, hasMotions, isClubMinutes, meetingSettings } = await import("../../src/lib/workflows/meetings");
+  assert.ok(["general", "committee", "agm", "handover"].every((t) => meetingSettings(undefined, "club").types.includes(t)));
+  assert.deepEqual(["board", "general", "agm", "committee", "weekly"].map(hasMotions), [true, true, true, false, false]);
+  assert.deepEqual(["general", "committee", "agm", "board"].map(isClubMinutes), [true, true, true, false]);
+  assert.ok(approvesMinutes("committee") && approvesMinutes("board") && !approvesMinutes("weekly"));
+  assert.equal(clubQuorumNeeded(100), 25);
+  assert.equal(clubQuorumNeeded(101), 26);
+  assert.equal(clubQuorumNeeded(0), 1);
+  assert.equal(clubQuorumNeeded(9, 0.5), 5);
+});
+

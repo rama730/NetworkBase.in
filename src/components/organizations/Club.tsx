@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +8,7 @@ import { Megaphone, Printer } from "lucide-react";
 
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
 import { moveWorkAction, readHandoverAction, saveHandoverAction, tickHandoverAction } from "@/app/actions/club-handover";
+import { decideAgendaItemAction, proposeAgendaItemAction, readClubMeetingAction, saveClubMeetingsAction } from "@/app/actions/club-meetings";
 import { answerNominationAction, closeVotingAction, nominateAction, openVotingAction, readElectionAction, startElectionAction, voteAction } from "@/app/actions/club-elections";
 import { answerAppointmentAction, appointAction, endTermAction, readCommitteeAction, savePositionsAction } from "@/app/actions/club-positions";
 import { readCommunityEventsAction } from "@/app/actions/community-events";
@@ -355,6 +357,58 @@ export function HandoverCard({ orgId }: { orgId: string }) {
               <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(moveWorkAction(orgId, r.outgoing!.termId), `Moved to ${r.incoming!.name}`)}>
                 Move {count(r.work.tasks, "open task")} and {count(r.work.docs, "document")} to {r.incoming.name}</button> : null}
           </li>))}</ul>
+      </div>
+    </OrgCard>
+  );
+}
+
+const AGENDA_WORDS = { proposed: "Proposed", accepted: "Accepted", held: "Held" } as const;
+const NewMeetingDialog = dynamic(() => import("@/components/workspaces/doc/DocMeeting").then((m) => m.NewMeetingDialog), { ssr: false });
+const when = (iso: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+
+/**
+ * The next general meeting (B7.3a, 36.4 calls 1–2, 5): when it is, the quorum it needs, and Add to the agenda until the
+ * deadline; officers accept or hold each item. The meeting's document stays with officers until its minutes are approved.
+ */
+export function ClubMeetingCard({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["club-meeting", orgId], queryFn: () => readClubMeetingAction(orgId), staleTime: 60_000 });
+  const [item, setItem] = useState("");
+  const [setup, setSetup] = useState<{ agendaDays: number; propose: boolean; quorumShare: number } | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const d = q.data?.success ? q.data : null;
+  if (!d) return null;
+  const refresh = () => void q.refetch();
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); refresh(); };
+  const m = d.meeting;
+  if (!m && !d.officer) return null;
+  return (
+    <OrgCard title={m ? (m.kind === "agm" ? "Next annual general meeting" : "Next general meeting") : "General meetings"} testId="club-meeting"
+      action={d.president && !setup ? <button type="button" className="nb-link text-[13px]" onClick={() => setSetup(d.settings)}>Meeting settings</button> : null}>
+      <div className="space-y-2 text-[13px]">
+        {setup ? <fieldset className="flex flex-wrap items-end gap-2" data-testid="club-meeting-settings">
+          <label className="flex flex-col">Agenda closes (days before)<Input type="number" min={0} max={14} value={setup.agendaDays} onChange={(e) => setSetup({ ...setup, agendaDays: Number(e.target.value) })} className="mt-0.5 w-[90px] font-mono" /></label>
+          <label className="flex flex-col">Quorum (% of members staying)<Input type="number" min={5} max={100} value={Math.round(setup.quorumShare * 100)} onChange={(e) => setSetup({ ...setup, quorumShare: Number(e.target.value) / 100 })} className="mt-0.5 w-[90px] font-mono" /></label>
+          <label className="flex items-center gap-1.5 pb-2"><input type="checkbox" className="nb-check" checked={setup.propose} onChange={(e) => setSetup({ ...setup, propose: e.target.checked })} />Members can add to the agenda</label>
+          <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(saveClubMeetingsAction(orgId, setup), "Meeting settings saved").then(() => setSetup(null))}>Save</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setSetup(null)}>Cancel</button>
+        </fieldset> : null}
+        {m ? <p><span className="font-medium">{m.title}</span> · {when(m.startsAt)}</p>
+          : <p className="text-muted-foreground">No general meeting is planned.</p>}
+        {d.officer ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setPlanning(true)}>Plan a meeting</button> : null}
+        {planning ? <NewMeetingDialog projectId={orgId} open={planning} onOpenChange={(o) => { setPlanning(o); if (!o) refresh(); }} /> : null}
+        <p className="text-muted-foreground" data-testid="club-meeting-quorum">Quorum: {d.quorum.needed} needed, of {d.quorum.staying} members staying this Season.</p>
+        {m?.canPropose ? <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (item.trim()) void run(proposeAgendaItemAction(orgId, m.id, item), "Added; an officer accepts or holds it").then(() => setItem("")); }}>
+          <Input value={item} maxLength={200} onChange={(e) => setItem(e.target.value)} placeholder="An item for the agenda" aria-label="Add to the agenda" className="w-[280px]" />
+          <button type="submit" className={FORM_SECONDARY_CLASS} disabled={!item.trim()}>Add to the agenda</button></form>
+          : m && d.settings.propose ? <p className="text-muted-foreground">The agenda has closed.</p> : null}
+        {d.requests.length ? <ul className="divide-y divide-border rounded-md border border-border" aria-label="Agenda requests">{d.requests.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="club-agenda-request">
+            <span className="min-w-0 flex-1">{r.title}{d.officer ? <span className="text-muted-foreground"> · {r.name}</span> : null}</span>
+            <StatusBadge state={r.state === "accepted" ? "done" : r.state === "held" ? "at_risk" : "draft"}>{AGENDA_WORDS[r.state]}</StatusBadge>
+            {d.officer && r.state === "proposed" ? <>
+              <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(decideAgendaItemAction(orgId, r.id, true), "Accepted")}>Accept<span className="sr-only"> {r.title}</span></button>
+              <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(decideAgendaItemAction(orgId, r.id, false), "Held for later")}>Hold<span className="sr-only"> {r.title}</span></button></> : null}
+          </li>))}</ul> : null}
       </div>
     </OrgCard>
   );

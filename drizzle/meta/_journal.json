@@ -1205,6 +1205,13 @@
       "when": 1795714698968,
       "tag": "0173_club_handover",
       "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1795714758968,
+      "tag": "0174_club_agenda_requests",
+      "breakpoints": true
     }
   ]
 }

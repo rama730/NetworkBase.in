@@ -13,6 +13,7 @@ test('Club recruiting: the banner while it lasts, the officers card with drive c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: true, recruiting: true, line: 'Taster night Thursday', to: '2026-09-14', firstEvent: { title: 'Taster night', at: null },
         settings: { from: '2026-09-01', to: '2026-09-14', line: 'Taster night Thursday', firstEventId: 'e1' }, poster: { title: 'WT Robotics Club', slug: 'wt-robotics', code: 'RBT123' } }),
       readDriveCountsAction: async () => ({ success: true, counts: { joined: 12, came: 7, from: '2026-09-01', to: '2026-09-14' } }),
@@ -59,6 +60,7 @@ test('Season renewal: the member ask, officers see counts and end only after a c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: true, officer: true, season: '2026-09-01', ask: 'Staying this Season?', days: 30, closed: true, mine: 'not_answered',
         people: [{ id: 'u1', name: 'Asha', officer: true, state: 'staying' }, { id: 'u2', name: 'Ben', officer: false, state: 'leaving' }, { id: 'u3', name: 'Cal', officer: false, state: 'not_answered' }, { id: 'u4', name: 'Dev', officer: false, state: 'not_asked' }] }),
@@ -98,6 +100,7 @@ test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
 
@@ -140,6 +143,7 @@ test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice)
     (window as any).__calls = calls;
     let voted = false;
     (window as any).__actions = {
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
@@ -177,6 +181,7 @@ test('B7.2c Handover: progress of 5, ticks, Move open work to the incoming offic
     (window as any).__calls = calls;
     let moved = false;
     (window as any).__actions = {
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
       readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
@@ -206,6 +211,43 @@ test('B7.2c Handover: progress of 5, ticks, Move open work to the incoming offic
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['move', 't1']);
   await expect(sec).toContainText('3 of 5');
   await expect(sec.getByRole('button', { name: /Move/ })).toHaveCount(0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B7.3a Next general meeting: quorum from members staying, Add to the agenda, officers Accept or Hold', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    let decided = false;
+    (window as any).__actions = {
+      readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
+      readRenewalAction: async () => ({ success: true, on: false, officer: false }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
+      readClubMeetingAction: async () => ({ success: true, officer: true, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25 }, quorum: { staying: 100, needed: 25 },
+        meeting: { id: 'd1', title: 'General · Oct 2', startsAt: '2099-10-02T12:30:00Z', kind: 'general', canPropose: true },
+        requests: [{ id: 'r1', title: 'Weekend lab hours', state: decided ? 'accepted' : 'proposed', mine: false, name: 'Karan' }] }),
+      proposeAgendaItemAction: async (_o: string, doc: string, title: string) => { calls.push(['propose', doc, title]); return { success: true }; },
+      decideAgendaItemAction: async (_o: string, id: string, accept: boolean) => { calls.push(['decide', id, accept]); decided = true; return { success: true }; },
+    };
+  });
+  await openApp(page, 'tests/browser/club.fixture.tsx');
+  const card = page.getByTestId('club-meeting');
+  await expect(card).toContainText('Next general meeting');
+  await expect(card).toContainText('General · Oct 2');
+  await expect(card.getByTestId('club-meeting-quorum')).toHaveText('Quorum: 25 needed, of 100 members staying this Season.');
+  await card.getByLabel('Add to the agenda').fill('Robocon budget');
+  await card.getByRole('button', { name: 'Add to the agenda' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['propose', 'd1', 'Robocon budget']);
+  const req = card.getByTestId('club-agenda-request');
+  await expect(req).toContainText('Weekend lab hours · Karan');
+  await req.getByRole('button', { name: 'Accept Weekend lab hours' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['decide', 'r1', true]);
+  await expect(req).toContainText('Accepted');
+  await expect(card.getByRole('button', { name: 'Plan a meeting' })).toBeVisible();
+  await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });
 

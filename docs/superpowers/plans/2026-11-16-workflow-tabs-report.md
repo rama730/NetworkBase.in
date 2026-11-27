@@ -14423,6 +14423,13 @@ CLUB · Decisions (Season 2026)    Oct 2  Constitution v5: Tech officer added   
 7. The constitution has numbered articles and versions; it changes only by a motion at the club's threshold (two-thirds by default).
 8. Passed motions and decisions go to the Decisions list by Season.
 
+**Build calls (B7.3a, 2026-11-27):**
+1. **Three meeting types** on 11.6, on by default in clubs: General meeting (Before the meeting · Agenda · Officer reports · Motions · Announcements · Any other business), Committee meeting (Agenda · Updates) and Annual general meeting (Reports · Constitution changes · Election results · Motions). A club holds General meetings and the AGM itself, without adding the Meetings workflow (as a company holds its goals). Officers start one from **Plan a meeting** on the club's Overview. Committee meetings live in the committee's workspace.
+2. **Minutes stay with officers:** a club meeting's document starts leaders-only. **Approve last minutes** at the next meeting in the series locks it and opens it to members (committee minutes: that committee). Members never read a draft (server test).
+3. **Motions and quorum** reuse 17.5's panel on General meetings and AGMs. Quorum is the club's share (a quarter by default, set in Meeting settings) of members staying this Season: with renewal on, those who said Staying plus those who joined too recently to be asked; otherwise every member who isn't a Viewer. A motion without a seconder isn't voted on; when the meeting isn't quorate the vote is refused with "Not quorate: 1 present, 2 needed", so nothing passes (server test). Committee meetings show only attendance and Approve last minutes.
+4. **Agenda requests** (0174): members add items to the next General meeting or AGM until the deadline (3 days before by default; up to 3 waiting each). Officers Accept or Hold each one, and the proposer is told (Normal). Members see only their own requests. The card shows the meeting's title, time and quorum line, not its draft.
+5. **Not built yet (B7.3b):** online motion votes by secret ballot, the Constitution with numbered articles and versions by motion, and Decisions by Season.
+
 ### 36.5 L4 · Competitions and teams (agreed 2026-11-17)
 **References** (15 searches for competitions, hackathons, teams, rosters, debate, game jams and tournaments: 125 templates, 31 rated; 5 more screens studied):
 

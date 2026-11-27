@@ -15,7 +15,7 @@ async function open(page: Page, opts: { view?: string; now?: string; finished?: 
         timeZone: 'Asia/Kolkata', attendees: [{ id: 'u2', name: 'Dev', avatarUrl: null }], seriesRule: series ? 'weekly' : null, seriesTitle: series ? 'Weekly' : null, seriesId: series ? 's1' : null,
         finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 0,
         ...(board ? { type: 'board', attendees: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Asha', avatarUrl: null }, { id: '22222222-2222-4222-8222-222222222222', name: 'Dev', avatarUrl: null }, { id: '33333333-3333-4333-8333-333333333333', name: 'Mia', avatarUrl: null }],
-          board: { size: 3, present: (window as any).__present ?? [], presentCount: ((window as any).__present ?? []).length, approvedAt: null, toApprove: { slug: 'board-dec', title: 'Board · Dec 7' },
+          board: { needed: 2, motionsOn: true, size: 3, present: (window as any).__present ?? [], presentCount: ((window as any).__present ?? []).length, approvedAt: null, toApprove: { slug: 'board-dec', title: 'Board · Dec 7' },
             motions: [{ id: 'm1', text: 'Approve the 2027 budget', proposedBy: '11111111-1111-4111-8111-111111111111', secondedBy: '22222222-2222-4222-8222-222222222222', votes: null, result: null, decision: null },
               { id: 'm2', text: 'Move the office', proposedBy: null, secondedBy: null, votes: { for: 1, against: 2, abstain: 0 }, result: 'failed', decision: null }] } } : {}) }),
       markPresentAction: async (_p: string, input: { present: string[] }) => { calls.push(['present', input.present.length]); (window as any).__present = input.present; return { success: true, present: input.present }; },

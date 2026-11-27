@@ -12,12 +12,11 @@ import { WORKSPACE_DOC_LIST_QUERY_KEY, WORKSPACE_DOCS_QUERY_KEY } from "@/hooks/
 import { toast } from "@/lib/feedback";
 import { docFileName } from "@/lib/organizations/doc-rules";
 import { queryKeys } from "@/lib/query-keys";
-import { quorum } from "@/lib/workflows/meetings";
 import { decisionMarkdown } from "@/lib/workspaces/doc-sections";
 
 type Person = { id: string; name: string };
 type Motion = { id: string; text: string; proposedBy: string | null; secondedBy: string | null; votes: { for: number; against: number; abstain: number } | null; result: "passed" | "failed" | null; decision: { slug: string; label: string } | null };
-export type BoardData = { size: number | null; present: string[]; presentCount: number; approvedAt: string | null; motions: Motion[]; toApprove: { slug: string; title: string } | null };
+export type BoardData = { needed: number; motionsOn: boolean; size: number | null; present: string[]; presentCount: number; approvedAt: string | null; motions: Motion[]; toApprove: { slug: string; title: string } | null };
 
 const shortDay = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
@@ -37,7 +36,7 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
   const presentKey = board.present.join(",");
   useEffect(() => setPresent(presentKey ? presentKey.split(",") : []), [presentKey]);
   const presentCount = editable ? present.length : board.presentCount;
-  const q = quorum(board.size, presentCount);
+  const q = { needed: board.needed, met: presentCount >= board.needed };
   const name = (id: string | null) => attendees.find((a) => a.id === id)?.name ?? null;
   const refresh = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) }),
@@ -89,7 +88,7 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
           ))}
         </fieldset>
       ) : null}
-      <ul className="space-y-1.5" aria-label="Motions">
+      {board.motionsOn ? <ul className="space-y-1.5" aria-label="Motions">
         {board.motions.map((m) => (
           <li key={m.id} className="rounded-[6px] border border-border px-3 py-2" data-testid="motion">
             <div className="flex flex-wrap items-start gap-2">
@@ -108,9 +107,9 @@ export function BoardPanel({ projectId, docSlug, title, board, attendees, canEdi
             ) : null}
           </li>
         ))}
-      </ul>
+      </ul> : null}
       <div className="flex flex-wrap items-center gap-2">
-        {editable ? <button type="button" className="nb-touch-target flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setDialog({ kind: "motion" })}><Plus aria-hidden="true" className="size-3.5" />Motion</button> : null}
+        {editable && board.motionsOn ? <button type="button" className="nb-touch-target flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setDialog({ kind: "motion" })}><Plus aria-hidden="true" className="size-3.5" />Motion</button> : null}
         {canEdit && board.toApprove ? (
           <button type="button" className={`${FORM_SECONDARY_CLASS} ml-auto`} disabled={busy} onClick={() => void run(() => approveMinutesAction(projectId, { docSlug }), () => `Minutes approved: ${board.toApprove!.title}`)}>Approve last minutes ({board.toApprove.title})</button>
         ) : null}

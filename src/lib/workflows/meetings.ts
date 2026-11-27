@@ -41,6 +41,12 @@ export const MEETING_TYPES: MeetingType[] = [
   { id: "leadership", name: "Leadership meeting", line: "Agenda, notes, decisions and action items for leaders.", sections: ["Agenda", "Notes"], actionItems: true, decisions: true },
   { id: "line_management", name: "Line management", line: "Since last time, how it's going, goals and next steps.", sections: ["Since last time", "How it's going", "Goals"], actionItems: true, actionItemsLabel: "Next steps", decisions: false },
   { id: "training", name: "Training session", line: "The topic, notes and what I'll try.", sections: ["Topic", "Notes", "What I'll try"], actionItems: false, decisions: false },
+  // B7.3a (report 36.4 call 1): a club's meetings. General and AGM record motions and quorum (as a board meeting does).
+  { id: "general", name: "General meeting", line: "Agenda, officer reports, motions, announcements and any other business.", sections: ["Before the meeting", "Agenda", "Officer reports", "Motions", "Announcements", "Any other business"], actionItems: true, decisions: true,
+    guide: { "Before the meeting": "_Send the agenda and attach the documents to read first._", Motions: "_Motions and votes are recorded in the panel at the top._" } },
+  { id: "committee", name: "Committee meeting", line: "Agenda, updates, decisions and action items for one committee.", sections: ["Agenda", "Updates"], actionItems: true, decisions: true },
+  { id: "agm", name: "Annual general meeting", line: "The year's reports, constitution changes, election results and last year's minutes.", sections: ["Reports", "Constitution changes", "Election results", "Motions"], actionItems: true, decisions: true,
+    guide: { Motions: "_Motions and votes are recorded in the panel at the top._" } },
   // B7.2c (report 36.3 call 10): the outgoing officer walks the incoming one through the role.
   { id: "handover", name: "Handover", line: "The outgoing officer walks the incoming one through the role.", sections: ["The role", "Open work", "Accounts (names only)", "Key dates", "Tips"], actionItems: true, decisions: false },
   { id: "blank", name: "Blank", line: "Notes and action items.", sections: ["Notes"], actionItems: true, decisions: false },
@@ -152,6 +158,17 @@ export function monthGrid<T extends { startsAt: string | null }>(month: string, 
   return days.map((day) => ({ day, inMonth: day.startsWith(month), meetings: placed.filter((p) => p.day === day).map((p) => ({ ...p.m, time: p.time })) }));
 }
 
+/** Types whose panel records motions, votes and quorum (A4.9's board meeting; B7.3a's club General meeting and AGM). */
+export const MOTION_TYPES = ["board", "general", "agm"] as const;
+export const hasMotions = (kind: string | null | undefined) => (MOTION_TYPES as readonly string[]).includes(kind ?? "");
+/** B7.3a (call 3): a club's minutes stay with officers until approved at the next meeting. */
+export const CLUB_MINUTES_TYPES = ["general", "committee", "agm"] as const;
+export const isClubMinutes = (kind: string | null | undefined) => (CLUB_MINUTES_TYPES as readonly string[]).includes(kind ?? "");
+/** Types with Approve last minutes. */
+export const approvesMinutes = (kind: string | null | undefined) => hasMotions(kind) || isClubMinutes(kind);
+/** B7.3a (call 5): a club's quorum is a share of the members staying this Season (a quarter by default), at least one. */
+export const clubQuorumNeeded = (staying: number, share = 0.25) => Math.max(1, Math.ceil(staying * share));
+
 /** Report 38.11 call 6 (A4.9): quorum is a majority of the board's size; with no size set, anyone present is enough. */
 export const quorum = (boardSize: number | null | undefined, present: number) => {
   const needed = boardSize && boardSize > 0 ? Math.floor(boardSize / 2) + 1 : 1;
@@ -174,7 +191,7 @@ const COMMON_TYPES = ["weekly", "standup", "planning", "retro", "kickoff", "clie
 const CATEGORY_TYPES: Record<string, string[]> = {
   startup: ["board", "interview"], nonprofit: ["board"], podcast: ["recording"], video: ["shoot"], web_app: ["interview"],
   tool: ["incident"], open_source: ["incident"], game: ["playtest"], learning: ["supervision"],
-  school: ["department", "leadership", "line_management", "training"], club: ["handover"],
+  school: ["department", "leadership", "line_management", "training"], club: ["general", "committee", "agm", "handover"],
 };
 export type MeetingSettings = { types: string[]; lengthMinutes: number; reminderMinutes: number };
 export function meetingSettings(raw: unknown, category: string | null | undefined): MeetingSettings {
