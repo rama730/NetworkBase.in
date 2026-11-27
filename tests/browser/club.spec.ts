@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test';
 import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
+// Toasts fade in; axe reads contrast mid-fade otherwise (a flake seen on the gate).
+test.use({ reducedMotion: 'reduce' });
+
 // Plan B7.1a (report 36.2 calls 3, 4, 7).
 test('Club recruiting: the banner while it lasts, the officers card with drive counts, the join poster with link and code (no QR)', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 900 });
@@ -162,6 +165,8 @@ test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice)
   await expect(pos).not.toContainText('Abstain');
   await card.getByRole('button', { name: 'Close voting and count' }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['close']);
+  await expect(page.getByTestId('toast')).toContainText('Counted');
+  await page.mouse.move(0, 0); // the hovered primary button is checked at its hover colour otherwise
   expect(await axeViolations(page)).toEqual([]);
 });
 
