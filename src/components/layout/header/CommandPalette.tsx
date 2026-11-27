@@ -288,7 +288,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
                 showCloseButton={false}
                 data-command-palette-dialog=""
                 overlayClassName="bg-black/35"
-                className="nb-sx-panel left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 duration-[130ms] motion-reduce:duration-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:h-auto sm:max-h-[min(640px,calc(100dvh-var(--ui-topnav-height)-24px))] sm:rounded-[6px] sm:border sm:border-border sm:bg-card"
+                className="nb-sx-panel left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 duration-[130ms] motion-reduce:duration-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:h-auto sm:border sm:border-border sm:bg-card"
                 style={{ outline: "none", ...(left !== null ? { "--nb-sx-left": `${left}px` } : {}) } as React.CSSProperties}
                 aria-describedby="topnav-search-description"
             >

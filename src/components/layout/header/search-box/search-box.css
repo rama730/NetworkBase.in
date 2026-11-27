@@ -8,7 +8,9 @@
 .nb-sx-panel mark { background: var(--nb-sx-mark); color: inherit; border-radius: 2px; padding: 0 1px; }
 @media (min-width: 640px) {
   .nb-sx-panel { left: var(--nb-sx-left, calc(50% - 320px)); top: calc(var(--ui-topnav-height, 56px) + 8px); width: min(640px, calc(100vw - 32px));
-    max-width: none; transform: none; border-radius: 12px; box-shadow: 0 18px 44px -16px rgba(13, 17, 20, .26); }
+    max-width: none; transform: none; box-shadow: 0 18px 44px -16px rgba(13, 17, 20, .26); }
+  /* Outranks the app's centred-dialog rule ([data-slot][data-presentation], 8px radius, 100dvh - 32px), which ignores the top bar. */
+  .nb-sx-panel.nb-sx-panel[data-slot] { border-radius: 12px; max-height: min(640px, calc(100dvh - var(--ui-topnav-height, 56px) - 24px)); }
 }
 
 /* Field: 16px icon, mono key affix (spec §10 Input). */

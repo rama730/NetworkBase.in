@@ -54,7 +54,10 @@ test('the box follows spec §31: 640px dialog, 11px micro labels, 13px titles, 1
   const box = read('src/components/layout/header/CommandPalette.tsx');
   const row = read('src/components/layout/header/search-box/BoxRow.tsx');
   assert.match(css, /width: min\(640px, calc\(100vw - 32px\)\)/);
-  assert.match(css, /border-radius: 12px; box-shadow: 0 18px 44px -16px rgba\(13, 17, 20, \.26\)/);
+  assert.match(css, /box-shadow: 0 18px 44px -16px rgba\(13, 17, 20, \.26\)/);
+  // Live check 2026-11-27: the app's [data-slot][data-presentation="center"] rule (8px, 100dvh - 32px) outranked .nb-sx-panel.
+  assert.match(css, /\.nb-sx-panel\.nb-sx-panel\[data-slot\] \{ border-radius: 12px; max-height: min\(640px, calc\(100dvh - var\(--ui-topnav-height, 56px\) - 24px\)\); \}/);
+  assert.doesNotMatch(box, /sm:rounded-\[6px\]|sm:max-h-/);
   assert.match(css, /\.nb-sx-icon svg \{ width: 16px; height: 16px; \}/);
   assert.match(css, /\.nb-sx-row:hover, \.nb-sx-row\[data-active\] \{ background: var\(--sidebar-accent\); \}/);
   assert.match(box, /className="nb-sx-glabel nb-micro"/);

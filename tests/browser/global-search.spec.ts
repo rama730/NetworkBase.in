@@ -57,6 +57,10 @@ test('the box from Discover: organizations first, best rows, See all', async ({ 
   await page.keyboard.press('ArrowDown');
   await expect(box.locator('[data-active]').first()).toBeVisible();
   await page.screenshot({ path: 'test-results/global-search/box-discover.png' });
+  // Spec §31 radius, and the box ends above the window's bottom edge even on a short window (live check 2026-11-27).
+  const panel = await box.evaluate((el) => ({ radius: getComputedStyle(el).borderRadius, bottom: el.getBoundingClientRect().bottom }));
+  expect(panel.radius).toBe('12px');
+  expect(panel.bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
   expect(await axeViolations(page)).toEqual([]);
 });
 
