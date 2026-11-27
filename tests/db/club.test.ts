@@ -20,6 +20,7 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 let fd: typeof import("../../src/app/actions/community-front-door");
 let club: typeof import("../../src/app/actions/club");
 let pos: typeof import("../../src/app/actions/club-positions");
+let el: typeof import("../../src/app/actions/club-elections");
 let groups: typeof import("../../src/app/actions/community-groups");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -31,6 +32,7 @@ before(async () => {
   fd = await loadAppModule(() => import("../../src/app/actions/community-front-door"));
   club = await loadAppModule(() => import("../../src/app/actions/club"));
   pos = await loadAppModule(() => import("../../src/app/actions/club-positions"));
+  el = await loadAppModule(() => import("../../src/app/actions/club-elections"));
   groups = await loadAppModule(() => import("../../src/app/actions/community-groups"));
 });
 
@@ -195,4 +197,62 @@ test("36.3 (B7.2a): positions give their role on accept and take back only what 
   viewerId = raj!;
   const joined = await groups.joinGroupAction(id, made.success ? made.id : "");
   assert.ok(joined.success && joined.outcome === "asked", "Ask sends a request to the chair");
+});
+
+test("36.3 (B7.2b): secret ballots — never joinable to a voter; one vote; the returning officer can't stand; run-off on a tie; winners hold", async () => {
+  const [pres, ro, ann, bob, cat, dan] = await Promise.all([1, 2, 3, 4, 5, 6].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, pres!, { visibility: "public" }));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active', org_settings = ${sql.json({ club: { committee: { season: "2026–27", positions: [
+    { id: "president", label: "President", filled: "election", gives: "president", docId: null }, { id: "secretary", label: "Secretary", filled: "election", gives: "coordinator", docId: null }] } } })} WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${pres!}, 'owner'), (${id}, ${ro!}, 'member'), (${id}, ${ann!}, 'member'), (${id}, ${bob!}, 'member'), (${id}, ${cat!}, 'member'), (${id}, ${dan!}, 'viewer')`;
+
+  // Storage: ballots have no voter column; the voted record has no choice; they share no id.
+  const cols = async (t: string) => (await sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${t}`).map((c) => String(c.column_name)).sort();
+  assert.deepEqual(await cols("club_ballots"), ["choice_id", "election_id", "id", "position_id", "round"], "a ballot never names its voter");
+  assert.deepEqual(await cols("club_voted"), ["election_id", "position_id", "round", "user_id"], "the voted record never holds a choice");
+
+  viewerId = ann!;
+  assert.equal((await el.startElectionAction(id, { season: "2027–28", returningOfficerId: ro!, showCounts: true })).success, false, "the President starts it");
+  viewerId = pres!;
+  assert.ok((await el.startElectionAction(id, { season: "2027–28", returningOfficerId: ro!, showCounts: true })).success);
+  assert.match(String((await el.startElectionAction(id, { season: "x", returningOfficerId: ro!, showCounts: false }) as { error?: string }).error), /already running/);
+  viewerId = ann!;
+  assert.match(String((await el.nominateAction(id, "secretary", ro!) as { error?: string }).error), /returning officer can’t stand/);
+  assert.ok((await el.nominateAction(id, "secretary", ann!)).success);
+  assert.ok((await el.nominateAction(id, "secretary", bob!)).success);
+  assert.ok((await el.answerNominationAction(id, "secretary", { stand: true, statement: "Minutes within a day." })).success);
+  viewerId = bob!;
+  assert.ok((await el.answerNominationAction(id, "secretary", { stand: true, statement: "I'll keep the records tidy." })).success);
+  assert.equal((await el.openVotingAction(id)).success, false, "only the returning officer opens voting");
+  viewerId = ro!;
+  assert.ok((await el.openVotingAction(id)).success);
+
+  // Round 1: a tie (Ann 1, Bob 1, Cat abstains).
+  viewerId = ann!; assert.ok((await el.voteAction(id, "secretary", ann!)).success);
+  assert.match(String((await el.voteAction(id, "secretary", bob!) as { error?: string }).error), /voted for this position/, "one vote");
+  viewerId = bob!; assert.ok((await el.voteAction(id, "secretary", bob!)).success);
+  viewerId = cat!; assert.ok((await el.voteAction(id, "secretary", null)).success);
+  viewerId = dan!; assert.equal((await el.voteAction(id, "secretary", ann!)).success, false, "Viewers don't vote");
+  const view = await (async () => { viewerId = cat!; return el.readElectionAction(id); })();
+  assert.ok(view.success && "positions" in view && view.positions.find((p) => p.id === "secretary")!.turnout === 3);
+  viewerId = ro!;
+  const close1 = await el.closeVotingAction(id);
+  assert.ok(close1.success && close1.runoffs === 1, "a tie goes to a run-off");
+  // Run-off round 2: Ann wins.
+  viewerId = ann!; assert.ok((await el.voteAction(id, "secretary", ann!)).success);
+  viewerId = cat!; assert.ok((await el.voteAction(id, "secretary", ann!)).success);
+  viewerId = bob!; assert.ok((await el.voteAction(id, "secretary", bob!)).success);
+  viewerId = ro!;
+  const close2 = await el.closeVotingAction(id);
+  assert.ok(close2.success && close2.runoffs === 0);
+  const res = await el.readElectionAction(id);
+  const sec = res.success && "positions" in res ? res.positions.find((p) => p.id === "secretary")! : null;
+  assert.equal(sec?.result?.winner?.id, ann!);
+  assert.deepEqual(sec?.result?.counts?.map((c) => c.n).sort(), [1, 2]);
+  const [term] = await sql`SELECT state, how, season FROM club_position_terms WHERE org_id = ${id} AND user_id = ${ann!} AND position_id = 'secretary'`;
+  assert.deepEqual({ ...term }, { state: "holding", how: "election", season: "2027–28" });
+  const [counts] = await sql`SELECT (SELECT count(*)::int FROM club_ballots b JOIN club_elections e ON e.id = b.election_id WHERE e.org_id = ${id}) AS ballots,
+    (SELECT count(*)::int FROM club_voted v JOIN club_elections e ON e.id = v.election_id WHERE e.org_id = ${id}) AS voted`;
+  assert.deepEqual({ ...counts }, { ballots: 6, voted: 6 }, "one ballot per voted record, and nothing ties them");
 });

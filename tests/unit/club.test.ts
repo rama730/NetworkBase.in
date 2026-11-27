@@ -40,3 +40,12 @@ test("positions: the starter list and a Season name until the President saves th
   assert.equal(p.positions.filter((x) => x.gives === "president").length, 1);
   assert.equal(readPositions({}, new Date("2026-03-01T00:00:00Z")).season, "2025–26");
 });
+
+test("tally: the most votes wins; abstain counts only as turnout; a tie goes to a run-off; no votes leaves it open", async () => {
+  const { tally } = await import("../../src/lib/organizations/club");
+  assert.deepEqual(tally(["a", "b", "a", null], ["a", "b"]), { counts: { a: 2, b: 1 }, abstained: 1, winner: "a", tied: [] });
+  assert.deepEqual(tally(["a", "b", null], ["a", "b", "c"]).tied, ["a", "b"]);
+  assert.equal(tally(["a", "b"], ["a", "b"]).winner, null);
+  assert.deepEqual(tally([null, null], ["a"]), { counts: { a: 0 }, abstained: 2, winner: null, tied: [] });
+  assert.equal(tally(["x"], ["a"]).winner, null, "a choice that isn't a candidate counts for nobody");
+});

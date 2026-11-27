@@ -1915,6 +1915,43 @@ export const clubPositionTerms = pgTable("club_position_terms", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [uniqueIndex("club_position_terms_one_holder").on(t.orgId, t.positionId, t.season).where(sql`state IN ('offered', 'holding')`), index("club_position_terms_org_idx").on(t.orgId, t.season),
   index("club_position_terms_user_idx").on(t.userId).where(sql`user_id IS NOT NULL`), index("club_position_terms_offered_by_idx").on(t.offeredBy).where(sql`offered_by IS NOT NULL`)]);
+/** B7.2b (0172): club elections. Ballots carry a choice and never a voter; club_voted records only that someone voted. */
+export const clubElections = pgTable("club_elections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  season: text("season").notNull(),
+  phase: text("phase").default("nominations").notNull(),
+  returningOfficerId: uuid("returning_officer_id").references(() => profiles.id, { onDelete: "set null" }),
+  showCounts: boolean("show_counts").default(false).notNull(),
+  rounds: jsonb("rounds").$type<Record<string, { round: number; tied: string[] }>>().default({}).notNull(),
+  results: jsonb("results"),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+}, (t) => [uniqueIndex("club_elections_one_open").on(t.orgId).where(sql`phase <> 'results'`), index("club_elections_org_idx").on(t.orgId, t.createdAt.desc()),
+  index("club_elections_ro_idx").on(t.returningOfficerId).where(sql`returning_officer_id IS NOT NULL`), index("club_elections_created_by_idx").on(t.createdBy).where(sql`created_by IS NOT NULL`)]);
+export const clubCandidates = pgTable("club_candidates", {
+  electionId: uuid("election_id").notNull().references(() => clubElections.id, { onDelete: "cascade" }),
+  positionId: text("position_id").notNull(),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  state: text("state").default("nominated").notNull(),
+  statement: text("statement").default("").notNull(),
+  nominatedBy: uuid("nominated_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.electionId, t.positionId, t.userId] }), index("club_candidates_user_idx").on(t.userId), index("club_candidates_nominated_by_idx").on(t.nominatedBy).where(sql`nominated_by IS NOT NULL`)]);
+export const clubBallots = pgTable("club_ballots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  electionId: uuid("election_id").notNull().references(() => clubElections.id, { onDelete: "cascade" }),
+  positionId: text("position_id").notNull(),
+  round: integer("round").default(1).notNull(),
+  choiceId: uuid("choice_id").references(() => profiles.id, { onDelete: "set null" }),
+}, (t) => [index("club_ballots_count_idx").on(t.electionId, t.positionId, t.round), index("club_ballots_choice_idx").on(t.choiceId).where(sql`choice_id IS NOT NULL`)]);
+export const clubVoted = pgTable("club_voted", {
+  electionId: uuid("election_id").notNull().references(() => clubElections.id, { onDelete: "cascade" }),
+  positionId: text("position_id").notNull(),
+  round: integer("round").notNull(),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+}, (t) => [primaryKey({ columns: [t.electionId, t.positionId, t.round, t.userId] }), index("club_voted_user_idx").on(t.userId)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

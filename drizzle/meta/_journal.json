@@ -1191,6 +1191,13 @@
       "when": 1795714578968,
       "tag": "0171_club_positions",
       "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1795714638968,
+      "tag": "0172_club_elections",
+      "breakpoints": true
     }
   ]
 }

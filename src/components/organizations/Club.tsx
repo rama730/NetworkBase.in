@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Megaphone, Printer } from "lucide-react";
 
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
+import { answerNominationAction, closeVotingAction, nominateAction, openVotingAction, readElectionAction, startElectionAction, voteAction } from "@/app/actions/club-elections";
 import { answerAppointmentAction, appointAction, endTermAction, readCommitteeAction, savePositionsAction } from "@/app/actions/club-positions";
 import { readCommunityEventsAction } from "@/app/actions/community-events";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
@@ -220,5 +221,76 @@ function PositionsEditor({ season, positions, docs, onSave, onCancel }: { season
       <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} disabled={!s.trim() || list.some((p) => !p.label.trim())} onClick={() => onSave({ season: s, positions: list })}>Save</button>
         <button type="button" className={FORM_SECONDARY_CLASS} onClick={onCancel}>Cancel</button></span>
     </fieldset>
+  );
+}
+
+const PHASE_WORDS = { nominations: "Nominations", voting: "Voting", results: "Results" } as const;
+
+/**
+ * Elections (B7.2b, 36.3 calls 4–7): nominations (the nominee accepts with a statement), a secret ballot per position
+ * (Abstain allowed; "You voted", never the choice), turnout as a count, the returning officer's Open and Close, run-offs,
+ * results (winner; counts only if the club chose to show them).
+ */
+export function ElectionCard({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["club-election", orgId], queryFn: () => readElectionAction(orgId), staleTime: 30_000 });
+  const [start, setStart] = useState<{ season: string; returningOfficerId: string; showCounts: boolean } | null>(null);
+  const [nominate, setNominate] = useState<Record<string, string>>({});
+  const [statement, setStatement] = useState<Record<string, string>>({});
+  const [pick, setPick] = useState<Record<string, string>>({});
+  const d = q.data?.success ? q.data : null;
+  if (!d) return null;
+  const refresh = () => void q.refetch();
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); refresh(); };
+  const e = d.election;
+  if (!e || (e.phase === "results" && start)) {
+    if (!d.president) return null;
+    return (
+      <OrgCard title="Elections" testId="club-election">
+        {start ? <fieldset className="flex flex-wrap items-end gap-2 text-[13px]" data-testid="club-election-start">
+          <label className="flex flex-col">For the Season<Input value={start.season} maxLength={20} onChange={(x) => setStart({ ...start, season: x.target.value })} className="mt-0.5 w-[120px] font-mono" /></label>
+          <label className="flex flex-col">Returning officer<select className="nb-select mt-0.5" value={start.returningOfficerId} onChange={(x) => setStart({ ...start, returningOfficerId: x.target.value })}>
+            <option value="">Pick someone not standing</option>{("people" in d ? d.people : []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+          <label className="flex items-center gap-1.5 pb-2"><input type="checkbox" className="nb-check" checked={start.showCounts} onChange={(x) => setStart({ ...start, showCounts: x.target.checked })} />Show vote counts with the results</label>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={!start.season.trim() || !start.returningOfficerId} onClick={() => void run(startElectionAction(orgId, start), "Nominations are open").then(() => setStart(null))}>Open nominations</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setStart(null)}>Cancel</button>
+        </fieldset> : <span className="flex flex-wrap items-center gap-2 text-[13px]"><span className="text-muted-foreground">Elected positions are filled by a secret ballot run by a returning officer.</span>
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setStart({ season: "", returningOfficerId: "", showCounts: false })}>Start an election</button></span>}
+      </OrgCard>
+    );
+  }
+  const people = "people" in d ? d.people : [];
+  return (
+    <OrgCard title={`Election · ${e.season}`} testId="club-election" action={<StatusBadge state={e.phase === "results" ? "done" : "active"}>{PHASE_WORDS[e.phase]}</StatusBadge>}>
+      <div className="space-y-3 text-[13px]">
+        <p className="text-muted-foreground">Returning officer: {e.ro?.name ?? "none"}. Ballots are secret: nobody, the returning officer included, can see who voted for whom.</p>
+        {e.isRo && e.phase === "nominations" ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(openVotingAction(orgId), "Voting is open")}>Open voting</button> : null}
+        {e.isRo && e.phase === "voting" ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(closeVotingAction(orgId), "Counted")}>Close voting and count</button> : null}
+        {e.phase === "results" && d.president ? <button type="button" className="nb-link" onClick={() => setStart({ season: "", returningOfficerId: "", showCounts: false })}>Start another election</button> : null}
+        <ul className="space-y-2">{("positions" in d ? d.positions : []).map((p) => (
+          <li key={p.id} className="space-y-1.5 rounded-md border border-border p-3" data-testid="club-election-position">
+            <p className="flex flex-wrap items-center gap-2"><span className="font-medium">{p.label}</span>{p.runoff ? <StatusBadge state="at_risk">Run-off, round {p.round}</StatusBadge> : null}
+              {e.phase !== "nominations" ? <span className="text-muted-foreground">{p.turnout} of {"eligible" in d ? d.eligible : 0} voted</span> : null}</p>
+            {p.candidates.length ? <ul className="space-y-1">{p.candidates.map((c) => <li key={c.id}><span className="font-medium">{c.name}</span>{c.statement ? <span className="block whitespace-pre-wrap text-muted-foreground">{c.statement}</span> : null}</li>)}</ul>
+              : <p className="text-muted-foreground">No candidates yet.</p>}
+            {p.pending.length ? <p className="text-muted-foreground">Waiting to accept: {p.pending.map((x) => x.name).join(", ")}</p> : null}
+            {e.phase === "nominations" && (p.mine === "nominated" || p.mine === "standing") ? <span className="flex flex-col gap-1.5" data-testid="club-nomination-answer">
+              <textarea className="nb-textarea text-[13px]" rows={2} maxLength={2000} aria-label={`Your statement for ${p.label}`} placeholder="Your statement" value={statement[p.id] ?? p.candidates.find((c) => c.id === ("me" in d ? d.me : ""))?.statement ?? ""} onChange={(x) => setStatement({ ...statement, [p.id]: x.target.value })} />
+              <span className="flex gap-2"><button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(answerNominationAction(orgId, p.id, { stand: true, statement: statement[p.id] ?? "" }), "You're standing")}>{p.mine === "standing" ? "Update statement" : "Accept and stand"}</button>
+                <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(answerNominationAction(orgId, p.id, { stand: false, statement: "" }), p.mine === "standing" ? "Withdrawn" : "Declined")}>{p.mine === "standing" ? "Withdraw" : "Decline"}</button></span></span> : null}
+            {e.phase === "nominations" ? <span className="flex flex-wrap items-center gap-2">
+              <select className="nb-select" aria-label={`Nominate for ${p.label}`} value={nominate[p.id] ?? ""} onChange={(x) => setNominate({ ...nominate, [p.id]: x.target.value })}>
+                <option value="">Nominate…</option>{people.filter((m) => m.id !== e.ro?.id).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+              <button type="button" className={FORM_SECONDARY_CLASS} disabled={!nominate[p.id]} onClick={() => void run(nominateAction(orgId, p.id, nominate[p.id]!), "Nominated; they accept to stand")}>Nominate</button></span> : null}
+            {e.phase === "voting" && !p.result && p.candidates.length ? (p.voted ? <p className="font-medium" data-testid="club-voted">You voted</p> : (
+              <fieldset className="space-y-1" data-testid="club-ballot"><legend className="sr-only">Ballot for {p.label}</legend>
+                {p.candidates.map((c) => <label key={c.id} className="flex items-center gap-1.5"><input type="radio" className="nb-radio" name={`ballot-${p.id}`} checked={pick[p.id] === c.id} onChange={() => setPick({ ...pick, [p.id]: c.id })} />{c.name}</label>)}
+                <label className="flex items-center gap-1.5"><input type="radio" className="nb-radio" name={`ballot-${p.id}`} checked={pick[p.id] === "abstain"} onChange={() => setPick({ ...pick, [p.id]: "abstain" })} />Abstain</label>
+                <button type="button" className={FORM_PRIMARY_CLASS} disabled={!pick[p.id]} onClick={() => void run(voteAction(orgId, p.id, pick[p.id] === "abstain" ? null : pick[p.id]!), "You voted")}>Submit</button>
+              </fieldset>)) : null}
+            {p.result ? <p data-testid="club-result">{p.result.winner ? <><span className="font-medium">{p.result.winner.name}</span> elected</> : "No one elected"}
+              {p.result.counts ? <span className="block text-muted-foreground">{p.result.counts.map((c) => `${c.name} ${c.n}`).join(" · ")}</span> : null}</p> : null}
+          </li>))}</ul>
+      </div>
+    </OrgCard>
   );
 }

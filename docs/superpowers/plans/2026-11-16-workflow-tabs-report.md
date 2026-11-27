@@ -14227,6 +14227,13 @@ HANDOVER · Treasurer · Ravi → Leena (Apr 1)        ☑ Role page updated  �
 6. **Role pages** hold accounts by name only, never passwords (the editor says so); the holder doesn't yet become the page's owner automatically (B7.2c, handover).
 7. **Next:** B7.2b covers elections (nominations, statements, secret ballots stored without voters, run-off, returning officer). B7.2c covers handover (checklist, Handover meeting, roles switching on the date).
 
+**Build calls (B7.2b, 2026-11-27):**
+1. **One election at a time** (0172), started by the President for the positions filled by Election, for a named Season, with a returning officer (any member) who can't be nominated (call 7). The club chooses whether results show vote counts or only the winner.
+2. **Nominations** (call 4): any member nominates themselves or another member; the nominee is told and accepts with a statement (or declines); a candidate can update the statement or withdraw while nominations are open. Pending nominations are seen only by the nominee and the returning officer.
+3. **Voting** (call 5): the returning officer opens it. Each member (not Viewers) votes once per position per round, for a candidate or Abstain. The ballot row holds the choice and no voter; a separate row holds only that the person voted, which is also what refuses a second vote. The two share no id and no time (server storage test). The card shows "You voted", never the choice, and turnout as "13 of 40 voted", never names.
+4. **Counting** (call 6): the returning officer closes the round. The most votes wins; a tie opens a run-off round between the tied candidates (voting stays open for those positions); no votes leaves it unfilled. When nothing is tied, the election moves to Results and each winner holds the position for the election's Season. Their role switches at the handover (B7.2c), not now.
+5. **Not built:** the college's contact as returning officer (29.2), and dates that open and close phases by themselves; the returning officer moves each phase.
+
 ### 36.4 L3 · Meetings, minutes and votes (agreed 2026-11-17)
 **References** (12 searches for minutes, agendas, general meetings, constitutions, motions and board meetings: 101 templates, 41 rated; 4 more screens studied):
 

@@ -30,6 +30,7 @@ test('Club recruiting: the banner while it lasts, the officers card with drive c
       answerAppointmentAction: async () => ({ success: true }),
       endTermAction: async () => ({ success: true }),
       savePositionsAction: async () => ({ success: true }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -70,6 +71,7 @@ test('Season renewal: the member ask, officers see counts and end only after a c
       answerAppointmentAction: async () => ({ success: true }),
       endTermAction: async () => ({ success: true }),
       savePositionsAction: async () => ({ success: true }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -104,6 +106,7 @@ test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the
       answerAppointmentAction: async () => ({ success: true }),
       endTermAction: async () => ({ success: true }),
       savePositionsAction: async () => ({ success: true }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
     };
   });
   await openApp(page, 'tests/browser/club.fixture.tsx');
@@ -121,5 +124,39 @@ test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the
   const strip = page.getByTestId('club-committee-strip');
   await expect(strip).toContainText('Asha');
   await expect(strip).not.toContainText('Mia');
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice), turnout as a count, the returning officer closes, results', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    let voted = false;
+    (window as any).__actions = {
+      readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
+      readRenewalAction: async () => ({ success: true, on: false, officer: false }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
+      readElectionAction: async () => ({ success: true, president: true, me: 'u1', eligible: 40, people: [{ id: 'u2', name: 'Ann' }, { id: 'u3', name: 'Bob' }],
+        election: { id: 'e1', season: '2027–28', phase: 'voting', ro: { id: 'u1', name: 'Rita' }, isRo: true, showCounts: false },
+        positions: [{ id: 'secretary', label: 'Secretary', round: 1, runoff: false, candidates: [{ id: 'u2', name: 'Ann', statement: 'Minutes within a day.' }, { id: 'u3', name: 'Bob', statement: '' }],
+          pending: [], mine: null, voted, turnout: voted ? 13 : 12, result: null }] }),
+      voteAction: async (_o: string, p: string, c: string | null) => { calls.push(['vote', p, c]); voted = true; return { success: true }; },
+      closeVotingAction: async () => { calls.push(['close']); return { success: true, runoffs: 0 }; },
+    };
+  });
+  await openApp(page, 'tests/browser/club.fixture.tsx');
+  const card = page.getByTestId('club-election');
+  await expect(card).toContainText('Ballots are secret');
+  const pos = card.getByTestId('club-election-position');
+  await expect(pos).toContainText('12 of 40 voted');
+  await expect(pos).toContainText('Minutes within a day.');
+  await pos.getByLabel('Abstain').check();
+  await pos.getByRole('button', { name: 'Submit' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['vote', 'secretary', null]);
+  await expect(pos.getByTestId('club-voted')).toHaveText('You voted');
+  await expect(pos).not.toContainText('Abstain');
+  await card.getByRole('button', { name: 'Close voting and count' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['close']);
   expect(await axeViolations(page)).toEqual([]);
 });

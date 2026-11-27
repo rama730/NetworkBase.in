@@ -73,3 +73,15 @@ export function readPositions(orgSettings: unknown, now = new Date()): Positions
   const y = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
   return { season: `${y}–${String(y + 1).slice(2)}`, positions: STARTER_POSITIONS };
 }
+
+/**
+ * B7.2b (36.3 call 5): count one position's ballots for this round. Abstain (null) counts toward turnout only. The most
+ * votes wins; a tie goes to a run-off between the tied candidates; no votes at all leaves it unfilled.
+ */
+export function tally(choices: Array<string | null>, candidates: string[]) {
+  const counts = Object.fromEntries(candidates.map((c) => [c, 0])) as Record<string, number>;
+  for (const c of choices) if (c && c in counts) counts[c] = counts[c]! + 1;
+  const top = Math.max(0, ...Object.values(counts));
+  const leaders = top > 0 ? candidates.filter((c) => counts[c] === top) : [];
+  return { counts, abstained: choices.filter((c) => c === null).length, winner: leaders.length === 1 ? leaders[0]! : null, tied: leaders.length > 1 ? leaders : [] };
+}
