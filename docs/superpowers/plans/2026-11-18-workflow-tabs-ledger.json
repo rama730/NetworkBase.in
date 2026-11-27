@@ -1320,7 +1320,7 @@
       "milestone": "B6",
       "status": "live-pending",
       "test": "tests/unit/lab-library.test.ts; tests/unit/lab-reading-group.test.ts; tests/db/lab-library.test.ts; tests/db/lab-reading-group.test.ts; tests/browser/lab.spec.ts; tests/browser/literature.spec.ts",
-      "evidence": "B6.4a LIVE 2026-11-27 (33334adbf + f53f00771 review + 8dc7910e4/0138c624f/b14ddd8cf live fixes; 0166 in prod): Documents → Library on wt-test-b6-lab, pasted two RIS entries (WT NeRF in the Dark, WT Zero-DCE), My reading = Reading (only you see this), a signed Key findings lab note, Suggest for reading group. B6.4b LIVE (ef466a48a, 0167 in prod): Start a reading group (Tuesdays 16:00, me in turn) made four sessions in Kolkata time with pick-by dates; the suggested paper was picked for 1 December → Paper picked, Read before posted. B6.4c PUSHED (11dec831a, no migration): thesis Literature links + systematic review screening, DB- and browser-tested; live check of the thesis view pending. Themes, swaps, Away skipping and notices need a second account or time: DB-tested. Revisit 2026-11-28."
+      "evidence": "B6.4a LIVE 2026-11-27 (33334adbf + f53f00771 review + 8dc7910e4/0138c624f/b14ddd8cf live fixes; 0166 in prod): Documents → Library on wt-test-b6-lab, pasted two RIS entries (WT NeRF in the Dark, WT Zero-DCE), My reading = Reading (only you see this), a signed Key findings lab note, Suggest for reading group. B6.4b LIVE (ef466a48a, 0167 in prod): Start a reading group (Tuesdays 16:00, me in turn) made four sessions in Kolkata time with pick-by dates; the suggested paper was picked for 1 December → Paper picked, Read before posted. B6.4c PUSHED (11dec831a, no migration): thesis Literature links + systematic review screening, DB- and browser-tested; live check of the thesis view pending. Themes, swaps, Away skipping and notices need a second account or time: DB-tested. Revisit 2026-11-28. Live check waits on the Chrome extension; revisit 2026-12-04."
     },
     {
       "key": "B6.5",
@@ -1330,7 +1330,7 @@
       "milestone": "B6",
       "status": "live-pending",
       "test": "tests/unit/lab-progress.test.ts; tests/db/lab-meeting.test.ts; tests/db/lab-progress.test.ts; tests/db/lab-reviews.test.ts; tests/browser/lab.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 671297f5d): B6.5a lab meeting (136ac0347, 0168), B6.5b supervision + milestones (0169, security fixes: co-supervisor named only by the PI or supervisor; leavers lose access), B6.5c annual review, development plan, Raise a concern, PI counts (0170, review fixes: locks inside the transaction, committee read/write-block rules). 0168–0170 in prod. Gate on GitHub (push-gate) caught a type bug and a contrast failure, both fixed. DB-tested: notes never leave the pair, PI sees rhythm only, committee access ends at Agreed, no rating field, concerns never reach the person they are about. Live check pending (Chrome disconnected since the laptop restart)."
+      "evidence": "PUSHED 2026-11-27 (main 671297f5d): B6.5a lab meeting (136ac0347, 0168), B6.5b supervision + milestones (0169, security fixes: co-supervisor named only by the PI or supervisor; leavers lose access), B6.5c annual review, development plan, Raise a concern, PI counts (0170, review fixes: locks inside the transaction, committee read/write-block rules). 0168–0170 in prod. Gate on GitHub (push-gate) caught a type bug and a contrast failure, both fixed. DB-tested: notes never leave the pair, PI sees rhythm only, committee access ends at Agreed, no rating field, concerns never reach the person they are about. Live check pending (Chrome disconnected since the laptop restart). Live check waits on the Chrome extension; revisit 2026-12-04."
     },
     {
       "key": "B7.1",
@@ -1340,7 +1340,7 @@
       "milestone": "B7",
       "status": "live-pending",
       "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 3f417ca09): B7.1a clubs get the community front door, events and Showcase; recruiting period (banner on About, Discover Recruiting now filter, turns off by itself), join poster (link + code, no QR), drive counts; review fix: visitors see only a public first event. B7.1b Season renewal (one ask + day-25 reminder, officers-only answers, End memberships not renewed after the window, never officers or new joiners, term_ended). No migration. Club browser specs ran for the first time once added to testMatch (both pass). Live check pending."
+      "evidence": "PUSHED 2026-11-27 (main 3f417ca09): B7.1a clubs get the community front door, events and Showcase; recruiting period (banner on About, Discover Recruiting now filter, turns off by itself), join poster (link + code, no QR), drive counts; review fix: visitors see only a public first event. B7.1b Season renewal (one ask + day-25 reminder, officers-only answers, End memberships not renewed after the window, never officers or new joiners, term_ended). No migration. Club browser specs ran for the first time once added to testMatch (both pass). Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
     },
     {
       "key": "B7.2",
@@ -1350,7 +1350,7 @@
       "milestone": "B7",
       "status": "live-pending",
       "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 9ab1e433a): B7.2a positions with Season terms, role pages, committees (0171); B7.2b secret-ballot elections with nominations, statements, run-off and a returning officer, ballots stored without voters (0172, storage test); B7.2c handover: checklist of 5 on the outgoing term, open tasks and published documents move to the accepted incoming officer, roles switch on the date and outgoing lose Coordinator, Handover meeting type (0173). Review fixes: roles given by term id, drafts never move, work only to active members. 0171-0173 in prod. Live check pending (Chrome extension disconnected)."
+      "evidence": "PUSHED 2026-11-27 (main 9ab1e433a): B7.2a positions with Season terms, role pages, committees (0171); B7.2b secret-ballot elections with nominations, statements, run-off and a returning officer, ballots stored without voters (0172, storage test); B7.2c handover: checklist of 5 on the outgoing term, open tasks and published documents move to the accepted incoming officer, roles switch on the date and outgoing lose Coordinator, Handover meeting type (0173). Review fixes: roles given by term id, drafts never move, work only to active members. 0171-0173 in prod. Live check pending (Chrome extension disconnected). Live check waits on the Chrome extension; revisit 2026-12-04 (partly checked live 2026-11-27 via the Association kit: positions, handover set, constitution v1 published; elections and online votes need a second member account)."
     },
     {
       "key": "B7.3",
@@ -1360,7 +1360,7 @@
       "milestone": "B7",
       "status": "live-pending",
       "test": "tests/unit/meeting-rules.test.ts; tests/unit/club.test.ts; tests/db/meetings.test.ts; tests/browser/club.spec.ts; tests/browser/meeting-doc.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 779b94036): B7.3a General/Committee/AGM meetings held by the club itself, minutes leaders-only until approved then members, quorum a share of members staying this Season, a motion needs a seconder, agenda requests Accept/Hold (0174); B7.3b constitution in versions, first by the President then only by an amendment motion passed by two-thirds of those voting, public on About if chosen, Decisions by Season with failed attempts (0175); B7.3c online motion votes by secret ballot (storage test), close only at their time, quorum fixed at open, electorate fixed at open (also for elections). 0174-0176 in prod. Live check pending (Chrome extension disconnected)."
+      "evidence": "PUSHED 2026-11-27 (main 779b94036): B7.3a General/Committee/AGM meetings held by the club itself, minutes leaders-only until approved then members, quorum a share of members staying this Season, a motion needs a seconder, agenda requests Accept/Hold (0174); B7.3b constitution in versions, first by the President then only by an amendment motion passed by two-thirds of those voting, public on About if chosen, Decisions by Season with failed attempts (0175); B7.3c online motion votes by secret ballot (storage test), close only at their time, quorum fixed at open, electorate fixed at open (also for elections). 0174-0176 in prod. Live check pending (Chrome extension disconnected). Live check waits on the Chrome extension; revisit 2026-12-04 (partly checked live 2026-11-27 via the Association kit: positions, handover set, constitution v1 published; elections and online votes need a second member account)."
     },
     {
       "key": "B7.4",
@@ -1370,7 +1370,7 @@
       "milestone": "B7",
       "status": "live-pending",
       "test": "tests/unit/club.test.ts; tests/db/club.test.ts; tests/browser/club.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 476cc3570): B7.4a competitions (kind competition, never on the board), Open sign-up / Tryouts with private hand-ins / Picked by officers, outcomes told only to the person (server test), private team workspaces under the club with captain/roles/substitutes that cannot read each other (server test), Practice meeting type (0177); B7.4b registration reference, results typed by the captain and confirmed by another officer on the version they saw before members see them, debriefs in Past entries; B7.4c teams get the Capstone card (milestones from the club checks, Showcase with every member yes; in clubs only officers see unagreed Ready cards). 0177 in prod. Not built: profile entries for results, calendar, a send-a-check shortcut. Live check pending."
+      "evidence": "PUSHED 2026-11-27 (main 476cc3570): B7.4a competitions (kind competition, never on the board), Open sign-up / Tryouts with private hand-ins / Picked by officers, outcomes told only to the person (server test), private team workspaces under the club with captain/roles/substitutes that cannot read each other (server test), Practice meeting type (0177); B7.4b registration reference, results typed by the captain and confirmed by another officer on the version they saw before members see them, debriefs in Past entries; B7.4c teams get the Capstone card (milestones from the club checks, Showcase with every member yes; in clubs only officers see unagreed Ready cards). 0177 in prod. Not built: profile entries for results, calendar, a send-a-check shortcut. Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
     },
     {
       "key": "B8.1",
@@ -1380,7 +1380,7 @@
       "milestone": "B8",
       "status": "live-pending",
       "test": "tests/unit/club.test.ts; tests/db/volunteers.test.ts; tests/browser/volunteers.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 77cda7e92): B8.1a roles with training sign-off, versioned agreement, shifts on the RSVP slice with a waitlist that moves up, check-in window, hours seen only by the volunteer and coordinators (server test), coverage, Volunteer with us on About (no migration: shifts are event tasks kind shift + community_events/rsvps); B8.1b weekly series and Regulars, swaps a named volunteer accepts (re-checked at accept), hand-added hours counted once confirmed, availability and involvement for coordinators, day-before reminders and short-2-days notices with Ask, Add to my profile (0178). Gated on Other orgs (kits switch it on in B8.4). Live check pending."
+      "evidence": "PUSHED 2026-11-27 (main 77cda7e92): B8.1a roles with training sign-off, versioned agreement, shifts on the RSVP slice with a waitlist that moves up, check-in window, hours seen only by the volunteer and coordinators (server test), coverage, Volunteer with us on About (no migration: shifts are event tasks kind shift + community_events/rsvps); B8.1b weekly series and Regulars, swaps a named volunteer accepts (re-checked at accept), hand-added hours counted once confirmed, availability and involvement for coordinators, day-before reminders and short-2-days notices with Ask, Add to my profile (0178). Gated on Other orgs (kits switch it on in B8.4). Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
     },
     {
       "key": "B8.2",
@@ -1390,7 +1390,7 @@
       "milestone": "B8",
       "status": "live-pending",
       "test": "tests/unit/club.test.ts; tests/db/fixed-time.test.ts; tests/browser/fixed-time.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 7fed1441a): B8.2a key and end dates, countdown line, plan starters worked back from the key date, moving the key date moves plan dates and never hand-set ones (server test; a date is hand-set when it differs from the one the plan worked out), a passed key date needs a reason; B8.2b workstreams with owners, bookings with typed references (confirmed needs one), the unconfirmed-booking notice, Issues today; B8.2c wrap-up checklist and debrief, Close the team via the built archive (asked weekly, never automatic), Run it again via the built duplicate anchored on the key date with the debrief pinned and Next time tasks (no people copied), organising-team profile entry. No migration. Live check pending."
+      "evidence": "PUSHED 2026-11-27 (main 7fed1441a): B8.2a key and end dates, countdown line, plan starters worked back from the key date, moving the key date moves plan dates and never hand-set ones (server test; a date is hand-set when it differs from the one the plan worked out), a passed key date needs a reason; B8.2b workstreams with owners, bookings with typed references (confirmed needs one), the unconfirmed-booking notice, Issues today; B8.2c wrap-up checklist and debrief, Close the team via the built archive (asked weekly, never automatic), Run it again via the built duplicate anchored on the key date with the debrief pinned and Next time tasks (no people copied), organising-team profile entry. No migration. Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
     },
     {
       "key": "B8.3",
@@ -1400,7 +1400,7 @@
       "milestone": "B8",
       "status": "live-pending",
       "test": "tests/unit/club.test.ts; tests/db/impact.test.ts; tests/browser/impact.spec.ts",
-      "evidence": "PUSHED 2026-11-27 (main 839e3cee9): B8.3a programs as private workspaces marked Program with briefs and up to 5 measures (tagged volunteer hours, finished meetings, typed numbers counted only once an admin confirms; history kept; no person records) (0179); B8.3b stories published only with every named person consent (members give their own yes, owners record outside people), Program brief and Mission and values templates, the impact report draft from confirmed numbers, About Our programs (0180). Files named impact.ts/Impact.tsx (the first draft had overwritten the B2.1 education programs files; caught by the gate, restored byte-for-byte before any push). Live check pending."
+      "evidence": "PUSHED 2026-11-27 (main 839e3cee9): B8.3a programs as private workspaces marked Program with briefs and up to 5 measures (tagged volunteer hours, finished meetings, typed numbers counted only once an admin confirms; history kept; no person records) (0179); B8.3b stories published only with every named person consent (members give their own yes, owners record outside people), Program brief and Mission and values templates, the impact report draft from confirmed numbers, About Our programs (0180). Files named impact.ts/Impact.tsx (the first draft had overwritten the B2.1 education programs files; caught by the gate, restored byte-for-byte before any push). Live check pending. Live check waits on the Chrome extension; revisit 2026-12-04."
     },
     {
       "key": "B8.5",
@@ -1408,9 +1408,9 @@
       "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 7dc8f6614): the Nonprofit kit — Events and Board meetings work in Other organizations with their parts on, the Board meetings card, the kit's first steps; clubs' event creation fixed. CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "B8.6",
@@ -1418,9 +1418,9 @@
       "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 4dfacf8f8): the Event team kit — Meetings work in Other organizations, the wizard asks for the event date, the team starts with its key date and end. CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "B8.7",
@@ -1428,9 +1428,9 @@
       "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 4dfacf8f8): the Association kit — renewal, positions and the handover, general meetings and the constitution, committees (clubLike gate). CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "B8.8",
@@ -1438,9 +1438,9 @@
       "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 4dfacf8f8): the Public-sector kit — handbook, directory, goals and requests (companyLike gate); documents read as a company's with the Handbook on. CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "B8.9",
@@ -1448,9 +1448,9 @@
       "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 06c30b0fc; was local 590471807): the Faith kit — front door, member directory and moderation, small groups (communityLike gate); Members opens to everyone inside with Directory or Members on (B8.8 gap). CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "B8.10",
@@ -1458,9 +1458,9 @@
       "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 06c30b0fc; was local 7d5bce02e + 6fc80d6d7): Blank saves nothing; the kits contract test (every ready part gated in src); Duplicate keeps an Other organization's parts (call 6). CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "B8.4",
@@ -1468,9 +1468,9 @@
       "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "PUSHED 2026-11-27 (main 7dc8f6614): kits and parts as data (kits.ts), the browser word-list suggestion, Pick a starting kit in the wizard (untouched fields follow it), Settings → Workflows turns parts on and off with data kept. CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "30.2.call1",
@@ -4878,9 +4878,9 @@
       "text": "Other gets a Pick a starting kit step with six kits: Nonprofit, Event team, Association or committee, Public-sector team, Faith or interest community, Blank.",
       "kind": "call",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "Pick a starting kit offers all six kits (B8.4b, B8.9 made Faith ready). CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "37.2.call2",
@@ -4888,9 +4888,9 @@
       "text": "Kits are fixed data built only from designed workflows; they set defaults, and everything stays editable.",
       "kind": "call",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "KITS in src/lib/organizations/kits.ts; kits only switch parts on and set defaults, all editable. CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "37.2.call3",
@@ -4898,9 +4898,9 @@
       "text": "The typed label suggests a kit from a fixed word list in the browser; no AI, nothing sent; the person chooses.",
       "kind": "call",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "suggestKit() word list, matched in the browser; nothing sent. CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "37.2.call4",
@@ -4908,9 +4908,9 @@
       "text": "The Event team kit needs an end date (X3).",
       "kind": "call",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "needsEndDate on Event team; the wizard asks for the event date (B8.6). CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "37.2.call5",
@@ -4918,9 +4918,9 @@
       "text": "Settings → Workflows can add parts from any kit later; turning a part off hides it and keeps its data.",
       "kind": "call",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "Settings → Workflows: setPartAction / addKitPartsAction; off keeps data (org-parts DB test). CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "37.2.call6",
@@ -4928,9 +4928,9 @@
       "text": "An org can be saved as its own template with C1's snapshot, separate from the kits.",
       "kind": "call",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "Duplicate (report §30.5) copies the org with its parts even without About (B8.10). CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "37.2.call7",
@@ -4938,9 +4938,9 @@
       "text": "No youth-facing kits; all kits are 18+.",
       "kind": "call",
       "milestone": "B8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/club.test.ts; tests/unit/org-kits-contract.test.ts; tests/db/org-parts.test.ts; tests/browser/org-parts.spec.ts; tests/browser/org-create.spec.ts",
+      "evidence": "No youth kits exist in KITS; all six are adult organizations. CHECKED LIVE 2026-11-27 in Chrome on wt-test-b8-kits (Association kit, all 16 parts on via Add from a kit); fixes ad5c91031 + 3d98590cf/24ba077d4 (time zone, part lines, Volunteers one switch, Goals+Committees, kit title and time word, copy)."
     },
     {
       "key": "37.3.call1",
