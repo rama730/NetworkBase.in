@@ -164,5 +164,13 @@ test("37.2 (B8.9): the Faith kit — the front door, the member directory and sm
   assert.ok((await people.readCommunityDirectoryAction(id)).success, "the member directory works here");
   const g = await groups.readGroupsAction(id);
   assert.ok(g.success && !g.club && g.canStart, "small groups, not committees: members start them");
+  // 37.2 call 6 (B8.10): Duplicate is the org's own template; the copy keeps its kit and parts even without About.
+  const { duplicateOrg } = await loadAppModule(() => import("../../src/lib/organizations/lifecycle"));
+  const handle = `wt-fel-${id.slice(0, 8)}`;
+  await duplicateOrg(id, owner!, { title: "WT Fellowship 2", handle, termStart: null,
+    copy: { about: false, docs: false, files: false, sprints: false, assignments: false, channels: false, admins: false } });
+  const [copy] = await sql`SELECT id, org_settings->'parts'->'on' AS on, org_settings->>'kit' AS kit FROM workspaces WHERE slug = ${handle}`;
+  created.push(copy!.id as string);
+  assert.deepEqual([copy!.on, copy!.kit], [["frontDoor", "members", "events", "groups"], null], "the parts come along; the kit id only with About (addKitParts never sets it)");
 });
 

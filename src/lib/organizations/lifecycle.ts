@@ -243,7 +243,9 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
       kind: "organization", orgType: source.orgType, visibility: source.visibility, status: "active",
       // A school is copied as a school; a class's school link is asked for again below (B0.2 security review).
       orgLevel: source.orgLevel,
-      orgSettings: options.copy.about ? keepSettings : { version: 1, roleNames: (source.orgSettings as { roleNames?: unknown })?.roleNames, ...(fixed ? { fixedTime: keepSettings.fixedTime } : {}) },
+      // B8.10 (37.2 call 6): an Other organization's kit and parts are its structure, so a copy always keeps them.
+      orgSettings: options.copy.about ? keepSettings : { version: 1, roleNames: (source.orgSettings as { roleNames?: unknown })?.roleNames, ...(fixed ? { fixedTime: keepSettings.fixedTime } : {}),
+        ...("parts" in keepSettings ? { parts: keepSettings.parts } : {}), ...("kit" in keepSettings ? { kit: keepSettings.kit } : {}) },
       description: options.copy.about ? source.description : null, shortDescription: options.copy.about ? source.shortDescription : null,
       coverImage: options.copy.about ? source.coverImage : null, welcomeNote: options.copy.about ? source.welcomeNote : null,
       timeZone: source.timeZone, termStart: options.termStart || shiftDate(source.termStart), termEnd: shiftDate(source.termEnd),
