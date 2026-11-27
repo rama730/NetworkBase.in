@@ -71,7 +71,7 @@ test("37.3 (B8.1a): agree, sign up, the waitlist moves up, training gates a role
   // The shift is moved into its window, then hours count from checked-in shifts.
   await sql`UPDATE tasks SET type_fields = type_fields || ${sql.json({ start: new Date(Date.now() - 5 * 60_000).toISOString(), end: new Date(Date.now() + 3 * 3_600_000 - 5 * 60_000).toISOString() })} WHERE id = ${s2.id}`;
   assert.ok((await v.checkInShiftAction(id, s2.id, null)).success);
-  viewerId = cat!;
+  viewerId = bob!;
   assert.equal((await v.checkInShiftAction(id, s2.id, ann!)).success, false, "only coordinators tick other people");
   const catView = await v.readVolunteersAction(id);
   assert.ok(catView.success && "hours" in catView && catView.hours.year === 0 && catView.people.length === 0, "a volunteer sees only their own hours, never others'");
@@ -135,6 +135,17 @@ test("37.3 (B8.1b): Regulars on a weekly series, swaps a named volunteer accepts
   const coordView = await v.readVolunteersAction(id);
   assert.ok(coordView.success && "waitingHours" in coordView && coordView.waitingHours.length === 1 && coordView.people.find((p) => p.id === ann!)?.involvement);
   assert.ok((await v.confirmHoursAction(id, hid, true)).success);
+  // Live check 2026-11-27: a coordinator (an admin) can't confirm their own hours; another coordinator or the owner does.
+  await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${id} AND user_id = ${bob!}`;
+  viewerId = bob!;
+  assert.ok((await v.addHoursAction(id, { day, hours: 1, roleId: null, note: "Own" })).success);
+  const own = (await sql`SELECT id FROM volunteer_hours WHERE user_id = ${bob!} AND state = 'waiting'`)[0]!.id as string;
+  const ownView = await v.readVolunteersAction(id);
+  assert.ok(ownView.success && "waitingHours" in ownView && ownView.waitingHours.find((h) => h.id === own)?.canConfirm === false);
+  assert.equal((await v.confirmHoursAction(id, own, true)).success, false);
+  viewerId = coord!;
+  assert.ok((await v.confirmHoursAction(id, own, false)).success, "the owner can");
+  await sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${id} AND user_id = ${bob!}`;
   viewerId = ann!;
   const after = await v.readVolunteersAction(id);
   assert.ok(after.success && "hours" in after && after.hours.year === 2.5 && after.hours.waiting === 0, "hours = checked-in shift time + confirmed additions");

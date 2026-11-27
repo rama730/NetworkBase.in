@@ -35,7 +35,7 @@ async function org(orgId: string) {
   // Live check 2026-11-27: the part is the one switch; its old inner on/off no longer hides anything.
   const settings = { ...readVolunteers(w.settings), on: true };
   return { userId, w, settings, slug: w.slug ?? orgId, prefs: w.prefs ?? {},
-    coordinator: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked,
+    coordinator: Boolean(userId) && (a.isOwner || a.memberRole === "admin") && !a.writeBlocked, owner: Boolean(userId) && a.isOwner,
     member: Boolean(userId) && (a.isOwner || (a.isMember && a.memberRole !== "viewer")) && !a.writeBlocked };
 }
 
@@ -91,14 +91,14 @@ export async function readVolunteersAction(orgId: string) {
       (SELECT count(*)::int FROM community_rsvps r JOIN tasks t ON t.id = r.task_id WHERE r.user_id = m.user_id AND t.workspace_id = m.workspace_id AND t.type_fields->>'kind' = 'shift' AND t.stage <> 'cancelled'
         AND r.state = 'going' AND r.checked_in_at IS NULL AND (t.type_fields->>'end')::timestamptz < now()) AS missed
     FROM workspace_members m JOIN profiles p ON p.id = m.user_id WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 500`));
-  const waitingHours = Array.from(await db.execute<{ id: string; name: string; day: string; hours: string; role_id: string | null; note: string }>(sql`
-    SELECT h.id, coalesce(p.full_name, p.username, 'Member') AS name, h.day::text AS day, h.hours::text AS hours, h.role_id, h.note FROM volunteer_hours h JOIN profiles p ON p.id = h.user_id
+  const waitingHours = Array.from(await db.execute<{ id: string; name: string; day: string; hours: string; role_id: string | null; note: string; mine: boolean }>(sql`
+    SELECT h.id, (h.user_id = ${ctx.userId}::uuid) AS mine, coalesce(p.full_name, p.username, 'Member') AS name, h.day::text AS day, h.hours::text AS hours, h.role_id, h.note FROM volunteer_hours h JOIN profiles p ON p.id = h.user_id
     WHERE h.org_id = ${orgId}::uuid AND h.state = 'waiting' ORDER BY h.created_at LIMIT 100`));
   // Involvement (coordinators only, M2's status rule): Regular, New (joined in the last 30 days or not yet attended), else Occasional.
   const involvement = (p: { regular: boolean; joined: string; attended: number }) => p.regular ? "Regular" : now - Date.parse(p.joined) < 30 * 86_400_000 || p.attended === 0 ? "New" : "Occasional";
   return { ...base, coverage: shaped.filter((x) => x.short).sort((a, b) => a.start.localeCompare(b.start)),
     people: people.map(({ joined, regular, ...p }) => ({ ...p, trained: p.trained ?? [], availability: p.availability ?? "", involvement: involvement({ regular, joined: new Date(joined).toISOString(), attended: p.attended }) })),
-    programs, waitingHours: waitingHours.map((h) => ({ id: h.id, name: h.name, day: h.day, hours: Number(h.hours), role: roleOf(h.role_id ?? "")?.name ?? null, note: h.note })) };
+    programs, waitingHours: waitingHours.map((h) => ({ id: h.id, name: h.name, day: h.day, hours: Number(h.hours), role: roleOf(h.role_id ?? "")?.name ?? null, note: h.note, canConfirm: !h.mine || ctx.owner })) };
 }
 
 /** Settings → Volunteers (coordinators): on or off, roles (some need training), the agreement (a new text is a new version). */
@@ -368,8 +368,9 @@ export async function addHoursAction(orgId: string, input: { day: string; hours:
 export async function confirmHoursAction(orgId: string, id: string, confirm: boolean): Promise<{ success: true } | Failure> {
   const ctx = await org(orgId);
   if (!ctx?.coordinator || !isLooseUuid(id) || typeof confirm !== "boolean") return DENIED;
+  // Live check 2026-11-27: a coordinator can't confirm their own hours (they go on profiles as confirmed); the owner can.
   const done = Array.from(await db.execute(sql`UPDATE volunteer_hours SET state = ${confirm ? "confirmed" : "declined"}, confirmed_by = ${ctx.userId}::uuid, confirmed_at = now()
-    WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid AND state = 'waiting' RETURNING id`));
+    WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid AND state = 'waiting' AND (${ctx.owner} OR user_id <> ${ctx.userId}::uuid) RETURNING id`));
   return done.length ? { success: true } : DENIED;
 }
 

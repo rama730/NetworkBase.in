@@ -46,7 +46,7 @@ export function VolunteersCard({ orgId }: { orgId: string }) {
       <div className="space-y-2 text-[13px]">
         <ul className="space-y-1.5">{settings.roles.map((r, i) => (
           <li key={i} className="flex flex-wrap items-center gap-2">
-            <Input value={r.name} maxLength={60} aria-label={`Role ${i + 1} name`} onChange={(e) => setSettings({ ...settings, roles: settings.roles.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} className="w-[180px]" />
+            <Input value={r.name} maxLength={60} aria-label={`Role ${i + 1} name`} placeholder="Role, e.g. Sorting" onChange={(e) => setSettings({ ...settings, roles: settings.roles.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} className="w-[180px]" />
             <Input value={r.line} maxLength={200} aria-label={`What ${r.name || "the role"} involves`} placeholder="What it involves" onChange={(e) => setSettings({ ...settings, roles: settings.roles.map((x, j) => (j === i ? { ...x, line: e.target.value } : x)) })} className="w-[260px]" />
             <label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={r.training} onChange={(e) => setSettings({ ...settings, roles: settings.roles.map((x, j) => (j === i ? { ...x, training: e.target.checked } : x)) })} />Needs training</label>
           </li>))}</ul>
@@ -133,8 +133,9 @@ export function VolunteersCard({ orgId }: { orgId: string }) {
         {d.coordinator && d.waitingHours.length ? <section aria-label="Hours waiting confirmation"><h4 className="font-medium">Hours waiting confirmation</h4>
           <ul className="mt-1 space-y-1">{d.waitingHours.map((h) => <li key={h.id} className="flex flex-wrap items-center gap-2" data-testid="volunteer-waiting-hours">
             <span>{h.name} · {h.hours} h · {h.day}{h.role ? ` · ${h.role}` : ""}{h.note ? ` · ${h.note}` : ""}</span>
-            <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmHoursAction(orgId, h.id, true), "Confirmed")}>Confirm<span className="sr-only"> {h.name}’s hours</span></button>
-            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(confirmHoursAction(orgId, h.id, false), "Declined")}>Decline<span className="sr-only"> {h.name}’s hours</span></button></li>)}</ul></section> : null}
+            {h.canConfirm !== false ? <><button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(confirmHoursAction(orgId, h.id, true), "Confirmed")}>Confirm<span className="sr-only"> {h.name}’s hours</span></button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(confirmHoursAction(orgId, h.id, false), "Declined")}>Decline<span className="sr-only"> {h.name}’s hours</span></button></>
+              : <span className="text-muted-foreground">Another coordinator confirms your hours</span>}</li>)}</ul></section> : null}
         {d.coordinator && d.people.length ? <details><summary className="cursor-pointer text-muted-foreground">People</summary>
           <ul className="mt-1 space-y-1">{d.people.map((p) => <li key={p.id} className="flex flex-wrap items-center gap-2" data-testid="volunteer-person">
             <span className="min-w-[140px] font-medium">{p.name}</span><span className="text-muted-foreground">{p.involvement} · {p.attended} attended · {p.missed} missed{p.availability ? ` · ${p.availability}` : ""}</span>
