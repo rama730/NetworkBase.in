@@ -57,7 +57,11 @@ export async function readElectionAction(orgId: string) {
   const ctx = await club(orgId);
   if (!ctx) return DENIED;
   const e = await current(db, orgId);
-  if (!e) return { success: true as const, election: null, president: ctx.president, positions: ctx.positions.map((p) => ({ id: p.id, label: p.label })) };
+  // Live check 2026-11-28: the people list (the returning officer picker) is needed before the first election too.
+  const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
+    SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
+    WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 1000`));
+  if (!e) return { success: true as const, election: null, president: ctx.president, people, positions: ctx.positions.map((p) => ({ id: p.id, label: p.label })) };
   const cands = Array.from(await db.execute<{ position_id: string; user_id: string; state: string; statement: string; name: string }>(sql`
     SELECT c.position_id, c.user_id, c.state, c.statement, coalesce(p.full_name, p.username, 'Member') AS name FROM club_candidates c JOIN profiles p ON p.id = c.user_id
     WHERE c.election_id = ${e.id}::uuid ORDER BY c.created_at`));
@@ -67,9 +71,6 @@ export async function readElectionAction(orgId: string) {
     AND joined_at <= ${e.created_at}::timestamptz`));
   const turnout = Array.from(await db.execute<{ position_id: string; round: number; n: number }>(sql`
     SELECT position_id, round, count(*)::int AS n FROM club_voted WHERE election_id = ${e.id}::uuid GROUP BY position_id, round`));
-  const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
-    SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM workspace_members m JOIN profiles p ON p.id = m.user_id
-    WHERE m.workspace_id = ${orgId}::uuid AND m.role <> 'viewer' AND m.completed_at IS NULL ORDER BY 2 LIMIT 1000`));
   const names = new Map(people.map((p) => [p.id, p.name]));
   const isRo = e.ro === ctx.userId;
   return { success: true as const, president: ctx.president, me: ctx.userId, people, eligible: elig?.n ?? 0,

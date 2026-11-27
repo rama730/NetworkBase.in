@@ -223,6 +223,9 @@ test("36.3 (B7.2b): secret ballots — never joinable to a voter; one vote; the 
   viewerId = ann!;
   assert.equal((await el.startElectionAction(id, { season: "2027–28", returningOfficerId: ro!, showCounts: true })).success, false, "the President starts it");
   viewerId = pres!;
+  // Live check 2026-11-28: before the first election the read still lists people, so a returning officer can be picked.
+  const before = await el.readElectionAction(id);
+  assert.ok(before.success && before.election === null && "people" in before && before.people.some((p) => p.id === ro!));
   assert.ok((await el.startElectionAction(id, { season: "2027–28", returningOfficerId: ro!, showCounts: true })).success);
   assert.match(String((await el.startElectionAction(id, { season: "x", returningOfficerId: ro!, showCounts: false }) as { error?: string }).error), /already running/);
   viewerId = ann!;

@@ -24,6 +24,7 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyJoined, notifyOrg, orgEmailBase, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
 import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions';
 import { recordAway } from '@/lib/organizations/away-server';
+import { recordCommunityAgreement } from '@/lib/organizations/join';
 import { invitesLeftToday, orgLimitBlock } from '@/lib/organizations/limits';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 
@@ -295,7 +296,7 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
     const result = await db.transaction(async (tx) => {
         const [org] = await tx.select({ max: workspaces.maxCollaborators }).from(workspaces).where(eq(workspaces.id, orgId)).for('update').limit(1);
         // Audit 2.2: someone blocked since asking is never approved.
-        const pending = await tx.select({ id: roleApplications.id, userId: roleApplications.applicantId }).from(roleApplications)
+        const pending = await tx.select({ id: roleApplications.id, userId: roleApplications.applicantId, details: roleApplications.details }).from(roleApplications)
             .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'), inArray(roleApplications.id, applicationIds.slice(0, 500)),
                 sql`NOT EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = ${orgId}::uuid AND b.user_id = ${roleApplications.applicantId})`,
                 // Audit N8: a request hidden from this admin by a block between them isn't theirs to decide.
@@ -315,6 +316,9 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
         for (const request of addable) {
             added.push(request);
             await addWorkspaceMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
+            // Live check 2026-11-28: the Code of conduct agreement given with the request lands on the membership.
+            const agreed = (request.details as { community?: { version?: number; at?: string; answers?: Record<string, string> } } | null)?.community;
+            if (agreed?.at) await recordCommunityAgreement(tx, orgId, request.userId, { version: Number(agreed.version ?? 0), at: agreed.at, answers: agreed.answers ?? {} });
             await tx.update(roleApplications).set({ status: 'accepted', decisionAt: now, decisionBy: viewer.userId, updatedAt: now }).where(eq(roleApplications.id, request.id));
             await tx.insert(applicationEvents).values({ applicationId: request.id, actorId: viewer.userId, kind: 'accepted', fromStatus: 'pending', toStatus: 'accepted', metadata: { source: 'org_request' } });
         }

@@ -108,6 +108,15 @@ test("34.2 calls 1–2 (B5.1b): joining a community needs I agree; approval need
   assert.equal(asked?.outcome, "requested");
   const [req] = await sql`SELECT message FROM role_applications WHERE workspace_id = ${id} AND applicant_id = ${b!}`;
   assert.match(String(req!.message), /What brings you here\? Learning Go/);
+  // Live check 2026-11-28: the agreement given with the request lands on the membership when an organiser approves.
+  const members = await loadAppModule(() => import("../../src/app/actions/org-members"));
+  const [app] = await sql`SELECT id FROM role_applications WHERE workspace_id = ${id} AND applicant_id = ${b!}`;
+  viewerId = owner!;
+  const approved = await members.approveJoinRequestsAction(id, [app!.id as string]);
+  assert.ok(approved.success && approved.approved === 1);
+  const [mb] = await sql`SELECT view_prefs->'community' AS c FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${b!}`;
+  assert.ok((mb!.c as { agreed?: { at?: string } } | null)?.agreed?.at, "the agreement carries over with its date");
+  assert.equal((mb!.c as { answers: Record<string, string> }).answers.why, "Learning Go");
 });
 
 test("34.2 call 4 (B5.1c): a member behind the current Code of conduct reads on but can't post until they agree", async () => {

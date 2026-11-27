@@ -110,6 +110,19 @@ export type CommunityJoin = { agreed?: boolean; answers?: Record<string, string>
 /** A community join that didn't agree, or didn't answer when organisers approve joins; its message is shown as it is. */
 export class CommunityJoinError extends Error {}
 
+type Exec = Pick<typeof db, "execute">;
+/** The published Code of conduct's read version (0 when there is none). */
+export async function currentCodeVersion(tx: Exec, orgId: string) {
+  const [coc] = Array.from(await tx.execute<{ version: number }>(sql`SELECT coalesce((settings->'org'->>'readVersion')::int, 0) AS version FROM workspace_documents
+    WHERE workspace_id = ${orgId}::uuid AND lower(filename) LIKE '%code of conduct%' AND published_version_id IS NOT NULL ORDER BY created_at LIMIT 1`));
+  return Number(coc?.version ?? 0);
+}
+/** Report 34.2 layer 3: the agreed version, its date and the join answers, on the membership. */
+export async function recordCommunityAgreement(tx: Exec, orgId: string, userId: string, a: { version: number; at: string; answers: Record<string, string> }) {
+  await tx.execute(sql`UPDATE workspace_members SET view_prefs = coalesce(view_prefs, '{}'::jsonb) || jsonb_build_object('community', ${JSON.stringify({ agreed: { version: a.version, at: a.at }, answers: a.answers, showAnswer: false })}::jsonb)
+    WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`);
+}
+
 export function joinOrgByCode(userId: string, code: string, note?: string | null, community?: CommunityJoin) {
   return joinOrg(userId, and(eq(workspaces.joinCode, code), eq(workspaces.joinCodeEnabled, true))!, note, community);
 }
@@ -200,10 +213,7 @@ async function joinOrg(
       await addWorkspaceMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
       if (hasFrontDoor(org.orgType, org.orgSettings) && community?.agreed) {
         // The Code of conduct version agreed to, the date, and the answers, on the new membership (report 34.2 layer 3).
-        const [coc] = Array.from(await tx.execute<{ version: number }>(sql`SELECT coalesce((settings->'org'->>'readVersion')::int, 0) AS version FROM workspace_documents
-          WHERE workspace_id = ${org.id}::uuid AND lower(filename) LIKE '%code of conduct%' AND published_version_id IS NOT NULL ORDER BY created_at LIMIT 1`));
-        await tx.execute(sql`UPDATE workspace_members SET view_prefs = coalesce(view_prefs, '{}'::jsonb) || jsonb_build_object('community', ${JSON.stringify({ agreed: { version: Number(coc?.version ?? 0), at: new Date().toISOString() }, answers: communityAnswers, showAnswer: false })}::jsonb)
-          WHERE workspace_id = ${org.id}::uuid AND user_id = ${userId}::uuid`);
+        await recordCommunityAgreement(tx, org.id, userId, { version: await currentCodeVersion(tx, org.id), at: new Date().toISOString(), answers: communityAnswers });
       }
       // Audit N13: an invite to the same address is used up by joining, so it doesn't linger as "Invited".
       await closeOpenInvite(tx, org.id, userId);
@@ -211,14 +221,17 @@ async function joinOrg(
     } else if (outcome === "requested") {
       const message = note?.trim().slice(0, 500) || null;
       const now = new Date();
+      // Live check 2026-11-28: the agreement given with a request is kept on it, and lands on the membership when approved.
+      const details = hasFrontDoor(org.orgType, org.orgSettings) && community?.agreed
+        ? { community: { version: await currentCodeVersion(tx, org.id), at: now.toISOString(), answers: communityAnswers } } : {};
       if (request) {
         await tx.update(roleApplications)
-          .set({ status: "pending", roleId: null, message, creatorId: org.ownerId, decisionAt: null, decisionBy: null, decisionReasonCode: null, decisionReasonText: null, updatedAt: now })
+          .set({ status: "pending", roleId: null, message, details, creatorId: org.ownerId, decisionAt: null, decisionBy: null, decisionReasonCode: null, decisionReasonText: null, updatedAt: now })
           .where(eq(roleApplications.id, request.id));
         await tx.insert(applicationEvents).values({ applicationId: request.id, actorId: userId, kind: "reopened", fromStatus: request.status, toStatus: "pending", metadata: { source: "org_join_code" } });
       } else {
         const [created] = await tx.insert(roleApplications)
-          .values({ projectId: org.id, roleId: null, applicantId: userId, creatorId: org.ownerId, message, status: "pending" })
+          .values({ projectId: org.id, roleId: null, applicantId: userId, creatorId: org.ownerId, message, details, status: "pending" })
           .returning({ id: roleApplications.id });
         await tx.insert(applicationEvents).values({ applicationId: created!.id, actorId: userId, kind: "created", fromStatus: null, toStatus: "pending", metadata: { source: "org_join_code" } });
       }
