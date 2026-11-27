@@ -154,3 +154,32 @@ export function applyAmendment(list: Article[], a: Amendment): Article[] | null 
 export const amendmentLine = (list: Article[], a: Amendment) => `Article ${a.article} ${a.text === null ? "removed" : list.some((x) => x.n === a.article) ? "changed" : "added"}`;
 /** Abstentions don't count; the change needs the threshold share of those voting For or Against. */
 export const amendmentPasses = (v: { for: number; against: number }, threshold: number) => v.for > 0 && v.for >= threshold * (v.for + v.against) - 1e-9;
+
+/**
+ * B7.4a (36.5 calls 1–3): a competition the club enters — a club item with its details, how teams are picked, and its
+ * team workspaces. Links are typed and never fetched. Outcomes of picking stay between the person and the officers.
+ */
+export const PICKING = ["open", "tryouts", "officers"] as const;
+export const PICKING_WORDS: Record<(typeof PICKING)[number], string> = { open: "Open sign-up", tryouts: "Tryouts", officers: "Picked by officers" };
+export const competitionSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  organiser: z.string().trim().max(120),
+  category: z.string().trim().max(40),
+  starts: z.string().date(),
+  ends: z.string().date(),
+  registerBy: z.string().date().nullable(),
+  place: z.string().trim().max(120),
+  link: z.string().trim().max(500).refine((v) => !v || /^https?:\/\//i.test(v), "Links start with http:// or https://"),
+  teamSize: z.number().int().min(1).max(30),
+  subs: z.number().int().min(0).max(10),
+  picking: z.enum(PICKING),
+}).strict().refine((c) => c.ends >= c.starts, "It ends on or after it starts.");
+export type Competition = z.infer<typeof competitionSchema>;
+export type CompetitionTeam = { workspaceId: string; name: string };
+/** "register by" in days, as text (accessibility: deadlines in full with days left). */
+export function daysLeft(date: string, today: string) {
+  const n = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY);
+  return n < 0 ? "closed" : n === 0 ? "today" : n === 1 ? "1 day left" : `${n} days left`;
+}
+/** The kind line sent with Not this time; reasons stay with the reviewers. */
+export const NOT_THIS_TIME = "Thank you for trying out. Not this time — there will be other chances, and we’d love to see you try again.";

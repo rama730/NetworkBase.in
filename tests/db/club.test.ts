@@ -24,6 +24,7 @@ let el: typeof import("../../src/app/actions/club-elections");
 let groups: typeof import("../../src/app/actions/community-groups");
 let ho: typeof import("../../src/app/actions/club-handover");
 let srv: typeof import("../../src/lib/organizations/club-server");
+let comp: typeof import("../../src/app/actions/club-competitions");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -38,6 +39,7 @@ before(async () => {
   groups = await loadAppModule(() => import("../../src/app/actions/community-groups"));
   ho = await loadAppModule(() => import("../../src/app/actions/club-handover"));
   srv = await loadAppModule(() => import("../../src/lib/organizations/club-server"));
+  comp = await loadAppModule(() => import("../../src/app/actions/club-competitions"));
 });
 
 const created: string[] = [];
@@ -340,5 +342,75 @@ test("36.3 (B7.2c): the handover — checklist, open work moves, roles switch on
   viewerId = eve!;
   assert.ok((await pos.endTermAction(id, eveTerm)).success);
   assert.equal((await sql`SELECT role FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${eve!}`)[0]!.role, "member");
+});
+
+test("36.5 (B7.4a): competitions — tryouts with private outcomes, accepted places, team workspaces that can't see each other", async () => {
+  const [pres, coord, ann, bob, cat, dan, vic] = await Promise.all([1, 2, 3, 4, 5, 6, 7].map(() => sql.begin((tx) => createUser(tx))));
+  const id = await sql.begin((tx) => createProject(tx, pres!, { visibility: "public" }));
+  created.push(id);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'club', status = 'active' WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${pres!}, 'owner'), (${id}, ${coord!}, 'admin'), (${id}, ${ann!}, 'member'), (${id}, ${bob!}, 'member'),
+    (${id}, ${cat!}, 'member'), (${id}, ${dan!}, 'member'), (${id}, ${vic!}, 'viewer')`;
+  const details = { title: "WT Robocon 2027", organiser: "IIT Delhi", category: "Robotics", starts: "2099-03-14", ends: "2099-03-16", registerBy: "2099-01-20", place: "IIT Delhi", link: "https://robocon.example", teamSize: 3, subs: 1, picking: "tryouts" as const };
+  viewerId = ann!;
+  assert.equal((await comp.saveCompetitionAction(id, null, details)).success, false, "officers add competitions");
+  viewerId = coord!;
+  const made = await comp.saveCompetitionAction(id, null, details);
+  assert.ok(made.success);
+  const cid = made.id;
+  const [row] = await sql`SELECT item_type, stage, on_board FROM tasks WHERE id = ${cid}`;
+  assert.deepEqual({ ...row }, { item_type: "competition", stage: "planned", on_board: false }, "a club item, never on the board");
+  viewerId = ann!;
+  assert.match(String((await comp.signUpAction(id, cid, { handIn: "x" }) as { error?: string }).error), /isn’t open/);
+  viewerId = coord!;
+  assert.ok((await comp.setCompetitionStageAction(id, cid, "picking")).success);
+  viewerId = ann!;
+  assert.match(String((await comp.signUpAction(id, cid, { wish: "Driver" }) as { error?: string }).error), /needs your hand-in/);
+  assert.ok((await comp.signUpAction(id, cid, { wish: "Driver", handIn: "My line-follower video: https://example.com/v" })).success);
+  viewerId = bob!; assert.ok((await comp.signUpAction(id, cid, { wish: "Programming", handIn: "A PID write-up" })).success);
+  viewerId = vic!; assert.equal((await comp.signUpAction(id, cid, { handIn: "x" })).success, false, "Viewers don't try out");
+
+  // Outcomes stay between the person and the officers (server test).
+  viewerId = ann!;
+  assert.equal((await comp.readPickingAction(id, cid)).success, false, "members never read the picking list");
+  viewerId = coord!;
+  const pick = await comp.readPickingAction(id, cid);
+  assert.ok(pick.success && pick.people.length === 2 && pick.people.every((p) => p.state === "trying" && p.handIn));
+  const rowOf = (u: string) => pick.success ? pick.people.find((p) => p.userId === u)!.id : "";
+  assert.ok((await comp.decidePlaceAction(id, rowOf(ann!), true)).success);
+  assert.ok((await comp.decidePlaceAction(id, rowOf(bob!), false)).success);
+  const told = await sql`SELECT user_id, title FROM user_notifications WHERE user_id IN (${pres!}, ${coord!}, ${ann!}, ${bob!}, ${cat!}, ${dan!}, ${vic!})
+    AND title LIKE ${"%WT Robocon 2027%"} AND (title LIKE 'You’re selected%' OR title LIKE '%Not this time%')`;
+  assert.deepEqual(told.map((n) => String(n.user_id)).sort(), [ann!, bob!].sort(), "each outcome reaches only that person");
+  viewerId = ann!;
+  const mine = await comp.readCompetitionsAction(id);
+  assert.ok(mine.success && mine.competitions[0]!.mine?.state === "selected" && mine.competitions[0]!.counts === null, "a member sees only their own place");
+  viewerId = bob!;
+  const his = await comp.readCompetitionsAction(id);
+  assert.ok(his.success && his.competitions[0]!.mine?.state === "not_this_time");
+
+  viewerId = ann!; assert.ok((await comp.answerPlaceAction(id, cid, true)).success);
+  viewerId = coord!;
+  assert.ok((await comp.offerPlaceAction(id, cid, cat!)).success);
+  assert.ok((await comp.offerPlaceAction(id, cid, dan!)).success);
+  viewerId = cat!; assert.ok((await comp.answerPlaceAction(id, cid, true)).success);
+  viewerId = dan!; assert.ok((await comp.answerPlaceAction(id, cid, true)).success);
+  viewerId = coord!;
+  assert.match(String((await comp.makeTeamAction(id, cid, { name: "Team A", captainId: ann!, people: [{ userId: ann!, role: "Driver", substitute: false }, { userId: bob!, role: "", substitute: false }] }) as { error?: string }).error), /accepted a place/);
+  const a = await comp.makeTeamAction(id, cid, { name: "Team A", captainId: ann!, people: [{ userId: ann!, role: "Driver", substitute: false }, { userId: cat!, role: "", substitute: true }] });
+  assert.ok(a.success, JSON.stringify(a));
+  const b = await comp.makeTeamAction(id, cid, { name: "Team B", captainId: dan!, people: [{ userId: dan!, role: "Programming", substitute: false }] });
+  assert.ok(b.success, JSON.stringify(b));
+  const [ws] = await sql`SELECT parent_id, visibility, owner_id FROM workspaces WHERE id = ${a.success ? a.workspaceId : ""}`;
+  assert.deepEqual([ws!.parent_id, ws!.visibility, ws!.owner_id], [id, "private", ann!], "a private workspace under the club, the captain its lead");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${a.success ? a.workspaceId : ""} AND user_id = ${cat!}`)[0]!.n, 1);
+  // Two teams in one competition never see each other's work.
+  const { getWorkspaceAccessById } = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
+  assert.equal((await getWorkspaceAccessById(a.success ? a.workspaceId : "", dan!)).canRead, false);
+  assert.equal((await getWorkspaceAccessById(b.success ? b.workspaceId : "", ann!)).canRead, false);
+  viewerId = ann!;
+  const list = await comp.readCompetitionsAction(id);
+  assert.ok(list.success);
+  assert.deepEqual(list.competitions[0]!.teams.map((t) => [t.name, t.size, t.subs, t.mine]), [["Team A", 1, 1, true], ["Team B", 1, 0, false]]);
 });
 

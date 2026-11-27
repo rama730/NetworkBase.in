@@ -76,3 +76,14 @@ test("constitution: an amendment adds, changes or removes one article; two-third
   assert.equal(readClubMeetings({ club: { meetings: { agendaDays: 3, propose: true, quorumShare: 0.25 } } }).amendThreshold, 2 / 3, "older settings get the default");
 });
 
+test("competitions: details checked, typed links only, days left as words", async () => {
+  const { competitionSchema, daysLeft } = await import("../../src/lib/organizations/club");
+  const base = { title: "Robocon 2027", organiser: "IIT Delhi", category: "Robotics", starts: "2027-03-14", ends: "2027-03-16", registerBy: "2027-01-20", place: "IIT Delhi", link: "https://robocon.example", teamSize: 5, subs: 1, picking: "tryouts" as const };
+  assert.ok(competitionSchema.safeParse(base).success);
+  assert.equal(competitionSchema.safeParse({ ...base, link: "javascript:alert(1)" }).success, false);
+  assert.equal(competitionSchema.safeParse({ ...base, ends: "2027-03-01" }).success, false);
+  assert.equal(daysLeft("2027-01-20", "2027-01-08"), "12 days left");
+  assert.equal(daysLeft("2027-01-20", "2027-01-19"), "1 day left");
+  assert.equal(daysLeft("2027-01-20", "2027-01-21"), "closed");
+});
+

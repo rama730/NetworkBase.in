@@ -7,7 +7,7 @@ import { CompanyGoalsCard } from '@/components/organizations/CompanyGoals'
 import { StartHere } from '@/components/organizations/CompanyOnboarding'
 import { AskTeamCard } from '@/components/organizations/CompanyRequests'
 import { CommunityFrontDoor } from '@/components/organizations/CommunityFrontDoor'
-import { ClubMeetingCard, CommitteeCard, ConstitutionCard, DecisionsCard, ElectionCard, MotionVotesCard, HandoverCard, RecruitingCard, RenewalCard } from '@/components/organizations/Club'
+import { ClubMeetingCard, CommitteeCard, CompetitionsCard, ConstitutionCard, DecisionsCard, ElectionCard, MotionVotesCard, HandoverCard, RecruitingCard, RenewalCard } from '@/components/organizations/Club'
 import { LabHomeCard } from '@/components/organizations/Lab'
 import { LabProtocolsCard } from '@/components/organizations/LabProtocols'
 import { LabEquipmentCard } from '@/components/organizations/LabEquipment'
@@ -300,6 +300,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {orgType === 'research' ? <LabEquipmentCard orgId={orgId} /> : null}
                 {orgType === 'community' || orgType === 'club' ? <CommunityFrontDoor orgId={orgId} base={base} /> : null}
                 {orgType === 'club' ? <RecruitingCard orgId={orgId} /> : null}
+                {orgType === 'club' ? <CompetitionsCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <ClubMeetingCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <MotionVotesCard orgId={orgId} /> : null}
                 {orgType === 'club' ? <CommitteeCard orgId={orgId} /> : null}

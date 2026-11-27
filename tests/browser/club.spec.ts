@@ -13,6 +13,7 @@ test('Club recruiting: the banner while it lasts, the officers card with drive c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
@@ -63,6 +64,7 @@ test('Season renewal: the member ask, officers see counts and end only after a c
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
@@ -106,6 +108,7 @@ test('B7.2a This Season’s committee: holders, Asked, role page, appoint by the
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
@@ -152,6 +155,7 @@ test('B7.2b Election: a secret ballot with Abstain, You voted (never the choice)
     (window as any).__calls = calls;
     let voted = false;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
@@ -193,6 +197,7 @@ test('B7.2c Handover: progress of 5, ticks, Move open work to the incoming offic
     (window as any).__calls = calls;
     let moved = false;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
@@ -236,6 +241,7 @@ test('B7.3a Next general meeting: quorum from members staying, Add to the agenda
     (window as any).__calls = calls;
     let decided = false;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
       readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
@@ -275,6 +281,7 @@ test('B7.3b Constitution: numbered articles, version and what changed; Decisions
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readMotionVotesAction: async () => ({ success: true, votes: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
@@ -314,6 +321,7 @@ test('B7.3c Online votes: a secret ballot For, Against or Abstain, You voted (ne
     (window as any).__calls = calls;
     let voted = false;
     (window as any).__actions = {
+      readCompetitionsAction: async () => ({ success: true, officer: false, member: true, competitions: [] }),
       readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
       readRenewalAction: async () => ({ success: true, on: false, officer: false }),
       readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
@@ -339,6 +347,59 @@ test('B7.3c Online votes: a secret ballot For, Against or Abstain, You voted (ne
   await expect(open.getByTestId('club-motion-voted')).toHaveText('You voted');
   await expect(open).not.toContainText('Against');
   await expect(card.getByTestId('club-motion-vote').filter({ hasText: 'Two competitions' })).toContainText('For 20 · Against 8 · Abstain 2');
+  await page.mouse.move(0, 0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B7.4a Competitions: register by in days, Try out with a hand-in, my own outcome only; officers pick and make a team', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 1000 });
+  await page.clock.setFixedTime(new Date('2099-01-08T06:00:00Z'));
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    (window as any).__actions = {
+      readRecruitingAction: async () => ({ success: true, officer: false, recruiting: false, line: null, to: null, firstEvent: null, settings: null, poster: null }),
+      readRenewalAction: async () => ({ success: true, on: false, officer: false }),
+      readCommitteeAction: async () => ({ success: true, season: '2026–27', president: false, officer: false, me: 'u1', people: [], docs: [], positions: [], history: [] }),
+      readElectionAction: async () => ({ success: true, election: null, president: false, positions: [] }),
+      readHandoverAction: async () => ({ success: true, handover: null, president: false, season: '2026–27', last: null }),
+      readClubMeetingAction: async () => ({ success: true, officer: false, president: false, settings: { agendaDays: 3, propose: true, quorumShare: 0.25, amendThreshold: 2 / 3 }, quorum: { staying: 0, needed: 1 }, meeting: null, requests: [] }),
+      readConstitutionAction: async () => ({ success: true, title: 'WT Club', president: false, public: false, version: null, articles: [], history: [] }),
+      readDecisionsAction: async () => ({ success: true, current: '2026–27', seasons: [] }),
+      readMotionVotesAction: async () => ({ success: true, votes: [] }),
+      readCompetitionsAction: async () => ({ success: true, officer: true, member: true, competitions: [
+        { id: 'c1', title: 'Robocon 2099', stage: 'picking', organiser: 'IIT Delhi', category: 'Robotics', starts: '2099-03-14', ends: '2099-03-16', registerBy: '2099-01-20', place: 'IIT Delhi', link: 'https://robocon.example',
+          teamSize: 5, subs: 1, picking: 'tryouts', teams: [{ workspaceId: 'w1', name: 'Team A', captain: 'Mei', slug: 'robocon-team-a', size: 4, subs: 1, mine: false }], mine: null, counts: { interested: 2, accepted: 1 } }] }),
+      signUpAction: async (_o: string, id: string, input: unknown) => { calls.push(['signup', id, input]); return { success: true }; },
+      readPickingAction: async () => ({ success: true, picking: 'tryouts', teamSize: 5, subs: 1, members: [{ id: 'u5', name: 'Ravi' }],
+        people: [{ id: 'p1', userId: 'u2', name: 'Karan', wish: 'Programming', handIn: 'A PID write-up', state: 'trying', team: null, role: null, substitute: false },
+          { id: 'p2', userId: 'u3', name: 'Leena', wish: 'Mechanical', handIn: null, state: 'accepted', team: null, role: null, substitute: false }] }),
+      decidePlaceAction: async (_o: string, id: string, sel: boolean) => { calls.push(['decide', id, sel]); return { success: true }; },
+      makeTeamAction: async (_o: string, id: string, input: unknown) => { calls.push(['team', id, input]); return { success: true, workspaceId: 'w2', slug: 'robocon-team-b' }; },
+    };
+  });
+  await openApp(page, 'tests/browser/club.fixture.tsx');
+  const c = page.getByTestId('club-competition');
+  await expect(c).toContainText('14 March 2099 to 16 March 2099 · IIT Delhi');
+  await expect(c).toContainText('Register by 20 January 2099 · 12 days left');
+  await expect(c).toContainText('Tryouts · teams of 5 + 1 substitute');
+  await expect(c.getByRole('link', { name: 'Team A' })).toHaveAttribute('href', '/workspaces/robocon-team-a');
+  await c.getByLabel('The role you’d like').fill('Driver');
+  await c.getByLabel('Your tryout (a link or a few lines)').fill('My line-follower video');
+  await c.getByRole('button', { name: 'Try out' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['signup', 'c1', { wish: 'Driver', handIn: 'My line-follower video' }]);
+  await c.getByRole('button', { name: 'Picking and teams for Robocon 2099' }).click();
+  const p = page.getByTestId('club-picking');
+  await expect(p).toContainText('A PID write-up');
+  await p.getByRole('button', { name: 'Not this time Karan' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['decide', 'p1', false]);
+  const t = p.getByTestId('club-make-team');
+  await t.getByLabel('Team name').fill('Team B');
+  await t.getByLabel('Leena').check();
+  await t.getByLabel('Role for Leena').fill('Mechanical');
+  await t.getByLabel('Captain').check();
+  await t.getByRole('button', { name: 'Make the team' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toContainEqual(['team', 'c1', { name: 'Team B', captainId: 'u3', people: [{ userId: 'u3', role: 'Mechanical', substitute: false }] }]);
   await page.mouse.move(0, 0);
   expect(await axeViolations(page)).toEqual([]);
 });

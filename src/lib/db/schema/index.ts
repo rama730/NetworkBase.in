@@ -2010,6 +2010,25 @@ export const clubMotionVoted = pgTable("club_motion_voted", {
   voteId: uuid("vote_id").notNull().references(() => clubMotionVotes.id, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
 }, (t) => [primaryKey({ columns: [t.voteId, t.userId] }), index("club_motion_voted_user_idx").on(t.userId)]);
+/** B7.4a (0177): a person's place in a club competition (sign-up, tryout, picked); outcomes private to them and officers. */
+export const clubCompetitionPeople = pgTable("club_competition_people", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  competitionId: uuid("competition_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => profiles.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  wish: text("wish"),
+  handIn: text("hand_in"),
+  state: text("state").default("interested").notNull(),
+  teamWorkspaceId: uuid("team_workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+  role: text("role"),
+  substitute: boolean("substitute").default(false).notNull(),
+  decidedBy: uuid("decided_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+}, (t) => [uniqueIndex("club_competition_people_one").on(t.competitionId, t.userId), index("club_competition_people_org_idx").on(t.orgId),
+  index("club_competition_people_user_idx").on(t.userId).where(sql`user_id IS NOT NULL`), index("club_competition_people_team_idx").on(t.teamWorkspaceId).where(sql`team_workspace_id IS NOT NULL`),
+  index("club_competition_people_decided_by_idx").on(t.decidedBy).where(sql`decided_by IS NOT NULL`)]);
 export const labReadingSwaps = pgTable("lab_reading_swaps", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull().references(() => labReadingSessions.id, { onDelete: "cascade" }),

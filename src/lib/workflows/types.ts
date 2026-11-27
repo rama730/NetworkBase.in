@@ -97,6 +97,12 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
       s("submitted", "Submitted", "in_progress", false), s("revising", "Revising", "in_progress", false), s("accepted", "Accepted", "in_progress", false),
       s("published", "Published", "done", false, true), s("withdrawn", "Withdrawn", "done", false, true)],
   },
+  // B7.4a (report 36.5 call 1): a club's competition, never on the board. Withdrawn keeps its record.
+  competition: {
+    id: "competition", label: "Competition", icon: "Trophy", joinStage: null, doneStage: "results",
+    stages: [s("planned", "Planned", "todo", false), s("picking", "Picking teams", "in_progress", false), s("preparing", "Preparing", "in_progress", false),
+      s("registered", "Registered", "in_progress", false), s("competing", "Competing", "in_progress", false), s("results", "Results", "done", false, true), s("withdrawn", "Withdrawn", "done", false, true)],
+  },
 };
 
 export function workflowType(id: string): WorkflowType {

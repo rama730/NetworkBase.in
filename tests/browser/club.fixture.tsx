@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { Toaster } from '@/components/ui/sonner';
-import { ClubMeetingCard, CommitteeCard, ConstitutionCard, DecisionsCard, ElectionCard, MotionVotesCard, HandoverCard, RecruitingBanner, RecruitingCard, RenewalCard } from '@/components/organizations/Club';
+import { ClubMeetingCard, CommitteeCard, CompetitionsCard, ConstitutionCard, DecisionsCard, ElectionCard, MotionVotesCard, HandoverCard, RecruitingBanner, RecruitingCard, RenewalCard } from '@/components/organizations/Club';
 
 // Plan B7.1a (report 36.2): Recruiting now, the officers' Recruiting card and the join poster.
 const w = window as any;
@@ -24,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
       <ConstitutionCard orgId={O} />
       <DecisionsCard orgId={O} />
       <MotionVotesCard orgId={O} />
+      <CompetitionsCard orgId={O} />
     </main>
     <Toaster />
   </QueryClientProvider>,

@@ -47,6 +47,8 @@ export const MEETING_TYPES: MeetingType[] = [
   { id: "committee", name: "Committee meeting", line: "Agenda, updates, decisions and action items for one committee.", sections: ["Agenda", "Updates"], actionItems: true, decisions: true },
   { id: "agm", name: "Annual general meeting", line: "The year's reports, constitution changes, election results and last year's minutes.", sections: ["Reports", "Constitution changes", "Election results", "Motions"], actionItems: true, decisions: true,
     guide: { Motions: "_Motions and votes are recorded in the panel at the top._" } },
+  // B7.4a (report 36.5 call 5): a competition team's practice; attendance is only for the team's own counts.
+  { id: "practice", name: "Practice", line: "The plan, what we did and what's next.", sections: ["Plan", "What we did", "Next"], actionItems: true, decisions: false },
   // B7.2c (report 36.3 call 10): the outgoing officer walks the incoming one through the role.
   { id: "handover", name: "Handover", line: "The outgoing officer walks the incoming one through the role.", sections: ["The role", "Open work", "Accounts (names only)", "Key dates", "Tips"], actionItems: true, decisions: false },
   { id: "blank", name: "Blank", line: "Notes and action items.", sections: ["Notes"], actionItems: true, decisions: false },
@@ -191,7 +193,7 @@ const COMMON_TYPES = ["weekly", "standup", "planning", "retro", "kickoff", "clie
 const CATEGORY_TYPES: Record<string, string[]> = {
   startup: ["board", "interview"], nonprofit: ["board"], podcast: ["recording"], video: ["shoot"], web_app: ["interview"],
   tool: ["incident"], open_source: ["incident"], game: ["playtest"], learning: ["supervision"],
-  school: ["department", "leadership", "line_management", "training"], club: ["general", "committee", "agm", "handover"],
+  school: ["department", "leadership", "line_management", "training"], club: ["general", "committee", "agm", "handover", "practice"],
 };
 export type MeetingSettings = { types: string[]; lengthMinutes: number; reminderMinutes: number };
 export function meetingSettings(raw: unknown, category: string | null | undefined): MeetingSettings {

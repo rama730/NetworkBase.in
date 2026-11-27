@@ -4,10 +4,11 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Megaphone, Printer } from "lucide-react";
+import { Megaphone, Printer, Trophy } from "lucide-react";
 
 import { answerRenewalAction, endNotRenewedAction, readDriveCountsAction, readRecruitingAction, readRenewalAction, saveRecruitingAction, saveRenewalAction } from "@/app/actions/club";
 import { moveWorkAction, readHandoverAction, saveHandoverAction, tickHandoverAction } from "@/app/actions/club-handover";
+import { answerPlaceAction, decidePlaceAction, makeTeamAction, offerPlaceAction, readCompetitionsAction, readPickingAction, saveCompetitionAction, setCompetitionStageAction, signUpAction } from "@/app/actions/club-competitions";
 import { readConstitutionAction, readDecisionsAction, setConstitutionPublicAction, writeConstitutionAction } from "@/app/actions/club-constitution";
 import { castMotionVoteAction, readMotionVotesAction } from "@/app/actions/club-motion-votes";
 import { decideAgendaItemAction, proposeAgendaItemAction, readClubMeetingAction, saveClubMeetingsAction } from "@/app/actions/club-meetings";
@@ -19,7 +20,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { DEFAULT_ASK, HANDOVER_ITEMS, RENEWAL_WORDS, STARTER_ARTICLES, type Article, type ClubMeetings, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
+import { daysLeft, DEFAULT_ASK, HANDOVER_ITEMS, PICKING, PICKING_WORDS, RENEWAL_WORDS, STARTER_ARTICLES, type Competition, type Article, type ClubMeetings, type ClubPosition, type RenewalState } from "@/lib/organizations/club";
 
 // Report 36.2 (plan B7.1a, L1): Recruiting now on a club's About, the officers' Recruiting card (dates, line, first event,
 // the drive's counts) and the printable join poster (the short link and the code; no QR code).
@@ -514,6 +515,126 @@ export function MotionVotesCard({ orgId }: { orgId: string }) {
             <button type="button" className={FORM_PRIMARY_CLASS} disabled={!pick[v.id]} onClick={() => void run(castMotionVoteAction(orgId, v.id, pick[v.id]!), "You voted")}>Submit</button></fieldset> : null}
         </li>))}</ul>
     </OrgCard>
+  );
+}
+
+const STAGE_WORDS: Record<string, string> = { planned: "Planned", picking: "Picking teams", preparing: "Preparing", registered: "Registered", competing: "Competing", results: "Results", withdrawn: "Withdrawn" };
+const PLACE_WORDS: Record<string, string> = { interested: "You’re interested", trying: "You’re trying out", selected: "You’re selected", not_this_time: "Not this time", accepted: "Your place is accepted", declined: "You declined" };
+const PICK_WORDS: Record<string, string> = { interested: "Interested", trying: "Trying out", selected: "Selected", not_this_time: "Not this time", accepted: "Accepted place", declined: "Declined" };
+const today = () => new Date().toISOString().slice(0, 10);
+const span = (a: string, b: string) => (a === b ? day(a) : `${day(a)} to ${day(b)}`);
+const EMPTY_COMPETITION: Competition = { title: "", organiser: "", category: "", starts: "", ends: "", registerBy: null, place: "", link: "", teamSize: 4, subs: 1, picking: "open" };
+
+/**
+ * Competitions (B7.4a, 36.5 calls 1–3): Upcoming and Past entries. Members sign up (Open sign-up) or try out (Tryouts,
+ * with a hand-in only officers read) and see only their own outcome; officers add competitions, pick people and make each
+ * team a private workspace with a captain, roles and substitutes. No leaderboards.
+ */
+export function CompetitionsCard({ orgId }: { orgId: string }) {
+  const [view, setView] = useState<"upcoming" | "past">("upcoming");
+  const q = useQuery({ queryKey: ["club-competitions", orgId, view], queryFn: () => readCompetitionsAction(orgId, view), staleTime: 60_000 });
+  const [form, setForm] = useState<{ id: string | null; c: Competition } | null>(null);
+  const [wish, setWish] = useState<Record<string, string>>({});
+  const [handIn, setHandIn] = useState<Record<string, string>>({});
+  const [picking, setPicking] = useState<string | null>(null);
+  const d = q.data?.success ? q.data : null;
+  if (!d || (!d.competitions.length && !d.officer && view === "upcoming")) return null;
+  const refresh = () => void q.refetch();
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); refresh(); };
+  const set = (k: keyof Competition, v: string | number | null) => form && setForm({ ...form, c: { ...form.c, [k]: v } });
+  return (
+    <OrgCard title="Competitions" testId="club-competitions" action={<span className="flex items-center gap-3 text-[13px]">
+      {(["upcoming", "past"] as const).map((v) => <button key={v} type="button" aria-pressed={view === v} className={view === v ? "font-medium text-foreground" : "nb-link"} onClick={() => setView(v)}>{v === "upcoming" ? "Upcoming" : "Past entries"}</button>)}
+      {d.officer && !form ? <button type="button" className="nb-link" onClick={() => setForm({ id: null, c: EMPTY_COMPETITION })}>Add a competition</button> : null}</span>}>
+      <div className="space-y-3 text-[13px]">
+        {form ? <fieldset className="grid grid-cols-1 gap-2 rounded-md border border-border p-3 sm:grid-cols-2" data-testid="club-competition-form">
+          <legend className="sr-only">Competition details</legend>
+          <label className="flex flex-col sm:col-span-2">Name<Input value={form.c.title} maxLength={120} onChange={(e) => set("title", e.target.value)} className="mt-0.5" /></label>
+          <label className="flex flex-col">Organiser<Input value={form.c.organiser} maxLength={120} onChange={(e) => set("organiser", e.target.value)} className="mt-0.5" /></label>
+          <label className="flex flex-col">Category<Input value={form.c.category} maxLength={40} placeholder="Robotics, Debate, Software" onChange={(e) => set("category", e.target.value)} className="mt-0.5" /></label>
+          <label className="flex flex-col">Starts<Input type="date" value={form.c.starts} onChange={(e) => set("starts", e.target.value)} className="mt-0.5 w-auto font-mono" /></label>
+          <label className="flex flex-col">Ends<Input type="date" value={form.c.ends} onChange={(e) => set("ends", e.target.value)} className="mt-0.5 w-auto font-mono" /></label>
+          <label className="flex flex-col">Register by<Input type="date" value={form.c.registerBy ?? ""} onChange={(e) => set("registerBy", e.target.value || null)} className="mt-0.5 w-auto font-mono" /></label>
+          <label className="flex flex-col">Place or online<Input value={form.c.place} maxLength={120} onChange={(e) => set("place", e.target.value)} className="mt-0.5" /></label>
+          <label className="flex flex-col sm:col-span-2">Link (typed; never opened by NetworkBase)<Input value={form.c.link} maxLength={500} placeholder="https://" onChange={(e) => set("link", e.target.value)} className="mt-0.5" /></label>
+          <label className="flex flex-col">Team size<Input type="number" min={1} max={30} value={form.c.teamSize} onChange={(e) => set("teamSize", Number(e.target.value))} className="mt-0.5 w-[90px] font-mono" /></label>
+          <label className="flex flex-col">Substitutes<Input type="number" min={0} max={10} value={form.c.subs} onChange={(e) => set("subs", Number(e.target.value))} className="mt-0.5 w-[90px] font-mono" /></label>
+          <label className="flex flex-col sm:col-span-2">How teams are picked<select className="nb-select mt-0.5" value={form.c.picking} onChange={(e) => set("picking", e.target.value)}>
+            {PICKING.map((p) => <option key={p} value={p}>{PICKING_WORDS[p]}</option>)}</select></label>
+          <span className="flex gap-2 sm:col-span-2">
+            <button type="button" className={FORM_PRIMARY_CLASS} disabled={!form.c.title.trim() || !form.c.starts || !form.c.ends} onClick={() => void run(saveCompetitionAction(orgId, form.id, form.c), "Competition saved").then(() => setForm(null))}>Save</button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setForm(null)}>Cancel</button></span>
+        </fieldset> : null}
+        {!d.competitions.length ? <p className="text-muted-foreground">{view === "past" ? "No past entries yet." : "No competitions planned."}</p> : null}
+        <ul className="space-y-2">{d.competitions.map((c) => (
+          <li key={c.id} className="space-y-1.5 rounded-md border border-border p-3" data-testid="club-competition">
+            <p className="flex flex-wrap items-center gap-2"><Trophy aria-hidden="true" className="size-4 text-muted-foreground" /><span className="font-medium">{c.title}</span>
+              {c.category ? <span className="nb-tag">{c.category}</span> : null}<StatusBadge state={c.stage === "results" ? "done" : c.stage === "withdrawn" ? "at_risk" : "active"}>{STAGE_WORDS[c.stage] ?? c.stage}</StatusBadge></p>
+            <p className="text-muted-foreground">{span(c.starts, c.ends)}{c.place ? ` · ${c.place}` : ""}{c.organiser ? ` · ${c.organiser}` : ""}</p>
+            {c.registerBy && view === "upcoming" ? <p className="text-muted-foreground">Register by {day(c.registerBy)} · {daysLeft(c.registerBy, today())}</p> : null}
+            <p className="text-muted-foreground">{PICKING_WORDS[c.picking]} · teams of {c.teamSize}{c.subs ? ` + ${c.subs} ${c.subs === 1 ? "substitute" : "substitutes"}` : ""}{c.counts ? ` · ${c.counts.interested} waiting, ${c.counts.accepted} accepted` : ""}</p>
+            {c.teams.length ? <ul className="flex flex-wrap gap-3" aria-label={`Teams for ${c.title}`}>{c.teams.map((t) => <li key={t.workspaceId}>
+              {t.slug ? <a className="nb-link" href={`/workspaces/${encodeURIComponent(t.slug)}`}>{t.name}</a> : <span className="font-medium">{t.name}</span>}
+              <span className="text-muted-foreground"> · {t.size}{t.subs ? ` + ${t.subs} sub` : ""}{t.captain ? ` · captain ${t.captain}` : ""}</span></li>)}</ul> : null}
+            {c.mine ? <p className="font-medium" data-testid="club-competition-mine">{PLACE_WORDS[c.mine.state] ?? c.mine.state}{c.mine.role ? ` · ${c.mine.role}` : ""}</p> : null}
+            {c.mine?.state === "selected" ? <span className="flex gap-2">
+              <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(answerPlaceAction(orgId, c.id, true), "Place accepted")}>Accept my place</button>
+              <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(answerPlaceAction(orgId, c.id, false), "Declined")}>Decline</button></span> : null}
+            {d.member && c.stage === "picking" && c.picking !== "officers" && (!c.mine || c.mine.state === "interested" || c.mine.state === "trying") ? <form className="flex flex-wrap items-end gap-2"
+              onSubmit={(e) => { e.preventDefault(); void run(signUpAction(orgId, c.id, { wish: wish[c.id] ?? "", handIn: handIn[c.id] ?? "" }), c.picking === "tryouts" ? "Your tryout is in" : "You’re on the Interested list"); }}>
+              <label className="flex flex-col">The role you’d like<Input value={wish[c.id] ?? ""} maxLength={60} onChange={(e) => setWish({ ...wish, [c.id]: e.target.value })} className="mt-0.5 w-[180px]" /></label>
+              {c.picking === "tryouts" ? <label className="flex flex-col">Your tryout (a link or a few lines)<textarea className="nb-textarea mt-0.5 w-[280px] text-[13px]" rows={2} maxLength={2000} value={handIn[c.id] ?? ""} onChange={(e) => setHandIn({ ...handIn, [c.id]: e.target.value })} /></label> : null}
+              <button type="submit" className={FORM_SECONDARY_CLASS}>{c.picking === "tryouts" ? (c.mine ? "Update my tryout" : "Try out") : (c.mine ? "Update" : "Sign up")}</button></form> : null}
+            {d.officer ? <span className="flex flex-wrap items-center gap-2">
+              <select className="nb-select" aria-label={`Status of ${c.title}`} value={c.stage} onChange={(e) => void run(setCompetitionStageAction(orgId, c.id, e.target.value), "Status changed")}>
+                {Object.entries(STAGE_WORDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+              <button type="button" className="nb-link" onClick={() => setForm({ id: c.id, c: { title: c.title, organiser: c.organiser, category: c.category, starts: c.starts, ends: c.ends, registerBy: c.registerBy, place: c.place, link: c.link, teamSize: c.teamSize, subs: c.subs, picking: c.picking } })}>Edit<span className="sr-only"> {c.title}</span></button>
+              <button type="button" className="nb-link" aria-expanded={picking === c.id} onClick={() => setPicking(picking === c.id ? null : c.id)}>Picking and teams<span className="sr-only"> for {c.title}</span></button></span> : null}
+            {picking === c.id ? <PickingPanel orgId={orgId} competitionId={c.id} onChanged={refresh} /> : null}
+          </li>))}</ul>
+      </div>
+    </OrgCard>
+  );
+}
+
+/** Officers: the Interested list or tryouts (Selected · Not this time, told only to the person), offers, and Make a team. */
+function PickingPanel({ orgId, competitionId, onChanged }: { orgId: string; competitionId: string; onChanged: () => void }) {
+  const q = useQuery({ queryKey: ["club-picking", competitionId], queryFn: () => readPickingAction(orgId, competitionId), staleTime: 30_000 });
+  const [offer, setOffer] = useState("");
+  const [team, setTeam] = useState<{ name: string; captainId: string; people: Record<string, { on: boolean; role: string; substitute: boolean }> }>({ name: "", captainId: "", people: {} });
+  const d = q.data?.success ? q.data : null;
+  if (!d) return null;
+  const run = async (x: Promise<{ success: boolean; error?: string }>, ok: string) => { const r = await safe(x); if (!r.success) return void toast.error(r.error ?? "Couldn’t save that."); toast.success(ok); void q.refetch(); onChanged(); };
+  const free = d.people.filter((p) => p.state === "accepted" && !p.team && p.userId);
+  const chosen = free.filter((p) => team.people[p.userId!]?.on);
+  return (
+    <div className="space-y-2 rounded-md border border-border bg-card p-3" data-testid="club-picking">
+      <ul className="divide-y divide-border">{d.people.map((p) => (
+        <li key={p.id} className="flex flex-wrap items-center gap-2 py-1.5">
+          <span className="min-w-[120px] font-medium">{p.name}</span>{p.wish ? <span className="text-muted-foreground">{p.wish}</span> : null}
+          <span className="text-muted-foreground">{PICK_WORDS[p.state] ?? p.state}</span>
+          {p.handIn ? <span className="block w-full whitespace-pre-wrap text-muted-foreground">{p.handIn}</span> : null}
+          {p.state === "interested" || p.state === "trying" ? <>
+            <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void run(decidePlaceAction(orgId, p.id, true), "Selected; they’re told")}>Selected<span className="sr-only"> {p.name}</span></button>
+            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => void run(decidePlaceAction(orgId, p.id, false), "Not this time; only they’re told")}>Not this time<span className="sr-only"> {p.name}</span></button></> : null}
+        </li>))}</ul>
+      <span className="flex flex-wrap items-center gap-2">
+        <select className="nb-select" aria-label="Offer a place" value={offer} onChange={(e) => setOffer(e.target.value)}>
+          <option value="">Offer a place to…</option>{d.members.filter((m) => !d.people.some((p) => p.userId === m.id)).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+        <button type="button" className={FORM_SECONDARY_CLASS} disabled={!offer} onClick={() => void run(offerPlaceAction(orgId, competitionId, offer), "Offered; they accept it").then(() => setOffer(""))}>Offer</button></span>
+      {free.length ? <fieldset className="space-y-1.5" data-testid="club-make-team"><legend className="font-medium">Make a team from accepted places</legend>
+        <label className="flex flex-col">Team name<Input value={team.name} maxLength={40} placeholder="Team A" onChange={(e) => setTeam({ ...team, name: e.target.value })} className="mt-0.5 w-[200px]" /></label>
+        <ul className="space-y-1">{free.map((p) => { const t = team.people[p.userId!] ?? { on: false, role: "", substitute: false }; const put = (v: Partial<typeof t>) => setTeam({ ...team, people: { ...team.people, [p.userId!]: { ...t, ...v } } }); return (
+          <li key={p.id} className="flex flex-wrap items-center gap-2">
+            <label className="flex min-w-[140px] items-center gap-1.5"><input type="checkbox" className="nb-check" checked={t.on} onChange={(e) => put({ on: e.target.checked })} />{p.name}</label>
+            {t.on ? <><Input value={t.role} maxLength={60} placeholder={p.wish ?? "Role"} aria-label={`Role for ${p.name}`} onChange={(e) => put({ role: e.target.value })} className="w-[160px]" />
+              <label className="flex items-center gap-1.5"><input type="checkbox" className="nb-check" checked={t.substitute} onChange={(e) => put({ substitute: e.target.checked })} />Substitute</label>
+              <label className="flex items-center gap-1.5"><input type="radio" className="nb-radio" name={`captain-${competitionId}`} checked={team.captainId === p.userId} onChange={() => setTeam({ ...team, captainId: p.userId! })} />Captain</label></> : null}
+          </li>); })}</ul>
+        <button type="button" className={FORM_PRIMARY_CLASS} disabled={!team.name.trim() || !team.captainId || !chosen.length}
+          onClick={() => void run(makeTeamAction(orgId, competitionId, { name: team.name, captainId: team.captainId, people: chosen.map((p) => ({ userId: p.userId!, role: team.people[p.userId!]!.role.trim(), substitute: team.people[p.userId!]!.substitute })) }), "Team workspace made").then(() => setTeam({ name: "", captainId: "", people: {} }))}>Make the team</button>
+      </fieldset> : null}
+    </div>
   );
 }
 

@@ -14618,6 +14618,13 @@ AFTER  Result: 4th of 32 (confirmed by Tech officer) · Awards: Best design   De
 8. A debrief is kept with each competition in Past entries for next year's team.
 9. No leaderboards across members or teams.
 
+**Build calls (B7.4a, 2026-11-27):**
+1. **A competition** is a club item (kind `competition`, never on the board): name, organiser, category, dates, register by, place, a typed link (never opened), team size, substitutes, and how teams are picked. Stages: Planned · Picking teams · Preparing · Registered · Competing · Results · Withdrawn. The Competitions card on Overview has Upcoming and Past entries; "Register by" shows the full date and the days left.
+2. **Picking** starts when an officer moves it to Picking teams (members told once, Normal). Open sign-up: members say Interested with the role they'd like. Tryouts: the same, with a hand-in (a link or a few lines) only the person and officers read. Picked by officers: officers offer places. Officers mark Selected or Not this time; only the person is told, with a kind line for Not this time and no reason. Members see only their own outcome (server test). The person accepts or declines a Selected place.
+3. **Teams:** officers make a team from accepted places. Each team is a private workspace under the club, with the captain as its lead, the others as members (each with a role or as a substitute), and a starter page (One-liner · Problem · Our approach · Roles · Resources). Two teams in one competition can't read each other's workspaces (server test).
+4. **Practice** is a club meeting type (Plan · What we did · Next).
+5. **Not built yet (B7.4b):** checks to every team as each-child assignments reviewed by the owning committee's chair, the registration step with a typed reference, results typed by the captain and confirmed by an officer, the debrief, the Showcase and profile entries with every member's yes, and competitions on the calendar. Tryout hand-ins are read in the Picking panel, not the Review queue.
+
 ### 36.6 Club: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |

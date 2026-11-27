@@ -85,7 +85,7 @@ test("type bodies: headings in order, guides, Decisions, a named Action items bl
   const { meetingMarkdown, meetingType, MEETING_TYPES, defaultTitle } = await import("../../src/lib/workflows/meetings");
   const { parseLiveBlocks } = await import("../../src/lib/workspaces/doc-live-blocks");
   const heads = (md: string) => md.split("\n").filter((l) => l.startsWith("## ")).map((l) => l.slice(3));
-  assert.deepEqual(MEETING_TYPES.map((t) => t.id), ["weekly", "standup", "planning", "retro", "kickoff", "client", "recording", "shoot", "interview", "incident", "playtest", "board", "supervision", "department", "leadership", "line_management", "training", "general", "committee", "agm", "handover", "blank"]);
+  assert.deepEqual(MEETING_TYPES.map((t) => t.id), ["weekly", "standup", "planning", "retro", "kickoff", "client", "recording", "shoot", "interview", "incident", "playtest", "board", "supervision", "department", "leadership", "line_management", "training", "general", "committee", "agm", "practice", "handover", "blank"]);
   // B1.8b (report 30.6): a thesis supervision.
   assert.deepEqual(heads(meetingMarkdown(meetingType("supervision")!, "S")), ["Agenda", "Notes", "Action items"]);
   const weekly = meetingMarkdown(meetingType("weekly")!, "Weekly · Dec 3");
